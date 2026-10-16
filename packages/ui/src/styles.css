@@ -605,3 +605,35 @@ select {
     transition: none !important;
   }
 }
+
+/* Timeline scrubber: the playhead shares the lanes' horizontal scale. */
+.ui-scrubber {
+  position: relative;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  border-radius: var(--ui-radius-sm);
+  padding-top: 14px;
+}
+.ui-scrubber:focus-visible {
+  outline: 2px solid var(--ui-orange);
+  outline-offset: 4px;
+}
+.ui-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ui-navy);
+  pointer-events: none;
+}
+.ui-playhead-handle {
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 14px;
+  height: 12px;
+  background: var(--ui-navy);
+  border-radius: 3px 3px 7px 7px;
+}

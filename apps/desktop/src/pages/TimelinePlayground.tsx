@@ -7,6 +7,7 @@ import {
   type Timeline,
   type TimelinePatch,
 } from '@studio/core';
+import { Scrubber } from '@studio/ui';
 import { Page } from '../shell';
 
 interface HistoryEntry {
@@ -113,117 +114,102 @@ export function TimelinePlayground() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <h2 className="panel-title">Time map</h2>
           <span className="mono" style={{ color: 'var(--gray-600)' }}>
-            total {fmt(tm.duration)}
+            <strong style={{ color: 'var(--navy)', fontWeight: 500 }}>{fmt(Math.min(t, tm.duration))}</strong>{' '}
+            / {fmt(tm.duration)}
           </span>
         </div>
 
-        <div style={{ position: 'relative', height: 104, marginBottom: 8 }}>
-          {tm.scenes.map((s, i) => (
-            <div
-              key={s.sceneId}
-              title={`${s.sceneId}: ${fmt(s.start)} – ${fmt(s.end)}`}
-              style={{
-                position: 'absolute',
-                top: i % 2 ? 26 : 0,
-                height: 24,
-                left: pct(s.start),
-                width: pct(s.end - s.start),
-                borderRadius: 6,
-                boxSizing: 'border-box',
-                padding: '4px 8px',
-                fontSize: 11,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                background: s.kind === 'explainer' ? 'var(--orange-100)' : '#E4EAF2',
-                border: `1px solid ${s.kind === 'explainer' ? 'var(--orange)' : '#B9C6D6'}`,
-                color: s.kind === 'explainer' ? 'var(--orange-ink)' : 'var(--navy)',
-                fontWeight: s.kind === 'explainer' ? 600 : 400,
-              }}
-            >
-              {s.sceneId} · {s.kind}
-            </div>
-          ))}
-          {tm.segments.map((g) => (
-            <div
-              key={`${g.sceneId}-${g.index}`}
-              title={`${g.segment.kind} ${fmt(g.start)} – ${fmt(g.end)}`}
-              style={{
-                position: 'absolute',
-                top: 56,
-                height: 18,
-                left: pct(g.start),
-                width: pct(g.end - g.start),
-                boxSizing: 'border-box',
-                borderRadius: 4,
-                fontSize: 10,
-                padding: '2px 4px',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                background:
-                  g.segment.kind === 'src'
-                    ? 'var(--white)'
-                    : g.segment.kind === 'hold'
-                      ? '#FFF4E5'
-                      : 'var(--steel-100)',
-                border: '1px solid var(--gray-300)',
-              }}
-            >
-              {g.segment.kind}
-              {g.segment.kind === 'speed' ? ` ${g.segment.rate}×` : ''}
-            </div>
-          ))}
-          {timeline.overlays.map((o) => (
-            <div
-              key={o.id}
-              title={`${o.id}: ${o.component}`}
-              style={{
-                position: 'absolute',
-                top: 80,
-                height: 18,
-                left: pct(o.start),
-                width: pct(o.end - o.start),
-                boxSizing: 'border-box',
-                borderRadius: 4,
-                fontSize: 10,
-                padding: '2px 4px',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                background: 'var(--steel-100)',
-                border: '1px solid var(--steel)',
-                color: 'var(--steel-ink)',
-              }}
-            >
-              {o.component}
-            </div>
-          ))}
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: -4,
-              bottom: -4,
-              left: pct(t),
-              width: 2,
-              background: 'var(--navy)',
-            }}
-          />
-        </div>
-
-        <label style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="mono" style={{ width: 80 }}>
-            {fmt(t)}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={tm.duration}
-            step={0.05}
-            value={Math.min(t, tm.duration)}
-            onChange={(e) => setT(Number(e.target.value))}
-            style={{ flex: 1, accentColor: 'var(--orange)' }}
-            aria-label="Output time"
-          />
-        </label>
+        <Scrubber
+          value={Math.min(t, tm.duration)}
+          max={tm.duration}
+          onChange={setT}
+          label="Output time"
+          format={fmt}
+        >
+          <div style={{ position: 'relative', height: 104 }}>
+            {tm.scenes.map((s, i) => (
+              <div
+                key={s.sceneId}
+                title={`${s.sceneId}: ${fmt(s.start)} – ${fmt(s.end)}`}
+                style={{
+                  position: 'absolute',
+                  top: i % 2 ? 26 : 0,
+                  height: 24,
+                  left: pct(s.start),
+                  width: pct(s.end - s.start),
+                  borderRadius: 6,
+                  boxSizing: 'border-box',
+                  padding: '4px 8px',
+                  fontSize: 11,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  background: s.kind === 'explainer' ? 'var(--orange-100)' : '#E4EAF2',
+                  border: `1px solid ${s.kind === 'explainer' ? 'var(--orange)' : '#B9C6D6'}`,
+                  color: s.kind === 'explainer' ? 'var(--orange-ink)' : 'var(--navy)',
+                  fontWeight: s.kind === 'explainer' ? 600 : 400,
+                }}
+              >
+                {s.sceneId} · {s.kind}
+              </div>
+            ))}
+            {tm.segments.map((g) => (
+              <div
+                key={`${g.sceneId}-${g.index}`}
+                title={`${g.segment.kind} ${fmt(g.start)} – ${fmt(g.end)}`}
+                style={{
+                  position: 'absolute',
+                  top: 56,
+                  height: 18,
+                  left: pct(g.start),
+                  width: pct(g.end - g.start),
+                  boxSizing: 'border-box',
+                  borderRadius: 4,
+                  fontSize: 10,
+                  padding: '2px 4px',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  background:
+                    g.segment.kind === 'src'
+                      ? 'var(--white)'
+                      : g.segment.kind === 'hold'
+                        ? '#FFF4E5'
+                        : 'var(--steel-100)',
+                  border: '1px solid var(--gray-300)',
+                }}
+              >
+                {g.segment.kind}
+                {g.segment.kind === 'speed' ? ` ${g.segment.rate}×` : ''}
+              </div>
+            ))}
+            {timeline.overlays.map((o) => (
+              <div
+                key={o.id}
+                title={`${o.id}: ${o.component}`}
+                style={{
+                  position: 'absolute',
+                  top: 80,
+                  height: 18,
+                  left: pct(o.start),
+                  width: pct(o.end - o.start),
+                  boxSizing: 'border-box',
+                  borderRadius: 4,
+                  fontSize: 10,
+                  padding: '2px 4px',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  background: 'var(--steel-100)',
+                  border: '1px solid var(--steel)',
+                  color: 'var(--steel-ink)',
+                }}
+              >
+                {o.component}
+              </div>
+            ))}
+          </div>
+        </Scrubber>
+        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--gray-600)' }}>
+          Drag on the time map to scrub, or focus it and use the arrow keys (Shift for 1 s steps).
+        </p>
 
         <div
           style={{
