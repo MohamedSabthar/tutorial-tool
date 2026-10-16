@@ -107,6 +107,19 @@ export const rpcEvents = {
   'workspace.changed': z.object({ head: z.string().nullable() }),
   'recorder.progress': z.object({ message: z.string(), at: z.number() }),
   'recorder.event': RecorderEvent,
+  'live.frame': z.object({ data: z.string(), width: z.number(), height: z.number(), timestamp: z.number() }),
+  'live.action': z.object({
+    stepId: z.string(),
+    kind: z.enum(['click', 'type']),
+    label: z.string(),
+    bbox: Rect,
+  }),
+  'live.session': z.object({
+    state: z.enum(['started', 'stopped']),
+    title: z.string(),
+    mode: z.enum(['dry', 'record']),
+    frame: z.object({ width: z.number(), height: z.number() }).nullable(),
+  }),
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;
 export type RpcEventData<E extends RpcEvent> = z.output<(typeof rpcEvents)[E]>;

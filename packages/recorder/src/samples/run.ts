@@ -6,7 +6,16 @@ import type { RecorderEvent } from '@studio/core';
 import { createBIProject } from '../fixtures/biProject';
 import { launchVSCode, type Progress, type Viewport } from '../launch/vscode';
 import { getProduct, readAppBundle } from '../products';
-import { StepFailedError, Tut, webview, type StepFailure, type TargetFrame, type TutMode } from '../tut';
+import {
+  StepFailedError,
+  Tut,
+  webview,
+  type LiveAction,
+  type StepFailure,
+  type TargetFrame,
+  type TutMode,
+} from '../tut';
+import { startScreencast, type ScreencastFrame } from '../screencast';
 
 /**
  * A hand-written sample tutorial against WSO2 Integrator, used to exercise the recorder
@@ -64,6 +73,9 @@ export async function runSample(opts: {
   broken?: boolean;
   eventsFile?: string;
   onEvent?: (e: RecorderEvent) => void;
+  onAction?: (a: LiveAction) => void;
+  /** Live preview frames while the sample runs. */
+  onFrame?: (f: ScreencastFrame) => void;
   onProgress?: Progress;
 }): Promise<SampleRunResult> {
   const started = Date.now();
@@ -83,8 +95,10 @@ export async function runSample(opts: {
     executable: readAppBundle(product.appPath).executable,
     onProgress: progress,
   });
+  let stopScreencast: (() => Promise<void>) | null = null;
   try {
     const { page } = session;
+    if (opts.onFrame) stopScreencast = await startScreencast(page, opts.onFrame);
     progress('Waiting for the project to load…');
     await page
       .locator('.monaco-list-row', { hasText: 'Greeting Service' })
@@ -104,6 +118,7 @@ export async function runSample(opts: {
       ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
       timeout: opts.mode === 'dry' ? 8_000 : 20_000,
       captureTargets: true,
+      ...(opts.onAction ? { onAction: opts.onAction } : {}),
     });
     await tut.start({
       product: product.id,
@@ -133,6 +148,7 @@ export async function runSample(opts: {
       durationMs: Date.now() - started,
     };
   } finally {
+    await stopScreencast?.();
     await session.close();
     await rm(base, { recursive: true, force: true });
   }

@@ -31,6 +31,17 @@ export interface TutOptions {
   timeout?: number;
   /** Keep a screenshot of the window each time a click/type target is located (for review). */
   captureTargets?: boolean;
+  /** Called when an action's target is located, before the action runs (live view). */
+  onAction?: (a: LiveAction) => void;
+}
+
+export interface LiveAction {
+  stepId: string;
+  kind: 'click' | 'type';
+  /** What the script is doing, e.g. `tut.type(Copilot prompt, "…")`. */
+  label: string;
+  /** Frame-pixel box of the target. */
+  bbox: Rect;
 }
 
 export interface TargetFrame {
@@ -70,6 +81,8 @@ export class Tut {
   private pointer: Pt;
   private current: { id: string; title: string } | null = null;
   private writing: Promise<void> = Promise.resolve();
+  /** Text being typed while type() runs its click, so the live label says "type". */
+  private typing: string | null = null;
 
   constructor(private readonly opts: TutOptions) {
     this.random = rng(opts.seed ?? 7);
@@ -140,6 +153,15 @@ export class Tut {
   async click(target: Target, opts: { description?: string } = {}): Promise<void> {
     const stepId = this.stepId();
     const box = await this.boxOf(target, opts.description);
+    this.opts.onAction?.({
+      stepId,
+      kind: this.typing === null ? 'click' : 'type',
+      label:
+        this.typing === null
+          ? `tut.click(${opts.description ?? describe(target)})`
+          : `tut.type(${opts.description ?? describe(target)}, "${this.typing}")`,
+      bbox: this.rect(box),
+    });
     if (this.opts.captureTargets)
       this.targetFrames.push({
         stepId,
@@ -169,7 +191,12 @@ export class Tut {
     opts: { description?: string; clear?: boolean } = {},
   ): Promise<void> {
     const stepId = this.stepId();
-    await this.click(target, opts);
+    this.typing = text;
+    try {
+      await this.click(target, opts);
+    } finally {
+      this.typing = null;
+    }
     const box = await this.boxOf(target, opts.description);
     if (opts.clear) {
       await this.opts.page.keyboard.press('Meta+A');

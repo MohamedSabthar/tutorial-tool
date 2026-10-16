@@ -31,9 +31,18 @@ impl EngineState {
     pub fn spawn(&self) {
         let dir = engine_dir();
         let workspace = dir.join("../../workspace");
+        // Fixed port and token for the app's lifetime, so a dev restart of the engine (tsx
+        // watch reloads it when its code changes) keeps the same address and the windows
+        // simply reconnect.
+        let port = free_port().unwrap_or(4317);
+        let token = random_token();
         let result = Command::new("node")
-            .args(["--import", "tsx", "src/main.ts", "--workspace"])
+            .args(["node_modules/tsx/dist/cli.mjs", "watch", "--clear-screen=false", "src/main.ts"])
+            .arg("--workspace")
             .arg(&workspace)
+            .args(["--port", &port.to_string(), "--token", &token])
+            .env("STUDIO_PARENT_PID", std::process::id().to_string())
+            .env("STUDIO_EXIT_ON_STDIN_END", "0")
             .current_dir(&dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -103,6 +112,21 @@ impl ReadyHandle {
             std::thread::sleep(Duration::from_millis(50));
         }
     }
+}
+
+/// A free localhost port, chosen by binding to port 0.
+fn free_port() -> Option<u16> {
+    std::net::TcpListener::bind("127.0.0.1:0").ok()?.local_addr().ok().map(|a| a.port())
+}
+
+/// 24 random bytes as hex, from the OS random source.
+fn random_token() -> String {
+    use std::io::Read;
+    let mut bytes = [0u8; 24];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
+        let _ = f.read_exact(&mut bytes);
+    }
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn parse_ready(line: &str) -> Option<EngineInfo> {

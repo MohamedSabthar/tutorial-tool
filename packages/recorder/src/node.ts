@@ -10,3 +10,4 @@ export * from './fixtures/biProject';
 export * from './human';
 export * from './tut';
 export * from './samples/run';
+export * from './screencast';

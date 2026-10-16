@@ -117,11 +117,31 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       recorderBusy = true;
       const eventsFile = path.join(os.tmpdir(), 'tutorial-studio', `sample-${mode}.jsonl`);
       try {
+        broadcast('live.session', {
+          state: 'started',
+          title: 'Sample: Greeting Service overview',
+          mode,
+          frame: null,
+        });
         const r = await runSample({
           mode,
           broken,
           eventsFile,
-          onEvent: (e) => broadcast('recorder.event', e),
+          onEvent: (e) => {
+            broadcast('recorder.event', e);
+            if (e.kind === 'marker' && e.name === 'start') {
+              const vp = e.data?.viewport as { width: number; height: number; scale: number } | undefined;
+              if (vp)
+                broadcast('live.session', {
+                  state: 'started',
+                  title: 'Sample: Greeting Service overview',
+                  mode,
+                  frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
+                });
+            }
+          },
+          onAction: (a) => broadcast('live.action', a),
+          onFrame: (f) => broadcast('live.frame', f),
           onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
         });
         return {
@@ -143,6 +163,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         };
       } finally {
         recorderBusy = false;
+        broadcast('live.session', {
+          state: 'stopped',
+          title: 'Sample: Greeting Service overview',
+          mode,
+          frame: null,
+        });
       }
     },
   };

@@ -46,7 +46,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
 - [ ] **Phase 1: VS Code recorder and Live window**
   - [x] 1.1 VS Code launcher
   - [x] 1.2 Recorder helpers and `events.jsonl`
-  - [ ] 1.3 Live screencast
+  - [x] 1.3 Live screencast
   - [ ] 1.4 Take post-processing
   - [ ] 1.5 Hand-written reference tutorial
   - [ ] 1.6 Live window UI (static data)
@@ -761,3 +761,5 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 1.2 | Events store coordinates and boxes in **frame pixels** (CSS px × scale). The `start` marker carries mode, scale, product, version and viewport | Overlays anchor directly onto the video with no conversion |
 | 2026-10-16 | 1.2 | Webview targets go through `webview(page)` = `iframe.webview.ready` → `#active-frame`. Playwright's `boundingBox()` is already in main-window coordinates, so no manual iframe offset is needed (verified visually) | WSO2 Integrator's editors are VS Code webviews |
 | 2026-10-16 | 1.2 | Pointer paths and typing rhythm are seeded (deterministic). Failure reports include a screenshot plus window **and** webview ARIA snapshots, and name the missing target | Re-records move the same way. The agent needs webview structure to repair locators |
+| 2026-10-16 | 1.3 | The live stream is JSON `live.frame` events (base64 JPEG, max 1600×1100, every 2nd frame), plus `live.action` (target box and label before each action) and `live.session`. Measured: ~40 fps, 10–13 ms from engine to window | Simple and fast enough locally. Binary frames are an option later |
+| 2026-10-16 | fix | In dev, Tauri runs the engine under `tsx watch` with a fixed port and token, so engine code changes reload it and the windows reconnect. The engine exits (and stops its watcher) when the app's process is gone (`STUDIO_PARENT_PID`) | Before this, a running app kept the stale engine ("unknown method recorder.launchCheck") |

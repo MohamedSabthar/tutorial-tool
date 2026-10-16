@@ -16,7 +16,7 @@ This is a desktop app (Tauri) in which a headless Claude Code agent records WSO2
 
 ```bash
 pnpm install          # install workspace deps
-pnpm dev              # run the Tauri app (Vite on :1420 + Rust shell)
+pnpm dev              # run the Tauri app (Vite on :1420 + Rust shell; engine reloads on code changes)
 pnpm dev:web          # frontend only, in the browser
 pnpm typecheck        # tsc -b across all project references
 pnpm lint             # eslint
