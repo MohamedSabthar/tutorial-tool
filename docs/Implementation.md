@@ -53,7 +53,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
 - [ ] **Phase 2: Stage, overlay SDK, Studio preview**
   - [x] 2.1 Stage runtime and virtual clock
   - [x] 2.2 Video plane and camera
-  - [ ] 2.3 Overlay SDK hooks
+  - [x] 2.3 Overlay SDK hooks
   - [ ] 2.4 Core overlays
   - [ ] 2.5 Overlay hot-loading (Vite middleware)
   - [ ] 2.6 Timeline store, patches, undo
@@ -775,3 +775,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 2.1 | `<Stage t>` gives `useStageTime()`/`useFrame()` on a fixed surface (scaled to fit in preview, unscaled in export). `createPlayer` owns preview time (rate, loop, seek) and gets its raf/now injected for tests. `installVirtualClock` fakes Date, performance.now, raf and timers for export | Rendering is a pure function of t, so preview, scrubbing and export agree |
 | 2026-10-16 | 2.2 | Coordinates: source px (recorded frame) → stage px via `fitSource` (letterbox) → camera (`zoom` around `focus`, clamped to the video). `<Scene3D>` is one R3F canvas (orthographic, `frameloop` demand/never, `flat`, sRGB, no tone mapping) with `resize.offsetSize` and a manual frustum. `<DomLayer follow>` applies the same camera transform to HTML | The CSS scale-to-fit transform otherwise shrinks the canvas (seen and fixed). The same camera drives both GPU and DOM layers |
 | 2026-10-16 | fix | Engine sends CORS headers (`*`, range and token headers allowed, content-range exposed) and answers OPTIONS without a token | The UI origin (tauri://localhost or Vite) differs from the engine. fetch and WebGL video textures need CORS |
+| 2026-10-16 | 2.3 | Overlay SDK: `useOverlayTime`, `useAnchor` (stage px, before the camera), `useGsap` (a paused timeline rebuilt on deps and seeked to local t in a layout effect, TextPlugin registered), `ThreeLayer` (a tunnel into the stage's single R3F canvas that carries the overlay context), `DomLayer`, `useStageToScene`, `theme`, `OverlayRenderer` + `OverlayBoundary` (time window and error isolation), and re-exported R3F JSX types | The stable API agent-written overlays target. Verified: same DOM at the same t when scrubbing both ways (jsdom test and in Chrome) |

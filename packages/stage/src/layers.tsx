@@ -5,6 +5,7 @@ import { NoToneMapping, SRGBColorSpace, VideoTexture, type OrthographicCamera } 
 import type { Rect } from '@studio/core';
 import { fitSource, restCamera, sourceToStage, type CameraState, type Fit } from './camera';
 import { useStageTime } from './Stage';
+import { TunnelOut } from './tunnel';
 
 /**
  * The visual layers of a recording scene:
@@ -99,6 +100,8 @@ export function Scene3D({ children }: { children?: ReactNode }) {
       <CameraRig />
       <TimeInvalidator />
       {children}
+      {/* 3D content that overlays send in with <ThreeLayer>. */}
+      <TunnelOut />
     </Canvas>
   );
 }

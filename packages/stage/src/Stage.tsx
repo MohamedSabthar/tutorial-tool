@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPlayer, type Player, type PlayerState } from './player';
+import { TunnelProvider } from './tunnel';
 
 /**
  * The composition root. Everything inside renders from `t` (seconds) alone, on a fixed
@@ -81,7 +82,9 @@ export function Stage({
         contain: 'strict',
       }}
     >
-      <TimeContext.Provider value={{ t, fps, width, height, mode }}>{children}</TimeContext.Provider>
+      <TimeContext.Provider value={{ t, fps, width, height, mode }}>
+        <TunnelProvider>{children}</TunnelProvider>
+      </TimeContext.Provider>
     </div>
   );
 

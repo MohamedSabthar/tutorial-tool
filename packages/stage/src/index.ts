@@ -8,3 +8,4 @@ export * from './player';
 export * from './Stage';
 export * from './camera';
 export * from './layers';
+export * from './tunnel';
