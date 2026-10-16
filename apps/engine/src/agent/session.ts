@@ -55,6 +55,31 @@ export function agentEnv(env: NodeJS.ProcessEnv = process.env): Record<string, s
   return out;
 }
 
+const FILE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+
+/**
+ * Whether a file-editing tool call stays inside the workspace and away from files that control
+ * the agent itself (its permission settings) or hold secrets. Claude Code asks before editing
+ * anything under `.claude/` and before creating files, but skills and scripts are exactly what
+ * this agent maintains, so the host approves those.
+ */
+export function workspaceFileAllowed(
+  workspace: string,
+  tool: string,
+  input: Record<string, unknown>,
+): boolean {
+  if (!FILE_TOOLS.has(tool)) return false;
+  const file = input.file_path ?? input.notebook_path;
+  if (typeof file !== 'string' || !path.isAbsolute(file)) return false;
+  const rel = path.relative(path.resolve(workspace), path.resolve(file));
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false;
+  const parts = rel.split(path.sep);
+  if (parts.includes('.git')) return false;
+  if (parts[0] === '.claude' && parts[1] !== 'skills') return false;
+  if (parts.some((p) => p === '.env' || p.startsWith('.env.'))) return false;
+  return true;
+}
+
 interface Stored {
   sessionId: string | null;
   costUsd: number;
@@ -286,6 +311,8 @@ export class AgentSession {
   private canUseTool: CanUseTool = (toolName, input, opts) => {
     // Our own in-process tools are always allowed.
     if (opts.mcpServer?.source === 'sdk' && opts.mcpServer.name === 'studio')
+      return Promise.resolve({ behavior: 'allow', updatedInput: input });
+    if (workspaceFileAllowed(this.host.workspaceDir, toolName, input))
       return Promise.resolve({ behavior: 'allow', updatedInput: input });
     const requestId = randomUUID();
     this.emit({

@@ -1,10 +1,11 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { createEngineClient, type EngineClient } from '@studio/core';
 import { startEngine, type Engine } from '../src/server';
+import { Workspace } from '../src/workspace';
 
 let engine: Engine;
 let client: EngineClient;
@@ -54,6 +55,21 @@ describe('workspace', () => {
     expect(settings.permissions.deny).toContain('Bash(git push:*)');
   });
 
+  it('seeds the authoring, maintenance and product skills', async () => {
+    const tree = await client.call('workspace.tree', {});
+    for (const skill of [
+      'tutorial-authoring',
+      'skill-maintenance',
+      'vscode-platform',
+      'overlay-authoring',
+      'explainer-authoring',
+      'wso2-integrator',
+    ])
+      expect(tree).toContain(`.claude/skills/${skill}/SKILL.md`);
+    const md = (await client.call('workspace.read', { path: 'CLAUDE.md' })).text;
+    expect(md).toMatch(/## Conventions[\s\S]*## Learned lessons[\s\S]*## Gotchas/);
+  });
+
   it('is idempotent', async () => {
     expect(await client.call('workspace.init', {})).toMatchObject({ commits: 1 });
   });
@@ -69,5 +85,39 @@ describe('workspace', () => {
   it('refuses to read outside the workspace or binary files', async () => {
     await expect(client.call('workspace.read', { path: '../secret.md' })).rejects.toThrow(/outside/);
     await expect(client.call('workspace.read', { path: 'video.mp4' })).rejects.toThrow(/text files/);
+  });
+});
+
+describe('workspace upgrades', () => {
+  const OLD = `# Tutorial Studio workspace
+
+## How you work here
+- old text
+
+## Learned lessons
+<!-- The agent appends short, general lessons here after each tutorial. -->
+
+## Gotchas
+<!-- Product-agnostic pitfalls. -->
+`;
+
+  it('replaces an untouched old CLAUDE.md and adds new ignore rules, keeping edited files', async () => {
+    const dir = path.join(await mkdtemp(path.join(os.tmpdir(), 'studio-up-')), 'ws');
+    const ws = new Workspace(dir);
+    await ws.init();
+    await writeFile(path.join(dir, 'CLAUDE.md'), OLD);
+    await writeFile(path.join(dir, '.gitignore'), 'projects/*/recordings/\n');
+    await ws.ensure();
+    expect(await readFile(path.join(dir, 'CLAUDE.md'), 'utf8')).toContain('skill-maintenance');
+    expect(await readFile(path.join(dir, '.gitignore'), 'utf8')).toContain('projects/*/.studio/');
+
+    const edited = OLD.replace(
+      '<!-- The agent appends short, general lessons here after each tutorial. -->',
+      '- Wait for toasts to close.',
+    );
+    await writeFile(path.join(dir, 'CLAUDE.md'), edited);
+    await ws.ensure();
+    expect(await readFile(path.join(dir, 'CLAUDE.md'), 'utf8')).toBe(edited);
+    await rm(path.dirname(dir), { recursive: true, force: true });
   });
 });

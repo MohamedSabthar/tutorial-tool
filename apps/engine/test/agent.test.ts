@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentEvent, AgentStatus } from '@studio/core';
 import { AsyncQueue } from '../src/agent/queue';
 import { normalize } from '../src/agent/events';
-import { AgentSession, agentEnv } from '../src/agent/session';
+import { AgentSession, agentEnv, workspaceFileAllowed } from '../src/agent/session';
 
 const init = (sessionId: string) =>
   ({
@@ -110,6 +110,27 @@ describe('agentEnv', () => {
       PATH: '/bin',
     });
     expect(Object.keys(env).sort()).toEqual(['ANTHROPIC_API_KEY', 'CLAUDE_CONFIG_DIR', 'PATH']);
+  });
+});
+
+describe('workspaceFileAllowed', () => {
+  const ws = '/w';
+  const ok = (tool: string, file: string) => workspaceFileAllowed(ws, tool, { file_path: file });
+  it('approves edits to skills, scripts and overlays inside the workspace', () => {
+    expect(ok('Edit', '/w/.claude/skills/wso2-integrator/pages/http-service.ts')).toBe(true);
+    expect(ok('Write', '/w/projects/demo/script.spec.ts')).toBe(true);
+    expect(ok('Write', '/w/overlays/Badge.tsx')).toBe(true);
+    expect(ok('MultiEdit', '/w/CLAUDE.md')).toBe(true);
+  });
+  it('leaves everything else to the permission rules and the user', () => {
+    expect(ok('Edit', '/w/.claude/settings.json')).toBe(false);
+    expect(ok('Write', '/w/.claude/settings.local.json')).toBe(false);
+    expect(ok('Edit', '/w/projects/demo/.env')).toBe(false);
+    expect(ok('Edit', '/w/.git/config')).toBe(false);
+    expect(ok('Edit', '/w/../etc/passwd')).toBe(false);
+    expect(ok('Write', '/elsewhere/x.ts')).toBe(false);
+    expect(ok('Bash', '/w/x')).toBe(false);
+    expect(workspaceFileAllowed(ws, 'Edit', { file_path: 'relative.ts' })).toBe(false);
   });
 });
 

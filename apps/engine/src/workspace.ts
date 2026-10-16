@@ -83,7 +83,27 @@ export class Workspace {
     }
     await this.copySeed();
     await this.ensureIgnored();
+    await this.upgradeClaudeMd();
     await this.commit('workspace: add seed knowledge');
+  }
+
+  /**
+   * Replaces a workspace CLAUDE.md still identical in substance to an older template (no lessons
+   * or gotchas added, no skills map yet). Anything the agent or the user wrote is kept.
+   */
+  private async upgradeClaudeMd(): Promise<void> {
+    const file = path.join(this.root, 'CLAUDE.md');
+    const text = await readFile(file, 'utf8').catch(() => null);
+    if (!text || text.includes('skill-maintenance')) return;
+    const after = (heading: string) =>
+      text
+        .split(heading)[1]
+        ?.split('\n## ')[0]
+        ?.replace(/<!--[\s\S]*?-->/g, '')
+        .trim();
+    if (after('## Learned lessons') || after('## Gotchas')) return;
+    if (!text.startsWith('# Tutorial Studio workspace')) return;
+    await writeFile(file, WORKSPACE_CLAUDE_MD);
   }
 
   /** Adds ignore rules introduced after this workspace was created. */
