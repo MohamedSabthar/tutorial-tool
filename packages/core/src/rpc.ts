@@ -14,6 +14,14 @@ export const NewProject = z.object({
   product: z.string().min(1).default('wso2-integrator'),
 });
 
+const WorkspaceStatus = z.object({
+  path: z.string(),
+  initialized: z.boolean(),
+  head: z.string().nullable(),
+  commits: z.number(),
+});
+const CommitInfo = z.object({ hash: z.string(), date: z.string(), subject: z.string() });
+
 export const rpcMethods = {
   ping: {
     params: z.object({ sentAt: z.number() }),
@@ -31,6 +39,17 @@ export const rpcMethods = {
     params: z.object({ slug: z.string() }),
     result: z.object({ project: Project, timeline: Timeline }),
   },
+  'workspace.status': { params: z.object({}), result: WorkspaceStatus },
+  'workspace.init': { params: z.object({}), result: WorkspaceStatus },
+  'workspace.tree': { params: z.object({}), result: z.array(z.string()) },
+  'workspace.read': {
+    params: z.object({ path: z.string().min(1) }),
+    result: z.object({ path: z.string(), text: z.string() }),
+  },
+  'workspace.log': {
+    params: z.object({ limit: z.number().int().min(1).max(200).default(20) }),
+    result: z.array(CommitInfo),
+  },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -39,6 +58,7 @@ export type RpcResult<M extends RpcMethod> = z.output<(typeof rpcMethods)[M]['re
 
 export const rpcEvents = {
   'project.changed': z.object({ slug: z.string() }),
+  'workspace.changed': z.object({ head: z.string().nullable() }),
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;
 export type RpcEventData<E extends RpcEvent> = z.output<(typeof rpcEvents)[E]>;

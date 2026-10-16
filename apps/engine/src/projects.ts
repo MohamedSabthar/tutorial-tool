@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import { parseTimeline, Project, RpcError, type Timeline } from '@studio/core';
+import { projectClaudeMd } from './templates';
 
 /**
  * Reads and writes tutorial projects under `<workspace>/projects/<slug>/`:
@@ -51,7 +52,7 @@ export class ProjectStore {
     await mkdir(dir, { recursive: true });
     await writeJson(path.join(dir, 'project.json'), project);
     await writeJson(path.join(dir, 'tutorial.json'), parseTimeline({ version: 1 }));
-    await writeFile(path.join(dir, 'CLAUDE.md'), briefTemplate(project));
+    await writeFile(path.join(dir, 'CLAUDE.md'), projectClaudeMd(project));
     return project;
   }
 
@@ -96,20 +97,4 @@ export function slugify(title: string): string {
 
 async function writeJson(file: string, value: unknown): Promise<void> {
   await writeFile(file, JSON.stringify(value, null, 2) + '\n');
-}
-
-function briefTemplate(p: Project): string {
-  return `# ${p.title}
-
-Product: ${p.product}
-
-## Goal
-What the viewer should be able to do after watching.
-
-## Audience
-Who this tutorial is for.
-
-## Constraints
-Anything the agent must do or avoid (ports, names, things to blur).
-`;
 }

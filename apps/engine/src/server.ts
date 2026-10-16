@@ -17,6 +17,7 @@ import {
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
+import { Workspace } from './workspace';
 
 export const ENGINE_VERSION = '0.0.1';
 
@@ -44,6 +45,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const token = opts.token ?? randomBytes(24).toString('hex');
   await mkdir(opts.workspace, { recursive: true });
   const store = new ProjectStore(opts.workspace);
+  const workspace = new Workspace(opts.workspace);
   const app = Fastify({ logger: opts.logger ?? false });
 
   const tokenOk = (candidate: unknown) => {
@@ -71,11 +73,26 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     }),
     'project.list': async () => store.list(),
     'project.create': async (p: { title: string; product: string }) => {
+      await workspace.ensure();
       const project = await store.create(p);
+      const head = await workspace.commit(`project: create ${project.slug}`);
       broadcast('project.changed', { slug: project.slug });
+      broadcast('workspace.changed', { head });
       return project;
     },
     'project.open': async ({ slug }: { slug: string }) => store.open(slug),
+    'workspace.status': async () => workspace.status(),
+    'workspace.init': async () => {
+      const status = await workspace.init();
+      broadcast('workspace.changed', { head: status.head });
+      return status;
+    },
+    'workspace.tree': async () => workspace.tree(),
+    'workspace.read': async ({ path: rel }: { path: string }) => ({
+      path: rel,
+      text: await workspace.read(rel),
+    }),
+    'workspace.log': async ({ limit }: { limit: number }) => workspace.log(limit),
   };
 
   const sockets = new Set<WebSocket>();
