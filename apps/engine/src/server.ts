@@ -18,6 +18,7 @@ import {
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
 import { Workspace } from './workspace';
+import { launchCheck } from '@studio/recorder/node';
 
 export const ENGINE_VERSION = '0.0.1';
 
@@ -46,6 +47,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   await mkdir(opts.workspace, { recursive: true });
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
+  let recorderBusy = false;
   const app = Fastify({ logger: opts.logger ?? false });
 
   const tokenOk = (candidate: unknown) => {
@@ -93,6 +95,19 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       text: await workspace.read(rel),
     }),
     'workspace.log': async ({ limit }: { limit: number }) => workspace.log(limit),
+    'recorder.launchCheck': async ({ product }: { product: string }) => {
+      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
+      recorderBusy = true;
+      try {
+        const r = await launchCheck(product, (message) =>
+          broadcast('recorder.progress', { message, at: Date.now() }),
+        );
+        const { png, ...size } = r.screenshot;
+        return { ...r, screenshot: { ...size, dataUrl: `data:image/png;base64,${png.toString('base64')}` } };
+      } finally {
+        recorderBusy = false;
+      }
+    },
   };
 
   const sockets = new Set<WebSocket>();

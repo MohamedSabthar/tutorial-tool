@@ -50,6 +50,28 @@ export const rpcMethods = {
     params: z.object({ limit: z.number().int().min(1).max(200).default(20) }),
     result: z.array(CommitInfo),
   },
+  'recorder.launchCheck': {
+    params: z.object({ product: z.string().default('wso2-integrator') }),
+    result: z.object({
+      ok: z.boolean(),
+      product: z.string(),
+      vscodeVersion: z.string(),
+      viewport: z.object({
+        mode: z.enum(['fullscreen', 'window']),
+        width: z.number(),
+        height: z.number(),
+        scale: z.number(),
+      }),
+      activityBar: z.array(z.string()),
+      extensionEntry: z.string().nullable(),
+      titleBar: z.string(),
+      projectDetected: z.boolean(),
+      dialogs: z.array(z.string()),
+      screenshot: z.object({ width: z.number(), height: z.number(), dataUrl: z.string() }),
+      durationMs: z.number(),
+      problems: z.array(z.string()),
+    }),
+  },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -59,6 +81,7 @@ export type RpcResult<M extends RpcMethod> = z.output<(typeof rpcMethods)[M]['re
 export const rpcEvents = {
   'project.changed': z.object({ slug: z.string() }),
   'workspace.changed': z.object({ head: z.string().nullable() }),
+  'recorder.progress': z.object({ message: z.string(), at: z.number() }),
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;
 export type RpcEventData<E extends RpcEvent> = z.output<(typeof rpcEvents)[E]>;

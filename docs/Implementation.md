@@ -44,7 +44,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 0.5 `packages/ui` design tokens and kit
   - [x] 0.6 Workspace repo bootstrap
 - [ ] **Phase 1: VS Code recorder and Live window**
-  - [ ] 1.1 VS Code launcher
+  - [x] 1.1 VS Code launcher
   - [ ] 1.2 Recorder helpers and `events.jsonl`
   - [ ] 1.3 Live screencast
   - [ ] 1.4 Take post-processing
@@ -753,3 +753,8 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 0.6 | `project.create` initializes the workspace if needed and commits each new project. The workspace `.gitignore` excludes recordings, audio and output | Every knowledge change is a commit. Media stays out of git history |
 | 2026-10-16 | 0.6 | Verified: `claude -p` started in `projects/<slug>` loads the workspace and project CLAUDE.md files. It also loads the user's global CLAUDE.md, so 3.1 must use `settingSources: ['project']` | Keeps personal instructions out of agent sessions |
 | 2026-10-16 | fix | Timeline scrubbing uses `@studio/ui` `Scrubber` (playhead plus handle drawn on the lanes' own scale, drag or arrow keys), not a native range input | A native range thumb is inset by its radius and sits on a different scale, so it never lines up with the bars. 2.7 reuses it |
+| 2026-10-16 | 1.1 | The default target is the installed **WSO2 Integrator.app** (VS Code fork 1.127.0 with WSO2 Integrator, MI, SI and Ballerina built in), launched from its own executable. The pinned VS Code 1.140 plus marketplace extension stays as the second product `wso2-integrator-vscode` | Requested by the user. It is the real product the tutorials are about |
+| 2026-10-16 | 1.1 | Recordings must open a **valid project**. BI = root `Ballerina.toml` with `[workspace]` + one `[package]` folder per integration (same files as the product's own create flow), plus `.vscode/settings.json` `ballerina.isBI`. MI = `pom.xml` with `<projectType>integration-project</projectType>`. SI = `*.siddhi`. `createBIProject()` builds BI fixtures | An empty folder triggers a blocking native modal ("We couldn't detect the project type"), which is invisible in page screenshots |
+| 2026-10-16 | 1.1 | Display is **full screen by default** (macOS simple full screen, no Space switch or animation), with `window.customTitleBarVisibility: auto` so the in-window title bar ("greeting-project — WSO2 Integrator") stays on camera. Theme **Default Light Modern**. A window mode (e.g. 1280×720 @ 1.5×) remains available | Requested by the user. Frames follow the screen shape (2268×1473 on this Mac), and the stage fits them into the 16:9 output |
+| 2026-10-16 | 1.1 | `window.dialogStyle: custom` (dialogs drawn in the window, clickable by Playwright). Native message boxes are also logged from the main process and reported as problems | No invisible blocking dialogs during recording |
+| 2026-10-16 | 1.1 | Known issue: WSO2 Integrator ignores `window.commandCenter: false`, so the title text appears inside the command-center box. `window.title` is set to `${rootName} — ${appName}`, so it still reads "greeting-project — WSO2 Integrator" | Cosmetic. Revisit if the product name needs a different placement |

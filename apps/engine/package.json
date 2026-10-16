@@ -15,7 +15,8 @@
   "dependencies": {
     "@studio/core": "workspace:*",
     "fastify": "^5.12.7",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "@studio/recorder": "workspace:*"
   },
   "devDependencies": {
     "@types/ws": "^8.18.2",

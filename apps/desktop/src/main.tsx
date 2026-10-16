@@ -9,6 +9,7 @@ import { EnginePage } from './pages/EnginePage';
 import { DesktopPage } from './pages/DesktopPage';
 import { KitPage } from './pages/KitPage';
 import { WorkspacePage } from './pages/WorkspacePage';
+import { LauncherPage } from './pages/LauncherPage';
 import '@studio/ui/styles.css';
 import './styles.css';
 
@@ -19,6 +20,7 @@ const routes: DevRoute[] = [
   { path: '/desktop', step: '0.4', label: 'Desktop shell', render: () => <DesktopPage /> },
   { path: '/kit', step: '0.5', label: 'Design kit', render: () => <KitPage /> },
   { path: '/workspace', step: '0.6', label: 'Workspace', render: () => <WorkspacePage /> },
+  { path: '/launcher', step: '1.1', label: 'VS Code launcher', render: () => <LauncherPage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');

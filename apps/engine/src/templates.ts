@@ -61,9 +61,10 @@ export const PRODUCTS = {
     {
       id: 'wso2-integrator',
       name: 'WSO2 Integrator',
-      type: 'vscode',
-      extension: 'wso2.wso2-integrator',
+      type: 'vscode-app',
+      app: '/Applications/WSO2 Integrator.app',
       skill: 'wso2-integrator',
+      projectStructure: 'BI: root Ballerina.toml with [workspace] + one [package] folder per integration',
     },
   ],
 };
