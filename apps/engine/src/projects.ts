@@ -56,6 +56,33 @@ export class ProjectStore {
     return project;
   }
 
+  /** Returns the project with this slug, creating it if needed (used for built-in sample projects). */
+  async ensure(slug: string, title: string, product: string): Promise<Project> {
+    try {
+      return await this.readProject(slug);
+    } catch {
+      const now = new Date().toISOString();
+      const project = Project.parse({ slug, title, product, createdAt: now, updatedAt: now });
+      const dir = this.dir(slug);
+      await mkdir(dir, { recursive: true });
+      await writeJson(path.join(dir, 'project.json'), project);
+      await writeJson(path.join(dir, 'tutorial.json'), parseTimeline({ version: 1 }));
+      await writeFile(path.join(dir, 'CLAUDE.md'), projectClaudeMd(project));
+      return project;
+    }
+  }
+
+  /** The next free take id under recordings/ (take-1, take-2, …). */
+  async nextTakeId(slug: string): Promise<string> {
+    const dir = path.join(this.dir(slug), 'recordings');
+    await mkdir(dir, { recursive: true });
+    const used = (await readdir(dir))
+      .map((n) => /^take-(\d+)$/.exec(n)?.[1])
+      .filter(Boolean)
+      .map(Number);
+    return `take-${(used.length ? Math.max(...used) : 0) + 1}`;
+  }
+
   async open(slug: string): Promise<{ project: Project; timeline: Timeline }> {
     const project = await this.readProject(slug);
     const raw = JSON.parse(await readFile(path.join(this.dir(slug), 'tutorial.json'), 'utf8')) as unknown;

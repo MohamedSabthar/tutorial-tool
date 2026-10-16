@@ -16,6 +16,8 @@ import {
   type TutMode,
 } from '../tut';
 import { startScreencast, type ScreencastFrame } from '../screencast';
+import { encodeTake, ScreenRecorder } from '../record';
+import type { Take } from '@studio/core';
 
 /**
  * A hand-written sample tutorial against WSO2 Integrator, used to exercise the recorder
@@ -63,6 +65,8 @@ export interface SampleRunResult {
   failure: StepFailure | null;
   /** The window at each click/type target, with the logged box. */
   targetFrames: TargetFrame[];
+  /** The encoded take (record mode with `takeDir`). */
+  take: Take | null;
   /** PNG of the final frame. */
   screenshot: Buffer;
   durationMs: number;
@@ -77,6 +81,9 @@ export async function runSample(opts: {
   /** Live preview frames while the sample runs. */
   onFrame?: (f: ScreencastFrame) => void;
   onProgress?: Progress;
+  /** Record mode: write video.mp4 + events.jsonl into this take folder. */
+  takeDir?: string;
+  takeId?: string;
 }): Promise<SampleRunResult> {
   const started = Date.now();
   const progress = opts.onProgress ?? (() => {});
@@ -96,9 +103,22 @@ export async function runSample(opts: {
     onProgress: progress,
   });
   let stopScreencast: (() => Promise<void>) | null = null;
+  let recorder: ScreenRecorder | null = null;
+  const recording = opts.mode === 'record' && !!opts.takeDir;
   try {
     const { page } = session;
-    if (opts.onFrame) stopScreencast = await startScreencast(page, opts.onFrame);
+    const frame = {
+      width: Math.round(session.viewport.width * session.viewport.scale),
+      height: Math.round(session.viewport.height * session.viewport.scale),
+    };
+    // One screencast at a time: the recorder also feeds the live view while recording.
+    if (recording)
+      recorder = await ScreenRecorder.start(page, {
+        dir: opts.takeDir!,
+        ...frame,
+        ...(opts.onFrame ? { onLiveFrame: opts.onFrame } : {}),
+      });
+    else if (opts.onFrame) stopScreencast = await startScreencast(page, opts.onFrame);
     progress('Waiting for the project to load…');
     await page
       .locator('.monaco-list-row', { hasText: 'Greeting Service' })
@@ -110,11 +130,12 @@ export async function runSample(opts: {
       .waitFor({ timeout: 30_000 })
       .catch(() => {});
 
+    const eventsFile = recording ? path.join(opts.takeDir!, 'events.jsonl') : opts.eventsFile;
     const tut = new Tut({
       page,
       mode: opts.mode,
       scale: session.viewport.scale,
-      ...(opts.eventsFile ? { eventsFile: opts.eventsFile } : {}),
+      ...(eventsFile ? { eventsFile } : {}),
       ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
       timeout: opts.mode === 'dry' ? 8_000 : 20_000,
       captureTargets: true,
@@ -134,8 +155,22 @@ export async function runSample(opts: {
       failure = e.failure;
       progress(`Step ${failure.stepId} failed: ${failure.error}`);
     }
-    await tut.finish();
+    const tEnd = await tut.finish();
     const screenshot = await page.screenshot();
+    let take: Take | null = null;
+    if (recorder) {
+      const frames = await recorder.stop();
+      recorder = null;
+      progress(`Encoding the take (${frames.length} frames)…`);
+      take = await encodeTake({
+        frames,
+        t0: tut.epoch,
+        t1: tut.epoch + tEnd + 0.5,
+        dir: opts.takeDir!,
+        id: opts.takeId ?? path.basename(opts.takeDir!),
+      });
+      progress(`Take saved: ${take.width}×${take.height}, ${take.fps} fps, ${take.duration.toFixed(1)} s`);
+    }
     progress(failure ? 'Sample finished with a failure' : 'Sample passed');
     return {
       passed: !failure,
@@ -144,10 +179,12 @@ export async function runSample(opts: {
       events: tut.events,
       failure,
       targetFrames: tut.targetFrames,
+      take,
       screenshot,
       durationMs: Date.now() - started,
     };
   } finally {
+    await recorder?.stop();
     await stopScreencast?.();
     await session.close();
     await rm(base, { recursive: true, force: true });

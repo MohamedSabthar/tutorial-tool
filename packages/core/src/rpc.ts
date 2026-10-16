@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Project, Rect, RecorderEvent, Timeline } from './schemas';
+import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 
 /**
  * The engine's WebSocket protocol.
@@ -94,6 +94,18 @@ export const rpcMethods = {
         })
         .nullable(),
       durationMs: z.number(),
+    }),
+  },
+  'recorder.recordSampleTake': {
+    params: z.object({}),
+    result: z.object({
+      slug: z.string(),
+      /** Path of the take folder under the project, e.g. recordings/take-3. */
+      takePath: z.string(),
+      take: Take,
+      codec: z.string(),
+      frames: z.number(),
+      events: z.array(RecorderEvent),
     }),
   },
 } as const;

@@ -11,3 +11,4 @@ export * from './human';
 export * from './tut';
 export * from './samples/run';
 export * from './screencast';
+export * from './record';

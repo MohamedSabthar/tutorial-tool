@@ -77,6 +77,8 @@ export class Tut {
   readonly events: RecorderEvent[] = [];
   readonly targetFrames: TargetFrame[] = [];
   private readonly started = performance.now();
+  /** Wall-clock time (epoch seconds) of event time 0, on the same clock as screencast frames. */
+  readonly epoch = Date.now() / 1000;
   private readonly random: () => number;
   private pointer: Pt;
   private current: { id: string; title: string } | null = null;
@@ -113,9 +115,12 @@ export class Tut {
     });
   }
 
-  async finish(): Promise<void> {
-    await this.emit({ kind: 'marker', t: this.now(), name: 'end' });
+  /** Writes the end marker and returns event time at the end. */
+  async finish(): Promise<number> {
+    const t = this.now();
+    await this.emit({ kind: 'marker', t, name: 'end' });
     await this.writing;
+    return t;
   }
 
   /** A named tutorial step. Failures are reported with a screenshot and ARIA snapshot. */

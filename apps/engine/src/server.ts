@@ -18,7 +18,7 @@ import {
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
 import { Workspace } from './workspace';
-import { launchCheck, runSample } from '@studio/recorder/node';
+import { launchCheck, probe, runSample } from '@studio/recorder/node';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -110,6 +110,52 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
       } finally {
         recorderBusy = false;
+      }
+    },
+    'recorder.recordSampleTake': async () => {
+      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
+      recorderBusy = true;
+      const slug = 'recorder-samples';
+      const title = 'Sample: Greeting Service overview';
+      try {
+        await workspace.ensure();
+        await store.ensure(slug, 'Recorder samples', 'wso2-integrator');
+        const takeId = await store.nextTakeId(slug);
+        const takePath = `recordings/${takeId}`;
+        const takeDir = path.join(store.dir(slug), takePath);
+        broadcast('live.session', { state: 'started', title, mode: 'record', frame: null });
+        const r = await runSample({
+          mode: 'record',
+          takeDir,
+          takeId,
+          onEvent: (e) => {
+            broadcast('recorder.event', e);
+            const vp =
+              e.kind === 'marker' && e.name === 'start'
+                ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
+                : undefined;
+            if (vp)
+              broadcast('live.session', {
+                state: 'started',
+                title,
+                mode: 'record',
+                frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
+              });
+          },
+          onAction: (a) => broadcast('live.action', a),
+          onFrame: (f) => broadcast('live.frame', f),
+          onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
+        });
+        if (!r.take)
+          throw new RpcError(
+            r.failure ? `step ${r.failure.stepId} failed: ${r.failure.error}` : 'no take was recorded',
+          );
+        const info = await probe(path.join(takeDir, 'video.mp4'));
+        await workspace.commit(`take: ${slug}/${takeId}`);
+        return { slug, takePath, take: r.take, codec: info.codec, frames: info.frames, events: r.events };
+      } finally {
+        recorderBusy = false;
+        broadcast('live.session', { state: 'stopped', title, mode: 'record', frame: null });
       }
     },
     'recorder.runSample': async ({ mode, broken }: { mode: 'dry' | 'record'; broken: boolean }) => {
