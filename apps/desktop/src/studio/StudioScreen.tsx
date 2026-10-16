@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Segment, TimelinePatch } from '@studio/core';
-import { coreOverlays, resolveProps } from '@studio/overlays-core';
+import { resolveProps } from '@studio/overlays-core';
 import { usePlayer } from '@studio/stage';
 import {
   AppHeader,
@@ -14,7 +14,6 @@ import {
   IconPlay,
   IconPrev,
   LinkButton,
-  MonoBox,
   Panel,
   Pill,
   Segmented,
@@ -25,8 +24,21 @@ import { useLatestTake } from '../useTake';
 import { resolveTimeline, stepAt } from './resolve';
 import { StageHost } from './StageHost';
 import { TimelinePanel } from './TimelinePanel';
+import { Inspector } from './Inspector';
+import { Library } from './Library';
+import { Manipulator, type SnapTarget } from './Manipulator';
+import { sourceToStage } from '@studio/stage';
+import type { Rect } from '@studio/core';
 import { useOverlayRegistry } from './useOverlayRegistry';
 import { useTimeline } from './useTimeline';
+
+/** A component's default props, or {} when its schema can't produce them. */
+function defaultProps(
+  schema: { safeParse?: (v: unknown) => { success: boolean; data?: unknown } } | undefined,
+) {
+  const r = schema?.safeParse?.({});
+  return r?.success && r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : {};
+}
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
 const ANCHORED = new Set([
@@ -54,6 +66,7 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
   const [adding, setAdding] = useState('core:Callout');
+  const [dragRect, setDragRect] = useState<Rect | null>(null);
 
   const t = player.t;
   const steps = resolved?.steps ?? [];
@@ -88,20 +101,24 @@ export function StudioScreen({ slug }: { slug: string }) {
     void tl.patch([{ op: 'replace', path: `/scenes/${si}/segments`, value: segments }], { label: 'Split' });
   }
 
-  function addOverlay() {
+  function addOverlay(component = adding, at = t) {
     if (!tl.timeline) return;
+    const adding = component;
     const meta = registry[adding]?.meta;
     const len = meta?.defaultDuration ?? 3;
     const anchored = ANCHORED.has(adding);
-    const step = current && tl.timeline.steps.find((s) => s.id === current.id && s.bbox);
+    const here = stepAt(steps, at);
+    const step = here && tl.timeline.steps.find((s) => s.id === here.id && s.bbox);
     const id = `${adding.split(':')[1]!.toLowerCase()}-${Date.now().toString(36)}`;
-    const start = Math.round(t * 100) / 100;
+    const start = Math.round(at * 100) / 100;
     const value = {
       id,
       component: adding,
       start,
       end: Math.min(start + len, duration),
-      props: adding.startsWith('core:') ? resolveProps(adding, {}) : {},
+      props: adding.startsWith('core:')
+        ? resolveProps(adding, {})
+        : defaultProps(registry[adding]?.meta.props),
       ...(anchored && step ? { anchor: { stepId: step.id, target: 'primary' } } : {}),
     };
     void tl.patch([{ op: 'add', path: '/overlays/-', value }], { label: `Add ${meta?.name ?? adding}` });
@@ -140,6 +157,44 @@ export function StudioScreen({ slug }: { slug: string }) {
   });
 
   const selectedOverlay = tl.timeline?.overlays.find((o) => o.id === selected) ?? null;
+  const selectedInstance = resolved?.instances.find((i) => i.id === selected) ?? null;
+  const showHandles =
+    !!selectedInstance?.anchor &&
+    view !== 'Raw take' &&
+    t >= (selectedInstance?.start ?? 0) &&
+    t <= (selectedInstance?.end ?? 0);
+  // Only targets on screen now: the current step's and the next step's (its first click is often visible).
+  const nearSteps = new Set(
+    current ? [current.id, steps[steps.indexOf(current) + 1]?.id].filter(Boolean) : [],
+  );
+  const snapTargets: SnapTarget[] =
+    tl.timeline && resolved?.fit
+      ? tl.timeline.steps
+          .filter((s) => s.bbox && nearSteps.has(s.id))
+          .map((s) => ({ stepId: s.id, title: s.title, rect: sourceToStage(s.bbox!, resolved.fit!) }))
+      : [];
+  const instances = resolved
+    ? resolved.instances.map((i) => (i.id === selected && dragRect ? { ...i, anchor: dragRect } : i))
+    : [];
+
+  function commitManipulation(result: { anchor: string } | { rect: Rect }) {
+    if (!tl.timeline || !selectedOverlay) return;
+    const i = tl.timeline.overlays.findIndex((o) => o.id === selectedOverlay.id);
+    const base = `/overlays/${i}`;
+    const ops: TimelinePatch = [];
+    if ('anchor' in result) {
+      ops.push({
+        op: selectedOverlay.anchor ? 'replace' : 'add',
+        path: `${base}/anchor`,
+        value: { stepId: result.anchor, target: 'primary' },
+      });
+      if (selectedOverlay.rect) ops.push({ op: 'remove', path: `${base}/rect` });
+    } else {
+      ops.push({ op: selectedOverlay.rect ? 'replace' : 'add', path: `${base}/rect`, value: result.rect });
+      if (selectedOverlay.anchor) ops.push({ op: 'remove', path: `${base}/anchor` });
+    }
+    void tl.patch(ops, { label: 'anchor' in result ? 'Re-anchor overlay' : 'Move overlay on canvas' });
+  }
   const src = take ? media(take.video) : null;
   const needsRebuild = tl.timeline && tl.timeline.takes.length > 0 && tl.timeline.scenes.length === 0;
 
@@ -284,7 +339,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                 </option>
               ))}
             </Select>
-            <Button variant="primary" onClick={addOverlay} disabled={!tl.timeline}>
+            <Button variant="primary" onClick={() => addOverlay()} disabled={!tl.timeline}>
               Add at playhead
             </Button>
             <span style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
@@ -306,7 +361,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                   take={take}
                   src={src}
                   events={events}
-                  instances={resolved.instances}
+                  instances={instances}
                   t={t}
                   playing={player.playing}
                   sourceTime={resolved.sourceTime}
@@ -314,7 +369,16 @@ export function StudioScreen({ slug }: { slug: string }) {
                   showOverlays={view !== 'Raw take'}
                   registry={registry}
                   onOverlayError={reportError}
-                />
+                >
+                  {showHandles && selectedInstance?.anchor && (
+                    <Manipulator
+                      rect={selectedInstance.anchor}
+                      targets={snapTargets}
+                      onDrag={setDragRect}
+                      onCommit={commitManipulation}
+                    />
+                  )}
+                </StageHost>
               </div>
             ) : (
               <div
@@ -385,20 +449,31 @@ export function StudioScreen({ slug }: { slug: string }) {
           </Panel>
         </main>
 
-        <aside style={{ flex: '1 1 250px', maxWidth: 300, minWidth: 240 }}>
-          <Panel title="Inspector" action={selectedOverlay && <Chip mono>{selectedOverlay.id}</Chip>}>
-            {selectedOverlay ? (
-              <MonoBox style={{ maxHeight: 360 }}>{JSON.stringify(selectedOverlay, null, 2)}</MonoBox>
-            ) : (
-              <span style={{ color: 'var(--ui-gray-600)' }}>
-                Select an overlay on the timeline. The editable inspector arrives in step 2.8.
-              </span>
-            )}
-            <span style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
-              {Object.keys(coreOverlays).length} core overlays ·{' '}
-              {Object.keys(registry).length - Object.keys(coreOverlays).length} workspace/project
-            </span>
-          </Panel>
+        <aside
+          style={{
+            flex: '1 1 260px',
+            maxWidth: 320,
+            minWidth: 250,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          {tl.timeline && (
+            <Inspector
+              timeline={tl.timeline}
+              overlay={selectedOverlay}
+              module={selectedOverlay ? registry[selectedOverlay.component] : undefined}
+              patch={tl.patch}
+              onOpenSource={(component) => {
+                const [scope, name] = component.split(':');
+                const rel =
+                  scope === 'project' ? `projects/${slug}/overlays/${name}.tsx` : `overlays/${name}.tsx`;
+                void client?.call('workspace.openInEditor', { path: rel });
+              }}
+            />
+          )}
+          <Library registry={registry} onAdd={(id) => addOverlay(id)} />
         </aside>
       </div>
 
@@ -409,9 +484,15 @@ export function StudioScreen({ slug }: { slug: string }) {
           t={t}
           onSeek={(x) => controls.seek(x)}
           selected={selected}
-          onSelect={setSelected}
+          onSelect={(id) => {
+            setSelected(id);
+            // Selecting something off-screen brings it into view so it can be edited.
+            const o = id ? tl.timeline?.overlays.find((x) => x.id === id) : null;
+            if (o && (t < o.start || t > o.end)) controls.seek(Math.min(o.start + 0.6, o.end));
+          }}
           patch={tl.patch}
           onSplit={split}
+          onDropOverlay={(id, at) => addOverlay(id, at)}
           canUndo={tl.canUndo}
           canRedo={tl.canRedo}
           onUndo={() => void tl.undo()}

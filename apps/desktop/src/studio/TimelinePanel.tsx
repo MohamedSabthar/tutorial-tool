@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import type { OverlayInstance, Timeline, TimelinePatch } from '@studio/core';
 import { Button, Chip, Eyebrow } from '@studio/ui';
 import type { Resolved } from './resolve';
+import { OVERLAY_DRAG_TYPE } from './Library';
 
 const LABEL_W = 120;
 const LANE_H = 30;
@@ -18,6 +19,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   patch: (p: TimelinePatch, opts?: { group?: string; label?: string }) => Promise<void>;
   onSplit: () => void;
+  /** A library tile dropped on the Overlays lane at output time t. */
+  onDropOverlay?: (component: string, t: number) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -48,6 +51,7 @@ export function TimelinePanel({
   onSelect,
   patch,
   onSplit,
+  onDropOverlay,
   canUndo,
   canRedo,
   onUndo,
@@ -473,6 +477,17 @@ export function TimelinePanel({
                   height: lane.height,
                   background: 'var(--ui-gray-50)',
                   borderRadius: 6,
+                }}
+                onDragOver={(e) => {
+                  if (lane.name === 'Overlays' && e.dataTransfer.types.includes(OVERLAY_DRAG_TYPE))
+                    e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  const id = e.dataTransfer.getData(OVERLAY_DRAG_TYPE);
+                  if (lane.name === 'Overlays' && id) {
+                    e.preventDefault();
+                    onDropOverlay?.(id, timeFromPointer(e as unknown as PointerEvent));
+                  }
                 }}
                 onPointerDown={(e) => {
                   if (e.target === e.currentTarget) {
