@@ -32,6 +32,25 @@ fn open_live_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Opens (or focuses) another Studio window on a route, e.g. to test multi-window sync.
+#[tauri::command]
+fn open_studio_window(app: tauri::AppHandle, label: String, route: String) -> Result<(), String> {
+    if !label.starts_with("studio-") || !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err("window labels must look like studio-<name>".into());
+    }
+    if let Some(w) = app.get_webview_window(&label) {
+        w.show().map_err(|e| e.to_string())?;
+        w.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(format!("index.html#{route}").into()))
+        .title("Tutorial Studio")
+        .inner_size(1200.0, 860.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -40,7 +59,7 @@ pub fn run() {
             app.state::<EngineState>().spawn();
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_engine, open_live_window])
+        .invoke_handler(tauri::generate_handler![get_engine, open_live_window, open_studio_window])
         .build(tauri::generate_context!())
         .expect("error while building Tutorial Studio");
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
+import { TimelinePatch } from './patch';
 
 /**
  * The engine's WebSocket protocol.
@@ -21,6 +22,13 @@ const WorkspaceStatus = z.object({
   commits: z.number(),
 });
 const CommitInfo = z.object({ hash: z.string(), date: z.string(), subject: z.string() });
+
+const TimelineState = z.object({
+  version: z.number(),
+  timeline: Timeline,
+  canUndo: z.boolean(),
+  canRedo: z.boolean(),
+});
 
 export const rpcMethods = {
   ping: {
@@ -147,6 +155,20 @@ export const rpcMethods = {
     params: z.object({ path: z.string() }),
     result: z.object({ opened: z.boolean() }),
   },
+  'timeline.get': { params: z.object({ slug: z.string() }), result: TimelineState },
+  'timeline.patch': {
+    params: z.object({
+      slug: z.string(),
+      patch: z.unknown(),
+      author: z.enum(['user', 'agent', 'auto']).default('user'),
+      /** Patches with the same group (one drag, one agent run) undo as one step. */
+      group: z.string().nullable().default(null),
+      label: z.string().optional(),
+    }),
+    result: TimelineState,
+  },
+  'timeline.undo': { params: z.object({ slug: z.string() }), result: TimelineState },
+  'timeline.redo': { params: z.object({ slug: z.string() }), result: TimelineState },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -158,6 +180,15 @@ export const rpcEvents = {
   'workspace.changed': z.object({ head: z.string().nullable() }),
   'recorder.progress': z.object({ message: z.string(), at: z.number() }),
   'recorder.event': RecorderEvent,
+  'timeline.changed': z.object({
+    slug: z.string(),
+    version: z.number(),
+    patch: TimelinePatch,
+    author: z.enum(['user', 'agent', 'auto']),
+    kind: z.enum(['patch', 'undo', 'redo']),
+    canUndo: z.boolean(),
+    canRedo: z.boolean(),
+  }),
   'overlays.changed': z.object({
     id: z.string().nullable(),
     path: z.string(),

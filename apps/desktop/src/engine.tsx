@@ -33,6 +33,16 @@ export async function openLiveWindow(): Promise<void> {
   await invoke('open_live_window');
 }
 
+/** Opens another Studio window on a route (a browser tab outside Tauri). */
+export async function openStudioWindow(label: string, route: string): Promise<void> {
+  if (!isTauri()) {
+    window.open(`${window.location.pathname}#${route}`, '_blank');
+    return;
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('open_studio_window', { label, route });
+}
+
 export async function currentWindowLabel(): Promise<string> {
   if (!isTauri()) return 'browser';
   const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');

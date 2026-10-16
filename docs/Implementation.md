@@ -56,7 +56,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 2.3 Overlay SDK hooks
   - [x] 2.4 Core overlays
   - [x] 2.5 Overlay hot-loading (Vite middleware)
-  - [ ] 2.6 Timeline store, patches, undo
+  - [x] 2.6 Timeline store, patches, undo
   - [ ] 2.7 Studio window: preview and timeline
   - [ ] 2.8 Studio window: inspector and library
 - [ ] **Phase 3: Agent loop and self-learning skills**
@@ -781,3 +781,5 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 2.5 | The engine runs its own Vite dev server (separate localhost port, `cors`, no HMR client), rooted at the workspace. A transform plugin rewrites overlays' imports of shared packages (React, jsx-runtime, zod, gsap, three, R3F, @studio/*) into reads from `globalThis.__STUDIO_SHARED__`, which the app fills; other bare imports are rejected. File changes are pushed as `overlays.changed` over the RPC socket, and the preview re-imports cache-busted | Guarantees one React/three/GSAP instance (hooks and contexts work). A separate port is simpler than mounting Vite inside Fastify. Measured edit→preview ~80–100 ms |
 | 2026-10-16 | 2.5 | Error boundaries reset only when the overlay **module** changes (StageHost keys instances by module identity). Compile errors show Vite's message, not "Failed to fetch" | An earlier reset-on-children loop blanked the page on a runtime error (found and fixed) |
 | 2026-10-16 | 2.5 | Deferred: running overlays in a sandboxed iframe | The agent that writes overlays already runs locally with file and shell access, so an iframe adds little security now. It also complicates the shared singletons. Revisit in 8.x |
+| 2026-10-16 | 2.6 | `TimelineStore` in the engine: per-project serialized ops, validated patches, atomic saves, versioned `timeline.changed` broadcasts, and server-side undo/redo where consecutive patches with the same `group` (a drag, an agent run) form one entry. Windows use `useTimeline` (optimistic apply; skip broadcasts while their own patch is in flight; the reply is authoritative; gaps reload) instead of zustand | One shared history for every window and the agent. A tiny hook was enough for the sync, so no new store library |
+| 2026-10-16 | 2.6 | Rust `open_studio_window(label, route)` opens extra Studio windows (`studio-*` capability) | To test multi-window sync, and later to pop out panels |

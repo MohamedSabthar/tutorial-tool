@@ -18,6 +18,7 @@ import { VideoPlanePage } from './pages/VideoPlanePage';
 import { SdkPage } from './pages/SdkPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { HotReloadPage } from './pages/HotReloadPage';
+import { TimelineSyncPage } from './pages/TimelineSyncPage';
 import '@studio/ui/styles.css';
 import './styles.css';
 import { registerSharedModules } from './studio/shared';
@@ -40,6 +41,7 @@ const routes: DevRoute[] = [
   { path: '/sdk', step: '2.3', label: 'Overlay SDK', render: () => <SdkPage /> },
   { path: '/gallery', step: '2.4', label: 'Core overlays', render: () => <GalleryPage /> },
   { path: '/hot', step: '2.5', label: 'Overlay hot-loading', render: () => <HotReloadPage /> },
+  { path: '/timeline-sync', step: '2.6', label: 'Timeline sync & undo', render: () => <TimelineSyncPage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');

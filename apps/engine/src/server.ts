@@ -22,6 +22,7 @@ import { Workspace } from './workspace';
 import { runProjectScript } from './recording';
 import { startOverlayServer, type OverlayServer } from './overlayServer';
 import { HELLO_OVERLAY } from './overlayTemplates';
+import { TimelineStore, type Author } from './timeline';
 import { execFile } from 'node:child_process';
 import { access, mkdir as mkdirp, writeFile as writeFileP } from 'node:fs/promises';
 import { launchCheck, probe, runSample } from '@studio/recorder/node';
@@ -58,6 +59,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
   let recorderBusy = false;
+  const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
   let recorderAbort: AbortController | null = null;
   let overlayServer: Promise<OverlayServer> | null = null;
   let overlayVersion = 0;
@@ -128,6 +130,21 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   }
 
   const handlers: Handlers = {
+    'timeline.get': async ({ slug }: { slug: string }) => timelines.get(slug),
+    'timeline.patch': async (p: {
+      slug: string;
+      patch: unknown;
+      author: Author;
+      group: string | null;
+      label?: string;
+    }) =>
+      timelines.patch(p.slug, p.patch, {
+        author: p.author,
+        group: p.group,
+        ...(p.label ? { label: p.label } : {}),
+      }),
+    'timeline.undo': async ({ slug }: { slug: string }) => timelines.undo(slug),
+    'timeline.redo': async ({ slug }: { slug: string }) => timelines.redo(slug),
     'overlays.info': async () => ({ url: (await overlays()).url }),
     'overlays.list': async ({ slug }: { slug?: string }) => (await overlays()).list(slug),
     'overlays.writeSample': async ({ slug }: { slug: string }) => {
@@ -210,7 +227,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             start: s.t,
             end: r.events.find((e) => e.kind === 'step-end' && e.stepId === s.stepId)?.t ?? null,
           }));
-        if (r.take) broadcast('project.changed', { slug });
+        if (r.take) {
+          timelines.invalidate(slug);
+          broadcast('project.changed', { slug });
+        }
         return {
           passed: r.passed,
           slug,
