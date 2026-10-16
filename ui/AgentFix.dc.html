@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agent fix review — WSO2 Tutorial Studio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#2F5A80}a:hover{color:#13213B}
+button,input,textarea,select{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; background: #FFFFFF; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #252525; display: flex; flex-direction: column">
+  <span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)"></span>
+
+  <header style="min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px 8px 22px; border-bottom: 1px solid #D7D7D7">
+    <div aria-hidden="true" style="display: flex; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #FF5F57"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #FEBC2E"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #28C840"></span></div>
+    <img src="/_blob/c76d22c4f2ee1f646b95e3ef749389bc" alt="WSO2" width="22" height="22" style="display: block; width: 22px; height: 22px; margin-left: 6px">
+    <nav aria-label="Main" style="display: flex; gap: 4px">
+      <a href="NewTutorial.dc.html" aria-label="Projects" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></a>
+      <a href="Main.dc.html" aria-label="Studio" aria-current="page" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #FFE6D9; color: #D94A00"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4.5-2.5z"></path></svg></a>
+      <a href="#library" aria-label="Library" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg></a>
+      <a href="#settings" aria-label="Settings" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg></a>
+    </nav>
+    <div style="flex: 1 1 40px; display: flex; justify-content: center">
+      <div style="display: flex; align-items: center; gap: 10px; background: #FFE6D9; border: 1px solid #FF5800; border-radius: 999px; padding: 6px 14px; font-size: 12px; color: #B84300; font-weight: 600">Run #8 finished · review the changes</div>
+    </div>
+    <a href="Main.dc.html" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid #D7D7D7; color: #13213B; font-weight: 600; text-decoration: none; display: flex; align-items: center">Back to Studio</a>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 12px 12px 18px; background: #F3F3F3">
+    <!-- Annotations -->
+    <aside style="flex: 1 1 270px; max-width: 300px; min-width: 250px; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <span style="font-size: 15px; font-weight: 700; color: #13213B">Annotations</span>
+        <div role="group" aria-label="Filter" style="display: flex; background: #F3F3F3; border: 1px solid #D7D7D7; border-radius: 9px; padding: 2px">
+          <button type="button" style="height: 26px; padding: 0 10px; border-radius: 7px; border: 0; background: #13213B; color: #FFFFFF; font-size: 12px; font-weight: 600">All</button>
+          <button type="button" style="height: 26px; padding: 0 10px; border-radius: 7px; border: 0; background: transparent; color: #555555; font-size: 12px">Open</button>
+        </div>
+      </div>
+      <sc-for list="{{notes}}" as="n" hint-placeholder-count="3">
+        <div style="{{n.card}}">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span style="width: 20px; height: 20px; border-radius: 50% 50% 50% 4px; background: {{n.pin}}; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; display: grid; place-items: center">{{n.id}}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555">{{n.at}}</span>
+          </div>
+          <span style="line-height: 1.4; color: #252525">{{n.text}}</span>
+          <span style="{{n.chip}}">{{n.status}}</span>
+        </div>
+      </sc-for>
+    </aside>
+
+    <!-- Before / after + diff -->
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+          <figure style="margin: 0; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px">
+            <figcaption style="display: flex; justify-content: space-between; font-size: 12px"><b style="color: #13213B">{{v.label}}</b><span style="font-family: 'JetBrains Mono', monospace; color: #555555">@ 0:52.40</span></figcaption>
+            <div style="position: relative; aspect-ratio: 16 / 9; background: #1E1E1E; border-radius: 8px; overflow: hidden">
+              <div style="position: absolute; left: 0; right: 0; top: 0; height: 6%; background: #2D2D30"></div>
+              <div style="position: absolute; left: 0; top: 6%; bottom: 5%; width: 22%; background: #252526"></div>
+              <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 5%; background: #007ACC"></div>
+              <span style="position: absolute; left: 28%; top: 16%; width: 30%; height: 5%; background: #E7E7E7; opacity: 0.8; border-radius: 2px"></span>
+              <span style="position: absolute; left: 28%; top: 30%; width: 40%; height: 8%; border: 1px solid #3C3C3C; background: #313131"></span>
+              <span style="position: absolute; left: 28%; top: 45%; width: 40%; height: 8%; border: 1px solid #3C3C3C; background: #313131"></span>
+              <span style="position: absolute; left: 28%; top: 60%; width: 12%; height: 8%; background: #0E639C; border-radius: 2px"></span>
+              <sc-if value="{{v.after}}" hint-placeholder-val="{{ false }}">
+                <span style="position: absolute; left: 42%; top: 61%; width: 14%; height: 3px; background: #FF5800; border-radius: 2px"></span>
+                <span style="position: absolute; left: 41%; top: calc(61% - 5px); width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 10px solid #FF5800"></span>
+                <span style="position: absolute; left: 57%; top: 57%; font-size: 10px; font-weight: 700; color: #13213B; background: #FFFFFF; border-radius: 6px; padding: 3px 7px">Click Create</span>
+              </sc-if>
+            </div>
+          </figure>
+        </sc-for>
+      </div>
+
+      <section aria-label="Diff" style="background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; overflow: hidden; flex: 1 1 auto">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #F0F0F0">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #13213B; font-weight: 500">project/overlays/PointerArrow.tsx</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1E6B47">+7</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #C0292A">−1</span>
+          <div style="flex: 1 1 10px"></div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555">run #7 → #8 · also: tutorial.json (+1 overlay), narration step 4</span>
+        </div>
+        <pre style="margin: 0; padding: 10px 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; overflow-x: auto"><sc-for list="{{diff}}" as="d" hint-placeholder-count="10"><span style="{{d.style}}">{{d.text}}</span>
+</sc-for></pre>
+      </section>
+    </main>
+
+    <!-- Summary -->
+    <aside style="flex: 1 1 280px; max-width: 320px; min-width: 260px; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: 15px; font-weight: 700; color: #13213B">Agent summary</span>
+      <p style="margin: 0; line-height: 1.55; color: #252525">The library had no arrow that fits, so I wrote <b>PointerArrow</b> (GSAP, anchored to the Create button in step 4). It slides in on the word “Create” and fades out after the click. I also changed the step 4 narration to “Click Create” and regenerated that line of the voice-over.</p>
+      <div style="background: #F3F3F3; border-radius: 10px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7; color: #252525">
+        <span style="color: #1E6B47">✓</span> check_overlay: types, lint<br>
+        <span style="color: #1E6B47">✓</span> determinism: 6 frames identical<br>
+        <span style="color: #1E6B47">✓</span> anchor resolves in take 2<br>
+        <span style="color: #555555">· voice-over step 4 · 1.2 s</span><br>
+        <span style="color: #555555">· $0.21 · 48 s</span>
+      </div>
+      <label for="follow" style="font-size: 12px; color: #555555">Follow-up</label>
+      <textarea id="follow" rows="3" placeholder="e.g. make it bounce once on arrival" style="border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #252525; padding: 10px; font-size: 13px; line-height: 1.45; resize: vertical"></textarea>
+      <a href="Main.dc.html" style="height: 40px; border-radius: 9px; background: #FF5800; color: #FFFFFF; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Accept changes</a>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="flex: 1 1 0; height: 36px; border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #13213B; font-weight: 600; cursor: pointer">Reopen</button>
+        <button type="button" style="flex: 1 1 0; height: 36px; border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #C0292A; font-weight: 600; cursor: pointer">Revert run</button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = {
+      review: ['Fixed in run #8 · review', '#FFE6D9', '#B84300', '#4F7AA3'],
+      accepted: ['Accepted · run #5', '#E3F4EC', '#1E6B47', '#8A8A8A'],
+      open: ['Open', '#E4EEF6', '#2F5A80', '#4F7AA3']
+    };
+    const notes = [
+      { id: '2', at: '0:52.40 · step 4', text: 'Arrow pointing at Create, then say “click Create”', s: 'review', sel: true },
+      { id: '1', at: '0:41.20 · step 3', text: 'Callout explaining the base path', s: 'accepted' },
+      { id: '3', at: '1:31.00 · step 5', text: 'Hold on the resource form for a second', s: 'open' }
+    ].map((n) => ({
+      ...n,
+      status: st[n.s][0],
+      pin: st[n.s][3],
+      chip: 'align-self: flex-start; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: ' + st[n.s][1] + '; color: ' + st[n.s][2] + ';',
+      card: 'display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; ' + (n.sel ? 'border: 1.5px solid #FF5800; background: #FFFFFF;' : 'border: 1px solid #F0F0F0; background: #F3F3F3;')
+    }));
+    const views = [{ label: 'Before · run #7', after: false }, { label: 'After · run #8', after: true }];
+    const lines = [
+      [' ', "import { useAnchor, useGsap, theme } from '@studio/overlay-sdk';"],
+      [' ', ''],
+      [' ', 'export default function PointerArrow({ props, duration }) {'],
+      [' ', '  const a = useAnchor();'],
+      ['-', '  return null;'],
+      ['+', '  const ref = useRef(null);'],
+      ['+', '  useGsap((tl, { wordAt }) => {'],
+      ['+', "    tl.from(ref.current, { x: 40, autoAlpha: 0, ease: theme.ease.out, duration: 0.24 }, wordAt('Create'))"],
+      ['+', '      .to(ref.current, { autoAlpha: 0, duration: 0.2 }, duration - 0.2);'],
+      ['+', '  }, [props]);'],
+      ['+', '  return <DomLayer><Arrow ref={ref} at={a.right + 8} y={a.midY} label={props.label} /></DomLayer>;'],
+      ['+', ''],
+      [' ', '}']
+    ];
+    const diff = lines.map(([k, t]) => ({
+      text: k + ' ' + t,
+      style: 'display: block; padding: 0 16px; white-space: pre; ' + (k === '+' ? 'background: #E3F4EC; color: #14532D;' : k === '-' ? 'background: #FDE7E7; color: #8B1C1C;' : 'color: #252525;')
+    }));
+    return { notes, views, diff };
+  }
+}
+</script>
+</body>
+</html>

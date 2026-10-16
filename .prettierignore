@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+ui/
+docs/
+apps/desktop/src-tauri/

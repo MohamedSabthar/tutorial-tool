@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Storyboard — WSO2 Tutorial Studio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#2F5A80}a:hover{color:#13213B}
+button,input,textarea,select{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; background: #FFFFFF; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #252525; display: flex; flex-direction: column">
+  <span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)"></span>
+
+  <header style="min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px 8px 22px; border-bottom: 1px solid #D7D7D7">
+    <div aria-hidden="true" style="display: flex; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #FF5F57"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #FEBC2E"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #28C840"></span></div>
+    <img src="/_blob/c76d22c4f2ee1f646b95e3ef749389bc" alt="WSO2" width="22" height="22" style="display: block; width: 22px; height: 22px; margin-left: 6px">
+    <nav aria-label="Main" style="display: flex; gap: 4px">
+      <a href="NewTutorial.dc.html" aria-label="Projects" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></a>
+      <a href="Main.dc.html" aria-label="Studio" aria-current="page" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #FFE6D9; color: #D94A00"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4.5-2.5z"></path></svg></a>
+      <a href="#library" aria-label="Library" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg></a>
+      <a href="#settings" aria-label="Settings" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg></a>
+    </nav>
+    <div style="flex: 1 1 40px; display: flex; justify-content: center">
+      <div style="display: flex; align-items: center; gap: 10px; background: #F3F3F3; border: 1px solid #D7D7D7; border-radius: 999px; padding: 6px 14px; font-size: 12px; color: #555555"><span style="color: #13213B; font-weight: 600">Create an HTTP service</span><span>|</span><span style="font-family: 'JetBrains Mono', monospace">run #3</span><span>|</span><span style="color: #2F5A80; font-weight: 600">Waiting for your review</span></div>
+    </div>
+  </header>
+
+  <!-- Gate banner -->
+  <div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 22px; background: #E4EEF6; border-bottom: 1px solid #A9C6DD">
+    <span style="width: 22px; height: 22px; border-radius: 50%; background: #2F5A80; color: #FFFFFF; display: grid; place-items: center; font-size: 11px">◆</span>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-weight: 700; color: #13213B">Storyboard gate: the agent is paused for your review</span>
+      <span style="font-size: 12px; color: #2F5A80">6 recorded steps and 1 explainer. Edit narration in place, or ask for changes. Recording starts after you approve.</span>
+    </div>
+    <div style="flex: 1 1 20px"></div>
+    <button type="button" style="height: 38px; padding: 0 14px; border-radius: 9px; border: 1px solid #A9C6DD; background: #FFFFFF; color: #13213B; font-weight: 600; cursor: pointer">Re-plan</button>
+    <a href="Live.dc.html" style="height: 38px; padding: 0 18px; border-radius: 9px; background: #FF5800; color: #FFFFFF; font-weight: 700; text-decoration: none; display: flex; align-items: center">Approve and record →</a>
+  </div>
+
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 22px 24px 28px; background: #F3F3F3">
+    <!-- Scene cards -->
+    <main style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+      <sc-for list="{{cards}}" as="c" hint-placeholder-count="5">
+        <article style="{{c.card}}">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+            <span style="{{c.badge}}">{{c.n}}</span>
+            <span style="font-size: 15px; font-weight: 700; color: #13213B">{{c.title}}</span>
+            <span style="{{c.kindChip}}">{{c.kind}}</span>
+            <div style="flex: 1 1 10px"></div>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555; background: #F3F3F3; border-radius: 999px; padding: 3px 8px">{{c.dur}}</span>
+          </div>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #555555">Narration
+            <textarea rows="2" style="border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #252525; padding: 10px; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; line-height: 1.45; resize: vertical">{{c.narration}}</textarea>
+          </label>
+          <sc-if value="{{c.isExplainer}}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+              <sc-for list="{{beats}}" as="b" hint-placeholder-count="4">
+                <figure style="margin: 0; display: flex; flex-direction: column; gap: 6px">
+                  <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: radial-gradient(125% 95% at 50% 0%, #2B3E5E 0%, #18283F 40%, #0B1424 100%)">
+                    <span style="position: absolute; left: 8%; top: 40%; width: 18%; height: 22%; border-radius: 4px; border: 1.5px solid {{b.c1}}"></span>
+                    <span style="position: absolute; left: 41%; top: 40%; width: 18%; height: 22%; border-radius: 4px; border: 1.5px solid {{b.c2}}"></span>
+                    <span style="position: absolute; left: 74%; top: 40%; width: 18%; height: 22%; border-radius: 4px; border: 1.5px solid {{b.c3}}"></span>
+                    <span style="position: absolute; left: 26%; top: 50%; width: 15%; height: 2px; background: {{b.w1}}"></span>
+                    <span style="position: absolute; left: 59%; top: 50%; width: 15%; height: 2px; background: {{b.w2}}"></span>
+                    <span style="position: absolute; left: {{b.dot}}; top: calc(50% - 4px); width: 9px; height: 9px; border-radius: 50%; background: #FF5800"></span>
+                  </div>
+                  <figcaption style="font-size: 11px; color: #555555; line-height: 1.35"><b style="color: #13213B; font-weight: 600">{{b.title}}</b> · {{b.cue}}</figcaption>
+                </figure>
+              </sc-for>
+            </div>
+          </sc-if>
+          <span style="font-size: 12px; color: #555555"><b style="color: #13213B; font-weight: 600">{{c.visualLabel}}</b> {{c.visual}}</span>
+        </article>
+      </sc-for>
+    </main>
+
+    <!-- Side -->
+    <aside style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 16px">
+      <section style="background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 15px; font-weight: 700; color: #13213B">Timing</span>
+        <span style="font-size: 44px; font-weight: 700; letter-spacing: -0.02em; color: #FF3900; line-height: 1">2:41</span>
+        <span style="font-size: 12px; color: #555555">Target: 2–3 min · narration ≈ 150 wpm</span>
+        <div style="display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px">
+          <sc-for list="{{timing}}" as="t" hint-placeholder-count="7">
+            <span title="{{t.label}}" style="flex: {{t.flex}} 1 0; background: {{t.color}}"></span>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 14px; font-size: 11px; color: #555555">
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #7BA4C7"></span>Recorded steps</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #FF5800"></span>Explainer</span>
+        </div>
+      </section>
+      <section style="background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 15px; font-weight: 700; color: #13213B">Ask for changes</span>
+        <label for="chg" style="font-size: 12px; color: #555555">The agent revises the storyboard before anything is recorded.</label>
+        <textarea id="chg" rows="4" style="border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #252525; padding: 10px; font-size: 13px; line-height: 1.45; resize: vertical">Add a short recap explainer at the end comparing GET and POST resources.</textarea>
+        <button type="button" style="height: 38px; border-radius: 9px; border: 1px solid #13213B; background: #FFFFFF; color: #13213B; font-weight: 600; cursor: pointer">Revise with agent</button>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      { n: '1', title: 'Open the project', dur: '0:18', narration: 'Let’s build a simple HTTP service in WSO2 Integrator. Open your integration project.', visual: 'Explorer → greeting-service · zoom on the WSO2 Integrator panel' },
+      { n: '2', title: 'Add an HTTP entry point', dur: '0:18', narration: 'From the side panel, add an HTTP service as the entry point.', visual: 'Entry points → + → HTTP Service · ripple on click' },
+      { n: 'E', title: 'How a request reaches your service', dur: '0:30', explainer: true, narration: 'Before we configure it: a client sends a request to port 9090, the listener matches the base path, and your resource returns the response.', visual: 'RequestFlow (reused from the library) · FreezeMorph in from step 2, ZoomThrough out to step 3' },
+      { n: '3', title: 'Set the base path', dur: '0:24', narration: 'Set the base path to /greeting. This is where clients reach your service.', visual: 'Type /greeting · CodeCallout anchored to the input' },
+      { n: '4', title: 'Create the service', dur: '0:18', narration: 'Click Create.', visual: 'PointerArrow at Create' }
+    ];
+    const cards = raw.map((c) => {
+      const ex = !!c.explainer;
+      return {
+        ...c,
+        isExplainer: ex,
+        kind: ex ? 'Explainer' : 'Recorded step',
+        visualLabel: ex ? 'Scene:' : 'On screen:',
+        card: 'background: #FFFFFF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; ' + (ex ? 'border: 1.5px solid #FF5800; box-shadow: 0 8px 24px rgba(19,33,59,0.10);' : 'border: 1px solid #D7D7D7;'),
+        badge: 'width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-family: JetBrains Mono, monospace; font-weight: 600; ' + (ex ? 'background: #FF5800; color: #FFFFFF;' : 'background: #13213B; color: #FFFFFF;'),
+        kindChip: 'font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; ' + (ex ? 'background: #FFE6D9; color: #B84300;' : 'background: #E4EEF6; color: #2F5A80;')
+      };
+    });
+    const on = '#FFFFFF', off = 'rgba(255,255,255,0.25)', hot = '#FF5800';
+    const beats = [
+      { title: 'Client', cue: '“a client sends…”', c1: hot, c2: off, c3: off, w1: off, w2: off, dot: '14%' },
+      { title: 'Listener :9090', cue: '“…to port 9090”', c1: on, c2: hot, c3: off, w1: hot, w2: off, dot: '36%' },
+      { title: 'Match /greeting', cue: 'word: “matches”', c1: on, c2: on, c3: hot, w1: on, w2: hot, dot: '68%' },
+      { title: 'Response', cue: '“…returns the response”', c1: hot, c2: on, c3: on, w1: hot, w2: hot, dot: '30%' }
+    ];
+    const timing = [[18, '#7BA4C7', 'Step 1'], [18, '#7BA4C7', 'Step 2'], [30, '#FF5800', 'Explainer'], [24, '#7BA4C7', 'Step 3'], [18, '#7BA4C7', 'Step 4'], [30, '#7BA4C7', 'Step 5'], [23, '#7BA4C7', 'Step 6']].map(([flex, color, label]) => ({ flex, color, label }));
+    return { cards, beats, timing };
+  }
+}
+</script>
+</body>
+</html>

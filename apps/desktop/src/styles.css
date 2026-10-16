@@ -1,0 +1,29 @@
+/* Temporary base styles until packages/ui ships the design tokens (step 0.5). */
+:root {
+  --white: #ffffff;
+  --gray-50: #f3f3f3;
+  --gray-300: #d7d7d7;
+  --ink: #252525;
+  --gray-600: #555555;
+  --navy: #13213b;
+  --orange: #ff5800;
+  --green-bg: #e3f4ec;
+  --green: #1e6b47;
+  --red-bg: #fde7e7;
+  --red: #c0292a;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: var(--ink);
+  background: var(--white);
+}
+body {
+  margin: 0;
+}
+code,
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}

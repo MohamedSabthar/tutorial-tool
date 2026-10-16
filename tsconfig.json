@@ -1,0 +1,38 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/recorder"
+    },
+    {
+      "path": "packages/stage"
+    },
+    {
+      "path": "packages/overlay-sdk"
+    },
+    {
+      "path": "packages/overlays-core"
+    },
+    {
+      "path": "packages/scenes-core"
+    },
+    {
+      "path": "packages/tts"
+    },
+    {
+      "path": "packages/exporters"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "apps/engine"
+    },
+    {
+      "path": "apps/desktop"
+    }
+  ]
+}

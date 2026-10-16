@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Export — WSO2 Tutorial Studio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#2F5A80}a:hover{color:#13213B}
+button,input,textarea,select{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; background: #FFFFFF; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #252525; display: flex; flex-direction: column">
+  <span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)"></span>
+
+  <header style="min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px 8px 22px; border-bottom: 1px solid #D7D7D7">
+    <div aria-hidden="true" style="display: flex; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #FF5F57"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #FEBC2E"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #28C840"></span></div>
+    <img src="/_blob/c76d22c4f2ee1f646b95e3ef749389bc" alt="WSO2" width="22" height="22" style="display: block; width: 22px; height: 22px; margin-left: 6px">
+    <nav aria-label="Main" style="display: flex; gap: 4px">
+      <a href="NewTutorial.dc.html" aria-label="Projects" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></a>
+      <a href="Main.dc.html" aria-label="Studio" aria-current="page" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #FFE6D9; color: #D94A00"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4.5-2.5z"></path></svg></a>
+      <a href="#library" aria-label="Library" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg></a>
+      <a href="#settings" aria-label="Settings" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg></a>
+    </nav>
+    <div style="flex: 1 1 40px; display: flex; justify-content: center">
+      <div style="display: flex; align-items: center; gap: 10px; background: #F3F3F3; border: 1px solid #D7D7D7; border-radius: 999px; padding: 6px 14px; font-size: 12px; color: #555555"><span style="color: #13213B; font-weight: 600">Create an HTTP service</span><span>|</span><span>Exporting…</span></div>
+    </div>
+  </header>
+
+  <div style="flex: 1 1 auto; background: #F3F3F3; padding: 24px 24px 24px 30px">
+    <div style="max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px">
+      <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; color: #13213B">Export</h1>
+          <span aria-hidden="true" style="display: block; width: 48px; height: 2px; background: #FF5800"></span>
+        </div>
+
+        <figure style="margin: 0; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+          <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: radial-gradient(125% 95% at 50% 0%, #2B3E5E 0%, #18283F 40%, #0B1424 100%)">
+            <span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)"></span>
+            <span style="position: absolute; left: 6.5%; top: 9%; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: #FFFFFF">How a request reaches your service<span style="color: #FF5800">.</span></span>
+            <span style="position: absolute; left: 6.5%; top: 21%; width: 56px; height: 2px; background: #FF5800"></span>
+            <div style="position: absolute; left: 8%; top: 44%; width: 18%; height: 24%; border-radius: 12px; border: 2px solid #FFFFFF; color: #FFFFFF; display: grid; place-items: center; font-weight: 600; font-size: 14px">Client</div>
+            <div style="position: absolute; left: 41%; top: 44%; width: 18%; height: 24%; border-radius: 12px; border: 2px solid #FF5800; background: rgba(255,88,0,0.12); color: #FFFFFF; display: grid; place-items: center; font-weight: 600; font-size: 14px; text-align: center">Listener<br>:9090</div>
+            <div style="position: absolute; left: 74%; top: 44%; width: 18%; height: 24%; border-radius: 12px; border: 2px solid rgba(255,255,255,0.35); color: #D4E4EF; display: grid; place-items: center; font-weight: 600; font-size: 14px; font-family: 'JetBrains Mono', monospace">/greeting</div>
+            <span style="position: absolute; left: 26%; top: 56%; width: 15%; height: 2px; background: #FFFFFF"></span>
+            <span style="position: absolute; left: 59%; top: 56%; width: 15%; height: 2px; background: rgba(255,255,255,0.35)"></span>
+            <span style="position: absolute; left: 36%; top: calc(56% - 5px); width: 12px; height: 12px; border-radius: 50%; background: #FF5800; box-shadow: 0 0 0 6px rgba(255,88,0,0.25)"></span>
+            <img src="/_blob/00f77d8df1250af40937a5eb90ae0333" alt="WSO2" style="position: absolute; right: 4%; bottom: 6%; height: 22px; width: auto">
+            <span style="position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); background: rgba(12,21,38,0.86); color: #FFFFFF; padding: 6px 14px; border-radius: 8px; font-size: 14px">…the listener matches /greeting…</span>
+          </div>
+          <figcaption style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #555555"><span>Explainer · RequestFlow</span><span>frame 1,742 / 4,830</span></figcaption>
+        </figure>
+
+        <section style="background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap">
+            <span style="font-size: 40px; font-weight: 700; letter-spacing: -0.02em; color: #FF3900; line-height: 1">36%</span>
+            <span style="color: #555555">about 1 min 10 s left · GPU render running at 2.4× real time</span>
+          </div>
+          <div style="height: 8px; border-radius: 4px; background: #F0F0F0; overflow: hidden"><span style="display: block; width: 36%; height: 100%; background: #FF5800"></span></div>
+          <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px">
+            <sc-for list="{{substeps}}" as="s" hint-placeholder-count="6">
+              <li style="{{s.style}}">{{s.mark}} {{s.label}}</li>
+            </sc-for>
+          </ol>
+        </section>
+      </main>
+
+      <aside style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 16px">
+        <section style="background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+          <span style="font-size: 15px; font-weight: 700; color: #13213B">Settings</span>
+          <sc-for list="{{segments}}" as="g" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 12px; font-weight: 600; color: #13213B">{{g.label}}</span>
+              <div role="group" aria-label="{{g.label}}" style="display: flex; background: #F3F3F3; border: 1px solid #D7D7D7; border-radius: 10px; padding: 3px">
+                <sc-for list="{{g.options}}" as="o" hint-placeholder-count="3">
+                  <button type="button" style="{{o.style}}">{{o.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <fieldset style="border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px">
+            <legend style="font-size: 12px; font-weight: 600; color: #13213B; padding: 0; margin-bottom: 8px">Outputs</legend>
+            <sc-for list="{{outputs}}" as="o" hint-placeholder-count="4">
+              <label style="display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: 9px; border: 1px solid #D7D7D7">
+                <span style="display: flex; flex-direction: column"><span style="font-weight: 600; color: #13213B">{{o.name}}</span><span style="font-size: 11px; color: #555555">{{o.file}}</span></span>
+                <input type="checkbox" checked="checked" style="width: 18px; height: 18px; accent-color: #FF5800">
+              </label>
+            </sc-for>
+          </fieldset>
+          <div style="background: #F3F3F3; border-radius: 10px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7; color: #252525">
+            H.264 · h264_videotoolbox · 12 Mbps<br>AAC 48 kHz · VO −16 LUFS<br>2:41 · 4,830 frames · ≈ 240 MB<br>scenes: 2 recorded · 1 explainer
+          </div>
+        </section>
+        <div style="display: flex; gap: 10px">
+          <button type="button" style="flex: 1 1 0; height: 44px; border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #13213B; font-weight: 600; cursor: pointer">Cancel</button>
+          <button type="button" style="flex: 1 1 0; height: 44px; border-radius: 9px; border: 0; background: #FF5800; color: #FFFFFF; font-weight: 700; cursor: pointer">Reveal in Finder</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const subs = [['Voice-over mix', 'done'], ['Frames (GPU)', 'active'], ['Encode', 'todo'], ['Mux audio', 'todo'], ['Captions', 'todo'], ['Markdown doc', 'todo']];
+    const substeps = subs.map(([label, s]) => ({
+      label,
+      mark: s === 'done' ? '✓' : s === 'active' ? '●' : '○',
+      style: 'font-size: 12px; padding: 5px 10px; border-radius: 999px; ' +
+        (s === 'done' ? 'background: #E3F4EC; color: #1E6B47;' : s === 'active' ? 'background: #FFE6D9; color: #B84300; font-weight: 600;' : 'background: #F0F0F0; color: #555555;')
+    }));
+    const seg = (label, opts, active) => ({
+      label,
+      options: opts.map((o, i) => ({
+        label: o,
+        style: 'flex: 1 1 0; height: 30px; border-radius: 8px; border: 0; font-size: 12px; cursor: pointer; ' +
+          (i === active ? 'background: #13213B; color: #FFFFFF; font-weight: 600;' : 'background: transparent; color: #555555;')
+      }))
+    });
+    const segments = [seg('Resolution', ['720p', '1080p', '4K'], 1), seg('Frame rate', ['24', '30', '60'], 1)];
+    const outputs = [
+      { name: 'Video', file: 'tutorial.mp4 · overlays burned in' },
+      { name: 'Captions', file: 'captions.srt · captions.vtt' },
+      { name: 'Step-by-step doc', file: 'tutorial.md · 11 images' },
+      { name: 'Playwright script', file: 'script.spec.ts · re-record later' }
+    ];
+    return { substeps, segments, outputs };
+  }
+}
+</script>
+</body>
+</html>

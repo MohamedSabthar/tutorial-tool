@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live — WSO2 Tutorial Studio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#2F5A80}a:hover{color:#13213B}
+button,input,textarea,select{font-family:inherit}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; background: #FFFFFF; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #252525; display: flex; flex-direction: column">
+  <span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)"></span>
+
+  <header style="min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px 8px 22px; border-bottom: 1px solid #D7D7D7">
+    <div aria-hidden="true" style="display: flex; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #FF5F57"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #FEBC2E"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #28C840"></span></div>
+    <img src="/_blob/c76d22c4f2ee1f646b95e3ef749389bc" alt="WSO2" width="22" height="22" style="display: block; width: 22px; height: 22px; margin-left: 6px">
+    <nav aria-label="Main" style="display: flex; gap: 4px">
+      <a href="NewTutorial.dc.html" aria-label="Projects" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg></a>
+      <a href="Main.dc.html" aria-label="Studio" aria-current="page" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #FFE6D9; color: #D94A00"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9.5v5l4.5-2.5z"></path></svg></a>
+      <a href="#library" aria-label="Library" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg></a>
+      <a href="#settings" aria-label="Settings" style="width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: #555555"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg></a>
+    </nav>
+    <div style="flex: 1 1 40px; display: flex; justify-content: center">
+      <div style="display: flex; align-items: center; gap: 10px; background: #F3F3F3; border: 1px solid #D7D7D7; border-radius: 999px; padding: 6px 14px; font-size: 12px; color: #555555">
+        <span style="display: flex; align-items: center; gap: 6px; color: #C0292A; font-weight: 700"><span style="width: 8px; height: 8px; border-radius: 50%; background: #E5383B"></span>REC 0:41</span><span>|</span><span style="color: #13213B; font-weight: 600">Create an HTTP service</span><span>|</span><span style="font-family: 'JetBrains Mono', monospace">take 2</span>
+      </div>
+    </div>
+    <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #13213B; font-weight: 600; cursor: pointer">Pause agent</button>
+    <button type="button" style="height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid #E5383B; background: #FFFFFF; color: #C0292A; font-weight: 600; cursor: pointer">Stop take</button>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 12px 12px 18px; background: #F3F3F3">
+    <!-- Pipeline -->
+    <aside aria-label="Pipeline" style="flex: 1 1 260px; max-width: 290px; min-width: 240px; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 15px; font-weight: 700; color: #13213B; margin-bottom: 10px">Pipeline</span>
+      <sc-for list="{{stages}}" as="s" hint-placeholder-count="8">
+        <div style="{{s.row}}">
+          <span style="{{s.dot}}">{{s.mark}}</span>
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+            <span style="{{s.title}}">{{s.label}}</span>
+            <span style="font-size: 11px; color: #555555">{{s.sub}}</span>
+          </div>
+        </div>
+      </sc-for>
+      <div style="flex: 1 1 auto"></div>
+      <div style="border-top: 1px solid #F0F0F0; padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555">
+        <span>elapsed<br><b style="color: #13213B; font-weight: 500">12:04</b></span>
+        <span>cost<br><b style="color: #13213B; font-weight: 500">$0.92</b></span>
+        <span>session<br><b style="color: #13213B; font-weight: 500">a3f9</b></span>
+      </div>
+    </aside>
+
+    <!-- Live frame -->
+    <main style="flex: 999 1 520px; min-width: 0; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap">
+        <span style="font-size: 15px; font-weight: 700; color: #13213B">Live view</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555">VS Code 1.105 · isolated profile · CDP screencast 28 fps</span>
+      </div>
+      <div style="position: relative; width: 100%; aspect-ratio: 16 / 9; background: #1E1E1E; border-radius: 10px; overflow: hidden">
+        <div style="position: absolute; left: 0; right: 0; top: 0; height: 5%; background: #2D2D30; display: flex; align-items: center; justify-content: center; color: #9DA0A6; font-size: 11px">greeting-service — WSO2 Integrator</div>
+        <div style="position: absolute; left: 0; top: 5%; bottom: 4%; width: 3.6%; background: #333333"></div>
+        <div style="position: absolute; left: 3.6%; top: 5%; bottom: 4%; width: 18%; background: #252526; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 11px; color: #C5C5C5">
+          <span style="font-size: 10px; letter-spacing: 0.8px; color: #9DA0A6">WSO2 INTEGRATOR</span>
+          <span>▾ greeting-service</span>
+          <span style="padding-left: 12px">Entry points</span>
+          <span style="padding-left: 24px; background: #37373D; border-radius: 3px">HTTP Service</span>
+          <span style="padding-left: 12px">Connections</span>
+        </div>
+        <div style="position: absolute; left: 21.6%; right: 0; top: 5%; bottom: 4%; padding: 3% 4%; display: flex; flex-direction: column; gap: 14px">
+          <span style="font-size: 18px; font-weight: 600; color: #E7E7E7">Create HTTP Service</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; width: 55%">
+            <span style="font-size: 11px; color: #BDBDBD">Service base path</span>
+            <div style="height: 30px; border: 2px solid #3794FF; border-radius: 3px; background: #313131; color: #E7E7E7; font-family: 'JetBrains Mono', monospace; font-size: 12px; display: flex; align-items: center; padding: 0 8px">/greet</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; width: 55%">
+            <span style="font-size: 11px; color: #BDBDBD">Listener port</span>
+            <div style="height: 30px; border: 1px solid #3C3C3C; border-radius: 3px; background: #313131; color: #BDBDBD; font-family: 'JetBrains Mono', monospace; font-size: 12px; display: flex; align-items: center; padding: 0 8px">9090</div>
+          </div>
+        </div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 4%; background: #007ACC"></div>
+        <div style="position: absolute; left: 25.2%; top: 25.5%; width: 26%; height: 8.5%; border: 2px solid #FF5800; border-radius: 4px; background: rgba(255,88,0,0.08)"></div>
+        <span style="position: absolute; left: 25.2%; top: 20.5%; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #FFFFFF; background: #FF5800; padding: 2px 6px; border-radius: 4px">tut.type(basePath, "/greeting")</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span style="{{s.bar}}"></span>
+            <span style="font-size: 11px; color: {{s.color}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.n}} · {{s.title}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </main>
+
+    <!-- Agent console -->
+    <aside aria-label="Agent console" style="flex: 1 1 360px; max-width: 420px; min-width: 300px; background: #FFFFFF; border: 1px solid #D7D7D7; border-radius: 14px; display: flex; flex-direction: column; overflow: hidden">
+      <div style="padding: 14px 16px; border-bottom: 1px solid #F0F0F0; display: flex; align-items: center; justify-content: space-between; gap: 8px">
+        <span style="font-size: 15px; font-weight: 700; color: #13213B">Agent console</span>
+        <div role="group" aria-label="Console view" style="display: flex; background: #F3F3F3; border: 1px solid #D7D7D7; border-radius: 9px; padding: 2px">
+          <button type="button" style="height: 26px; padding: 0 10px; border-radius: 7px; border: 0; background: #13213B; color: #FFFFFF; font-size: 12px; font-weight: 600">Readable</button>
+          <button type="button" style="height: 26px; padding: 0 10px; border-radius: 7px; border: 0; background: transparent; color: #555555; font-size: 12px">Raw</button>
+        </div>
+      </div>
+      <ol style="list-style: none; margin: 0; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto">
+        <sc-for list="{{feed}}" as="f" hint-placeholder-count="8">
+          <li style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555; padding-top: 2px">{{f.t}}</span>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <span style="{{f.tagStyle}}">{{f.tag}}</span>
+              <span style="line-height: 1.45; color: #252525">{{f.text}}</span>
+            </div>
+          </li>
+        </sc-for>
+        <li style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555555">15:32:44</span>
+          <span style="color: #13213B; font-weight: 500">Typing the base path<span aria-hidden="true" style="display: inline-block; width: 8px; height: 14px; background: #FF5800; margin-left: 4px; vertical-align: -2px"></span></span>
+        </li>
+      </ol>
+      <div style="padding: 12px 16px 16px; border-top: 1px solid #F0F0F0; display: flex; gap: 8px">
+        <label for="steer" style="position: absolute; width: 1px; height: 1px; overflow: hidden">Steer the agent</label>
+        <input id="steer" type="text" placeholder="Steer: e.g. slow down the typing" style="flex: 1 1 auto; min-width: 0; height: 38px; border-radius: 9px; border: 1px solid #D7D7D7; background: #FFFFFF; color: #252525; padding: 0 10px">
+        <button type="button" style="height: 38px; padding: 0 14px; border-radius: 9px; border: 0; background: #FF5800; color: #FFFFFF; font-weight: 700; cursor: pointer">Send</button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const defs = [
+      ['Plan steps', '6 steps · 1 explainer proposed', 'done'],
+      ['Storyboard review', 'approved by you', 'gate'],
+      ['Write script', 'from skill page objects', 'done'],
+      ['Dry run', 'failed at step 5, then passed', 'done'],
+      ['Repair & update skill', 'http-service.md · v1.4.2', 'done'],
+      ['Record', 'take 2 · step 3 of 6', 'active'],
+      ['Voice-over & overlays', '', 'todo'],
+      ['Retrospective', 'save lessons to the knowledge base', 'todo']
+    ];
+    let n = 0;
+    const stages = defs.map(([label, sub, s]) => {
+      if (s !== 'gate') n++;
+      const gate = s === 'gate';
+      return {
+        label, sub,
+        mark: s === 'done' ? '✓' : gate ? '◆' : String(n),
+        row: 'display: flex; gap: 12px; align-items: flex-start; padding: 8px; border-radius: 10px;' + (s === 'active' ? ' background: #FFE6D9; border: 1px solid #FF5800;' : ' border: 1px solid transparent;'),
+        dot: 'flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; ' +
+          (s === 'done' ? 'background: #E3F4EC; color: #1E6B47;' : s === 'active' ? 'background: #FF5800; color: #FFFFFF;' : gate ? 'background: #E4EEF6; color: #2F5A80;' : 'background: #F0F0F0; color: #555555;'),
+        title: 'font-weight: 600; ' + (s === 'todo' ? 'color: #555555;' : 'color: #13213B;')
+      };
+    });
+
+    const stepNames = ['Open project', 'Add entry point', 'Set base path', 'Create service', 'GET resource', 'Try it'];
+    const steps = stepNames.map((title, i) => ({
+      n: i + 1, title,
+      color: i < 2 ? '#1E6B47' : i === 2 ? '#B84300' : '#555555',
+      bar: 'height: 5px; border-radius: 3px; background: ' + (i < 2 ? '#3FB27F' : i === 2 ? 'linear-gradient(90deg, #FF5800 60%, #F0F0F0 60%)' : '#F0F0F0') + ';'
+    }));
+
+    const tags = {
+      skill: ['Skill', '#E4EEF6', '#2F5A80'],
+      pw: ['Playwright', '#F0F0F0', '#252525'],
+      fail: ['Dry run failed', '#FDE7E7', '#C0292A'],
+      research: ['inspect_ui', '#FFE6D9', '#B84300'],
+      edit: ['Skill updated', '#E3F4EC', '#1E6B47'],
+      rec: ['Recording', '#FDE7E7', '#C0292A']
+    };
+    const feed = [
+      ['15:31:02', 'skill', 'Loaded wso2-integrator › http-service.md (verified v1.4.0).'],
+      ['15:31:09', 'pw', 'Wrote script.spec.ts from page objects. No research needed.'],
+      ['15:31:40', 'fail', 'Step 5: “Add Resource” not found. The extension is now v1.4.2.'],
+      ['15:31:44', 'research', 'The button moved into the “+” menu on the service card.'],
+      ['15:32:15', 'edit', 'Updated pages/http-service.ts and committed it to the workspace.'],
+      ['15:32:31', 'pw', 'Dry run passed, all 6 steps in 38 s.'],
+      ['15:32:40', 'rec', 'Take 2 started. Step 3: base path.']
+    ].map(([t, k, text]) => ({
+      t, text, tag: tags[k][0],
+      tagStyle: 'align-self: flex-start; font-family: JetBrains Mono, monospace; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 4px; background: ' + tags[k][1] + '; color: ' + tags[k][2] + ';'
+    }));
+
+    return { stages, steps, feed };
+  }
+}
+</script>
+</body>
+</html>
