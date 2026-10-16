@@ -120,4 +120,24 @@ describe('workspace upgrades', () => {
     expect(await readFile(path.join(dir, 'CLAUDE.md'), 'utf8')).toBe(edited);
     await rm(path.dirname(dir), { recursive: true, force: true });
   });
+
+  it("commits only the seed files it adds, never the agent's own edits", async () => {
+    const dir = path.join(await mkdtemp(path.join(os.tmpdir(), 'studio-sweep-')), 'ws');
+    const ws = new Workspace(dir);
+    await ws.init();
+    const skill = path.join(dir, '.claude/skills/wso2-integrator/pages/http-service.ts');
+    const { execFileSync } = await import('node:child_process');
+    // A skill the workspace lost (committed), so ensure() has a seed file to add back.
+    await rm(path.join(dir, '.claude/skills/vscode-platform'), { recursive: true });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'drop'], {
+      cwd: dir,
+    });
+    await writeFile(skill, (await readFile(skill, 'utf8')) + '// agent edit\n');
+    await ws.ensure();
+    const log = await ws.log(1);
+    expect(log[0]?.subject).toBe('workspace: add seed knowledge');
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' });
+    expect(status).toContain('.claude/skills/wso2-integrator/pages/http-service.ts');
+    await rm(path.dirname(dir), { recursive: true, force: true });
+  });
 });

@@ -62,7 +62,7 @@ export async function runProjectScript(
   if (result.take && takePath) {
     codec = (await probe(path.join(dir, takePath, 'video.mp4'))).codec;
     await registerTake(dir, result.take, takePath);
-    await workspace.commit(`take: ${slug}/${takeId}`);
+    await workspace.commit(`take: ${slug}/${takeId}`, [`projects/${slug}`]);
   }
   return { ...result, slug, takePath, codec };
 }

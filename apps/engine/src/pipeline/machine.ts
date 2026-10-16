@@ -13,6 +13,7 @@ import {
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
 import type { ProjectRunResult } from '../recording';
+import type { WorkspaceGit } from '../workspaceGit';
 import {
   nudge,
   planInstruction,
@@ -29,18 +30,28 @@ export interface PipelineDeps {
   stopRun(): void;
   onTake(slug: string): void;
   emit(state: PipelineState): void;
+  /** Knowledge commits after repairs (optional in tests). */
+  git?: WorkspaceGit;
+  onCommit?(): void;
 }
 
 type Decision = { kind: 'approve' } | { kind: 'revise'; feedback: string };
 
 class Stopped extends Error {}
 
+interface StageResult {
+  ok: boolean;
+  summary: string;
+  /** One line describing skill changes, used as the knowledge commit message. */
+  knowledge?: string;
+}
+
 interface Live {
   abort: AbortController;
   /** Resolves the waiting gate. */
   decide?: (d: Decision) => void;
   /** Resolves the agent stage the machine is waiting on. */
-  stageDone?: { stage: PipelineStage; resolve: (r: { ok: boolean; summary: string }) => void };
+  stageDone?: { stage: PipelineStage; resolve: (r: StageResult) => void };
 }
 
 const STAGE_STATUS: Partial<Record<PipelineStage, Project['status']>> = {
@@ -57,6 +68,8 @@ const STAGE_STATUS: Partial<Record<PipelineStage, Project['status']>> = {
 export class PipelineManager {
   private states = new Map<string, PipelineState>();
   private live = new Map<string, Live>();
+  /** Product version seen in each project's latest run, for knowledge commit messages. */
+  private versions = new Map<string, string>();
 
   constructor(private deps: PipelineDeps) {}
 
@@ -153,12 +166,12 @@ export class PipelineManager {
   }
 
   /** `stage_done` from the agent: returns the text the tool replies with. */
-  stageDone(slug: string, stage: PipelineStage, ok: boolean, summary: string): string {
+  stageDone(slug: string, stage: PipelineStage, ok: boolean, summary: string, knowledge?: string): string {
     const waiting = this.live.get(slug)?.stageDone;
     if (!waiting) return 'No pipeline stage is waiting for you right now; nothing to do.';
     if (waiting.stage !== stage)
       return `The pipeline is waiting for the "${waiting.stage}" stage, not "${stage}".`;
-    waiting.resolve({ ok, summary });
+    waiting.resolve({ ok, summary, ...(knowledge ? { knowledge } : {}) });
     return ok
       ? `Stage "${stage}" recorded. Finish your turn now; the pipeline continues with the next stage.`
       : `Stage "${stage}" marked as blocked; the user will be asked for help. Finish your turn now.`;
@@ -206,6 +219,37 @@ export class PipelineManager {
     await this.set(slug, { history });
   }
 
+  /** Appends to the summary of the last finished stage. */
+  private async annotate(slug: string, extra: string) {
+    const state = await this.get(slug);
+    const history = [...state.history];
+    const last = history.at(-1);
+    if (!last) return;
+    history[history.length - 1] = { ...last, summary: last.summary ? `${last.summary} · ${extra}` : extra };
+    await this.set(slug, { history });
+  }
+
+  /** Commits what the agent learned during a stage; reports the knowledge commits it made. */
+  private async commitKnowledge(slug: string, summary: string, before: string | null) {
+    const version = this.versions.get(slug) ?? null;
+    const git = this.deps.git;
+    if (!git) return;
+    try {
+      const own = await git.skillCommitsSince(before);
+      const leftover = await git.commitSkills(summary, version);
+      const commits = [...(leftover ? [leftover] : []), ...own];
+      if (commits.length) {
+        this.deps.onCommit?.();
+        await this.annotate(slug, commits.map((c) => `${c.hash} ${c.subject}`).join('; '));
+      }
+    } catch (e) {
+      await this.annotate(
+        slug,
+        `could not commit skill changes: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
   /** Waits for the user at a gate. */
   private async gate(slug: string, live: Live, gate: Gate): Promise<Decision> {
     if (live.abort.signal.aborted) throw new Stopped();
@@ -228,11 +272,11 @@ export class PipelineManager {
     live: Live,
     stage: PipelineStage,
     instruction: string,
-  ): Promise<{ ok: boolean; summary: string }> {
+  ): Promise<StageResult> {
     if (live.abort.signal.aborted) throw new Stopped();
     const session = this.deps.agents.get(slug);
     return new Promise((resolve, reject) => {
-      let result: { ok: boolean; summary: string } | null = null;
+      let result: StageResult | null = null;
       let nudged = false;
       const finish = (fn: () => void) => {
         off();
@@ -265,8 +309,10 @@ export class PipelineManager {
     let text = instruction;
     for (;;) {
       await this.begin(slug, stage);
+      const before = (await this.deps.git?.head()) ?? null;
       const r = await this.agentStage(slug, live, stage, text);
       await this.end(slug, r.ok, r.summary);
+      await this.commitKnowledge(slug, r.knowledge ?? r.summary, before);
       if (r.ok) return r;
       const d = await this.gate(slug, live, {
         stage,
@@ -359,6 +405,11 @@ export class PipelineManager {
           await this.begin(slug, stage);
           const r = await this.engineRun(slug, mode);
           if (live.abort.signal.aborted) throw new Stopped();
+          if (!('error' in r)) {
+            const start = r.events.find((e) => e.kind === 'marker' && e.name === 'start');
+            const v = start?.kind === 'marker' ? start.data?.version : undefined;
+            if (typeof v === 'string') this.versions.set(slug, v);
+          }
           if ('error' in r) failure = { mode, stepId: null, error: r.error };
           else if (!r.passed)
             failure = {

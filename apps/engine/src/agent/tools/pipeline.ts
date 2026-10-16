@@ -34,9 +34,16 @@ export function pipelineTools(ctx: ToolContext) {
         stage: PipelineStage,
         summary: z.string().max(1000),
         ok: z.boolean().default(true),
+        knowledge: z
+          .string()
+          .max(200)
+          .optional()
+          .describe(
+            'If you changed a skill, one line saying what you learned (e.g. "http-service: Resource Path field renamed"). The pipeline commits skill changes with it.',
+          ),
       },
-      async ({ stage, summary, ok }) => ({
-        content: [{ type: 'text', text: ctx.pipeline.stageDone(ctx.slug, stage, ok, summary) }],
+      async ({ stage, summary, ok, knowledge }) => ({
+        content: [{ type: 'text', text: ctx.pipeline.stageDone(ctx.slug, stage, ok, summary, knowledge) }],
       }),
     ),
   ];

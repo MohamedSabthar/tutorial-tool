@@ -86,9 +86,42 @@ describe('PipelineManager', () => {
   };
   const last = () => states.at(-1)!;
 
+  it("commits skill changes after an agent stage with the agent's knowledge line", async () => {
+    const commits: string[] = [];
+    let dirty = false;
+    const git = {
+      head: async () => 'h0',
+      skillCommitsSince: async () => [],
+      commitSkills: async (summary: string, version: string | null) => {
+        if (!dirty) return null;
+        dirty = false;
+        commits.push(`${summary} [${version}]`);
+        return { hash: 'abc1234', subject: `skills(wso2-integrator): ${summary}` };
+      },
+    };
+    const { p } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') {
+          dirty = true;
+          p.stageDone(slug, 'script', true, 'Script written', 'http-service: Resource Path renamed');
+        } else if (stage === 'post-production') done(p, 'post');
+      },
+      [true, true],
+      git,
+    );
+    await p.start(slug, { storyboard: false });
+    await until(() => last().status === 'done');
+    expect(commits).toEqual(['http-service: Resource Path renamed [null]']);
+    expect(last().history.find((h) => h.stage === 'script')?.summary).toContain('abc1234');
+  });
+
   function make(
     react: (p: PipelineManager, stage: string, text: string) => Promise<void> | void,
     runs: boolean[],
+    git?: unknown,
   ) {
     const queue = [...runs];
     const modes: string[] = [];
@@ -104,6 +137,7 @@ describe('PipelineManager', () => {
       stopRun: () => {},
       onTake: () => {},
       emit: (s) => states.push(s),
+      ...(git ? { git: git as never } : {}),
     }));
     return { p, sent, modes };
   }

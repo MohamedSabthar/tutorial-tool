@@ -81,52 +81,71 @@ export class Workspace {
       await this.init();
       return;
     }
-    await this.copySeed();
-    await this.ensureIgnored();
-    await this.upgradeClaudeMd();
-    await this.commit('workspace: add seed knowledge');
+    // Commit only what this added: anything else in the workspace (the agent's own skill
+    // edits, scripts) is committed by whoever made it, with its own message.
+    const added = await this.copySeed();
+    if (await this.ensureIgnored()) added.push('.gitignore');
+    if (await this.upgradeClaudeMd()) added.push('CLAUDE.md');
+    if (added.length) await this.commit('workspace: add seed knowledge', added);
   }
 
   /**
    * Replaces a workspace CLAUDE.md still identical in substance to an older template (no lessons
    * or gotchas added, no skills map yet). Anything the agent or the user wrote is kept.
    */
-  private async upgradeClaudeMd(): Promise<void> {
+  private async upgradeClaudeMd(): Promise<boolean> {
     const file = path.join(this.root, 'CLAUDE.md');
     const text = await readFile(file, 'utf8').catch(() => null);
-    if (!text || text.includes('skill-maintenance')) return;
+    if (!text || text.includes('skill-maintenance')) return false;
     const after = (heading: string) =>
       text
         .split(heading)[1]
         ?.split('\n## ')[0]
         ?.replace(/<!--[\s\S]*?-->/g, '')
         .trim();
-    if (after('## Learned lessons') || after('## Gotchas')) return;
-    if (!text.startsWith('# Tutorial Studio workspace')) return;
+    if (after('## Learned lessons') || after('## Gotchas')) return false;
+    if (!text.startsWith('# Tutorial Studio workspace')) return false;
     await writeFile(file, WORKSPACE_CLAUDE_MD);
+    return true;
   }
 
   /** Adds ignore rules introduced after this workspace was created. */
-  private async ensureIgnored(): Promise<void> {
+  private async ensureIgnored(): Promise<boolean> {
     const file = path.join(this.root, '.gitignore');
     const text = await readFile(file, 'utf8').catch(() => '');
     const have = new Set(text.split('\n').map((l) => l.trim()));
     const missing = WORKSPACE_GITIGNORE.split('\n').filter((l) => l && !l.startsWith('#') && !have.has(l));
-    if (missing.length) await writeFile(file, `${text.replace(/\n?$/, '\n')}${missing.join('\n')}\n`);
+    if (!missing.length) return false;
+    await writeFile(file, `${text.replace(/\n?$/, '\n')}${missing.join('\n')}\n`);
+    return true;
   }
 
-  /** Copies seed files without overwriting anything (agent-updated skills win). */
-  private async copySeed(): Promise<void> {
-    if (!(await exists(SEED_DIR))) return;
-    await cp(SEED_DIR, this.root, { recursive: true, force: false, errorOnExist: false });
+  /** Copies seed files without overwriting anything (agent-updated skills win). Returns the added paths. */
+  private async copySeed(): Promise<string[]> {
+    if (!(await exists(SEED_DIR))) return [];
+    const added: string[] = [];
+    const walk = async (rel: string): Promise<void> => {
+      for (const e of await readdir(path.join(SEED_DIR, rel), { withFileTypes: true })) {
+        const child = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) await walk(child);
+        else if (!(await exists(path.join(this.root, child)))) {
+          await mkdir(path.dirname(path.join(this.root, child)), { recursive: true });
+          await cp(path.join(SEED_DIR, child), path.join(this.root, child));
+          added.push(child);
+        }
+      }
+    };
+    await walk('');
+    return added;
   }
 
-  /** Stages everything and commits if anything changed. Returns the new short hash, or null. */
-  async commit(message: string): Promise<string | null> {
-    await this.git(['add', '-A']);
-    const staged = await this.git(['diff', '--cached', '--name-only']);
+  /** Stages everything (or only `paths`) and commits if anything changed. Returns the new short hash, or null. */
+  async commit(message: string, paths?: string[]): Promise<string | null> {
+    const spec = paths?.length ? ['--', ...paths] : [];
+    await this.git(['add', '-A', ...spec]);
+    const staged = await this.git(['diff', '--cached', '--name-only', ...spec]);
     if (!staged.trim()) return null;
-    await this.git([...(await this.identity()), 'commit', '-q', '-m', message]);
+    await this.git([...(await this.identity()), 'commit', '-q', '-m', message, ...spec]);
     return this.git(['rev-parse', '--short', 'HEAD']);
   }
 

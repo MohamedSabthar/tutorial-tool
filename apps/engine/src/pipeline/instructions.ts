@@ -6,7 +6,7 @@ import type { Plan } from '@studio/core';
  */
 
 const done = (stage: string) =>
-  `When you have finished, call the studio tool stage_done with {"stage": "${stage}", "summary": "<one or two sentences>"}. If you cannot finish, call it with "ok": false and say what is blocking you.`;
+  `When you have finished, call the studio tool stage_done with {"stage": "${stage}", "summary": "<one or two sentences>"}. If you changed a skill, add "knowledge": "<one line: what you learned>" and don't commit it yourself: the pipeline commits skill changes after each stage. If you cannot finish, call it with "ok": false and say what is blocking you.`;
 
 export function planInstruction(): string {
   return [

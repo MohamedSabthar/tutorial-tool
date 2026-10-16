@@ -29,6 +29,7 @@ import { AgentManager } from './agent/session';
 import { studioServer } from './agent/mcp';
 import { loadCatalog } from './agent/catalog';
 import { PipelineManager } from './pipeline/machine';
+import { WorkspaceGit } from './workspaceGit';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -112,6 +113,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       broadcast('project.changed', { slug });
     },
     emit: (s) => broadcast('pipeline.changed', s),
+    git: new WorkspaceGit(opts.workspace),
+    onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });
   const app = Fastify({ logger: opts.logger ?? false });
 
@@ -240,7 +243,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'project.create': async (p: { title: string; product: string }) => {
       await workspace.ensure();
       const project = await store.create(p);
-      const head = await workspace.commit(`project: create ${project.slug}`);
+      const head = await workspace.commit(`project: create ${project.slug}`, [`projects/${project.slug}`]);
       broadcast('project.changed', { slug: project.slug });
       broadcast('workspace.changed', { head });
       return project;
@@ -302,7 +305,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             r.failure ? `step ${r.failure.stepId} failed: ${r.failure.error}` : 'no take was recorded',
           );
         const info = await probe(path.join(takeDir, 'video.mp4'));
-        await workspace.commit(`take: ${slug}/${takeId}`);
+        await workspace.commit(`take: ${slug}/${takeId}`, [`projects/${slug}`]);
         return { slug, takePath, take: r.take, codec: info.codec, frames: info.frames, events: r.events };
       });
     },
