@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
+import { PipelineGates, PipelineState } from './pipeline';
 
 /**
  * The engine's WebSocket protocol.
@@ -189,6 +190,20 @@ export const rpcMethods = {
   },
   /** Ends the session and forgets its id, so the next message starts a fresh conversation. */
   'agent.reset': { params: z.object({ slug: z.string() }), result: AgentStatus },
+  'pipeline.get': { params: z.object({ slug: z.string() }), result: PipelineState },
+  /** Starts (or restarts) the pipeline from the brief in the project's CLAUDE.md. */
+  'pipeline.start': {
+    params: z.object({ slug: z.string(), gates: PipelineGates.partial().optional() }),
+    result: PipelineState,
+  },
+  /** Approves the waiting gate; the pipeline continues. */
+  'pipeline.approve': { params: z.object({ slug: z.string() }), result: PipelineState },
+  /** Sends feedback for the waiting gate; the agent revises and the gate opens again. */
+  'pipeline.revise': {
+    params: z.object({ slug: z.string(), feedback: z.string().min(1).max(4000) }),
+    result: PipelineState,
+  },
+  'pipeline.stop': { params: z.object({ slug: z.string() }), result: PipelineState },
   /** Answers a tool permission request raised by `canUseTool`. */
   'agent.permission': {
     params: z.object({
@@ -238,6 +253,7 @@ export const rpcEvents = {
   }),
   'agent.event': AgentEvent,
   'agent.state': AgentStatus,
+  'pipeline.changed': PipelineState,
   'live.session': z.object({
     state: z.enum(['started', 'stopped']),
     title: z.string(),

@@ -5,6 +5,7 @@ import { projectTools } from './tools/project';
 import { timelineTools } from './tools/timeline';
 import { runScriptTools } from './tools/runScript';
 import { inspectTools } from './tools/inspectUi';
+import { pipelineTools } from './tools/pipeline';
 
 /**
  * The in-process `studio` MCP server a project's session talks to. Its tools run in the
@@ -22,6 +23,7 @@ export function studioServer(ctx: ToolContext): Record<string, McpServerConfig> 
       ...frameTools(ctx),
       ...runScriptTools(ctx),
       ...inspectTools(ctx),
+      ...pipelineTools(ctx),
     ],
   });
   return { studio: server };

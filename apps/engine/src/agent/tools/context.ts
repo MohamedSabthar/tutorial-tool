@@ -3,6 +3,7 @@ import type { ProjectStore } from '../../projects';
 import type { TimelineStore } from '../../timeline';
 import type { Catalog } from '../catalog';
 import type { Runner } from '../../runner';
+import type { PipelineManager } from '../../pipeline/machine';
 
 /** What the studio tools of one project can reach. */
 export interface ToolContext {
@@ -11,6 +12,7 @@ export interface ToolContext {
   timelines: TimelineStore;
   catalog(): Promise<Catalog>;
   runner: Runner;
+  pipeline: Pick<PipelineManager, 'savePlan' | 'stageDone'>;
   /** Called after a run registered a new take (reload the timeline everywhere). */
   onTake(): void;
   /** Undo group of the agent's current turn: its patches undo as one step. */

@@ -28,6 +28,7 @@ import { TimelineStore, type Author } from './timeline';
 import { AgentManager } from './agent/session';
 import { studioServer } from './agent/mcp';
 import { loadCatalog } from './agent/catalog';
+import { PipelineManager } from './pipeline/machine';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -86,6 +87,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         store,
         timelines,
         runner,
+        pipeline,
         onTake: () => {
           timelines.invalidate(slug);
           broadcast('project.changed', { slug });
@@ -99,6 +101,17 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         .map((d) => d.name),
     emit: (e) => broadcast('agent.event', e),
     state: (s) => broadcast('agent.state', s),
+  });
+  const pipeline: PipelineManager = new PipelineManager({
+    store,
+    agents,
+    runProject: (slug, mode) => runner.runProject(slug, mode),
+    stopRun: () => runner.stop(),
+    onTake: (slug) => {
+      timelines.invalidate(slug);
+      broadcast('project.changed', { slug });
+    },
+    emit: (s) => broadcast('pipeline.changed', s),
   });
   const app = Fastify({ logger: opts.logger ?? false });
 
@@ -129,6 +142,18 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   registerMedia(app, store);
 
   const handlers: Handlers = {
+    'pipeline.get': async ({ slug }: { slug: string }) => {
+      await store.open(slug);
+      return pipeline.get(slug);
+    },
+    'pipeline.start': async ({ slug, gates }: { slug: string; gates?: { storyboard?: boolean } }) => {
+      await workspace.ensure();
+      return pipeline.start(slug, gates ?? {});
+    },
+    'pipeline.approve': async ({ slug }: { slug: string }) => pipeline.approve(slug),
+    'pipeline.revise': async ({ slug, feedback }: { slug: string; feedback: string }) =>
+      pipeline.revise(slug, feedback),
+    'pipeline.stop': async ({ slug }: { slug: string }) => pipeline.stop(slug),
     'agent.status': async ({ slug, history }: { slug: string; history: number }) => {
       await store.open(slug);
       return agents.get(slug).status(history);

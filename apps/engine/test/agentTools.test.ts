@@ -87,6 +87,7 @@ beforeAll(async () => {
     catalog: () => loadCatalog(server, project.slug),
     runId: () => run,
     runner: null as never,
+    pipeline: null as never,
     onTake: () => {},
   };
 }, 30000);

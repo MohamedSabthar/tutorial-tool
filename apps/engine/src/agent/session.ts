@@ -109,6 +109,7 @@ export class AgentSession {
   private permissions = new Map<string, (r: PermissionResult) => void>();
   private settings: AgentSettings;
   private run = 'agent-0';
+  private listeners = new Set<(e: AgentEvent) => void>();
   /** Bumped by reset so a dying loop doesn't overwrite the fresh state. */
   private generation = 0;
 
@@ -177,11 +178,18 @@ export class AgentSession {
     this.history.push(event);
     if (this.history.length > HISTORY_CAP) this.history.splice(0, this.history.length - HISTORY_CAP);
     this.host.emit(event);
+    for (const fn of this.listeners) fn(event);
     const line = JSON.stringify(event) + '\n';
     this.writes = this.writes
       .then(() => mkdir(this.dir, { recursive: true }))
       .then(() => appendFile(path.join(this.dir, 'agent-log.jsonl'), line))
       .catch(() => {});
+  }
+
+  /** Calls `fn` for every event of this session; returns the unsubscribe function. */
+  subscribe(fn: (e: AgentEvent) => void): () => void {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
   }
 
   /** Undo group for the agent's edits since the last message it was sent. */

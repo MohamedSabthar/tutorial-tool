@@ -5,6 +5,7 @@ import {
   Button,
   Chip,
   EdgeAccent,
+  GateBanner,
   Input,
   MonoBox,
   Panel,
@@ -16,6 +17,7 @@ import {
   type StepState,
 } from '@studio/ui';
 import { EngineChip, useEngine } from '../engine';
+import { elapsed as runElapsed, pipelineSteps as agentPipelineSteps, usePipeline } from '../pipeline';
 
 type Session = RpcEventData<'live.session'>;
 type Action = RpcEventData<'live.action'>;
@@ -121,6 +123,8 @@ export function LiveShell() {
   const [stopping, setStopping] = useState(false);
   const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [steer, setSteer] = useState('');
+  const [now, setNow] = useState(() => Date.now());
+  const pipe = usePipeline(null);
   const startedAt = useRef<number | null>(null);
 
   useEffect(() => {
@@ -181,10 +185,10 @@ export function LiveShell() {
   }, [client]);
 
   useEffect(() => {
-    const t = setInterval(
-      () => setElapsed(startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0),
-      500,
-    );
+    const t = setInterval(() => {
+      setElapsed(startedAt.current ? (Date.now() - startedAt.current) / 1000 : 0);
+      setNow(Date.now());
+    }, 500);
     return () => clearInterval(t);
   }, []);
 
@@ -286,8 +290,64 @@ export function LiveShell() {
         }}
       >
         <Panel title="Pipeline" style={{ flex: '1 1 250px', maxWidth: 290 }}>
+          {pipe.state && pipe.state.status !== 'idle' && (
+            <>
+              <Stepper steps={agentPipelineSteps(pipe.state)} />
+              {pipe.state.gate && (
+                <GateBanner
+                  title={pipe.state.gate.title}
+                  text={pipe.state.gate.text}
+                  actions={
+                    <Button size="sm" variant="primary" onClick={() => void pipe.approve()}>
+                      {pipe.state.gate.kind === 'storyboard' ? 'Approve' : 'Try again'}
+                    </Button>
+                  }
+                />
+              )}
+              <span className="ui-eyebrow" style={{ marginTop: 4 }}>
+                Current run
+              </span>
+            </>
+          )}
           <Stepper steps={pipelineSteps} />
           <div style={{ flex: 1 }} />
+          {pipe.state && pipe.state.status !== 'idle' && (
+            <div
+              className="ui-mono"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 8,
+                fontSize: 11,
+                color: 'var(--ui-gray-600)',
+              }}
+            >
+              <span>
+                pipeline
+                <br />
+                <b style={{ color: 'var(--ui-navy)', fontWeight: 500 }}>{runElapsed(pipe.state, now)}</b>
+              </span>
+              <span>
+                cost
+                <br />
+                <b style={{ color: 'var(--ui-navy)', fontWeight: 500 }}>
+                  $
+                  {Math.max(
+                    0,
+                    (agent?.slug === pipe.state.slug ? agent.costUsd : pipe.state.costAtStart) -
+                      pipe.state.costAtStart,
+                  ).toFixed(2)}
+                </b>
+              </span>
+              <span>
+                session
+                <br />
+                <b style={{ color: 'var(--ui-navy)', fontWeight: 500 }}>
+                  {agent?.sessionId ? agent.sessionId.slice(0, 8) : '—'}
+                </b>
+              </span>
+            </div>
+          )}
           <div
             className="ui-mono"
             style={{

@@ -83,6 +83,17 @@ export class ProjectStore {
     return `take-${(used.length ? Math.max(...used) : 0) + 1}`;
   }
 
+  /** Updates the status chip shown on project cards. */
+  async setStatus(slug: string, status: Project['status']): Promise<Project> {
+    const project = Project.parse({
+      ...(await this.readProject(slug)),
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+    await writeJson(path.join(this.dir(slug), 'project.json'), project);
+    return project;
+  }
+
   async open(slug: string): Promise<{ project: Project; timeline: Timeline }> {
     const project = await this.readProject(slug);
     const raw = JSON.parse(await readFile(path.join(this.dir(slug), 'tutorial.json'), 'utf8')) as unknown;
