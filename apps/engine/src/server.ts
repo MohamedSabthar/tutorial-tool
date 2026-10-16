@@ -65,7 +65,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   };
 
   // Everything except /health needs the session token (header, or query for <video>/WS).
+  // The UI runs on another origin (tauri://localhost, or Vite in dev) and reads media with
+  // fetch and as WebGL video textures, which both need CORS. Access stays token-protected.
   app.addHook('onRequest', async (req, reply) => {
+    reply.header('access-control-allow-origin', '*');
+    reply.header('access-control-allow-headers', `range, content-type, ${TOKEN_HEADER}`);
+    reply.header('access-control-expose-headers', 'content-range, accept-ranges, content-length');
+    if (req.method === 'OPTIONS') {
+      reply.header('access-control-allow-methods', 'GET, HEAD, OPTIONS');
+      return reply.code(204).send();
+    }
     if (req.url === '/health') return;
     const q = (req.query as Record<string, unknown> | undefined)?.[TOKEN_QUERY];
     if (!tokenOk(req.headers[TOKEN_HEADER]) && !tokenOk(q))

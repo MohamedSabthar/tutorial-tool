@@ -14,6 +14,7 @@ import { RecorderPage } from './pages/RecorderPage';
 import { TakePage } from './pages/TakePage';
 import { ReferencePage } from './pages/ReferencePage';
 import { StagePage } from './pages/StagePage';
+import { VideoPlanePage } from './pages/VideoPlanePage';
 import '@studio/ui/styles.css';
 import './styles.css';
 
@@ -29,6 +30,7 @@ const routes: DevRoute[] = [
   { path: '/take', step: '1.4', label: 'Take (MP4)', render: () => <TakePage /> },
   { path: '/reference', step: '1.5', label: 'Reference tutorial', render: () => <ReferencePage /> },
   { path: '/stage', step: '2.1', label: 'Stage and clock', render: () => <StagePage /> },
+  { path: '/video', step: '2.2', label: 'Video plane & camera', render: () => <VideoPlanePage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');

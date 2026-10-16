@@ -15,11 +15,14 @@
     "react-dom": "^19.3.1"
   },
   "dependencies": {
-    "@studio/core": "workspace:*"
+    "@react-three/fiber": "^9.8.2",
+    "@studio/core": "workspace:*",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   }

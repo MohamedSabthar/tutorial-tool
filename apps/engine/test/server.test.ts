@@ -95,6 +95,21 @@ describe('media route', () => {
     expect(await part.text()).toBe('2345');
   });
 
+  it('allows cross-origin reads (UI origin differs) and preflights without a token', async () => {
+    const url = `${engine.url}/media/create-an-http-service/recordings/clip.mp4`;
+    const pre = await fetch(url, {
+      method: 'OPTIONS',
+      headers: { origin: 'tauri://localhost', 'access-control-request-headers': 'range' },
+    });
+    expect(pre.status).toBe(204);
+    expect(pre.headers.get('access-control-allow-headers')).toContain('range');
+    const get = await fetch(`${url}?token=${engine.token}`, {
+      headers: { origin: 'tauri://localhost', range: 'bytes=0-1' },
+    });
+    expect(get.headers.get('access-control-allow-origin')).toBe('*');
+    expect(get.headers.get('access-control-expose-headers')).toContain('content-range');
+  });
+
   it('blocks paths outside the project', async () => {
     const r = await fetch(`${engine.url}/media/create-an-http-service/..%2F..%2Fsecret`, {
       headers: { [TOKEN_HEADER]: engine.token },

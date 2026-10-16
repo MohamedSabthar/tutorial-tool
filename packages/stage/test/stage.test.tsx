@@ -114,3 +114,38 @@ describe('stage determinism', () => {
     expect(new Set(forward).size).toBe(4);
   });
 });
+
+import { cameraAt, clampCamera, fitSource, project, restCamera, sourceToStage } from '../src/camera';
+
+describe('camera math', () => {
+  const stage = { width: 1920, height: 1080 };
+  const fit = fitSource({ width: 2268, height: 1472 }, stage);
+
+  it('fits a taller-than-16:9 recording by height, centred', () => {
+    expect(fit.rect.h).toBeCloseTo(1080);
+    expect(fit.rect.w).toBeCloseTo(2268 * (1080 / 1472));
+    expect(fit.rect.x).toBeCloseTo((1920 - fit.rect.w) / 2);
+    expect(sourceToStage({ x: 0, y: 0, w: 2268, h: 1472 }, fit)).toEqual(fit.rect);
+  });
+
+  it('projects the focus point to the stage centre at any zoom', () => {
+    const cam = { zoom: 2.5, focusX: 700, focusY: 400 };
+    expect(project({ x: 700, y: 400 }, cam, stage)).toEqual({ x: 960, y: 540 });
+    expect(project({ x: 710, y: 400 }, cam, stage).x).toBeCloseTo(985);
+  });
+
+  it('never shows outside the video when zoomed', () => {
+    const c = clampCamera({ zoom: 2, focusX: fit.rect.x, focusY: 0 }, fit.rect, stage);
+    expect(c.focusX).toBeCloseTo(fit.rect.x + 480);
+    expect(c.focusY).toBeCloseTo(270);
+  });
+
+  it('eases into a move, holds, and eases back', () => {
+    const rest = restCamera(stage);
+    const moves = [{ start: 2, end: 6, to: { zoom: 2, focusX: 900, focusY: 500 }, ease: 1 }];
+    expect(cameraAt(1, moves, rest, fit.rect, stage).zoom).toBe(1);
+    expect(cameraAt(2.5, moves, rest, fit.rect, stage).zoom).toBeCloseTo(1.5);
+    expect(cameraAt(4, moves, rest, fit.rect, stage).zoom).toBe(2);
+    expect(cameraAt(6.5, moves, rest, fit.rect, stage).zoom).toBe(1);
+  });
+});

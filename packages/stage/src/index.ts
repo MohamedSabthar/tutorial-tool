@@ -6,3 +6,5 @@ export const PACKAGE = {
 export * from './clock';
 export * from './player';
 export * from './Stage';
+export * from './camera';
+export * from './layers';

@@ -52,7 +52,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 1.6 Live window UI (static data)
 - [ ] **Phase 2: Stage, overlay SDK, Studio preview**
   - [x] 2.1 Stage runtime and virtual clock
-  - [ ] 2.2 Video plane and camera
+  - [x] 2.2 Video plane and camera
   - [ ] 2.3 Overlay SDK hooks
   - [ ] 2.4 Core overlays
   - [ ] 2.5 Overlay hot-loading (Vite middleware)
@@ -773,3 +773,5 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 1.6 | Live window layout matches the mockup: a pipeline stepper driven by `live.stage` (fixture → launch → load → run → encode, plus failed/stopped), the live view with the action box and step progress, and an agent console (Readable with tags / Raw JSON). Pause and steer are present but disabled until the agent arrives (3.5) | The real layout now, so Phase 3 only adds data |
 | 2026-10-16 | 1.6 | **Stop take** (`recorder.stop`) aborts through an `AbortSignal`: it closes the product window, and the run ends as "Stopped by user" with no take. Temporary profiles are removed with retries, and stale ones are swept at launch | Electron keeps writing briefly after close |
 | 2026-10-16 | 2.1 | `<Stage t>` gives `useStageTime()`/`useFrame()` on a fixed surface (scaled to fit in preview, unscaled in export). `createPlayer` owns preview time (rate, loop, seek) and gets its raf/now injected for tests. `installVirtualClock` fakes Date, performance.now, raf and timers for export | Rendering is a pure function of t, so preview, scrubbing and export agree |
+| 2026-10-16 | 2.2 | Coordinates: source px (recorded frame) → stage px via `fitSource` (letterbox) → camera (`zoom` around `focus`, clamped to the video). `<Scene3D>` is one R3F canvas (orthographic, `frameloop` demand/never, `flat`, sRGB, no tone mapping) with `resize.offsetSize` and a manual frustum. `<DomLayer follow>` applies the same camera transform to HTML | The CSS scale-to-fit transform otherwise shrinks the canvas (seen and fixed). The same camera drives both GPU and DOM layers |
+| 2026-10-16 | fix | Engine sends CORS headers (`*`, range and token headers allowed, content-range exposed) and answers OPTIONS without a token | The UI origin (tauri://localhost or Vite) differs from the engine. fetch and WebGL video textures need CORS |
