@@ -1,93 +1,42 @@
-/* Temporary base styles until packages/ui ships the design tokens (step 0.5). */
+/*
+ * App-level styles for the developer shell. Colours and type come from @studio/ui tokens;
+ * the short aliases below keep the step pages readable.
+ */
 :root {
-  --white: #ffffff;
-  --gray-50: #f3f3f3;
-  --gray-100: #f0f0f0;
-  --gray-300: #d7d7d7;
-  --ink: #252525;
-  --gray-600: #555555;
-  --navy: #13213b;
-  --orange: #ff5800;
-  --orange-100: #ffe6d9;
-  --orange-ink: #b84300;
-  --steel: #4f7aa3;
-  --steel-100: #e4eef6;
-  --steel-ink: #2f5a80;
-  --green-bg: #e3f4ec;
-  --green: #1e6b47;
-  --red-bg: #fde7e7;
-  --red: #c0292a;
-  font-family:
-    'Inter',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
-  font-size: 13px;
-  color: var(--ink);
-  background: var(--white);
+  --white: var(--ui-white);
+  --gray-50: var(--ui-gray-50);
+  --gray-100: var(--ui-gray-100);
+  --gray-300: var(--ui-gray-300);
+  --gray-600: var(--ui-gray-600);
+  --ink: var(--ui-ink);
+  --navy: var(--ui-navy);
+  --orange: var(--ui-orange);
+  --orange-100: var(--ui-orange-100);
+  --orange-ink: var(--ui-orange-ink);
+  --steel: var(--ui-steel);
+  --steel-100: var(--ui-steel-100);
+  --steel-ink: var(--ui-steel-ink);
+  --green-bg: var(--ui-green-100);
+  --green: var(--ui-green-ink);
+  --red-bg: var(--ui-red-100);
+  --red: var(--ui-red-ink);
 }
-body {
-  margin: 0;
-}
-button,
-input,
-textarea,
-select {
-  font-family: inherit;
-  font-size: 13px;
-}
-code,
+
 .mono {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--ui-mono);
 }
-.edge-accent {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  background: linear-gradient(0deg, #ff3900 0%, #ff5800 20%, rgba(255, 88, 0, 0) 66%);
-}
-.rule {
-  display: block;
-  width: 48px;
-  height: 2px;
-  background: var(--orange);
-  margin-top: 8px;
-}
-.app-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px 12px 24px;
-  border-bottom: 1px solid var(--gray-300);
-}
-.pill {
-  font-size: 12px;
-  color: var(--gray-600);
-  background: var(--gray-50);
-  border: 1px solid var(--gray-300);
-  border-radius: 999px;
-  padding: 4px 10px;
-}
-.eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--gray-600);
-}
+
+/* Developer shell navigation */
 .dev-nav {
   width: 220px;
   flex: none;
-  border-right: 1px solid var(--gray-300);
+  border-right: 1px solid var(--ui-gray-300);
   padding: 16px 12px 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.dev-nav .eyebrow {
+.dev-nav .ui-eyebrow {
   margin: 0 8px 8px;
 }
 .dev-link {
@@ -95,22 +44,24 @@ code,
   gap: 10px;
   align-items: baseline;
   padding: 8px 10px;
-  border-radius: 9px;
-  color: var(--ink);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-ink);
   text-decoration: none;
 }
 .dev-link:hover {
-  background: var(--gray-50);
+  background: var(--ui-gray-50);
 }
 .dev-link.active {
-  background: var(--orange-100);
-  color: var(--orange-ink);
+  background: var(--ui-orange-100);
+  color: var(--ui-orange-ink);
   font-weight: 600;
 }
+
+/* Legacy step-page helpers (pages written before @studio/ui existed) */
 .panel {
-  background: var(--white);
-  border: 1px solid var(--gray-300);
-  border-radius: 14px;
+  background: var(--ui-white);
+  border: 1px solid var(--ui-gray-300);
+  border-radius: var(--ui-radius-lg);
 }
 .panel-pad {
   padding: 16px;
@@ -118,34 +69,40 @@ code,
 .panel-title {
   font-size: 15px;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--ui-navy);
   margin: 0 0 12px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--ui-track-eyebrow);
+  text-transform: uppercase;
+  color: var(--ui-gray-600);
 }
 .chip {
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
   padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--gray-100);
-  color: var(--gray-600);
-  border: 0;
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-gray-100);
+  color: var(--ui-gray-600);
 }
 .chip-ok {
-  background: var(--green-bg);
-  color: var(--green);
+  background: var(--ui-green-100);
+  color: var(--ui-green-ink);
 }
 .chip-err {
-  background: var(--red-bg);
-  color: var(--red);
+  background: var(--ui-red-100);
+  color: var(--ui-red-ink);
 }
 .btn {
   height: 34px;
   padding: 0 14px;
-  border-radius: 9px;
-  border: 1px solid var(--gray-300);
-  background: var(--white);
-  color: var(--navy);
+  border-radius: var(--ui-radius-md);
+  border: 1px solid var(--ui-gray-300);
+  background: var(--ui-white);
+  color: var(--ui-navy);
   font-weight: 600;
   cursor: pointer;
 }
@@ -154,21 +111,17 @@ code,
   cursor: default;
 }
 .btn-primary {
-  background: var(--orange);
-  border-color: var(--orange);
-  color: var(--white);
+  background: var(--ui-orange);
+  border-color: var(--ui-orange);
+  color: var(--ui-white);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #ff3900;
+  background: var(--ui-orange-bright);
 }
 .field {
-  border-radius: 9px;
-  border: 1px solid var(--gray-300);
-  background: var(--white);
-  color: var(--ink);
+  border-radius: var(--ui-radius-md);
+  border: 1px solid var(--ui-gray-300);
+  background: var(--ui-white);
+  color: var(--ui-ink);
   padding: 8px 10px;
-}
-:focus-visible {
-  outline: 2px solid var(--orange);
-  outline-offset: 2px;
 }

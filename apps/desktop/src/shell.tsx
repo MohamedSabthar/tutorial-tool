@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import mark from './mark-wso2-orange.png';
+import { AppHeader, Chip, EdgeAccent, Eyebrow, Title } from '@studio/ui';
 import { EngineChip } from './engine';
 
 /**
@@ -42,20 +42,19 @@ export function DevShell({ routes }: { routes: DevRoute[] }) {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      <span aria-hidden="true" className="edge-accent" />
-      <header className="app-header">
-        <img src={mark} alt="WSO2" width={24} height={24} />
-        <span style={{ fontWeight: 700, color: 'var(--navy)', letterSpacing: '-0.02em' }}>
-          Tutorial Studio
-        </span>
-        <span className="pill">Developer preview</span>
-        <span style={{ flex: 1 }} />
-        <EngineChip />
-        <RuntimeChip runtime={runtime} />
-      </header>
+      <EdgeAccent />
+      <AppHeader
+        center={<Chip>Developer preview</Chip>}
+        actions={
+          <>
+            <EngineChip />
+            <RuntimeChip runtime={runtime} />
+          </>
+        }
+      />
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <nav aria-label="Implementation steps" className="dev-nav">
-          <span className="eyebrow">Steps</span>
+          <Eyebrow>Steps</Eyebrow>
           {routes.map((r) => (
             <a
               key={r.path}
@@ -90,11 +89,7 @@ export function Page({ title, intro, children }: { title: string; intro?: string
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
-        <h1 style={{ margin: 0, fontSize: 28, color: 'var(--navy)', letterSpacing: '-0.02em' }}>
-          {title}
-          <span style={{ color: 'var(--orange)' }}>.</span>
-        </h1>
-        <span aria-hidden="true" className="rule" />
+        <Title size={28}>{title}</Title>
         {intro && (
           <p style={{ color: 'var(--gray-600)', lineHeight: 1.5, maxWidth: 820, margin: '12px 0 0' }}>
             {intro}
@@ -113,5 +108,9 @@ function RuntimeChip({ runtime }: { runtime: Runtime }) {
       : runtime.kind === 'browser'
         ? 'Browser (not inside Tauri)'
         : 'Detecting runtime…';
-  return <span className={runtime.kind === 'tauri' ? 'chip chip-ok mono' : 'chip mono'}>{text}</span>;
+  return (
+    <Chip tone={runtime.kind === 'tauri' ? 'ok' : 'neutral'} mono>
+      {text}
+    </Chip>
+  );
 }

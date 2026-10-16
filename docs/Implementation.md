@@ -41,7 +41,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 0.2 `packages/core` schemas
   - [x] 0.3 Engine skeleton and RPC
   - [x] 0.4 Tauri shell with two windows
-  - [ ] 0.5 `packages/ui` design tokens and kit
+  - [x] 0.5 `packages/ui` design tokens and kit
   - [ ] 0.6 Workspace repo bootstrap
 - [ ] **Phase 1: VS Code recorder and Live window**
   - [ ] 1.1 VS Code launcher
@@ -747,3 +747,5 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 0.4 | In dev, Rust starts the engine with `node --import tsx src/main.ts` in `apps/engine`, and the workspace is `<repo>/workspace`. The engine also exits when its stdin closes | No build step. Even a hard kill of the app never leaves an orphaned engine |
 | 2026-10-16 | 0.4 | The Live window is created by a Rust command (`open_live_window`), not by JS | No webview-creation permission is exposed to the frontend |
 | 2026-10-16 | 0.4 | In a plain browser (`pnpm dev:web`) the UI falls back to the dev engine (`pnpm engine`, port 4317, token `dev-token`) | The UI can be worked on without Tauri |
+| 2026-10-16 | 0.5 | `@studio/ui` uses plain CSS classes (`ui-*`) plus CSS variables, a `tokens.ts` mirror for JS and canvas, and React components. No CSS-in-JS library | No runtime cost, and stage overlays can share the tokens |
+| 2026-10-16 | 0.5 | Step pages from 0.1–0.4 keep a small legacy class set aliased to the ui tokens | Avoids rewriting throwaway dev pages. New screens use `@studio/ui` components |

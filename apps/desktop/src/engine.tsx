@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { createEngineClient, type ConnectionState, type EngineClient } from '@studio/core';
+import { Chip } from '@studio/ui';
 
 /**
  * One engine connection per window. Inside Tauri the Rust shell starts the engine and
@@ -117,13 +118,12 @@ export function EngineChip() {
           ? 'Engine offline · run `pnpm engine`'
           : 'Engine offline';
   return (
-    <span
-      className={
-        state === 'open' ? 'chip chip-ok mono' : state === 'connecting' ? 'chip mono' : 'chip chip-err mono'
-      }
+    <Chip
+      tone={state === 'open' ? 'ok' : state === 'connecting' ? 'neutral' : 'error'}
+      mono
       title={error ?? undefined}
     >
       {text}
-    </span>
+    </Chip>
   );
 }

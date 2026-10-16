@@ -6,17 +6,37 @@
     "emitDeclarationOnly": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src", "vite.config.ts", "../../packages/ui/src/assets.d.ts"],
   "references": [
-    { "path": "../../packages/core" },
-    { "path": "../../packages/recorder" },
-    { "path": "../../packages/stage" },
-    { "path": "../../packages/overlay-sdk" },
-    { "path": "../../packages/overlays-core" },
-    { "path": "../../packages/scenes-core" },
-    { "path": "../../packages/tts" },
-    { "path": "../../packages/exporters" },
-    { "path": "../../packages/ui" },
-    { "path": "../engine" }
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/recorder"
+    },
+    {
+      "path": "../../packages/stage"
+    },
+    {
+      "path": "../../packages/overlay-sdk"
+    },
+    {
+      "path": "../../packages/overlays-core"
+    },
+    {
+      "path": "../../packages/scenes-core"
+    },
+    {
+      "path": "../../packages/tts"
+    },
+    {
+      "path": "../../packages/exporters"
+    },
+    {
+      "path": "../../packages/ui"
+    },
+    {
+      "path": "../engine"
+    }
   ]
 }

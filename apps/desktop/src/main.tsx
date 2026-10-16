@@ -7,6 +7,8 @@ import { PackagesPage } from './pages/Packages';
 import { TimelinePlayground } from './pages/TimelinePlayground';
 import { EnginePage } from './pages/EnginePage';
 import { DesktopPage } from './pages/DesktopPage';
+import { KitPage } from './pages/KitPage';
+import '@studio/ui/styles.css';
 import './styles.css';
 
 const routes: DevRoute[] = [
@@ -14,6 +16,7 @@ const routes: DevRoute[] = [
   { path: '/timeline', step: '0.2', label: 'Timeline core', render: () => <TimelinePlayground /> },
   { path: '/engine', step: '0.3', label: 'Engine and RPC', render: () => <EnginePage /> },
   { path: '/desktop', step: '0.4', label: 'Desktop shell', render: () => <DesktopPage /> },
+  { path: '/kit', step: '0.5', label: 'Design kit', render: () => <KitPage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');
