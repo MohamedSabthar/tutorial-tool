@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 import { TimelinePatch } from './patch';
+import { AgentEvent, AgentStatus } from './agent';
 
 /**
  * The engine's WebSocket protocol.
@@ -171,6 +172,33 @@ export const rpcMethods = {
   /** Re-derives scenes and steps from the latest take (keeps overlays). */
   'timeline.rebuildFromTake': { params: z.object({ slug: z.string() }), result: TimelineState },
   'timeline.redo': { params: z.object({ slug: z.string() }), result: TimelineState },
+  /** The project's agent session and its recent conversation (for a window opened later). */
+  'agent.status': {
+    params: z.object({ slug: z.string(), history: z.number().int().min(0).max(1000).default(200) }),
+    result: z.object({ status: AgentStatus, history: z.array(AgentEvent) }),
+  },
+  /** Queues a message into the session, starting or resuming it if needed. */
+  'agent.send': {
+    params: z.object({ slug: z.string(), text: z.string().min(1).max(20000) }),
+    result: z.object({ queued: z.boolean() }),
+  },
+  /** Stops the current turn (Pause). The session stays alive for the next message. */
+  'agent.interrupt': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({ interrupted: z.boolean() }),
+  },
+  /** Ends the session and forgets its id, so the next message starts a fresh conversation. */
+  'agent.reset': { params: z.object({ slug: z.string() }), result: AgentStatus },
+  /** Answers a tool permission request raised by `canUseTool`. */
+  'agent.permission': {
+    params: z.object({
+      slug: z.string(),
+      requestId: z.string(),
+      allow: z.boolean(),
+      message: z.string().optional(),
+    }),
+    result: z.object({ resolved: z.boolean() }),
+  },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -208,6 +236,8 @@ export const rpcEvents = {
     stage: z.enum(['fixture', 'launch', 'load', 'run', 'encode', 'done', 'failed', 'stopped']),
     at: z.number(),
   }),
+  'agent.event': AgentEvent,
+  'agent.state': AgentStatus,
   'live.session': z.object({
     state: z.enum(['started', 'stopped']),
     title: z.string(),

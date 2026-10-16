@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { RecorderEvent, RpcEventData } from '@studio/core';
+import type { AgentEvent, AgentStatus, RecorderEvent, RpcEventData } from '@studio/core';
 import {
   AppHeader,
   Button,
@@ -70,6 +70,41 @@ function readable(e: RecorderEvent): LogLine | null {
   }
 }
 
+/** Agent messages as console lines (thinking, results of tools and permission answers are left out). */
+function agentLine(e: AgentEvent): LogLine | null {
+  const t = new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  switch (e.kind) {
+    case 'user':
+      return { t, tag: e.source === 'user' ? 'You' : 'Pipeline', tone: 'neutral', text: e.text };
+    case 'text':
+      return { t, tag: 'Claude', tone: 'info', text: e.text };
+    case 'tool_use':
+      return { t, tag: e.name.replace(/^mcp__studio__/, 'studio · '), tone: 'neutral', text: e.summary };
+    case 'permission':
+      return { t, tag: 'Needs approval', tone: 'active', text: `${e.tool}: ${e.summary}` };
+    case 'result':
+      return {
+        t,
+        tag: e.ok ? 'Turn done' : 'Turn stopped',
+        tone: e.ok ? 'ok' : 'error',
+        text: `${e.turns} turns · ${(e.durationMs / 1000).toFixed(1)} s · $${e.costUsd.toFixed(2)} total`,
+      };
+    case 'init':
+      return {
+        t,
+        tag: 'Session',
+        tone: 'info',
+        text: `${e.resumed ? 'resumed' : 'started'} ${e.sessionId.slice(0, 8)} · ${e.model}`,
+      };
+    case 'status':
+      return { t, tag: 'Agent', tone: 'neutral', text: e.text };
+    case 'error':
+      return { t, tag: 'Agent error', tone: 'error', text: e.text };
+    default:
+      return null;
+  }
+}
+
 /** The Live window: what the agent sees while it records, streamed from the engine. */
 export function LiveShell() {
   const { client, state } = useEngine();
@@ -84,6 +119,8 @@ export function LiveShell() {
   const [view, setView] = useState<'Readable' | 'Raw'>('Readable');
   const [elapsed, setElapsed] = useState(0);
   const [stopping, setStopping] = useState(false);
+  const [agent, setAgent] = useState<AgentStatus | null>(null);
+  const [steer, setSteer] = useState('');
   const startedAt = useRef<number | null>(null);
 
   useEffect(() => {
@@ -128,6 +165,12 @@ export function LiveShell() {
           ),
         );
       }),
+      client.on('agent.state', setAgent),
+      client.on('agent.event', (e) => {
+        const line = agentLine(e);
+        if (line) setLog((l) => [...l, line].slice(-80));
+        setRaw((r) => [...r, JSON.stringify(e)].slice(-200));
+      }),
       client.on('recorder.progress', (p) =>
         setLog((l) =>
           [...l, { t: now(), tag: 'Engine', tone: 'active', text: p.message } as LogLine].slice(-80),
@@ -154,6 +197,17 @@ export function LiveShell() {
     if (!client) return;
     setStopping(true);
     await client.call('recorder.stop', {}).catch(() => setStopping(false));
+  }
+
+  const agentWorking = !!agent && agent.state !== 'idle' && agent.state !== 'error';
+  async function pauseAgent() {
+    if (client && agent) await client.call('agent.interrupt', { slug: agent.slug }).catch(() => {});
+  }
+  async function sendSteer() {
+    const text = steer.trim();
+    if (!client || !agent || !text) return;
+    setSteer('');
+    await client.call('agent.send', { slug: agent.slug, text }).catch(() => {});
   }
 
   const pipelineSteps = PIPELINE.map((p) => ({
@@ -206,8 +260,12 @@ export function LiveShell() {
         actions={
           <>
             <EngineChip />
-            <Button disabled title="Available when the agent drives the run (step 3.5)">
-              Pause agent
+            <Button
+              disabled={!agentWorking || agent?.state === 'interrupting'}
+              onClick={pauseAgent}
+              title={agent ? `Stop the current turn of ${agent.slug}'s agent` : 'No agent session yet'}
+            >
+              {agent?.state === 'interrupting' ? 'Pausing…' : 'Pause agent'}
             </Button>
             <Button variant="danger" onClick={stop} disabled={!running || stopping || state !== 'open'}>
               {stopping ? 'Stopping…' : 'Stop take'}
@@ -451,11 +509,18 @@ export function LiveShell() {
             </label>
             <Input
               id="steer"
-              placeholder="Steer the agent (available from step 3.5)"
-              disabled
+              placeholder={
+                agent ? `Steer ${agent.slug}'s agent` : 'Steer the agent (once a session has started)'
+              }
+              disabled={!agent}
+              value={steer}
+              onChange={(e) => setSteer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void sendSteer();
+              }}
               style={{ flex: 1 }}
             />
-            <Button variant="primary" disabled>
+            <Button variant="primary" disabled={!agent || !steer.trim()} onClick={sendSteer}>
               Send
             </Button>
           </div>

@@ -31,6 +31,7 @@ import { sourceToStage } from '@studio/stage';
 import type { Rect } from '@studio/core';
 import { useOverlayRegistry } from './useOverlayRegistry';
 import { useTimeline } from './useTimeline';
+import { AgentPanel } from './AgentPanel';
 
 /** A component's default props, or {} when its schema can't produce them. */
 function defaultProps(
@@ -346,11 +347,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               Anchored types attach to the current step’s target.
             </span>
           </Panel>
-          <Panel title="Agent">
-            <span style={{ color: 'var(--ui-gray-600)' }}>
-              The agent panel arrives in step 3.1; annotations in step 5.1.
-            </span>
-          </Panel>
+          <AgentPanel slug={slug} />
         </aside>
 
         <main style={{ flex: '999 1 560px', minWidth: 0 }}>

@@ -82,7 +82,17 @@ export class Workspace {
       return;
     }
     await this.copySeed();
+    await this.ensureIgnored();
     await this.commit('workspace: add seed knowledge');
+  }
+
+  /** Adds ignore rules introduced after this workspace was created. */
+  private async ensureIgnored(): Promise<void> {
+    const file = path.join(this.root, '.gitignore');
+    const text = await readFile(file, 'utf8').catch(() => '');
+    const have = new Set(text.split('\n').map((l) => l.trim()));
+    const missing = WORKSPACE_GITIGNORE.split('\n').filter((l) => l && !l.startsWith('#') && !have.has(l));
+    if (missing.length) await writeFile(file, `${text.replace(/\n?$/, '\n')}${missing.join('\n')}\n`);
   }
 
   /** Copies seed files without overwriting anything (agent-updated skills win). */

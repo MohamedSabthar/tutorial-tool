@@ -53,6 +53,7 @@ export const WORKSPACE_GITIGNORE = `# Large or generated media stays out of the 
 projects/*/recordings/
 projects/*/audio/
 projects/*/output/
+projects/*/.studio/
 .DS_Store
 `;
 

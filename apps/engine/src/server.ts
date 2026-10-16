@@ -24,8 +24,16 @@ import { runProjectScript } from './recording';
 import { startOverlayServer, type OverlayServer } from './overlayServer';
 import { HELLO_OVERLAY } from './overlayTemplates';
 import { TimelineStore, type Author } from './timeline';
+import { AgentManager } from './agent/session';
+import { studioServer } from './agent/mcp';
 import { execFile } from 'node:child_process';
-import { access, mkdir as mkdirp, readFile as readFileP, writeFile as writeFileP } from 'node:fs/promises';
+import {
+  access,
+  readdir,
+  mkdir as mkdirp,
+  readFile as readFileP,
+  writeFile as writeFileP,
+} from 'node:fs/promises';
 import { launchCheck, probe, runSample } from '@studio/recorder/node';
 import os from 'node:os';
 import path from 'node:path';
@@ -68,6 +76,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     (overlayServer ??= startOverlayServer(opts.workspace, (c) =>
       broadcast('overlays.changed', { ...c, version: ++overlayVersion }),
     ));
+  const agents = new AgentManager({
+    projectDir: (slug) => store.dir(slug),
+    mcpServers: (slug) => studioServer(slug, { store }),
+    skills: async () =>
+      (await readdir(path.join(opts.workspace, '.claude', 'skills'), { withFileTypes: true }))
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name),
+    emit: (e) => broadcast('agent.event', e),
+    state: (s) => broadcast('agent.state', s),
+  });
   const app = Fastify({ logger: opts.logger ?? false });
 
   const tokenOk = (candidate: unknown) => {
@@ -131,6 +149,23 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   }
 
   const handlers: Handlers = {
+    'agent.status': async ({ slug, history }: { slug: string; history: number }) => {
+      await store.open(slug);
+      return agents.get(slug).status(history);
+    },
+    'agent.send': async ({ slug, text }: { slug: string; text: string }) => {
+      await store.open(slug);
+      await workspace.ensure();
+      await agents.get(slug).send(text);
+      return { queued: true };
+    },
+    'agent.interrupt': async ({ slug }: { slug: string }) => ({
+      interrupted: await agents.get(slug).interrupt(),
+    }),
+    'agent.reset': async ({ slug }: { slug: string }) => agents.get(slug).reset(),
+    'agent.permission': async (p: { slug: string; requestId: string; allow: boolean; message?: string }) => ({
+      resolved: agents.get(p.slug).answerPermission(p.requestId, p.allow, p.message),
+    }),
     'timeline.get': async ({ slug }: { slug: string }) => timelines.get(slug),
     'timeline.patch': async (p: {
       slug: string;
@@ -381,6 +416,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     app,
     broadcast,
     async close() {
+      await agents.closeAll().catch(() => {});
       if (overlayServer) await (await overlayServer).close().catch(() => {});
       for (const ws of sockets) ws.terminate();
       wss.close();
