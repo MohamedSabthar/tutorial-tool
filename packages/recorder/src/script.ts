@@ -64,6 +64,9 @@ export async function loadScript(file: string): Promise<ScriptModule> {
   return { script: mod.default, fixture: mod.fixture };
 }
 
+/** Pipeline stages of a run, for the Live window's stepper. */
+export type RunStage = 'fixture' | 'launch' | 'load' | 'run' | 'encode' | 'done' | 'failed' | 'stopped';
+
 export interface RunOptions {
   product?: string;
   mode: TutMode;
@@ -77,6 +80,9 @@ export interface RunOptions {
   onAction?: (a: LiveAction) => void;
   onFrame?: (f: ScreencastFrame) => void;
   onProgress?: Progress;
+  onStage?: (stage: RunStage) => void;
+  /** Aborting closes the product window; the run ends with a "stopped" failure. */
+  signal?: AbortSignal;
 }
 
 export interface RunResult {
@@ -95,12 +101,15 @@ export interface RunResult {
 export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<RunResult> {
   const started = Date.now();
   const progress = opts.onProgress ?? (() => {});
+  const stage = opts.onStage ?? (() => {});
   const product = getProduct(opts.product ?? 'wso2-integrator');
+  stage('fixture');
 
   const base = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
   const fixtureDir = path.join(base, mod.fixture.folder);
   progress(`Creating the ${mod.fixture.title} fixture…`);
   await createBIProject(fixtureDir, { title: mod.fixture.title, integrations: mod.fixture.integrations });
+  stage('launch');
   const session =
     product.type === 'vscode-app'
       ? await launchVSCode({
@@ -112,6 +121,14 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       : await launchVSCode({ fixture: fixtureDir, extensions: product.extensions, onProgress: progress });
 
   const recording = opts.mode === 'record' && !!opts.takeDir;
+  let stopped = false;
+  const onAbort = () => {
+    stopped = true;
+    progress('Stopping…');
+    void session.app.close().catch(() => {});
+  };
+  if (opts.signal?.aborted) onAbort();
+  opts.signal?.addEventListener('abort', onAbort, { once: true });
   let recorder: ScreenRecorder | null = null;
   let stopScreencast: (() => Promise<void>) | null = null;
   try {
@@ -129,6 +146,7 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       });
     else if (opts.onFrame) stopScreencast = await startScreencast(page, opts.onFrame);
 
+    stage('load');
     progress('Waiting for the project to load…');
     const ready = mod.fixture.readyText ?? mod.fixture.integrations[0]?.title ?? mod.fixture.title;
     await page.locator('.monaco-list-row', { hasText: ready }).first().waitFor({ timeout: 45_000 });
@@ -152,23 +170,25 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       viewport: session.viewport,
       fixture: mod.fixture.folder,
     });
+    stage('run');
     progress(`Running the script (${opts.mode})…`);
     let failure: StepFailure | null = null;
     try {
       await mod.script({ tut, page, webview: () => webview(page) });
     } catch (e) {
       if (!(e instanceof StepFailedError)) throw e;
-      failure = e.failure;
-      progress(`Step ${failure.stepId} failed: ${failure.error}`);
+      failure = stopped ? { ...e.failure, error: 'Stopped by user' } : e.failure;
+      progress(stopped ? 'Stopped' : `Step ${failure.stepId} failed: ${failure.error}`);
     }
     const tEnd = await tut.finish();
-    const screenshot = await page.screenshot();
+    const screenshot = stopped ? Buffer.alloc(0) : await page.screenshot();
 
     let take: Take | null = null;
     if (recorder) {
       const frames = await recorder.stop();
       recorder = null;
       if (!failure) {
+        stage('encode');
         progress(`Encoding the take (${frames.length} frames)…`);
         take = await encodeTake({
           frames,
@@ -180,7 +200,8 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
         progress(`Take saved: ${take.width}×${take.height}, ${take.fps} fps, ${take.duration.toFixed(1)} s`);
       }
     }
-    progress(failure ? 'Finished with a failure' : 'Passed');
+    stage(stopped ? 'stopped' : failure ? 'failed' : 'done');
+    progress(stopped ? 'Stopped by user' : failure ? 'Finished with a failure' : 'Passed');
     return {
       passed: !failure,
       mode: opts.mode,
@@ -192,7 +213,12 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       screenshot,
       durationMs: Date.now() - started,
     };
+  } catch (e) {
+    if (stopped) throw new Error('Stopped by user', { cause: e });
+    stage('failed');
+    throw e;
   } finally {
+    opts.signal?.removeEventListener('abort', onAbort);
     await recorder?.stop();
     await stopScreencast?.();
     await session.close();

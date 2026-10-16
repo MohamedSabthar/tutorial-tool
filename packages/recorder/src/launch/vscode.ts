@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -160,6 +160,7 @@ export async function launchVSCode(opts: VSCodeLaunchOptions): Promise<VSCodeSes
 
   // A throwaway user profile per launch keeps every recording identical.
   await mkdir(path.join(cacheDir, 'profiles'), { recursive: true });
+  await sweepStaleProfiles(path.join(cacheDir, 'profiles'));
   const userDataDir = await mkdtemp(path.join(cacheDir, 'profiles', 'p-'));
   await mkdir(path.join(userDataDir, 'User'), { recursive: true });
   await writeFile(
@@ -246,13 +247,26 @@ export async function launchVSCode(opts: VSCodeLaunchOptions): Promise<VSCodeSes
         ),
       async close() {
         await app.close().catch(() => {});
-        await rm(userDataDir, { recursive: true, force: true }).catch(() => {});
+        // Electron may still be flushing files for a moment after close.
+        await rm(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }).catch(
+          () => {},
+        );
       },
     };
   } catch (e) {
     await app.close().catch(() => {});
     await rm(userDataDir, { recursive: true, force: true }).catch(() => {});
     throw e;
+  }
+}
+
+/** Removes profiles left behind by crashed or stopped runs (older than 10 minutes). */
+async function sweepStaleProfiles(dir: string): Promise<void> {
+  const cutoff = Date.now() - 10 * 60_000;
+  for (const name of await readdir(dir).catch(() => [] as string[])) {
+    const p = path.join(dir, name);
+    const st = await stat(p).catch(() => null);
+    if (st && st.mtimeMs < cutoff) await rm(p, { recursive: true, force: true }).catch(() => {});
   }
 }
 

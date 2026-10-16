@@ -1,7 +1,13 @@
 import type { RecorderEvent } from '@studio/core';
 import type { Progress } from '../launch/vscode';
 import type { ScreencastFrame } from '../screencast';
-import { runTutorial, type RunResult, type ScriptContext, type ScriptFixture } from '../script';
+import {
+  runTutorial,
+  type RunResult,
+  type RunStage,
+  type ScriptContext,
+  type ScriptFixture,
+} from '../script';
 import type { LiveAction, TutMode } from '../tut';
 
 /**
@@ -62,6 +68,8 @@ export function runSample(opts: {
   onProgress?: Progress;
   takeDir?: string;
   takeId?: string;
+  onStage?: (stage: RunStage) => void;
+  signal?: AbortSignal;
 }): Promise<SampleRunResult> {
   const { broken, ...rest } = opts;
   return runTutorial(

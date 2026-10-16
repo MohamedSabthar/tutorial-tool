@@ -10,6 +10,7 @@ import {
   TOKEN_QUERY,
   type RpcEvent,
   type RpcEventData,
+  type RecorderEvent,
   type RpcMethod,
   type RpcReply,
   type RpcResult,
@@ -53,6 +54,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
   let recorderBusy = false;
+  let recorderAbort: AbortController | null = null;
   const app = Fastify({ logger: opts.logger ?? false });
 
   const tokenOk = (candidate: unknown) => {
@@ -72,7 +74,46 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   app.get('/health', async () => ({ ok: true, version: ENGINE_VERSION }));
   registerMedia(app, store);
 
+  /** Callbacks that stream a run to the Live window. */
+  function liveCallbacks(title: string, mode: 'dry' | 'record') {
+    recorderAbort = new AbortController();
+    broadcast('live.session', { state: 'started', title, mode, frame: null });
+    return {
+      signal: recorderAbort.signal,
+      onEvent: (e: RecorderEvent) => {
+        broadcast('recorder.event', e);
+        const vp =
+          e.kind === 'marker' && e.name === 'start'
+            ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
+            : undefined;
+        if (vp)
+          broadcast('live.session', {
+            state: 'started',
+            title,
+            mode,
+            frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
+          });
+      },
+      onAction: (a: RpcEventData<'live.action'>) => broadcast('live.action', a),
+      onFrame: (f: RpcEventData<'live.frame'>) => broadcast('live.frame', f),
+      onStage: (stage: RpcEventData<'live.stage'>['stage']) =>
+        broadcast('live.stage', { stage, at: Date.now() }),
+      onProgress: (message: string) => broadcast('recorder.progress', { message, at: Date.now() }),
+    };
+  }
+
+  function endLive(title: string, mode: 'dry' | 'record') {
+    recorderBusy = false;
+    recorderAbort = null;
+    broadcast('live.session', { state: 'stopped', title, mode, frame: null });
+  }
+
   const handlers: Handlers = {
+    'recorder.stop': async () => {
+      if (!recorderAbort) return { stopping: false };
+      recorderAbort.abort();
+      return { stopping: true };
+    },
     ping: async ({ sentAt }: { sentAt: number }) => ({
       sentAt,
       engineVersion: ENGINE_VERSION,
@@ -118,33 +159,15 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       recorderBusy = true;
       const title = (await store.open(slug).catch(() => null))?.project.title ?? slug;
       try {
-        broadcast('live.session', { state: 'started', title, mode, frame: null });
-        const r = await runProjectScript(store, workspace, slug, mode, {
-          onEvent: (e) => {
-            broadcast('recorder.event', e);
-            const vp =
-              e.kind === 'marker' && e.name === 'start'
-                ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
-                : undefined;
-            if (vp)
-              broadcast('live.session', {
-                state: 'started',
-                title,
-                mode,
-                frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
-              });
-          },
-          onAction: (a) => broadcast('live.action', a),
-          onFrame: (f) => broadcast('live.frame', f),
-          onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
-        });
-        const starts = r.events.filter((e) => e.kind === 'step-start');
-        const steps = starts.map((s) => ({
-          id: s.stepId,
-          title: s.title,
-          start: s.t,
-          end: r.events.find((e) => e.kind === 'step-end' && e.stepId === s.stepId)?.t ?? null,
-        }));
+        const r = await runProjectScript(store, workspace, slug, mode, liveCallbacks(title, mode));
+        const steps = r.events
+          .filter((e): e is Extract<RecorderEvent, { kind: 'step-start' }> => e.kind === 'step-start')
+          .map((s) => ({
+            id: s.stepId,
+            title: s.title,
+            start: s.t,
+            end: r.events.find((e) => e.kind === 'step-end' && e.stepId === s.stepId)?.t ?? null,
+          }));
         if (r.take) broadcast('project.changed', { slug });
         return {
           passed: r.passed,
@@ -157,13 +180,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             stepId: r.failure.stepId,
             title: r.failure.title,
             error: r.failure.error,
-            dataUrl: dataUrl(r.failure.screenshot),
+            dataUrl: r.failure.screenshot.length ? dataUrl(r.failure.screenshot) : '',
           },
           durationMs: r.durationMs,
         };
       } finally {
-        recorderBusy = false;
-        broadcast('live.session', { state: 'stopped', title, mode, frame: null });
+        endLive(title, mode);
       }
     },
     'recorder.recordSampleTake': async () => {
@@ -177,29 +199,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         const takeId = await store.nextTakeId(slug);
         const takePath = `recordings/${takeId}`;
         const takeDir = path.join(store.dir(slug), takePath);
-        broadcast('live.session', { state: 'started', title, mode: 'record', frame: null });
-        const r = await runSample({
-          mode: 'record',
-          takeDir,
-          takeId,
-          onEvent: (e) => {
-            broadcast('recorder.event', e);
-            const vp =
-              e.kind === 'marker' && e.name === 'start'
-                ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
-                : undefined;
-            if (vp)
-              broadcast('live.session', {
-                state: 'started',
-                title,
-                mode: 'record',
-                frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
-              });
-          },
-          onAction: (a) => broadcast('live.action', a),
-          onFrame: (f) => broadcast('live.frame', f),
-          onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
-        });
+        const r = await runSample({ mode: 'record', takeDir, takeId, ...liveCallbacks(title, 'record') });
         if (!r.take)
           throw new RpcError(
             r.failure ? `step ${r.failure.stepId} failed: ${r.failure.error}` : 'no take was recorded',
@@ -208,42 +208,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         await workspace.commit(`take: ${slug}/${takeId}`);
         return { slug, takePath, take: r.take, codec: info.codec, frames: info.frames, events: r.events };
       } finally {
-        recorderBusy = false;
-        broadcast('live.session', { state: 'stopped', title, mode: 'record', frame: null });
+        endLive(title, 'record');
       }
     },
     'recorder.runSample': async ({ mode, broken }: { mode: 'dry' | 'record'; broken: boolean }) => {
       if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
       recorderBusy = true;
+      const title = 'Sample: Greeting Service overview';
       const eventsFile = path.join(os.tmpdir(), 'tutorial-studio', `sample-${mode}.jsonl`);
       try {
-        broadcast('live.session', {
-          state: 'started',
-          title: 'Sample: Greeting Service overview',
-          mode,
-          frame: null,
-        });
-        const r = await runSample({
-          mode,
-          broken,
-          eventsFile,
-          onEvent: (e) => {
-            broadcast('recorder.event', e);
-            if (e.kind === 'marker' && e.name === 'start') {
-              const vp = e.data?.viewport as { width: number; height: number; scale: number } | undefined;
-              if (vp)
-                broadcast('live.session', {
-                  state: 'started',
-                  title: 'Sample: Greeting Service overview',
-                  mode,
-                  frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
-                });
-            }
-          },
-          onAction: (a) => broadcast('live.action', a),
-          onFrame: (f) => broadcast('live.frame', f),
-          onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
-        });
+        const r = await runSample({ mode, broken, eventsFile, ...liveCallbacks(title, mode) });
         return {
           passed: r.passed,
           mode: r.mode,
@@ -255,20 +229,14 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             stepId: r.failure.stepId,
             title: r.failure.title,
             error: r.failure.error,
-            dataUrl: dataUrl(r.failure.screenshot),
+            dataUrl: r.failure.screenshot.length ? dataUrl(r.failure.screenshot) : '',
             ariaSnapshot: r.failure.ariaSnapshot,
             webviewAriaSnapshot: r.failure.webviewAriaSnapshot,
           },
           durationMs: r.durationMs,
         };
       } finally {
-        recorderBusy = false;
-        broadcast('live.session', {
-          state: 'stopped',
-          title: 'Sample: Greeting Service overview',
-          mode,
-          frame: null,
-        });
+        endLive(title, mode);
       }
     },
   };

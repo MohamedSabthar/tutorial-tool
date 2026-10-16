@@ -1,68 +1,138 @@
 import { useEffect, useRef, useState } from 'react';
-import type { RpcEventData } from '@studio/core';
-import { AppHeader, Chip, EdgeAccent, MonoBox, Panel, Pill, Title } from '@studio/ui';
+import type { RecorderEvent, RpcEventData } from '@studio/core';
+import {
+  AppHeader,
+  Button,
+  Chip,
+  EdgeAccent,
+  Input,
+  MonoBox,
+  Panel,
+  Pill,
+  Segmented,
+  Stepper,
+  Title,
+  type ChipTone,
+  type StepState,
+} from '@studio/ui';
 import { EngineChip, useEngine } from '../engine';
 
 type Session = RpcEventData<'live.session'>;
 type Action = RpcEventData<'live.action'>;
+type Stage = RpcEventData<'live.stage'>['stage'];
 
-interface StepState {
+interface StepRow {
   id: string;
   title: string;
   done: boolean;
 }
 
+interface LogLine {
+  t: string;
+  tag: string;
+  tone: ChipTone;
+  text: string;
+}
+
+const PIPELINE: { stage: Stage; label: string }[] = [
+  { stage: 'fixture', label: 'Create project fixture' },
+  { stage: 'launch', label: 'Launch WSO2 Integrator' },
+  { stage: 'load', label: 'Load the project' },
+  { stage: 'run', label: 'Run the script' },
+  { stage: 'encode', label: 'Encode the take' },
+];
+const ORDER: Stage[] = ['fixture', 'launch', 'load', 'run', 'encode', 'done'];
+
+function pipelineState(current: Stage | null, item: Stage, mode: 'dry' | 'record' | undefined): StepState {
+  if (!current) return 'todo';
+  if (item === 'encode' && mode === 'dry') return current === 'done' ? 'done' : 'todo';
+  if (current === 'failed' || current === 'stopped') return 'todo';
+  const ci = ORDER.indexOf(current);
+  const ii = ORDER.indexOf(item);
+  return ii < ci ? 'done' : ii === ci ? (current === 'done' ? 'done' : 'active') : 'todo';
+}
+
+function readable(e: RecorderEvent): LogLine | null {
+  const t = `${e.t.toFixed(1)}s`;
+  switch (e.kind) {
+    case 'step-start':
+      return { t, tag: 'Step', tone: 'info', text: `${e.stepId} · ${e.title}` };
+    case 'click':
+      return { t, tag: 'Playwright', tone: 'neutral', text: `click ${e.target}` };
+    case 'type':
+      return { t, tag: 'Playwright', tone: 'neutral', text: `type "${e.text}" into ${e.target}` };
+    case 'key':
+      return { t, tag: 'Playwright', tone: 'neutral', text: `press ${e.key}` };
+    case 'marker':
+      return e.name === 'start' ? { t, tag: 'Recording', tone: 'error', text: 'started' } : null;
+    default:
+      return null;
+  }
+}
+
 /** The Live window: what the agent sees while it records, streamed from the engine. */
 export function LiveShell() {
-  const { client } = useEngine();
+  const { client, state } = useEngine();
   const [session, setSession] = useState<Session | null>(null);
+  const [stage, setStage] = useState<Stage | null>(null);
   const [frame, setFrame] = useState<{ src: string; latencyMs: number } | null>(null);
+  const [frames, setFrames] = useState(0);
   const [action, setAction] = useState<Action | null>(null);
-  const [steps, setSteps] = useState<StepState[]>([]);
-  const [log, setLog] = useState<string[]>([]);
+  const [steps, setSteps] = useState<StepRow[]>([]);
+  const [log, setLog] = useState<LogLine[]>([]);
+  const [raw, setRaw] = useState<string[]>([]);
+  const [view, setView] = useState<'Readable' | 'Raw'>('Readable');
   const [elapsed, setElapsed] = useState(0);
+  const [stopping, setStopping] = useState(false);
   const startedAt = useRef<number | null>(null);
 
   useEffect(() => {
     if (!client) return;
+    const now = () =>
+      new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const offs = [
       client.on('live.session', (s) => {
         setSession(s);
         if (s.state === 'started' && !s.frame) {
           startedAt.current = Date.now();
+          setStage(null);
           setSteps([]);
           setLog([]);
+          setRaw([]);
           setAction(null);
           setFrame(null);
+          setFrames(0);
+          setStopping(false);
         }
         if (s.state === 'stopped') {
           startedAt.current = null;
           setAction(null);
+          setStopping(false);
         }
       }),
-      client.on('live.frame', (f) =>
-        setFrame({ src: `data:image/jpeg;base64,${f.data}`, latencyMs: Date.now() - f.timestamp * 1000 }),
-      ),
+      client.on('live.stage', (s) => setStage(s.stage)),
+      client.on('live.frame', (f) => {
+        setFrame({ src: `data:image/jpeg;base64,${f.data}`, latencyMs: Date.now() - f.timestamp * 1000 });
+        setFrames((n) => n + 1);
+      }),
       client.on('live.action', setAction),
       client.on('recorder.event', (e) => {
         if (e.kind === 'step-start') setSteps((s) => [...s, { id: e.stepId, title: e.title, done: false }]);
         if (e.kind === 'step-end')
           setSteps((s) => s.map((x) => (x.id === e.stepId ? { ...x, done: true } : x)));
-        if (e.kind === 'click' || e.kind === 'type' || e.kind === 'step-start')
-          setLog((l) =>
-            [
-              ...l,
-              `${e.t.toFixed(1).padStart(5)}s  ${
-                e.kind === 'step-start'
-                  ? `step ${e.stepId} · ${e.title}`
-                  : e.kind === 'click'
-                    ? `click · ${e.target}`
-                    : `type · "${e.text}"`
-              }`,
-            ].slice(-40),
-          );
+        const line = readable(e);
+        if (line) setLog((l) => [...l, line].slice(-80));
+        setRaw((r) =>
+          [...r, JSON.stringify(e.kind === 'mouse' ? { ...e, points: `[${e.points.length}]` } : e)].slice(
+            -200,
+          ),
+        );
       }),
-      client.on('recorder.progress', (p) => setLog((l) => [...l, `        ${p.message}`].slice(-40))),
+      client.on('recorder.progress', (p) =>
+        setLog((l) =>
+          [...l, { t: now(), tag: 'Engine', tone: 'active', text: p.message } as LogLine].slice(-80),
+        ),
+      ),
     ];
     return () => offs.forEach((off) => off());
   }, [client]);
@@ -80,6 +150,29 @@ export function LiveShell() {
   const fh = session?.frame?.height ?? 1;
   const mmss = `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`;
 
+  async function stop() {
+    if (!client) return;
+    setStopping(true);
+    await client.call('recorder.stop', {}).catch(() => setStopping(false));
+  }
+
+  const pipelineSteps = PIPELINE.map((p) => ({
+    label: p.label,
+    sub:
+      p.stage === 'encode' && session?.mode === 'dry'
+        ? 'skipped in dry runs'
+        : p.stage === 'run' && steps.length
+          ? `${steps.filter((s) => s.done).length} of ${steps.length} steps`
+          : undefined,
+    state: pipelineState(stage, p.stage, session?.mode),
+  }));
+  if (stage === 'failed' || stage === 'stopped')
+    pipelineSteps.push({
+      label: stage === 'stopped' ? 'Stopped by you' : 'Run failed',
+      sub: undefined,
+      state: 'failed',
+    });
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <EdgeAccent />
@@ -94,14 +187,33 @@ export function LiveShell() {
                     {session.mode === 'record' ? `REC ${mmss}` : `DRY RUN ${mmss}`}
                   </Chip>
                 ) : (
-                  <Chip key="done">Finished</Chip>
+                  <Chip key="done" tone={stage === 'done' ? 'ok' : stage ? 'error' : 'neutral'}>
+                    {stage === 'done'
+                      ? 'Finished'
+                      : stage === 'stopped'
+                        ? 'Stopped'
+                        : stage === 'failed'
+                          ? 'Failed'
+                          : 'Idle'}
+                  </Chip>
                 ),
                 <strong key="t">{session.title}</strong>,
+                'WSO2 Integrator',
               ]}
             />
           ) : undefined
         }
-        actions={<EngineChip />}
+        actions={
+          <>
+            <EngineChip />
+            <Button disabled title="Available when the agent drives the run (step 3.5)">
+              Pause agent
+            </Button>
+            <Button variant="danger" onClick={stop} disabled={!running || stopping || state !== 'open'}>
+              {stopping ? 'Stopping…' : 'Stop take'}
+            </Button>
+          </>
+        }
       />
 
       <main
@@ -112,19 +224,54 @@ export function LiveShell() {
           display: 'flex',
           flexWrap: 'wrap',
           gap: 12,
-          alignItems: 'flex-start',
+          alignItems: 'stretch',
         }}
       >
+        <Panel title="Pipeline" style={{ flex: '1 1 250px', maxWidth: 290 }}>
+          <Stepper steps={pipelineSteps} />
+          <div style={{ flex: 1 }} />
+          <div
+            className="ui-mono"
+            style={{
+              borderTop: '1px solid var(--ui-gray-100)',
+              paddingTop: 12,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 8,
+              fontSize: 11,
+              color: 'var(--ui-gray-600)',
+            }}
+          >
+            <span>
+              elapsed
+              <br />
+              <b style={{ color: 'var(--ui-navy)', fontWeight: 500 }}>{mmss}</b>
+            </span>
+            <span>
+              frames
+              <br />
+              <b style={{ color: 'var(--ui-navy)', fontWeight: 500 }}>{frames}</b>
+            </span>
+            <span>
+              delay
+              <br />
+              <b style={{ color: 'var(--ui-navy)', fontWeight: 500 }}>
+                {frame ? `${Math.max(0, frame.latencyMs).toFixed(0)} ms` : '—'}
+              </b>
+            </span>
+          </div>
+        </Panel>
+
         <Panel
           title="Live view"
           action={
-            frame && (
-              <span className="ui-mono" style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
-                CDP screencast · {Math.max(0, frame.latencyMs).toFixed(0)} ms behind
-              </span>
-            )
+            <span className="ui-mono" style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
+              {session?.frame
+                ? `${session.frame.width}×${session.frame.height} · CDP screencast`
+                : 'CDP screencast'}
+            </span>
           }
-          style={{ flex: '999 1 640px' }}
+          style={{ flex: '999 1 560px' }}
         >
           {frame ? (
             <div
@@ -181,7 +328,7 @@ export function LiveShell() {
           ) : (
             <div
               style={{
-                padding: '48px 16px',
+                padding: '64px 16px',
                 textAlign: 'center',
                 display: 'flex',
                 flexDirection: 'column',
@@ -190,11 +337,12 @@ export function LiveShell() {
               }}
             >
               <Title size={22} rule={false}>
-                Waiting for a recording
+                {running ? 'Starting WSO2 Integrator' : 'Waiting for a recording'}
               </Title>
               <p style={{ margin: 0, color: 'var(--ui-gray-600)', maxWidth: 460, lineHeight: 1.5 }}>
-                Start one from the Studio window (step 1.2 · Recorder helpers → Run sample). The agent&apos;s
-                view of WSO2 Integrator streams here.
+                {running
+                  ? 'The live view appears as soon as the window is up.'
+                  : 'Start one from the Studio window (1.5 · Reference tutorial → Record take). The agent’s view of WSO2 Integrator streams here.'}
               </p>
             </div>
           )}
@@ -208,6 +356,7 @@ export function LiveShell() {
             >
               {steps.map((s, i) => {
                 const active = !s.done && i === steps.length - 1 && running;
+                const failed = !s.done && !running && (stage === 'failed' || stage === 'stopped');
                 return (
                   <div key={s.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span
@@ -216,9 +365,11 @@ export function LiveShell() {
                         borderRadius: 3,
                         background: s.done
                           ? 'var(--ui-green)'
-                          : active
-                            ? 'var(--ui-orange)'
-                            : 'var(--ui-gray-300)',
+                          : failed
+                            ? 'var(--ui-red)'
+                            : active
+                              ? 'var(--ui-orange)'
+                              : 'var(--ui-gray-300)',
                       }}
                     />
                     <span
@@ -243,10 +394,71 @@ export function LiveShell() {
           )}
         </Panel>
 
-        <Panel title="Activity" style={{ flex: '1 1 320px', maxWidth: 420 }}>
-          <MonoBox style={{ minHeight: 200, maxHeight: 520 }}>
-            {log.length ? log.join('\n') : 'No activity yet.'}
-          </MonoBox>
+        <Panel
+          title="Agent console"
+          action={
+            <Segmented
+              label="Console view"
+              options={['Readable', 'Raw'] as const}
+              value={view}
+              onChange={setView}
+            />
+          }
+          style={{ flex: '1 1 340px', maxWidth: 420 }}
+        >
+          {view === 'Readable' ? (
+            <ol
+              style={{
+                listStyle: 'none',
+                margin: 0,
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                maxHeight: 560,
+                overflow: 'auto',
+                flex: 1,
+              }}
+            >
+              {log.length === 0 && <li style={{ color: 'var(--ui-gray-600)' }}>No activity yet.</li>}
+              {log.map((l, i) => (
+                <li key={i} style={{ display: 'grid', gridTemplateColumns: '64px minmax(0, 1fr)', gap: 8 }}>
+                  <span
+                    className="ui-mono"
+                    style={{ fontSize: 11, color: 'var(--ui-gray-600)', paddingTop: 2 }}
+                  >
+                    {l.t}
+                  </span>
+                  <span
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}
+                  >
+                    <Chip tone={l.tone} mono>
+                      {l.tag}
+                    </Chip>
+                    <span style={{ lineHeight: 1.45 }}>{l.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <MonoBox style={{ maxHeight: 560, flex: 1 }}>
+              {raw.length ? raw.join('\n') : 'No events yet.'}
+            </MonoBox>
+          )}
+          <div style={{ display: 'flex', gap: 8, borderTop: '1px solid var(--ui-gray-100)', paddingTop: 12 }}>
+            <label htmlFor="steer" className="ui-sr-only">
+              Steer the agent
+            </label>
+            <Input
+              id="steer"
+              placeholder="Steer the agent (available from step 3.5)"
+              disabled
+              style={{ flex: 1 }}
+            />
+            <Button variant="primary" disabled>
+              Send
+            </Button>
+          </div>
         </Panel>
       </main>
     </div>

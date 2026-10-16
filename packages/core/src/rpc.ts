@@ -125,6 +125,7 @@ export const rpcMethods = {
       durationMs: z.number(),
     }),
   },
+  'recorder.stop': { params: z.object({}), result: z.object({ stopping: z.boolean() }) },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -142,6 +143,10 @@ export const rpcEvents = {
     kind: z.enum(['click', 'type']),
     label: z.string(),
     bbox: Rect,
+  }),
+  'live.stage': z.object({
+    stage: z.enum(['fixture', 'launch', 'load', 'run', 'encode', 'done', 'failed', 'stopped']),
+    at: z.number(),
   }),
   'live.session': z.object({
     state: z.enum(['started', 'stopped']),

@@ -43,13 +43,13 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 0.4 Tauri shell with two windows
   - [x] 0.5 `packages/ui` design tokens and kit
   - [x] 0.6 Workspace repo bootstrap
-- [ ] **Phase 1: VS Code recorder and Live window**
+- [x] **Phase 1: VS Code recorder and Live window**
   - [x] 1.1 VS Code launcher
   - [x] 1.2 Recorder helpers and `events.jsonl`
   - [x] 1.3 Live screencast
   - [x] 1.4 Take post-processing
   - [x] 1.5 Hand-written reference tutorial
-  - [ ] 1.6 Live window UI (static data)
+  - [x] 1.6 Live window UI (static data)
 - [ ] **Phase 2: Stage, overlay SDK, Studio preview**
   - [ ] 2.1 Stage runtime and virtual clock
   - [ ] 2.2 Video plane and camera
@@ -770,3 +770,5 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 1.5 | Reference tutorial (5 steps, ~35 s): Artifacts → HTTP Service `/greeting` → GET `hello` → Return `"Hello, World!"` → service overview. "Try It" was left out (it needs a running service and a notification action) and is recorded as a gotcha in the skill | Keep the reference deterministic |
 | 2026-10-16 | 1.5 | `tut.type(..., { insert: true })` enters text in one go, for code/expression editors whose auto-closing quotes would garble per-key typing | WSO2 Integrator expression editor |
 | 2026-10-16 | 1.5 | Dev engine watcher excludes `workspace/**` | Scripts and skills are imported at run time, and the agent edits them; that must not restart the engine |
+| 2026-10-16 | 1.6 | Live window layout matches the mockup: a pipeline stepper driven by `live.stage` (fixture → launch → load → run → encode, plus failed/stopped), the live view with the action box and step progress, and an agent console (Readable with tags / Raw JSON). Pause and steer are present but disabled until the agent arrives (3.5) | The real layout now, so Phase 3 only adds data |
+| 2026-10-16 | 1.6 | **Stop take** (`recorder.stop`) aborts through an `AbortSignal`: it closes the product window, and the run ends as "Stopped by user" with no take. Temporary profiles are removed with retries, and stale ones are swept at launch | Electron keeps writing briefly after close |

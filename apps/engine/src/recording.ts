@@ -7,12 +7,15 @@ import {
   runTutorial,
   type LiveAction,
   type RunResult,
+  type RunStage,
   type ScreencastFrame,
 } from '@studio/recorder/node';
 import type { ProjectStore } from './projects';
 import type { Workspace } from './workspace';
 
 export interface RecordCallbacks {
+  signal?: AbortSignal;
+  onStage?: (stage: RunStage) => void;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
   onFrame?: (f: ScreencastFrame) => void;
