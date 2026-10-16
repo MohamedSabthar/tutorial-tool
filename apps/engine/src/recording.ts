@@ -81,3 +81,15 @@ export async function registerTake(dir: string, take: Take, takePath: string): P
     .map((l) => RecorderEvent.parse(JSON.parse(l)));
   await writeFile(file, JSON.stringify(parseTimeline(withTake(tl, entry, events)), null, 2) + '\n');
 }
+
+/** Step start/end times (take seconds) from a run's events. */
+export function stepTimings(events: RecorderEvent[]) {
+  return events
+    .filter((e): e is Extract<RecorderEvent, { kind: 'step-start' }> => e.kind === 'step-start')
+    .map((s) => ({
+      id: s.stepId,
+      title: s.title,
+      start: s.t,
+      end: events.find((e) => e.kind === 'step-end' && e.stepId === s.stepId)?.t ?? null,
+    }));
+}

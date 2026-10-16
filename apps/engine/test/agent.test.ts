@@ -159,6 +159,7 @@ describe('AgentSession', () => {
 
   const host = (q: ReturnType<typeof fakeQuery>) => ({
     projectDir: () => dir,
+    workspaceDir: dir,
     mcpServers: () => ({}),
     skills: async () => ['wso2-integrator'],
     emit: (e: AgentEvent) => events.push(e),

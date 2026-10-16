@@ -86,6 +86,8 @@ beforeAll(async () => {
     timelines,
     catalog: () => loadCatalog(server, project.slug),
     runId: () => run,
+    runner: null as never,
+    onTake: () => {},
   };
 }, 30000);
 

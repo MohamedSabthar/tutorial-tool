@@ -13,3 +13,4 @@ export * from './samples/run';
 export * from './screencast';
 export * from './record';
 export * from './script';
+export * from './inspect';

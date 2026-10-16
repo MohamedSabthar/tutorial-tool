@@ -20,7 +20,8 @@ import {
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
 import { Workspace } from './workspace';
-import { runProjectScript } from './recording';
+import { Runner } from './runner';
+import { stepTimings } from './recording';
 import { startOverlayServer, type OverlayServer } from './overlayServer';
 import { HELLO_OVERLAY } from './overlayTemplates';
 import { TimelineStore, type Author } from './timeline';
@@ -68,9 +69,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   await mkdir(opts.workspace, { recursive: true });
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
-  let recorderBusy = false;
   const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
-  let recorderAbort: AbortController | null = null;
+  const runner = new Runner(store, workspace, (event, data) => broadcast(event, data));
   let overlayServer: Promise<OverlayServer> | null = null;
   let overlayVersion = 0;
   const overlays = () =>
@@ -79,11 +79,17 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     ));
   const agents: AgentManager = new AgentManager({
     projectDir: (slug) => store.dir(slug),
+    workspaceDir: opts.workspace,
     mcpServers: (slug) =>
       studioServer({
         slug,
         store,
         timelines,
+        runner,
+        onTake: () => {
+          timelines.invalidate(slug);
+          broadcast('project.changed', { slug });
+        },
         catalog: async () => loadCatalog(await overlays(), slug),
         runId: (): string => agents.get(slug).runId,
       }),
@@ -121,40 +127,6 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   });
   app.get('/health', async () => ({ ok: true, version: ENGINE_VERSION }));
   registerMedia(app, store);
-
-  /** Callbacks that stream a run to the Live window. */
-  function liveCallbacks(title: string, mode: 'dry' | 'record') {
-    recorderAbort = new AbortController();
-    broadcast('live.session', { state: 'started', title, mode, frame: null });
-    return {
-      signal: recorderAbort.signal,
-      onEvent: (e: RecorderEvent) => {
-        broadcast('recorder.event', e);
-        const vp =
-          e.kind === 'marker' && e.name === 'start'
-            ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
-            : undefined;
-        if (vp)
-          broadcast('live.session', {
-            state: 'started',
-            title,
-            mode,
-            frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
-          });
-      },
-      onAction: (a: RpcEventData<'live.action'>) => broadcast('live.action', a),
-      onFrame: (f: RpcEventData<'live.frame'>) => broadcast('live.frame', f),
-      onStage: (stage: RpcEventData<'live.stage'>['stage']) =>
-        broadcast('live.stage', { stage, at: Date.now() }),
-      onProgress: (message: string) => broadcast('recorder.progress', { message, at: Date.now() }),
-    };
-  }
-
-  function endLive(title: string, mode: 'dry' | 'record') {
-    recorderBusy = false;
-    recorderAbort = null;
-    broadcast('live.session', { state: 'stopped', title, mode, frame: null });
-  }
 
   const handlers: Handlers = {
     'agent.status': async ({ slug, history }: { slug: string; history: number }) => {
@@ -233,11 +205,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       );
       return { opened };
     },
-    'recorder.stop': async () => {
-      if (!recorderAbort) return { stopping: false };
-      recorderAbort.abort();
-      return { stopping: true };
-    },
+    'recorder.stop': async () => ({ stopping: runner.stop() || (await runner.closeInspector()) }),
     ping: async ({ sentAt }: { sentAt: number }) => ({
       sentAt,
       engineVersion: ENGINE_VERSION,
@@ -266,67 +234,44 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     }),
     'workspace.log': async ({ limit }: { limit: number }) => workspace.log(limit),
     'recorder.launchCheck': async ({ product }: { product: string }) => {
-      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
-      recorderBusy = true;
-      try {
-        const r = await launchCheck(product, (message) =>
-          broadcast('recorder.progress', { message, at: Date.now() }),
-        );
-        const { png, ...size } = r.screenshot;
-        return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
-      } finally {
-        recorderBusy = false;
-      }
+      const r = await runner.withLock('launch check', () =>
+        launchCheck(product, (message) => broadcast('recorder.progress', { message, at: Date.now() })),
+      );
+      const { png, ...size } = r.screenshot;
+      return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
     },
     'project.record': async ({ slug, mode }: { slug: string; mode: 'dry' | 'record' }) => {
-      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
-      recorderBusy = true;
-      const title = (await store.open(slug).catch(() => null))?.project.title ?? slug;
-      try {
-        const r = await runProjectScript(store, workspace, slug, mode, liveCallbacks(title, mode));
-        const steps = r.events
-          .filter((e): e is Extract<RecorderEvent, { kind: 'step-start' }> => e.kind === 'step-start')
-          .map((s) => ({
-            id: s.stepId,
-            title: s.title,
-            start: s.t,
-            end: r.events.find((e) => e.kind === 'step-end' && e.stepId === s.stepId)?.t ?? null,
-          }));
-        if (r.take) {
-          timelines.invalidate(slug);
-          broadcast('project.changed', { slug });
-        }
-        return {
-          passed: r.passed,
-          slug,
-          takePath: r.takePath,
-          take: r.take,
-          codec: r.codec,
-          steps,
-          failure: r.failure && {
-            stepId: r.failure.stepId,
-            title: r.failure.title,
-            error: r.failure.error,
-            dataUrl: r.failure.screenshot.length ? dataUrl(r.failure.screenshot) : '',
-          },
-          durationMs: r.durationMs,
-        };
-      } finally {
-        endLive(title, mode);
+      const r = await runner.runProject(slug, mode);
+      if (r.take) {
+        timelines.invalidate(slug);
+        broadcast('project.changed', { slug });
       }
+      return {
+        passed: r.passed,
+        slug,
+        takePath: r.takePath,
+        take: r.take,
+        codec: r.codec,
+        steps: stepTimings(r.events),
+        failure: r.failure && {
+          stepId: r.failure.stepId,
+          title: r.failure.title,
+          error: r.failure.error,
+          dataUrl: r.failure.screenshot.length ? dataUrl(r.failure.screenshot) : '',
+        },
+        durationMs: r.durationMs,
+      };
     },
     'recorder.recordSampleTake': async () => {
-      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
-      recorderBusy = true;
       const slug = 'recorder-samples';
       const title = 'Sample: Greeting Service overview';
-      try {
+      return runner.exclusive(title, 'record', async (cb) => {
         await workspace.ensure();
         await store.ensure(slug, 'Recorder samples', 'wso2-integrator');
         const takeId = await store.nextTakeId(slug);
         const takePath = `recordings/${takeId}`;
         const takeDir = path.join(store.dir(slug), takePath);
-        const r = await runSample({ mode: 'record', takeDir, takeId, ...liveCallbacks(title, 'record') });
+        const r = await runSample({ mode: 'record', takeDir, takeId, ...cb });
         if (!r.take)
           throw new RpcError(
             r.failure ? `step ${r.failure.stepId} failed: ${r.failure.error}` : 'no take was recorded',
@@ -334,17 +279,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         const info = await probe(path.join(takeDir, 'video.mp4'));
         await workspace.commit(`take: ${slug}/${takeId}`);
         return { slug, takePath, take: r.take, codec: info.codec, frames: info.frames, events: r.events };
-      } finally {
-        endLive(title, 'record');
-      }
+      });
     },
     'recorder.runSample': async ({ mode, broken }: { mode: 'dry' | 'record'; broken: boolean }) => {
-      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
-      recorderBusy = true;
       const title = 'Sample: Greeting Service overview';
       const eventsFile = path.join(os.tmpdir(), 'tutorial-studio', `sample-${mode}.jsonl`);
-      try {
-        const r = await runSample({ mode, broken, eventsFile, ...liveCallbacks(title, mode) });
+      return runner.exclusive(title, mode, async (cb) => {
+        const r = await runSample({ mode, broken, eventsFile, ...cb });
         return {
           passed: r.passed,
           mode: r.mode,
@@ -362,9 +303,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           },
           durationMs: r.durationMs,
         };
-      } finally {
-        endLive(title, mode);
-      }
+      });
     },
   };
 
@@ -425,6 +364,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     broadcast,
     async close() {
       await agents.closeAll().catch(() => {});
+      await runner.close();
       if (overlayServer) await (await overlayServer).close().catch(() => {});
       for (const ws of sockets) ws.terminate();
       wss.close();

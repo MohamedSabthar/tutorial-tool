@@ -1,7 +1,7 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { FrameLocator, Page } from 'playwright';
 import type { RecorderEvent, Take } from '@studio/core';
 import { createBIProject, type BIIntegration } from './fixtures/biProject';
@@ -52,16 +52,53 @@ export interface ScriptModule {
   script: TutorialScript;
 }
 
-/** Imports a script.spec.ts (the engine runs under tsx, so TypeScript loads directly). */
+/**
+ * Imports a script.spec.ts. The script and the files it imports relatively (the skill's page
+ * objects) are bundled into a fresh module on every call: Node caches ES modules for the life
+ * of the process, so a plain import would keep running page objects the agent has since fixed.
+ * Package imports stay external.
+ */
 export async function loadScript(file: string): Promise<ScriptModule> {
-  const mod = (await import(`${pathToFileURL(file).href}?t=${Date.now()}`)) as {
-    default?: TutorialScript;
-    fixture?: ScriptFixture;
-  };
-  if (typeof mod.default !== 'function')
-    throw new Error(`${file} has no default export (the tutorial script)`);
-  if (!mod.fixture) throw new Error(`${file} does not export a fixture`);
-  return { script: mod.default, fixture: mod.fixture };
+  const { build } = await import('esbuild');
+  const out = await build({
+    entryPoints: [file],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    packages: 'external',
+    write: false,
+    sourcemap: 'inline',
+    logLevel: 'silent',
+  }).catch((e: unknown) => {
+    const errors = (e as { errors?: { text: string; location?: { file: string; line: number } | null }[] })
+      .errors;
+    throw new Error(
+      errors?.length
+        ? errors
+            .map((x) => `${x.location ? `${x.location.file}:${x.location.line}: ` : ''}${x.text}`)
+            .join('\n')
+        : String(e),
+    );
+  });
+  // Inside this package so package imports in the bundle resolve (playwright, @studio/*).
+  const cache = fileURLToPath(new URL('../node_modules/.cache/', import.meta.url));
+  await mkdir(cache, { recursive: true });
+  const dir = await mkdtemp(path.join(cache, 'script-'));
+  const bundled = path.join(dir, 'script.mjs');
+  await writeFile(bundled, out.outputFiles[0]!.contents);
+  try {
+    const mod = (await import(pathToFileURL(bundled).href)) as {
+      default?: TutorialScript;
+      fixture?: ScriptFixture;
+    };
+    if (typeof mod.default !== 'function')
+      throw new Error(`${file} has no default export (the tutorial script)`);
+    if (!mod.fixture) throw new Error(`${file} does not export a fixture`);
+    return { script: mod.default, fixture: mod.fixture };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 /** Pipeline stages of a run, for the Live window's stepper. */
@@ -97,6 +134,45 @@ export interface RunResult {
   durationMs: number;
 }
 
+/** Creates a fresh copy of the fixture in a temp folder and opens the product on it. */
+export async function launchFixture(
+  fixture: ScriptFixture,
+  productId: string,
+  progress: Progress,
+  onLaunch: () => void = () => {},
+) {
+  const product = getProduct(productId);
+  const base = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
+  const fixtureDir = path.join(base, fixture.folder);
+  progress(`Creating the ${fixture.title} fixture…`);
+  await createBIProject(fixtureDir, { title: fixture.title, integrations: fixture.integrations });
+  onLaunch();
+  try {
+    const session =
+      product.type === 'vscode-app'
+        ? await launchVSCode({
+            fixture: fixtureDir,
+            extensions: [],
+            executable: readAppBundle(product.appPath).executable,
+            onProgress: progress,
+          })
+        : await launchVSCode({ fixture: fixtureDir, extensions: product.extensions, onProgress: progress });
+    return { base, session };
+  } catch (e) {
+    await rm(base, { recursive: true, force: true });
+    throw e;
+  }
+}
+
+/** Waits until the product shows the fixture project, then lets the first screen settle. */
+export async function waitForFixture(page: Page, fixture: ScriptFixture, progress: Progress) {
+  progress('Waiting for the project to load…');
+  const ready = fixture.readyText ?? fixture.integrations[0]?.title ?? fixture.title;
+  await page.locator('.monaco-list-row', { hasText: ready }).first().waitFor({ timeout: 45_000 });
+  // The integration overview opens on its own; let it settle so step 1 starts on a stable screen.
+  await page.waitForTimeout(1500);
+}
+
 /** Launches the product on a fresh copy of the fixture, runs the script, and records a take. */
 export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<RunResult> {
   const started = Date.now();
@@ -105,21 +181,7 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
   const product = getProduct(opts.product ?? 'wso2-integrator');
   stage('fixture');
 
-  const base = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
-  const fixtureDir = path.join(base, mod.fixture.folder);
-  progress(`Creating the ${mod.fixture.title} fixture…`);
-  await createBIProject(fixtureDir, { title: mod.fixture.title, integrations: mod.fixture.integrations });
-  stage('launch');
-  const session =
-    product.type === 'vscode-app'
-      ? await launchVSCode({
-          fixture: fixtureDir,
-          extensions: [],
-          executable: readAppBundle(product.appPath).executable,
-          onProgress: progress,
-        })
-      : await launchVSCode({ fixture: fixtureDir, extensions: product.extensions, onProgress: progress });
-
+  const { base, session } = await launchFixture(mod.fixture, product.id, progress, () => stage('launch'));
   const recording = opts.mode === 'record' && !!opts.takeDir;
   let stopped = false;
   const onAbort = () => {
@@ -147,11 +209,7 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
     else if (opts.onFrame) stopScreencast = await startScreencast(page, opts.onFrame);
 
     stage('load');
-    progress('Waiting for the project to load…');
-    const ready = mod.fixture.readyText ?? mod.fixture.integrations[0]?.title ?? mod.fixture.title;
-    await page.locator('.monaco-list-row', { hasText: ready }).first().waitFor({ timeout: 45_000 });
-    // The integration overview opens on its own; let it settle so step 1 starts on a stable screen.
-    await page.waitForTimeout(1500);
+    await waitForFixture(page, mod.fixture, progress);
 
     const eventsFile = recording ? path.join(opts.takeDir!, 'events.jsonl') : opts.eventsFile;
     const tut = new Tut({

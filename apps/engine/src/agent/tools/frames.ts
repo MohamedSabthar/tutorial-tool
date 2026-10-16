@@ -46,6 +46,40 @@ export function extractFrame(video: string, seconds: number, region?: Rect, size
   );
 }
 
+/** Re-encodes an image (e.g. a 2268 px PNG screenshot) as a JPEG at most MAX_WIDTH wide. */
+export function toJpeg(image: Buffer): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    const child = execFile(
+      'ffmpeg',
+      [
+        '-v',
+        'error',
+        '-f',
+        'image2pipe',
+        '-i',
+        '-',
+        '-vf',
+        `scale='min(${MAX_WIDTH},iw)':-2`,
+        '-f',
+        'image2pipe',
+        '-vcodec',
+        'mjpeg',
+        '-q:v',
+        '4',
+        '-',
+      ],
+      { encoding: 'buffer', maxBuffer: 32 << 20 },
+      (err, stdout, stderr) => (err ? reject(new Error(String(stderr) || err.message)) : resolve(stdout)),
+    );
+    child.stdin?.end(image);
+  });
+}
+
+/** An image block for a tool result. */
+export async function imageBlock(png: Buffer) {
+  return { type: 'image' as const, data: (await toJpeg(png)).toString('base64'), mimeType: 'image/jpeg' };
+}
+
 export function frameTools(ctx: ToolContext) {
   return [
     tool(

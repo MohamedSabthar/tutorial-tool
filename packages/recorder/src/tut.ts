@@ -56,6 +56,8 @@ export interface StepFailure {
   stepId: string;
   title: string;
   error: string;
+  /** The full error, including Playwright's call log (what it waited for and saw). */
+  errorDetail: string;
   /** PNG of the window at the moment of failure. */
   screenshot: Buffer;
   /** Playwright ARIA snapshot of the window (YAML). */
@@ -145,6 +147,7 @@ export class Tut {
         stepId: id,
         title,
         error: e instanceof Error ? e.message.split('\n')[0]! : String(e),
+        errorDetail: (e instanceof Error ? e.message : String(e)).slice(0, 3000),
         screenshot,
         ariaSnapshot,
         webviewAriaSnapshot,

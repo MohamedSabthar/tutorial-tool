@@ -32,6 +32,8 @@ export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
 export interface AgentHost {
   /** `workspace/projects/<slug>`, the session's working directory. */
   projectDir(slug: string): string;
+  /** The workspace root: skills, shared overlays and CLAUDE.md the agent reads and updates. */
+  workspaceDir: string;
   /** In-process MCP servers for this project (the `studio` tools). */
   mcpServers(slug: string): Record<string, McpServerConfig>;
   /** Skill names the session may use (the workspace's `.claude/skills/*`). */
@@ -183,6 +185,9 @@ export class AgentSession {
     const resume = this.stored.sessionId ?? undefined;
     const options: Options = {
       cwd: this.host.projectDir(this.slug),
+      // The skills and shared libraries live above the project folder; the permission rules
+      // in the workspace settings still decide what may be read or changed there.
+      additionalDirectories: [this.host.workspaceDir],
       // Only the workspace's own settings, CLAUDE.md files and skills: never the user's
       // personal ~/.claude configuration.
       settingSources: ['project'],
