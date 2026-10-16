@@ -1,0 +1,94 @@
+import { useMemo, type ReactNode } from 'react';
+import type { Rect, RecorderEvent, Take } from '@studio/core';
+import { OverlayRenderer, RecordingContext, type OverlayModule } from '@studio/overlay-sdk';
+import { coreOverlays, zoomMove } from '@studio/overlays-core';
+import {
+  cameraAt,
+  CameraProvider,
+  fitSource,
+  restCamera,
+  Scene3D,
+  Stage,
+  VideoPlane,
+  type CameraMove,
+} from '@studio/stage';
+
+export const STAGE = { width: 1920, height: 1080 };
+
+/** An overlay instance ready to render: anchor already resolved to stage px. */
+export interface HostInstance {
+  id: string;
+  component: string;
+  start: number;
+  end: number;
+  props: Record<string, unknown>;
+  anchor: Rect | null;
+}
+
+/**
+ * Renders a recording scene: the take on the GPU plane, the camera from Zoom instances, and
+ * every overlay instance through the registry. Shared by the dev pages and the Studio.
+ */
+export function StageHost({
+  take,
+  src,
+  events,
+  instances,
+  t,
+  playing,
+  registry = coreOverlays,
+  onOverlayError,
+  children,
+}: {
+  take: Take;
+  src: string;
+  events: RecorderEvent[];
+  instances: HostInstance[];
+  t: number;
+  playing: boolean;
+  registry?: Record<string, OverlayModule>;
+  onOverlayError?: (id: string, error: Error) => void;
+  children?: ReactNode;
+}) {
+  const fit = useMemo(() => fitSource(take, STAGE), [take]);
+  const recording = useMemo(() => ({ events, fit, sourceTime: (x: number) => x }), [events, fit]);
+  const moves = useMemo<CameraMove[]>(
+    () =>
+      instances
+        .filter((i) => i.component === 'core:Zoom' && i.anchor)
+        .sort((a, b) => a.start - b.start)
+        .map((i) => zoomMove(i, i.anchor!)),
+    [instances],
+  );
+  const camera = cameraAt(t, moves, restCamera(STAGE), fit.rect, STAGE);
+
+  return (
+    <Stage t={t} {...STAGE}>
+      <RecordingContext.Provider value={recording}>
+        <CameraProvider camera={camera} source={take}>
+          <Scene3D>
+            <VideoPlane src={src} sourceTime={Math.min(t, take.duration - 0.01)} playing={playing} />
+          </Scene3D>
+          {instances.map((inst) => {
+            const mod = registry[inst.component];
+            if (!mod) return null;
+            const Comp = mod.default;
+            return (
+              <OverlayRenderer
+                key={inst.id}
+                id={inst.id}
+                start={inst.start}
+                end={inst.end}
+                anchor={inst.anchor}
+                onError={onOverlayError}
+              >
+                <Comp props={inst.props} duration={inst.end - inst.start} />
+              </OverlayRenderer>
+            );
+          })}
+          {children}
+        </CameraProvider>
+      </RecordingContext.Provider>
+    </Stage>
+  );
+}

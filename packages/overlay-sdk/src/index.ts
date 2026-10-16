@@ -6,13 +6,16 @@ export const PACKAGE = {
 export * from './types';
 export {
   OverlayContext,
+  RecordingContext,
   useAnchor,
+  useRecording,
   useCamera,
   useOverlayInstance,
   useOverlayTime,
   useStageSize,
   type OverlayInstanceContext,
   type OverlayTime,
+  type RecordingInfo,
 } from './context';
 export { gsap, useGsap } from './gsap';
 export { DomLayer, OverlayBoundary, OverlayRenderer, ThreeLayer, useStageToScene } from './layers';

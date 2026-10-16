@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
-import type { Rect } from '@studio/core';
+import type { Rect, RecorderEvent } from '@studio/core';
+import type { Fit } from '@studio/stage';
 import { useCamera, useStageTime } from '@studio/stage';
 
 /** Per-instance context the host provides around each overlay. */
@@ -54,3 +55,18 @@ export function useStageSize() {
 
 export { useCamera };
 export const useOverlayInstance = useInstance;
+
+/** The recording behind a recording scene: its events and how source px map onto the stage. */
+export interface RecordingInfo {
+  events: RecorderEvent[];
+  fit: Fit;
+  /** Source (take) time shown at output time t. */
+  sourceTime: (t: number) => number;
+}
+
+export const RecordingContext = createContext<RecordingInfo | null>(null);
+
+/** Recorded events and the source→stage fit (null outside a recording scene). */
+export function useRecording(): RecordingInfo | null {
+  return useContext(RecordingContext);
+}

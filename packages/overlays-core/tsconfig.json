@@ -5,5 +5,16 @@
     "rootDir": ".",
     "emitDeclarationOnly": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../stage"
+    },
+    {
+      "path": "../overlay-sdk"
+    }
+  ]
 }

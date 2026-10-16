@@ -16,6 +16,7 @@ import { ReferencePage } from './pages/ReferencePage';
 import { StagePage } from './pages/StagePage';
 import { VideoPlanePage } from './pages/VideoPlanePage';
 import { SdkPage } from './pages/SdkPage';
+import { GalleryPage } from './pages/GalleryPage';
 import '@studio/ui/styles.css';
 import './styles.css';
 
@@ -33,6 +34,7 @@ const routes: DevRoute[] = [
   { path: '/stage', step: '2.1', label: 'Stage and clock', render: () => <StagePage /> },
   { path: '/video', step: '2.2', label: 'Video plane & camera', render: () => <VideoPlanePage /> },
   { path: '/sdk', step: '2.3', label: 'Overlay SDK', render: () => <SdkPage /> },
+  { path: '/gallery', step: '2.4', label: 'Core overlays', render: () => <GalleryPage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');
