@@ -12,6 +12,7 @@ import { WorkspacePage } from './pages/WorkspacePage';
 import { LauncherPage } from './pages/LauncherPage';
 import { RecorderPage } from './pages/RecorderPage';
 import { TakePage } from './pages/TakePage';
+import { ReferencePage } from './pages/ReferencePage';
 import '@studio/ui/styles.css';
 import './styles.css';
 
@@ -25,6 +26,7 @@ const routes: DevRoute[] = [
   { path: '/launcher', step: '1.1', label: 'Integrator launcher', render: () => <LauncherPage /> },
   { path: '/recorder', step: '1.2', label: 'Recorder helpers', render: () => <RecorderPage /> },
   { path: '/take', step: '1.4', label: 'Take (MP4)', render: () => <TakePage /> },
+  { path: '/reference', step: '1.5', label: 'Reference tutorial', render: () => <ReferencePage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');

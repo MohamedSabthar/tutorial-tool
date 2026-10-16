@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
-import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { RpcError } from '@studio/core';
 import {
@@ -13,6 +14,9 @@ import {
 } from './templates';
 
 const run = promisify(execFile);
+
+/** Seed knowledge (skills, reference projects) shipped with the app, copied into new workspaces. */
+export const SEED_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../seed/workspace');
 
 export interface WorkspaceStatus {
   path: string;
@@ -63,6 +67,7 @@ export class Workspace {
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, content);
     }
+    await this.copySeed();
     if (!(await exists(path.join(this.root, '.git')))) {
       await this.git(['init', '-q', '-b', 'main']);
     }
@@ -70,8 +75,20 @@ export class Workspace {
     return this.status();
   }
 
+  /** Initializes if needed and adds any seed files the workspace doesn't have yet. */
   async ensure(): Promise<void> {
-    if (!(await this.status()).initialized) await this.init();
+    if (!(await this.status()).initialized) {
+      await this.init();
+      return;
+    }
+    await this.copySeed();
+    await this.commit('workspace: add seed knowledge');
+  }
+
+  /** Copies seed files without overwriting anything (agent-updated skills win). */
+  private async copySeed(): Promise<void> {
+    if (!(await exists(SEED_DIR))) return;
+    await cp(SEED_DIR, this.root, { recursive: true, force: false, errorOnExist: false });
   }
 
   /** Stages everything and commits if anything changed. Returns the new short hash, or null. */

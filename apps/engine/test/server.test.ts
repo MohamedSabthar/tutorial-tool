@@ -49,8 +49,10 @@ describe('engine RPC', () => {
     });
     expect(again.slug).toBe('create-an-http-service-2');
 
-    const list = await client.call('project.list', {});
-    expect(list.map((x) => x.slug).sort()).toEqual(['create-an-http-service', 'create-an-http-service-2']);
+    const list = (await client.call('project.list', {})).map((x) => x.slug);
+    expect(list).toEqual(expect.arrayContaining(['create-an-http-service', 'create-an-http-service-2']));
+    // The seed reference project is added when the workspace is initialized.
+    expect(list).toContain('demo-http');
 
     const opened = await client.call('project.open', { slug: p.slug });
     expect(opened.project.title).toBe('Create an HTTP service!');

@@ -48,7 +48,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 1.2 Recorder helpers and `events.jsonl`
   - [x] 1.3 Live screencast
   - [x] 1.4 Take post-processing
-  - [ ] 1.5 Hand-written reference tutorial
+  - [x] 1.5 Hand-written reference tutorial
   - [ ] 1.6 Live window UI (static data)
 - [ ] **Phase 2: Stage, overlay SDK, Studio preview**
   - [ ] 2.1 Stage runtime and virtual clock
@@ -765,3 +765,8 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | fix | In dev, Tauri runs the engine under `tsx watch` with a fixed port and token, so engine code changes reload it and the windows reconnect. The engine exits (and stops its watcher) when the app's process is gone (`STUDIO_PARENT_PID`) | Before this, a running app kept the stale engine ("unknown method recorder.launchCheck") |
 | 2026-10-16 | 1.4 | Takes are recorded from the **CDP screencast at full resolution** (JPEG q90, every frame, Chromium timestamps), not Playwright `recordVideo`. They are encoded with ffmpeg (ffconcat with per-frame durations → `fps=30`, `crop` to even size, libx264 CRF 18, GOP 15, faststart) plus `poster.jpg` | Higher quality than recordVideo. Exact alignment because frames and the tut start share the wall clock (`epoch` in the start marker), so no marker-frame detection is needed. Verified: frames pulled at event times show the logged boxes exactly on the elements |
 | 2026-10-16 | 1.4 | While recording, the same screencast feeds the Live window at 15 fps | Chromium runs one screencast per target |
+| 2026-10-16 | 1.5 | Script format: `script.spec.ts` exports a `fixture` (BI project spec) and a default `TutorialScript(ctx)`, where `ctx = { tut, page, webview }`. Page objects live in the skill (`pages/*.ts`) and take the same `ctx`. Scripts and page objects only *type*-import `@studio/recorder/node`, so they load from the workspace without its own node_modules | One runner (`runTutorial`) for samples, reference and agent scripts |
+| 2026-10-16 | 1.5 | Seed knowledge is kept as real files in `apps/engine/seed/workspace/**` (the `wso2-integrator` skill and the `demo-http` reference project). `workspace.init`/`ensure` copy only missing files, then commit. This partly replaces the "templates as TS strings" decision for code-heavy files | Page objects are code and need real files. Agent-updated skills are never overwritten |
+| 2026-10-16 | 1.5 | Reference tutorial (5 steps, ~35 s): Artifacts → HTTP Service `/greeting` → GET `hello` → Return `"Hello, World!"` → service overview. "Try It" was left out (it needs a running service and a notification action) and is recorded as a gotcha in the skill | Keep the reference deterministic |
+| 2026-10-16 | 1.5 | `tut.type(..., { insert: true })` enters text in one go, for code/expression editors whose auto-closing quotes would garble per-key typing | WSO2 Integrator expression editor |
+| 2026-10-16 | 1.5 | Dev engine watcher excludes `workspace/**` | Scripts and skills are imported at run time, and the agent edits them; that must not restart the engine |

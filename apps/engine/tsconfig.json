@@ -6,7 +6,7 @@
     "emitDeclarationOnly": true,
     "types": ["node"]
   },
-  "include": ["src", "test"],
+  "include": ["src", "test", "vitest.config.ts"],
   "references": [
     {
       "path": "../../packages/core"

@@ -108,6 +108,23 @@ export const rpcMethods = {
       events: z.array(RecorderEvent),
     }),
   },
+  'project.record': {
+    params: z.object({ slug: z.string(), mode: z.enum(['dry', 'record']) }),
+    result: z.object({
+      passed: z.boolean(),
+      slug: z.string(),
+      takePath: z.string().nullable(),
+      take: Take.nullable(),
+      codec: z.string().nullable(),
+      steps: z.array(
+        z.object({ id: z.string(), title: z.string(), start: z.number(), end: z.number().nullable() }),
+      ),
+      failure: z
+        .object({ stepId: z.string(), title: z.string(), error: z.string(), dataUrl: z.string() })
+        .nullable(),
+      durationMs: z.number(),
+    }),
+  },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;

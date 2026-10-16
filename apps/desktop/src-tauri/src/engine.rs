@@ -37,7 +37,18 @@ impl EngineState {
         let port = free_port().unwrap_or(4317);
         let token = random_token();
         let result = Command::new("node")
-            .args(["node_modules/tsx/dist/cli.mjs", "watch", "--clear-screen=false", "src/main.ts"])
+            // Workspace scripts and skills are imported at run time; editing them (the agent
+            // does) must not restart the engine.
+            .args([
+                "node_modules/tsx/dist/cli.mjs",
+                "watch",
+                "--clear-screen=false",
+                "--exclude",
+                "../../workspace/**",
+                "--exclude",
+                "**/workspace/**",
+                "src/main.ts",
+            ])
             .arg("--workspace")
             .arg(&workspace)
             .args(["--port", &port.to_string(), "--token", &token])

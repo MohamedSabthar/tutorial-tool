@@ -18,6 +18,7 @@ import {
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
 import { Workspace } from './workspace';
+import { runProjectScript } from './recording';
 import { launchCheck, probe, runSample } from '@studio/recorder/node';
 import os from 'node:os';
 import path from 'node:path';
@@ -110,6 +111,59 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
       } finally {
         recorderBusy = false;
+      }
+    },
+    'project.record': async ({ slug, mode }: { slug: string; mode: 'dry' | 'record' }) => {
+      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
+      recorderBusy = true;
+      const title = (await store.open(slug).catch(() => null))?.project.title ?? slug;
+      try {
+        broadcast('live.session', { state: 'started', title, mode, frame: null });
+        const r = await runProjectScript(store, workspace, slug, mode, {
+          onEvent: (e) => {
+            broadcast('recorder.event', e);
+            const vp =
+              e.kind === 'marker' && e.name === 'start'
+                ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
+                : undefined;
+            if (vp)
+              broadcast('live.session', {
+                state: 'started',
+                title,
+                mode,
+                frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
+              });
+          },
+          onAction: (a) => broadcast('live.action', a),
+          onFrame: (f) => broadcast('live.frame', f),
+          onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
+        });
+        const starts = r.events.filter((e) => e.kind === 'step-start');
+        const steps = starts.map((s) => ({
+          id: s.stepId,
+          title: s.title,
+          start: s.t,
+          end: r.events.find((e) => e.kind === 'step-end' && e.stepId === s.stepId)?.t ?? null,
+        }));
+        if (r.take) broadcast('project.changed', { slug });
+        return {
+          passed: r.passed,
+          slug,
+          takePath: r.takePath,
+          take: r.take,
+          codec: r.codec,
+          steps,
+          failure: r.failure && {
+            stepId: r.failure.stepId,
+            title: r.failure.title,
+            error: r.failure.error,
+            dataUrl: dataUrl(r.failure.screenshot),
+          },
+          durationMs: r.durationMs,
+        };
+      } finally {
+        recorderBusy = false;
+        broadcast('live.session', { state: 'stopped', title, mode, frame: null });
       }
     },
     'recorder.recordSampleTake': async () => {

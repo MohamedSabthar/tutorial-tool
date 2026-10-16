@@ -190,10 +190,14 @@ export class Tut {
   }
 
   /** Clicks the field, then types at a human pace. */
+  /**
+   * Clicks the field, then types at a human pace. `insert` enters the text in one go (for
+   * code editors whose auto-closing brackets/quotes would garble key-by-key typing).
+   */
   async type(
     target: Target,
     text: string,
-    opts: { description?: string; clear?: boolean } = {},
+    opts: { description?: string; clear?: boolean; insert?: boolean } = {},
   ): Promise<void> {
     const stepId = this.stepId();
     this.typing = text;
@@ -208,7 +212,7 @@ export class Tut {
       await this.opts.page.keyboard.press('Backspace');
     }
     const t = this.now();
-    if (this.opts.mode === 'dry') await this.opts.page.keyboard.insertText(text);
+    if (this.opts.mode === 'dry' || opts.insert) await this.opts.page.keyboard.insertText(text);
     else {
       const delays = typingDelays(text, this.opts.cps ?? 14, this.random);
       for (const [i, ch] of [...text].entries()) {
