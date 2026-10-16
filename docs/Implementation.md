@@ -40,7 +40,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 0.1 Monorepo scaffold
   - [x] 0.2 `packages/core` schemas
   - [x] 0.3 Engine skeleton and RPC
-  - [ ] 0.4 Tauri shell with two windows
+  - [x] 0.4 Tauri shell with two windows
   - [ ] 0.5 `packages/ui` design tokens and kit
   - [ ] 0.6 Workspace repo bootstrap
 - [ ] **Phase 1: VS Code recorder and Live window**
@@ -744,3 +744,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 0.3 | WebSocket auth uses a `?token=` query parameter on `/rpc` (not a first message). Media URLs use the same parameter | Simpler, and `<video>` can't send headers anyway. The engine only listens on 127.0.0.1 |
 | 2026-10-16 | 0.3 | Engine runs with `tsx` in dev (`pnpm engine` → port 4317, token `dev-token`). `@studio/engine`'s index stays browser-safe; the server lives in `src/server.ts` | No build step in dev. Keeps fastify out of the UI bundle |
 | 2026-10-16 | 0.3 | The typed RPC client is in `@studio/core` and accepts a WebSocket constructor | Shared by the UI (browser WebSocket) and tests (`ws`) |
+| 2026-10-16 | 0.4 | In dev, Rust starts the engine with `node --import tsx src/main.ts` in `apps/engine`, and the workspace is `<repo>/workspace`. The engine also exits when its stdin closes | No build step. Even a hard kill of the app never leaves an orphaned engine |
+| 2026-10-16 | 0.4 | The Live window is created by a Rust command (`open_live_window`), not by JS | No webview-creation permission is exposed to the frontend |
+| 2026-10-16 | 0.4 | In a plain browser (`pnpm dev:web`) the UI falls back to the dev engine (`pnpm engine`, port 4317, token `dev-token`) | The UI can be worked on without Tauri |

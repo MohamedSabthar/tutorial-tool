@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import mark from './mark-wso2-orange.png';
+import { EngineChip } from './engine';
 
 /**
  * Temporary developer shell: one page per implementation step so each step can be tested
@@ -49,6 +50,7 @@ export function DevShell({ routes }: { routes: DevRoute[] }) {
         </span>
         <span className="pill">Developer preview</span>
         <span style={{ flex: 1 }} />
+        <EngineChip />
         <RuntimeChip runtime={runtime} />
       </header>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>

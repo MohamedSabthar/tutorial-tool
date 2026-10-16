@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for the Studio window",
-  "windows": ["studio"],
+  "description": "Capabilities for the Studio and Live windows",
+  "windows": ["studio", "live"],
   "permissions": ["core:default"]
 }

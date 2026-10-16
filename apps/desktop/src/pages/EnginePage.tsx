@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createEngineClient, type ConnectionState, type EngineClient, type Project } from '@studio/core';
 import { Page } from '../shell';
+import { useEngine } from '../engine';
 
 const DEFAULT_URL = 'ws://127.0.0.1:4317/rpc';
 const DEFAULT_TOKEN = 'dev-token';
@@ -18,6 +19,15 @@ export function EnginePage() {
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
   const clientRef = useRef<EngineClient | null>(null);
+  const { info } = useEngine();
+
+  // Prefill with the engine this window already uses (started by Tauri, or the dev engine).
+  const [prefilledFrom, setPrefilledFrom] = useState<typeof info>(null);
+  if (info && info !== prefilledFrom) {
+    setPrefilledFrom(info);
+    setUrl(`ws://127.0.0.1:${info.port}/rpc`);
+    setToken(info.token);
+  }
 
   useEffect(() => () => clientRef.current?.close(), []);
 
@@ -85,7 +95,7 @@ export function EnginePage() {
   return (
     <Page
       title="Step 0.3 · Engine and RPC"
-      intro="The engine is the Node sidecar. In a terminal, run `pnpm engine` (it listens on port 4317 with the dev token), then connect here. In step 0.4 the app starts the engine itself."
+      intro="The engine is the Node sidecar. Inside the desktop app the fields below are prefilled with the engine Tauri started. In a plain browser, run `pnpm engine` first (port 4317, token dev-token). Then press Connect."
     >
       <section className="panel panel-pad" aria-label="Connection">
         <h2 className="panel-title">Connection</h2>
