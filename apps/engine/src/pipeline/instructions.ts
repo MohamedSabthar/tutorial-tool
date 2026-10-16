@@ -67,6 +67,33 @@ export function postInstruction(): string {
   ].join('\n\n');
 }
 
+export function retroInstruction(input: {
+  history: { stage: string; ok: boolean | null; summary: string }[];
+  claudeMdBytes: number;
+  feedback?: string;
+}): string {
+  const log = input.history
+    .map((h) => `- ${h.stage}: ${h.ok === false ? 'FAILED' : 'ok'}${h.summary ? ` · ${h.summary}` : ''}`)
+    .join('\n');
+  return [
+    '[Pipeline · retro]',
+    'The tutorial is recorded. Review this run so the next tutorial goes faster:',
+    log,
+    input.feedback ? `The user reviewed your previous retrospective and says:\n\n${input.feedback}` : '',
+    [
+      'Then:',
+      '1. Product facts you confirmed or corrected (labels, flows, timings, gotchas) go into the product skill (components/*.md, pages/*.ts, SKILL.md), following skill-maintenance.',
+      '2. Lessons that apply to every tutorial go into the workspace CLAUDE.md under "Learned lessons" or "Gotchas": at most 3, one line each, only if new. Merge or replace existing lines instead of repeating them.',
+      `3. Keep the workspace CLAUDE.md under 8 KB (it is ${input.claudeMdBytes} bytes now).`,
+      '4. If this tutorial produced an overlay or scene worth reusing, say which in your summary (promotion arrives later).',
+      "If nothing is worth recording, change nothing and say so. Don't commit: the user reviews the diff, then it is committed.",
+    ].join('\n'),
+    'When you have finished, call the studio tool stage_done with {"stage": "retro", "summary": "<what you recorded, and any overlays worth promoting>", "knowledge": "<one line for the commit message>"}.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export function nudge(stage: string): string {
   return `[Pipeline] Your turn ended while the pipeline is still waiting for the "${stage}" stage. Continue it, then call stage_done. If you are blocked, call stage_done with "ok": false and explain.`;
 }

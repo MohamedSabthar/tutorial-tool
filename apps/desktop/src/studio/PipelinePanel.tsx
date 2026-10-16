@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Chip, GateBanner, Panel, Stepper, Switch, TextArea, type ChipTone } from '@studio/ui';
 import type { PipelineStatus } from '@studio/core';
 import { pipelineSteps, usePipeline } from '../pipeline';
+import { DiffView } from './DiffView';
 
 const STATUS: Record<PipelineStatus, { label: string; tone: ChipTone }> = {
   idle: { label: 'Not started', tone: 'neutral' },
@@ -50,6 +51,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
               ))}
             </ol>
           )}
+          {s.gate.kind === 'knowledge' && s.gate.diff && <DiffView diff={s.gate.diff} />}
           <TextArea
             aria-label="Feedback for the agent"
             rows={2}
@@ -59,7 +61,11 @@ export function PipelinePanel({ slug }: { slug: string }) {
           />
           <div style={{ display: 'flex', gap: 6 }}>
             <Button size="sm" variant="primary" disabled={!p.ready} onClick={() => void p.approve()}>
-              {s.gate.kind === 'storyboard' ? 'Approve' : 'Try again'}
+              {s.gate.kind === 'storyboard'
+                ? 'Approve'
+                : s.gate.kind === 'knowledge'
+                  ? 'Commit'
+                  : 'Try again'}
             </Button>
             <Button
               size="sm"
@@ -72,6 +78,11 @@ export function PipelinePanel({ slug }: { slug: string }) {
             >
               Revise with agent
             </Button>
+            {s.gate.kind === 'knowledge' && (
+              <Button size="sm" variant="ghost" disabled={!p.ready} onClick={() => void p.revise('discard')}>
+                Discard
+              </Button>
+            )}
           </div>
         </div>
       )}

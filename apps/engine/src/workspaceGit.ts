@@ -75,12 +75,60 @@ export class WorkspaceGit {
     await this.git([...(await this.identity()), 'commit', '-q', '-m', subject, '--', '.claude/skills']);
     return { hash: (await this.head()) ?? '', subject };
   }
+
+  /**
+   * Uncommitted changes to the knowledge base (workspace CLAUDE.md and skills) as a unified
+   * diff, new files included. Capped so it fits a gate.
+   */
+  async knowledgeDiff(max = 20000): Promise<string> {
+    // Intent-to-add makes new files show up in the diff without staging their content.
+    await this.git(['add', '-N', '--', ...KNOWLEDGE]).catch(() => '');
+    const diff = await this.git(['diff', '--no-color', '--', ...KNOWLEDGE], false).catch(() => '');
+    return diff.length > max ? `${diff.slice(0, max)}\n… (diff truncated)` : diff;
+  }
+
+  /** Commits the knowledge base changes (CLAUDE.md and skills) with `message`. */
+  async commitKnowledge(message: string): Promise<SkillCommit | null> {
+    if (!(await this.knowledgeDiff(1))) return null;
+    await this.git(['add', '-A', '--', ...KNOWLEDGE]);
+    await this.git([...(await this.identity()), 'commit', '-q', '-m', message, '--', ...KNOWLEDGE]);
+    return { hash: (await this.head()) ?? '', subject: message };
+  }
+
+  /** Throws away uncommitted knowledge changes (a rejected retrospective). */
+  async discardKnowledge(): Promise<void> {
+    await this.git(['checkout', '--', ...KNOWLEDGE]).catch(() => '');
+    await this.git(['clean', '-fdq', '--', '.claude/skills']).catch(() => '');
+  }
+
+  async show(hash: string): Promise<{ hash: string; subject: string; date: string; diff: string }> {
+    const head = await this.git(['show', '-s', '--format=%h%x09%cI%x09%s', hash]);
+    const [h = hash, date = '', subject = ''] = head.split('\t');
+    const diff = await this.git(['show', '--no-color', '--format=', hash], false);
+    return {
+      hash: h,
+      subject,
+      date,
+      diff: diff.length > 60000 ? `${diff.slice(0, 60000)}\n… (truncated)` : diff,
+    };
+  }
+}
+
+const KNOWLEDGE = ['CLAUDE.md', '.claude/skills'];
+
+/**
+ * The agent's one-line description, as a commit subject body: first sentence, no commit-style
+ * prefix it may have added itself ("skills(x):", "lessons:") and no trailing "[version]".
+ */
+export function knowledgeLine(text: string, max = 72): string {
+  let line = text.split(/(?<=[.!?])\s/)[0]!.trim();
+  for (let i = 0; i < 3; i++) line = line.replace(/^(skills\([^)]*\)|lessons|knowledge)\s*:\s*/i, '');
+  line = line.replace(/\s*\[[^\]]*\]\s*$/, '').replace(/[.\s]+$/, '');
+  line = line.charAt(0).toLowerCase() + line.slice(1);
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
 /** `skills(wso2-integrator): fix the resource path field locator [1.127.0]` */
 export function skillCommitSubject(products: string[], summary: string, version: string | null): string {
-  const first = summary.split(/(?<=[.!?])\s/)[0]!.replace(/[.\s]+$/, '');
-  const text = first.charAt(0).toLowerCase() + first.slice(1);
-  const short = text.length > 72 ? `${text.slice(0, 71)}…` : text;
-  return `skills(${products.join(',') || 'unknown'}): ${short || 'update'}${version ? ` [${version}]` : ''}`;
+  return `skills(${products.join(',') || 'unknown'}): ${knowledgeLine(summary) || 'update'}${version ? ` [${version}]` : ''}`;
 }

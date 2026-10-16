@@ -103,6 +103,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     emit: (e) => broadcast('agent.event', e),
     state: (s) => broadcast('agent.state', s),
   });
+  const knowledge = new WorkspaceGit(opts.workspace);
   const pipeline: PipelineManager = new PipelineManager({
     store,
     agents,
@@ -113,7 +114,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       broadcast('project.changed', { slug });
     },
     emit: (s) => broadcast('pipeline.changed', s),
-    git: new WorkspaceGit(opts.workspace),
+    git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });
   const app = Fastify({ logger: opts.logger ?? false });
@@ -224,6 +225,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       await overlays();
       return { id: 'project:HelloOverlay', path: rel, absolutePath: abs };
     },
+    'workspace.show': async ({ hash }: { hash: string }) => knowledge.show(hash),
     'workspace.openInEditor': async ({ path: rel }: { path: string }) => {
       const abs = path.resolve(opts.workspace, rel);
       if (!abs.startsWith(path.resolve(opts.workspace) + path.sep))

@@ -33,6 +33,7 @@ import { useOverlayRegistry } from './useOverlayRegistry';
 import { useTimeline } from './useTimeline';
 import { AgentPanel } from './AgentPanel';
 import { PipelinePanel } from './PipelinePanel';
+import { KnowledgePanel } from './KnowledgePanel';
 
 /** A component's default props, or {} when its schema can't produce them. */
 function defaultProps(
@@ -350,6 +351,7 @@ export function StudioScreen({ slug }: { slug: string }) {
           </Panel>
           <PipelinePanel slug={slug} />
           <AgentPanel slug={slug} />
+          <KnowledgePanel />
         </aside>
 
         <main style={{ flex: '999 1 560px', minWidth: 0 }}>

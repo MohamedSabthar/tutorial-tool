@@ -299,7 +299,11 @@ export function LiveShell() {
                   text={pipe.state.gate.text}
                   actions={
                     <Button size="sm" variant="primary" onClick={() => void pipe.approve()}>
-                      {pipe.state.gate.kind === 'storyboard' ? 'Approve' : 'Try again'}
+                      {pipe.state.gate.kind === 'storyboard'
+                        ? 'Approve'
+                        : pipe.state.gate.kind === 'knowledge'
+                          ? 'Commit'
+                          : 'Try again'}
                     </Button>
                   }
                 />

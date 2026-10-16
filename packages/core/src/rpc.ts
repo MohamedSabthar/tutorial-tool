@@ -153,6 +153,11 @@ export const rpcMethods = {
     params: z.object({ slug: z.string() }),
     result: z.object({ id: z.string(), path: z.string(), absolutePath: z.string() }),
   },
+  /** One commit's message and diff (for the Knowledge panel). */
+  'workspace.show': {
+    params: z.object({ hash: z.string().regex(/^[0-9a-f]{4,40}$/) }),
+    result: z.object({ hash: z.string(), subject: z.string(), date: z.string(), diff: z.string() }),
+  },
   'workspace.openInEditor': {
     params: z.object({ path: z.string() }),
     result: z.object({ opened: z.boolean() }),

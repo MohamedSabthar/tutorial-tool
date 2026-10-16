@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { skillCommitSubject, WorkspaceGit } from '../src/workspaceGit';
+import { knowledgeLine, skillCommitSubject, WorkspaceGit } from '../src/workspaceGit';
 
 let dir: string;
 const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
@@ -37,6 +37,32 @@ describe('WorkspaceGit', () => {
     expect(git('status', '--porcelain')).toBe('M CLAUDE.md');
     expect((await ws.skillCommitsSince(before)).map((x) => x.subject)).toEqual([c!.subject]);
     expect(await ws.commitSkills('nothing', null)).toBeNull();
+  });
+
+  it('diffs and commits the knowledge base (CLAUDE.md and skills, new files included)', async () => {
+    const ws = new WorkspaceGit(dir);
+    git(...id, 'commit', '-qam', 'clean');
+    await writeFile(path.join(dir, 'CLAUDE.md'), '# ws\n- lesson\n');
+    await writeFile(path.join(dir, '.claude/skills/wso2-integrator/new.md'), 'fact\n');
+    await writeFile(path.join(dir, 'other.txt'), 'not knowledge\n');
+    const diff = await ws.knowledgeDiff();
+    expect(diff).toContain('+- lesson');
+    expect(diff).toContain('+fact');
+    expect(diff).not.toContain('not knowledge');
+    const c = await ws.commitKnowledge('lessons: one lesson');
+    expect(c?.subject).toBe('lessons: one lesson');
+    expect(await ws.knowledgeDiff()).toBe('');
+    expect(git('status', '--porcelain')).toBe('?? other.txt');
+    const shown = await ws.show(c!.hash);
+    expect(shown.subject).toBe('lessons: one lesson');
+    expect(shown.diff).toContain('+fact');
+  });
+
+  it("cleans commit-style prefixes and versions out of the agent's line", () => {
+    expect(knowledgeLine('skills(wso2-integrator): Measured timings; lessons: x [1.127.0]')).toBe(
+      'measured timings; lessons: x',
+    );
+    expect(knowledgeLine('lessons: Hold 3 s at the end. More text.')).toBe('hold 3 s at the end');
   });
 
   it('shortens long summaries', () => {

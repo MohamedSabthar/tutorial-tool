@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   idlePipeline,
@@ -13,12 +13,13 @@ import {
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
 import type { ProjectRunResult } from '../recording';
-import type { WorkspaceGit } from '../workspaceGit';
+import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
   nudge,
   planInstruction,
   postInstruction,
   repairInstruction,
+  retroInstruction,
   reviseInstruction,
   scriptInstruction,
 } from './instructions';
@@ -305,14 +306,20 @@ export class PipelineManager {
   }
 
   /** An agent stage that may block: asks the user for help until it succeeds. */
-  private async agentStageWithHelp(slug: string, live: Live, stage: PipelineStage, instruction: string) {
+  private async agentStageWithHelp(
+    slug: string,
+    live: Live,
+    stage: PipelineStage,
+    instruction: string,
+    opts: { commit?: boolean } = {},
+  ) {
     let text = instruction;
     for (;;) {
       await this.begin(slug, stage);
       const before = (await this.deps.git?.head()) ?? null;
       const r = await this.agentStage(slug, live, stage, text);
       await this.end(slug, r.ok, r.summary);
-      await this.commitKnowledge(slug, r.knowledge ?? r.summary, before);
+      if (opts.commit !== false) await this.commitKnowledge(slug, r.knowledge ?? r.summary, before);
       if (r.ok) return r;
       const d = await this.gate(slug, live, {
         stage,
@@ -321,6 +328,57 @@ export class PipelineManager {
         text: r.summary,
       });
       text = d.kind === 'revise' ? `${instruction}\n\nThe user adds:\n\n${d.feedback}` : instruction;
+    }
+  }
+
+  /**
+   * The retrospective: the agent records lessons and product facts, then the user reviews the
+   * knowledge diff. Approve commits it as one `lessons:` commit; revise asks the agent again.
+   */
+  private async retro(slug: string, live: Live) {
+    const git = this.deps.git;
+    let feedback: string | undefined;
+    for (;;) {
+      const history = (await this.get(slug)).history
+        .filter((h) => h.stage !== 'retro' && h.stage !== 'storyboard_gate')
+        .map((h) => ({ stage: h.stage, ok: h.ok, summary: h.summary }));
+      const claudeMd = path.join(this.deps.store.workspace, 'CLAUDE.md');
+      const claudeMdBytes = (await stat(claudeMd).catch(() => null))?.size ?? 0;
+      const r = await this.agentStageWithHelp(
+        slug,
+        live,
+        'retro',
+        retroInstruction({ history, claudeMdBytes, ...(feedback ? { feedback } : {}) }),
+        { commit: false },
+      );
+      const diff = (await git?.knowledgeDiff()) ?? '';
+      if (!diff.trim()) {
+        await this.annotate(slug, 'nothing new to record');
+        return;
+      }
+      const d = await this.gate(slug, live, {
+        stage: 'retro',
+        kind: 'knowledge',
+        title: 'Review what the agent learned',
+        text: r.summary,
+        diff,
+      });
+      if (d.kind === 'approve') {
+        const version = this.versions.get(slug);
+        const message = `lessons: ${knowledgeLine(r.knowledge ?? r.summary) || 'retrospective'}${version ? ` [${version}]` : ''}`;
+        const c = await git!.commitKnowledge(message);
+        if (c) {
+          this.deps.onCommit?.();
+          await this.annotate(slug, `${c.hash} ${c.subject}`);
+        }
+        return;
+      }
+      if (/^\s*(discard|reject|drop)\b/i.test(d.feedback)) {
+        await git!.discardKnowledge();
+        await this.annotate(slug, 'discarded by the user');
+        return;
+      }
+      feedback = d.feedback;
     }
   }
 
@@ -474,9 +532,7 @@ export class PipelineManager {
           break;
         }
         case 'retro': {
-          // The retrospective arrives in step 3.7.
-          await this.begin(slug, 'retro');
-          await this.end(slug, true, 'Skipped (arrives in step 3.7)');
+          await this.retro(slug, live);
           stage = 'done';
           break;
         }

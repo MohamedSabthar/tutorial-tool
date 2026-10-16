@@ -66,9 +66,11 @@ export type StageRecord = z.infer<typeof StageRecord>;
 export const Gate = z.object({
   /** The stage that is waiting. */
   stage: PipelineStage,
-  kind: z.enum(['storyboard', 'help']),
+  kind: z.enum(['storyboard', 'help', 'knowledge']),
   title: z.string(),
   text: z.string(),
+  /** For knowledge gates: the uncommitted changes to CLAUDE.md and skills (unified diff). */
+  diff: z.string().optional(),
 });
 export type Gate = z.infer<typeof Gate>;
 

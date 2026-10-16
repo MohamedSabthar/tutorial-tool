@@ -92,6 +92,7 @@ describe('PipelineManager', () => {
     const git = {
       head: async () => 'h0',
       skillCommitsSince: async () => [],
+      knowledgeDiff: async () => '',
       commitSkills: async (summary: string, version: string | null) => {
         if (!dirty) return null;
         dirty = false;
@@ -108,6 +109,7 @@ describe('PipelineManager', () => {
           dirty = true;
           p.stageDone(slug, 'script', true, 'Script written', 'http-service: Resource Path renamed');
         } else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
       },
       [true, true],
       git,
@@ -116,6 +118,50 @@ describe('PipelineManager', () => {
     await until(() => last().status === 'done');
     expect(commits).toEqual(['http-service: Resource Path renamed [null]']);
     expect(last().history.find((h) => h.stage === 'script')?.summary).toContain('abc1234');
+  });
+
+  it('shows the retrospective diff at a knowledge gate and commits it on approval', async () => {
+    const commits: string[] = [];
+    let diff = '';
+    const git = {
+      head: async () => 'h0',
+      skillCommitsSince: async () => [],
+      commitSkills: async () => null,
+      knowledgeDiff: async () => diff,
+      commitKnowledge: async (message: string) => {
+        commits.push(message);
+        diff = '';
+        return { hash: 'def5678', subject: message };
+      },
+      discardKnowledge: async () => {},
+    };
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') {
+          diff = '+- Wait for toasts to close before clicking.';
+          p.stageDone(slug, 'retro', true, 'Added one lesson.', 'wait for toasts before clicking');
+        }
+      },
+      [true, true],
+      git,
+    );
+    await p.start(slug, { storyboard: false });
+    await until(() => last().status === 'waiting');
+    expect(last().gate).toMatchObject({
+      kind: 'knowledge',
+      stage: 'retro',
+      diff: expect.stringContaining('toasts'),
+    });
+    expect(sent.find((t) => t.startsWith('[Pipeline · retro]'))).toContain('script: ok');
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    expect(commits).toEqual(['lessons: wait for toasts before clicking']);
+    expect(last().history.at(-1)?.summary).toContain('def5678');
   });
 
   function make(
@@ -153,6 +199,7 @@ describe('PipelineManager', () => {
         } else if (stage === 'script') done(p, 'script');
         else if (stage === 'repair') done(p, 'repair');
         else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
       },
       [false, true, true],
     );
