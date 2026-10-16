@@ -38,7 +38,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
 
 - [ ] **Phase 0: Foundations**
   - [x] 0.1 Monorepo scaffold
-  - [ ] 0.2 `packages/core` schemas
+  - [x] 0.2 `packages/core` schemas
   - [ ] 0.3 Engine skeleton and RPC
   - [ ] 0.4 Tauri shell with two windows
   - [ ] 0.5 `packages/ui` design tokens and kit
@@ -738,3 +738,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 0.1 | React 19, Vite 8, TypeScript 5.9 (not 7), Tauri 2.12 | Current stable versions. typescript-eslint supports TS below 6.1 |
 | 2026-10-16 | 0.1 | 0.1 ships a minimal Tauri window that lists every linked package | Lets each step be tested end to end in the UI |
 | 2026-10-16 | 0.1 | Packages export TS source (`exports: ./src/index.ts`). `tsc -b` only type-checks and emits declarations | No per-package build step needed while iterating. The engine gets a bundled build in 0.3 |
+| 2026-10-16 | 0.2 | zod 4 with built-in `z.toJSONSchema` instead of `zod-to-json-schema` | One less dependency. zod 4 can output JSON Schema itself |
+| 2026-10-16 | 0.2 | Steps store take-relative `from`/`to`; transitions overlap the end of scene A with the start of scene B and shorten the total | Steps survive retiming. Overlap is how crossfade-style transitions behave |
+| 2026-10-16 | 0.2 | Dev shell with one page per step (left nav). The newest step opens by default | Each step can be tested in the UI. Replaced by real navigation in 3.8 |

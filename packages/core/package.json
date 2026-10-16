@@ -9,5 +9,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }
