@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@studio/core": "workspace:*",
+    "@studio/recorder": "workspace:*",
+    "es-module-lexer": "^1.7.0",
     "fastify": "^5.12.7",
-    "ws": "^8.22.0",
-    "@studio/recorder": "workspace:*"
+    "vite": "^8.3.4",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/ws": "^8.18.2",

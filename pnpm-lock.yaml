@@ -117,9 +117,15 @@ importers:
       '@studio/recorder':
         specifier: workspace:*
         version: link:../../packages/recorder
+      es-module-lexer:
+        specifier: ^1.7.0
+        version: 1.7.0
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
+      vite:
+        specifier: ^8.3.4
+        version: 8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.15)
       ws:
         specifier: ^8.22.0
         version: 8.22.0
@@ -1184,6 +1190,9 @@ packages:
   entities@8.1.0:
     resolution: {integrity: sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA==}
     engines: {node: '>=20.19.0'}
+
+  es-module-lexer@1.7.0:
+    resolution: {integrity: sha512-jEQoCwk8hyb2AZziIOLhDqpm5+2ww5uIE6lkO/6jcOCusfk6LhMHpXXfBLXTZ7Ydyt0j4VoUQv6uGNYbdW+kBA==}
 
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
@@ -2888,6 +2897,8 @@ snapshots:
   emoji-regex@10.6.0: {}
 
   entities@8.1.0: {}
+
+  es-module-lexer@1.7.0: {}
 
   es-module-lexer@2.3.2: {}
 

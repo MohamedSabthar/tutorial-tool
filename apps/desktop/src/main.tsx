@@ -17,8 +17,12 @@ import { StagePage } from './pages/StagePage';
 import { VideoPlanePage } from './pages/VideoPlanePage';
 import { SdkPage } from './pages/SdkPage';
 import { GalleryPage } from './pages/GalleryPage';
+import { HotReloadPage } from './pages/HotReloadPage';
 import '@studio/ui/styles.css';
 import './styles.css';
+import { registerSharedModules } from './studio/shared';
+
+registerSharedModules();
 
 const routes: DevRoute[] = [
   { path: '/packages', step: '0.1', label: 'Packages', render: () => <PackagesPage /> },
@@ -35,6 +39,7 @@ const routes: DevRoute[] = [
   { path: '/video', step: '2.2', label: 'Video plane & camera', render: () => <VideoPlanePage /> },
   { path: '/sdk', step: '2.3', label: 'Overlay SDK', render: () => <SdkPage /> },
   { path: '/gallery', step: '2.4', label: 'Core overlays', render: () => <GalleryPage /> },
+  { path: '/hot', step: '2.5', label: 'Overlay hot-loading', render: () => <HotReloadPage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');

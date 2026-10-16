@@ -20,6 +20,10 @@ import { ProjectStore } from './projects';
 import { registerMedia } from './media';
 import { Workspace } from './workspace';
 import { runProjectScript } from './recording';
+import { startOverlayServer, type OverlayServer } from './overlayServer';
+import { HELLO_OVERLAY } from './overlayTemplates';
+import { execFile } from 'node:child_process';
+import { access, mkdir as mkdirp, writeFile as writeFileP } from 'node:fs/promises';
 import { launchCheck, probe, runSample } from '@studio/recorder/node';
 import os from 'node:os';
 import path from 'node:path';
@@ -55,6 +59,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const workspace = new Workspace(opts.workspace);
   let recorderBusy = false;
   let recorderAbort: AbortController | null = null;
+  let overlayServer: Promise<OverlayServer> | null = null;
+  let overlayVersion = 0;
+  const overlays = () =>
+    (overlayServer ??= startOverlayServer(opts.workspace, (c) =>
+      broadcast('overlays.changed', { ...c, version: ++overlayVersion }),
+    ));
   const app = Fastify({ logger: opts.logger ?? false });
 
   const tokenOk = (candidate: unknown) => {
@@ -118,6 +128,29 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   }
 
   const handlers: Handlers = {
+    'overlays.info': async () => ({ url: (await overlays()).url }),
+    'overlays.list': async ({ slug }: { slug?: string }) => (await overlays()).list(slug),
+    'overlays.writeSample': async ({ slug }: { slug: string }) => {
+      const rel = `projects/${slug}/overlays/HelloOverlay.tsx`;
+      const abs = path.join(store.dir(slug), 'overlays', 'HelloOverlay.tsx');
+      await mkdirp(path.dirname(abs), { recursive: true });
+      const exists = await access(abs).then(
+        () => true,
+        () => false,
+      );
+      if (!exists) await writeFileP(abs, HELLO_OVERLAY);
+      await overlays();
+      return { id: 'project:HelloOverlay', path: rel, absolutePath: abs };
+    },
+    'workspace.openInEditor': async ({ path: rel }: { path: string }) => {
+      const abs = path.resolve(opts.workspace, rel);
+      if (!abs.startsWith(path.resolve(opts.workspace) + path.sep))
+        throw new RpcError('path is outside the workspace', 'bad_request');
+      const opened = await new Promise<boolean>((resolve) =>
+        execFile('code', ['--reuse-window', abs], (err) => resolve(!err)),
+      );
+      return { opened };
+    },
     'recorder.stop': async () => {
       if (!recorderAbort) return { stopping: false };
       recorderAbort.abort();
@@ -306,6 +339,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     app,
     broadcast,
     async close() {
+      if (overlayServer) await (await overlayServer).close().catch(() => {});
       for (const ws of sockets) ws.terminate();
       wss.close();
       await app.close();

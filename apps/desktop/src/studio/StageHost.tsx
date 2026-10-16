@@ -15,6 +15,15 @@ import {
 
 export const STAGE = { width: 1920, height: 1080 };
 
+// A per-module number, so a reloaded overlay remounts (and its error boundary resets).
+const moduleKeys = new WeakMap<object, number>();
+let nextModuleKey = 1;
+function moduleKey(mod: object): number {
+  let k = moduleKeys.get(mod);
+  if (!k) moduleKeys.set(mod, (k = nextModuleKey++));
+  return k;
+}
+
 /** An overlay instance ready to render: anchor already resolved to stage px. */
 export interface HostInstance {
   id: string;
@@ -75,7 +84,7 @@ export function StageHost({
             const Comp = mod.default;
             return (
               <OverlayRenderer
-                key={inst.id}
+                key={`${inst.id}:${moduleKey(mod)}`}
                 id={inst.id}
                 start={inst.start}
                 end={inst.end}

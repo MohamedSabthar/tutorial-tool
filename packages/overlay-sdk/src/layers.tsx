@@ -57,7 +57,10 @@ interface BoundaryProps {
   children: ReactNode;
 }
 
-/** A broken overlay renders nothing and reports its error; the rest of the stage keeps working. */
+/**
+ * A broken overlay renders nothing and reports its error; the rest of the stage keeps working.
+ * It stays failed until remounted: hosts key it by the overlay module, so new code gets a fresh try.
+ */
 export class OverlayBoundary extends Component<BoundaryProps, { error: Error | null }> {
   override state = { error: null as Error | null };
 
@@ -68,11 +71,6 @@ export class OverlayBoundary extends Component<BoundaryProps, { error: Error | n
   override componentDidCatch(error: Error, info: ErrorInfo) {
     this.props.onError?.(this.props.id, error);
     console.error(`overlay ${this.props.id} failed`, error, info.componentStack);
-  }
-
-  override componentDidUpdate(prev: BoundaryProps) {
-    // A new component (e.g. after hot reload) gets another chance.
-    if (prev.children !== this.props.children && this.state.error) this.setState({ error: null });
   }
 
   override render() {

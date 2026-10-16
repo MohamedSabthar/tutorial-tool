@@ -55,7 +55,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 2.2 Video plane and camera
   - [x] 2.3 Overlay SDK hooks
   - [x] 2.4 Core overlays
-  - [ ] 2.5 Overlay hot-loading (Vite middleware)
+  - [x] 2.5 Overlay hot-loading (Vite middleware)
   - [ ] 2.6 Timeline store, patches, undo
   - [ ] 2.7 Studio window: preview and timeline
   - [ ] 2.8 Studio window: inspector and library
@@ -778,3 +778,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 2.3 | Overlay SDK: `useOverlayTime`, `useAnchor` (stage px, before the camera), `useGsap` (a paused timeline rebuilt on deps and seeked to local t in a layout effect, TextPlugin registered), `ThreeLayer` (a tunnel into the stage's single R3F canvas that carries the overlay context), `DomLayer`, `useStageToScene`, `theme`, `OverlayRenderer` + `OverlayBoundary` (time window and error isolation), and re-exported R3F JSX types | The stable API agent-written overlays target. Verified: same DOM at the same t when scrubbing both ways (jsdom test and in Chrome) |
 | 2026-10-16 | 2.4 | Core overlays: Cursor and ClickRipple read the recording through `useRecording()` (events, fit, sourceTime). Zoom renders nothing; hosts turn Zoom instances into camera moves (`zoomMove`). Blur uses CSS `backdrop-filter` over the camera-following layer instead of a custom shader | backdrop-filter composites over the WebGL canvas in WebKit and Chromium, and export captures composited frames (7.2). It avoids a shader per blur |
 | 2026-10-16 | 2.4 | Known limitation: Callout `side` is fixed. When zoomed onto wide elements the card can fall outside the view; choosing a side automatically from the camera's final view is left for agent-authored overlays (5.3) | Seen in the gallery check |
+| 2026-10-16 | 2.5 | The engine runs its own Vite dev server (separate localhost port, `cors`, no HMR client), rooted at the workspace. A transform plugin rewrites overlays' imports of shared packages (React, jsx-runtime, zod, gsap, three, R3F, @studio/*) into reads from `globalThis.__STUDIO_SHARED__`, which the app fills; other bare imports are rejected. File changes are pushed as `overlays.changed` over the RPC socket, and the preview re-imports cache-busted | Guarantees one React/three/GSAP instance (hooks and contexts work). A separate port is simpler than mounting Vite inside Fastify. Measured edit→preview ~80–100 ms |
+| 2026-10-16 | 2.5 | Error boundaries reset only when the overlay **module** changes (StageHost keys instances by module identity). Compile errors show Vite's message, not "Failed to fetch" | An earlier reset-on-children loop blanked the page on a runtime error (found and fixed) |
+| 2026-10-16 | 2.5 | Deferred: running overlays in a sandboxed iframe | The agent that writes overlays already runs locally with file and shell access, so an iframe adds little security now. It also complicates the shared singletons. Revisit in 8.x |

@@ -126,6 +126,27 @@ export const rpcMethods = {
     }),
   },
   'recorder.stop': { params: z.object({}), result: z.object({ stopping: z.boolean() }) },
+  'overlays.info': { params: z.object({}), result: z.object({ url: z.string() }) },
+  'overlays.list': {
+    params: z.object({ slug: z.string().optional() }),
+    result: z.array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(['overlay', 'scene']),
+        scope: z.enum(['workspace', 'project']),
+        path: z.string(),
+        mtime: z.number(),
+      }),
+    ),
+  },
+  'overlays.writeSample': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({ id: z.string(), path: z.string(), absolutePath: z.string() }),
+  },
+  'workspace.openInEditor': {
+    params: z.object({ path: z.string() }),
+    result: z.object({ opened: z.boolean() }),
+  },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -137,6 +158,12 @@ export const rpcEvents = {
   'workspace.changed': z.object({ head: z.string().nullable() }),
   'recorder.progress': z.object({ message: z.string(), at: z.number() }),
   'recorder.event': RecorderEvent,
+  'overlays.changed': z.object({
+    id: z.string().nullable(),
+    path: z.string(),
+    event: z.enum(['add', 'change', 'unlink']),
+    version: z.number(),
+  }),
   'live.frame': z.object({ data: z.string(), width: z.number(), height: z.number(), timestamp: z.number() }),
   'live.action': z.object({
     stepId: z.string(),
