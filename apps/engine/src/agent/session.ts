@@ -81,6 +81,7 @@ export class AgentSession {
   private writes: Promise<void> = Promise.resolve();
   private permissions = new Map<string, (r: PermissionResult) => void>();
   private settings: AgentSettings;
+  private run = 'agent-0';
   /** Bumped by reset so a dying loop doesn't overwrite the fresh state. */
   private generation = 0;
 
@@ -156,12 +157,18 @@ export class AgentSession {
       .catch(() => {});
   }
 
+  /** Undo group for the agent's edits since the last message it was sent. */
+  get runId(): string {
+    return this.run;
+  }
+
   /** Queues a message, starting (or resuming) the session first if it isn't running. */
   async send(text: string, source: 'user' | 'pipeline' = 'user'): Promise<void> {
     await this.loaded;
     if (!this.queue || this.queue.isClosed)
       await (this.starting ??= this.start().finally(() => (this.starting = null)));
     this.emit({ kind: 'user', text, source });
+    this.run = `agent-${this.slug}-${this.seq}`;
     this.queue!.push({
       type: 'user',
       message: { role: 'user', content: text },

@@ -26,6 +26,7 @@ import { HELLO_OVERLAY } from './overlayTemplates';
 import { TimelineStore, type Author } from './timeline';
 import { AgentManager } from './agent/session';
 import { studioServer } from './agent/mcp';
+import { loadCatalog } from './agent/catalog';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -76,9 +77,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     (overlayServer ??= startOverlayServer(opts.workspace, (c) =>
       broadcast('overlays.changed', { ...c, version: ++overlayVersion }),
     ));
-  const agents = new AgentManager({
+  const agents: AgentManager = new AgentManager({
     projectDir: (slug) => store.dir(slug),
-    mcpServers: (slug) => studioServer(slug, { store }),
+    mcpServers: (slug) =>
+      studioServer({
+        slug,
+        store,
+        timelines,
+        catalog: async () => loadCatalog(await overlays(), slug),
+        runId: (): string => agents.get(slug).runId,
+      }),
     skills: async () =>
       (await readdir(path.join(opts.workspace, '.claude', 'skills'), { withFileTypes: true }))
         .filter((d) => d.isDirectory())

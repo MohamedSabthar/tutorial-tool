@@ -40,6 +40,8 @@ export interface OverlayEntry {
 export interface OverlayServer {
   url: string;
   list(slug?: string): Promise<OverlayEntry[]>;
+  /** Imports a component in Node (same compile as the preview) to read its `meta`. */
+  load(relPath: string): Promise<Record<string, unknown>>;
   close(): Promise<void>;
 }
 
@@ -183,6 +185,7 @@ export async function startOverlayServer(
         );
       return all;
     },
+    load: (relPath: string) => vite.ssrLoadModule(`/${relPath}`),
     close: () => vite.close(),
   };
 }
