@@ -45,6 +45,9 @@ export function StageHost({
   instances,
   t,
   playing,
+  sourceTime = (x: number) => x,
+  videoPlaying,
+  showOverlays = true,
   registry = coreOverlays,
   onOverlayError,
   children,
@@ -55,12 +58,18 @@ export function StageHost({
   instances: HostInstance[];
   t: number;
   playing: boolean;
+  /** Output time → take time (from the time map); identity by default. */
+  sourceTime?: (t: number) => number;
+  /** Whether the video should run natively right now (false during holds). Defaults to `playing`. */
+  videoPlaying?: boolean;
+  /** Raw view: no overlays and no camera moves. */
+  showOverlays?: boolean;
   registry?: Record<string, OverlayModule>;
   onOverlayError?: (id: string, error: Error) => void;
   children?: ReactNode;
 }) {
   const fit = useMemo(() => fitSource(take, STAGE), [take]);
-  const recording = useMemo(() => ({ events, fit, sourceTime: (x: number) => x }), [events, fit]);
+  const recording = useMemo(() => ({ events, fit, sourceTime }), [events, fit, sourceTime]);
   const moves = useMemo<CameraMove[]>(
     () =>
       instances
@@ -69,16 +78,17 @@ export function StageHost({
         .map((i) => zoomMove(i, i.anchor!)),
     [instances],
   );
-  const camera = cameraAt(t, moves, restCamera(STAGE), fit.rect, STAGE);
+  const camera = cameraAt(t, showOverlays ? moves : [], restCamera(STAGE), fit.rect, STAGE);
+  const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
 
   return (
     <Stage t={t} {...STAGE}>
       <RecordingContext.Provider value={recording}>
         <CameraProvider camera={camera} source={take}>
           <Scene3D>
-            <VideoPlane src={src} sourceTime={Math.min(t, take.duration - 0.01)} playing={playing} />
+            <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
           </Scene3D>
-          {instances.map((inst) => {
+          {(showOverlays ? instances : []).map((inst) => {
             const mod = registry[inst.component];
             if (!mod) return null;
             const Comp = mod.default;

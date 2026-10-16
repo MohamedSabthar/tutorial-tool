@@ -10,11 +10,12 @@ import {
   TOKEN_QUERY,
   type RpcEvent,
   type RpcEventData,
-  type RecorderEvent,
   type RpcMethod,
   type RpcReply,
   type RpcResult,
   formatIssues,
+  RecorderEvent,
+  withTake,
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
@@ -24,7 +25,7 @@ import { startOverlayServer, type OverlayServer } from './overlayServer';
 import { HELLO_OVERLAY } from './overlayTemplates';
 import { TimelineStore, type Author } from './timeline';
 import { execFile } from 'node:child_process';
-import { access, mkdir as mkdirp, writeFile as writeFileP } from 'node:fs/promises';
+import { access, mkdir as mkdirp, readFile as readFileP, writeFile as writeFileP } from 'node:fs/promises';
 import { launchCheck, probe, runSample } from '@studio/recorder/node';
 import os from 'node:os';
 import path from 'node:path';
@@ -145,6 +146,27 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       }),
     'timeline.undo': async ({ slug }: { slug: string }) => timelines.undo(slug),
     'timeline.redo': async ({ slug }: { slug: string }) => timelines.redo(slug),
+    'timeline.rebuildFromTake': async ({ slug }: { slug: string }) => {
+      const { timeline } = await timelines.get(slug);
+      const take = timeline.takes.at(-1);
+      if (!take) throw new RpcError('this project has no take yet', 'bad_request');
+      const text = await readFileP(path.join(store.dir(slug), take.events), 'utf8');
+      const events = text
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => RecorderEvent.parse(JSON.parse(l)));
+      const next = withTake(timeline, take, events);
+      return timelines.patch(
+        slug,
+        [
+          { op: 'replace', path: '/scenes', value: next.scenes },
+          { op: 'replace', path: '/transitions', value: next.transitions },
+          { op: 'replace', path: '/steps', value: next.steps },
+          { op: 'replace', path: '/overlays', value: next.overlays },
+        ],
+        { author: 'auto', label: 'Rebuild from take' },
+      );
+    },
     'overlays.info': async () => ({ url: (await overlays()).url }),
     'overlays.list': async ({ slug }: { slug?: string }) => (await overlays()).list(slug),
     'overlays.writeSample': async ({ slug }: { slug: string }) => {

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { DevShell, type DevRoute } from './shell';
 import { EngineProvider } from './engine';
 import { LiveShell } from './live/LiveShell';
+import { StudioScreen } from './studio/StudioScreen';
 import { PackagesPage } from './pages/Packages';
 import { TimelinePlayground } from './pages/TimelinePlayground';
 import { EnginePage } from './pages/EnginePage';
@@ -42,12 +43,42 @@ const routes: DevRoute[] = [
   { path: '/gallery', step: '2.4', label: 'Core overlays', render: () => <GalleryPage /> },
   { path: '/hot', step: '2.5', label: 'Overlay hot-loading', render: () => <HotReloadPage /> },
   { path: '/timeline-sync', step: '2.6', label: 'Timeline sync & undo', render: () => <TimelineSyncPage /> },
+  { path: '/studio-link', step: '2.7', label: 'Studio (demo-http)', render: () => <StudioLink /> },
 ];
 
+/** Opens the real Studio screen (full window) for the reference project. */
+function StudioLink() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640 }}>
+      <h1 style={{ margin: 0, color: 'var(--ui-navy)' }}>Step 2.7 · Studio</h1>
+      <p style={{ margin: 0, color: 'var(--ui-gray-600)', lineHeight: 1.5 }}>
+        The Studio is a full-window screen. It opens on the demo-http project; use the header’s Projects icon
+        to come back here.
+      </p>
+      <a
+        className="ui-btn ui-btn-primary"
+        href="#/studio/demo-http"
+        onClick={() => setTimeout(() => window.location.reload(), 0)}
+      >
+        Open the Studio
+      </a>
+    </div>
+  );
+}
+
 const isLive = window.location.hash.startsWith('#/live');
+const studioSlug = /^#\/studio\/([a-z0-9-]+)/.exec(window.location.hash)?.[1];
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <EngineProvider>{isLive ? <LiveShell /> : <DevShell routes={routes} />}</EngineProvider>
+    <EngineProvider>
+      {isLive ? (
+        <LiveShell />
+      ) : studioSlug ? (
+        <StudioScreen slug={studioSlug} />
+      ) : (
+        <DevShell routes={routes} />
+      )}
+    </EngineProvider>
   </StrictMode>,
 );

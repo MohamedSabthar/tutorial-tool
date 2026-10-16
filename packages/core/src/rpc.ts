@@ -168,6 +168,8 @@ export const rpcMethods = {
     result: TimelineState,
   },
   'timeline.undo': { params: z.object({ slug: z.string() }), result: TimelineState },
+  /** Re-derives scenes and steps from the latest take (keeps overlays). */
+  'timeline.rebuildFromTake': { params: z.object({ slug: z.string() }), result: TimelineState },
   'timeline.redo': { params: z.object({ slug: z.string() }), result: TimelineState },
 } as const;
 

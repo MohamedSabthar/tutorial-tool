@@ -8,3 +8,4 @@ export * from './patch';
 export * from './timemap';
 export * from './sample';
 export * from './rpc';
+export * from './derive';

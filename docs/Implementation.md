@@ -57,7 +57,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 2.4 Core overlays
   - [x] 2.5 Overlay hot-loading (Vite middleware)
   - [x] 2.6 Timeline store, patches, undo
-  - [ ] 2.7 Studio window: preview and timeline
+  - [x] 2.7 Studio window: preview and timeline
   - [ ] 2.8 Studio window: inspector and library
 - [ ] **Phase 3: Agent loop and self-learning skills**
   - [ ] 3.1 Agent session manager
@@ -783,3 +783,5 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 2.5 | Deferred: running overlays in a sandboxed iframe | The agent that writes overlays already runs locally with file and shell access, so an iframe adds little security now. It also complicates the shared singletons. Revisit in 8.x |
 | 2026-10-16 | 2.6 | `TimelineStore` in the engine: per-project serialized ops, validated patches, atomic saves, versioned `timeline.changed` broadcasts, and server-side undo/redo where consecutive patches with the same `group` (a drag, an agent run) form one entry. Windows use `useTimeline` (optimistic apply; skip broadcasts while their own patch is in flight; the reply is authoritative; gaps reload) instead of zustand | One shared history for every window and the agent. A tiny hook was enough for the sync, so no new store library |
 | 2026-10-16 | 2.6 | Rust `open_studio_window(label, route)` opens extra Studio windows (`studio-*` capability) | To test multi-window sync, and later to pop out panels |
+| 2026-10-16 | 2.7 | Registering a take now derives one recording scene and the steps (source ranges plus the first click/type box as the step's `primary` anchor) from `events.jsonl` (`withTake`, keeps overlays). Older projects get a "Build from take" banner (`timeline.rebuildFromTake`) | The Studio needs scenes and steps, and anchors resolve through step boxes |
+| 2026-10-16 | 2.7 | The Studio is a full-window route `#/studio/<slug>`. A resolver maps the timeline to stage instances (time map, anchors → stage px). The timeline panel packs overlays into rows; drag/trim send grouped patches snapped to 1/30 s; S splits the segment under the playhead. Shortcuts: Space, J/K/L, ←/→, S, ⌫, ⌘Z/⇧⌘Z. "Add overlay" (left column) stands in for library drag-and-drop until 2.8 | Usable editing now; the library and inspector come next |

@@ -169,3 +169,45 @@ describe('time map', () => {
     expect(buildTimeMap(tl).scenes[1]!.end - buildTimeMap(tl).scenes[1]!.start).toBe(12);
   });
 });
+
+import { deriveFromTake, withTake } from '../src/index';
+
+describe('derive from take', () => {
+  const take = {
+    id: 'take-1',
+    video: 'v.mp4',
+    events: 'e.jsonl',
+    width: 2268,
+    height: 1472,
+    fps: 30,
+    duration: 20,
+  };
+  const events = RecorderEvent.array().parse([
+    { kind: 'marker', t: 0, name: 'start' },
+    { kind: 'step-start', t: 1, stepId: 's1', title: 'One' },
+    { kind: 'click', t: 2, stepId: 's1', x: 1, y: 2, target: 'a', bbox: { x: 0, y: 0, w: 10, h: 10 } },
+    { kind: 'step-end', t: 4, stepId: 's1' },
+    { kind: 'step-start', t: 4, stepId: 's2', title: 'Two' },
+    { kind: 'step-end', t: 9, stepId: 's2' },
+  ]);
+
+  it('makes one recording scene and steps with primary boxes', () => {
+    const { scenes, steps } = deriveFromTake(take, events);
+    expect(scenes).toHaveLength(1);
+    expect(steps.map((s) => [s.id, s.from, s.to, !!s.bbox])).toEqual([
+      ['s1', 1, 4, true],
+      ['s2', 4, 9, false],
+    ]);
+  });
+
+  it('keeps overlays and drops anchors to missing steps', () => {
+    const tl = parseTimeline({
+      version: 1,
+      steps: [{ id: 'old', title: 'x', take: 'take-1', from: 0, to: 1 }],
+      overlays: [{ id: 'o', component: 'core:Box', start: 0, end: 1, anchor: { stepId: 'old' } }],
+    });
+    const next = parseTimeline(withTake(tl, take, events));
+    expect(next.overlays[0]!.anchor).toBeUndefined();
+    expect(next.takes.map((t) => t.id)).toEqual(['take-1']);
+  });
+});

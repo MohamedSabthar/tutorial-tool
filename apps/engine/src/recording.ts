@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { parseTimeline, RpcError, type RecorderEvent, type Take } from '@studio/core';
+import { parseTimeline, RecorderEvent, RpcError, withTake, type Take } from '@studio/core';
 import {
   loadScript,
   probe,
@@ -67,11 +67,17 @@ export async function runProjectScript(
   return { ...result, slug, takePath, codec };
 }
 
-/** Adds (or replaces) the take in tutorial.json with paths relative to the project. */
-async function registerTake(dir: string, take: Take, takePath: string): Promise<void> {
+/**
+ * Registers the take in tutorial.json (paths relative to the project) and derives the
+ * recording scene and steps from its events. Existing overlays are kept.
+ */
+export async function registerTake(dir: string, take: Take, takePath: string): Promise<void> {
   const file = path.join(dir, 'tutorial.json');
   const tl = parseTimeline(JSON.parse(await readFile(file, 'utf8')));
   const entry: Take = { ...take, video: `${takePath}/video.mp4`, events: `${takePath}/events.jsonl` };
-  tl.takes = [...tl.takes.filter((t) => t.id !== take.id), entry];
-  await writeFile(file, JSON.stringify(tl, null, 2) + '\n');
+  const events = (await readFile(path.join(dir, entry.events), 'utf8'))
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => RecorderEvent.parse(JSON.parse(l)));
+  await writeFile(file, JSON.stringify(parseTimeline(withTake(tl, entry, events)), null, 2) + '\n');
 }
