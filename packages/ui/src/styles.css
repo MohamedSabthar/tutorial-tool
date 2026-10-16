@@ -512,6 +512,31 @@ select {
   height: 36px;
   padding: 0 10px;
 }
+/* WebKit (Tauri on macOS) ignores most styling on a native select, so drop the native
+   look and draw our own chevron. */
+.ui-select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 34px;
+  line-height: 34px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2313213B' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-select:hover:not(:disabled) {
+  border-color: var(--ui-gray-500);
+}
+.ui-select:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ui-select::-ms-expand {
+  display: none;
+}
 .ui-textarea {
   padding: 10px;
   line-height: 1.45;
