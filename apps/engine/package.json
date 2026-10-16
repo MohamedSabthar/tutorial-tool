@@ -8,9 +8,17 @@
   },
   "types": "./src/index.ts",
   "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "STUDIO_PORT=4317 STUDIO_TOKEN=dev-token tsx watch src/main.ts",
     "test": "vitest run"
   },
   "dependencies": {
-    "@studio/core": "workspace:*"
+    "@studio/core": "workspace:*",
+    "fastify": "^5.12.7",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15"
   }
 }

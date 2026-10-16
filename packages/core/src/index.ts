@@ -7,3 +7,4 @@ export * from './schemas';
 export * from './patch';
 export * from './timemap';
 export * from './sample';
+export * from './rpc';

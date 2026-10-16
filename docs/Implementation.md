@@ -39,7 +39,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
 - [ ] **Phase 0: Foundations**
   - [x] 0.1 Monorepo scaffold
   - [x] 0.2 `packages/core` schemas
-  - [ ] 0.3 Engine skeleton and RPC
+  - [x] 0.3 Engine skeleton and RPC
   - [ ] 0.4 Tauri shell with two windows
   - [ ] 0.5 `packages/ui` design tokens and kit
   - [ ] 0.6 Workspace repo bootstrap
@@ -741,3 +741,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 0.2 | zod 4 with built-in `z.toJSONSchema` instead of `zod-to-json-schema` | One less dependency. zod 4 can output JSON Schema itself |
 | 2026-10-16 | 0.2 | Steps store take-relative `from`/`to`; transitions overlap the end of scene A with the start of scene B and shorten the total | Steps survive retiming. Overlap is how crossfade-style transitions behave |
 | 2026-10-16 | 0.2 | Dev shell with one page per step (left nav). The newest step opens by default | Each step can be tested in the UI. Replaced by real navigation in 3.8 |
+| 2026-10-16 | 0.3 | WebSocket auth uses a `?token=` query parameter on `/rpc` (not a first message). Media URLs use the same parameter | Simpler, and `<video>` can't send headers anyway. The engine only listens on 127.0.0.1 |
+| 2026-10-16 | 0.3 | Engine runs with `tsx` in dev (`pnpm engine` → port 4317, token `dev-token`). `@studio/engine`'s index stays browser-safe; the server lives in `src/server.ts` | No build step in dev. Keeps fastify out of the UI bundle |
+| 2026-10-16 | 0.3 | The typed RPC client is in `@studio/core` and accepts a WebSocket constructor | Shared by the UI (browser WebSocket) and tests (`ws`) |
