@@ -248,14 +248,20 @@ export type Project = z.infer<typeof Project>;
 const ev = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
   z.object({ kind: z.literal(kind), t: Seconds, ...shape });
 
+/**
+ * Recorder events. `t` is seconds since the run started. Coordinates and boxes are in
+ * frame pixels (CSS pixels × device scale), so they line up with the recorded video.
+ */
 export const RecorderEvent = z.discriminatedUnion('kind', [
-  ev('marker', { name: z.string() }),
+  ev('marker', { name: z.string(), data: z.record(z.string(), z.unknown()).optional() }),
   ev('step-start', { stepId: Id, title: z.string() }),
   ev('step-end', { stepId: Id }),
   ev('mouse', { points: z.array(z.tuple([Seconds, z.number(), z.number()])) }),
   ev('click', { stepId: Id, x: z.number(), y: z.number(), target: z.string(), bbox: Rect }),
   ev('type', { stepId: Id, text: z.string(), target: z.string(), bbox: Rect }),
+  ev('key', { stepId: Id, key: z.string() }),
   ev('mask', { label: z.string(), bbox: Rect }),
+  ev('hold', { stepId: Id, duration: Seconds }),
 ]);
 export type RecorderEvent = z.infer<typeof RecorderEvent>;
 

@@ -45,7 +45,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 0.6 Workspace repo bootstrap
 - [ ] **Phase 1: VS Code recorder and Live window**
   - [x] 1.1 VS Code launcher
-  - [ ] 1.2 Recorder helpers and `events.jsonl`
+  - [x] 1.2 Recorder helpers and `events.jsonl`
   - [ ] 1.3 Live screencast
   - [ ] 1.4 Take post-processing
   - [ ] 1.5 Hand-written reference tutorial
@@ -758,3 +758,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 1.1 | Display is **full screen by default** (macOS simple full screen, no Space switch or animation), with `window.customTitleBarVisibility: auto` so the in-window title bar ("greeting-project — WSO2 Integrator") stays on camera. Theme **Default Light Modern**. A window mode (e.g. 1280×720 @ 1.5×) remains available | Requested by the user. Frames follow the screen shape (2268×1473 on this Mac), and the stage fits them into the 16:9 output |
 | 2026-10-16 | 1.1 | `window.dialogStyle: custom` (dialogs drawn in the window, clickable by Playwright). Native message boxes are also logged from the main process and reported as problems | No invisible blocking dialogs during recording |
 | 2026-10-16 | 1.1 | Known issue: WSO2 Integrator ignores `window.commandCenter: false`, so the title text appears inside the command-center box. `window.title` is set to `${rootName} — ${appName}`, so it still reads "greeting-project — WSO2 Integrator" | Cosmetic. Revisit if the product name needs a different placement |
+| 2026-10-16 | 1.2 | Events store coordinates and boxes in **frame pixels** (CSS px × scale). The `start` marker carries mode, scale, product, version and viewport | Overlays anchor directly onto the video with no conversion |
+| 2026-10-16 | 1.2 | Webview targets go through `webview(page)` = `iframe.webview.ready` → `#active-frame`. Playwright's `boundingBox()` is already in main-window coordinates, so no manual iframe offset is needed (verified visually) | WSO2 Integrator's editors are VS Code webviews |
+| 2026-10-16 | 1.2 | Pointer paths and typing rhythm are seeded (deterministic). Failure reports include a screenshot plus window **and** webview ARIA snapshots, and name the missing target | Re-records move the same way. The agent needs webview structure to repair locators |

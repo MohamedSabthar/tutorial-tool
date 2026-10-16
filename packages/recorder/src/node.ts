@@ -7,3 +7,6 @@ export * from './launch/vscodeSettings';
 export * from './products';
 export * from './check';
 export * from './fixtures/biProject';
+export * from './human';
+export * from './tut';
+export * from './samples/run';

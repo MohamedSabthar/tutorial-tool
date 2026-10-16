@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Project, Timeline } from './schemas';
+import { Project, Rect, RecorderEvent, Timeline } from './schemas';
 
 /**
  * The engine's WebSocket protocol.
@@ -72,6 +72,30 @@ export const rpcMethods = {
       problems: z.array(z.string()),
     }),
   },
+  'recorder.runSample': {
+    params: z.object({ mode: z.enum(['dry', 'record']), broken: z.boolean().default(false) }),
+    result: z.object({
+      passed: z.boolean(),
+      mode: z.enum(['dry', 'record']),
+      viewport: z.object({ mode: z.string(), width: z.number(), height: z.number(), scale: z.number() }),
+      eventsFile: z.string(),
+      events: z.array(RecorderEvent),
+      targetFrames: z.array(
+        z.object({ stepId: z.string(), target: z.string(), bbox: Rect, dataUrl: z.string() }),
+      ),
+      failure: z
+        .object({
+          stepId: z.string(),
+          title: z.string(),
+          error: z.string(),
+          dataUrl: z.string(),
+          ariaSnapshot: z.string(),
+          webviewAriaSnapshot: z.string(),
+        })
+        .nullable(),
+      durationMs: z.number(),
+    }),
+  },
 } as const;
 
 export type RpcMethod = keyof typeof rpcMethods;
@@ -82,6 +106,7 @@ export const rpcEvents = {
   'project.changed': z.object({ slug: z.string() }),
   'workspace.changed': z.object({ head: z.string().nullable() }),
   'recorder.progress': z.object({ message: z.string(), at: z.number() }),
+  'recorder.event': RecorderEvent,
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;
 export type RpcEventData<E extends RpcEvent> = z.output<(typeof rpcEvents)[E]>;

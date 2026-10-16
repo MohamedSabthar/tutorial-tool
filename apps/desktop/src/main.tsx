@@ -10,6 +10,7 @@ import { DesktopPage } from './pages/DesktopPage';
 import { KitPage } from './pages/KitPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { LauncherPage } from './pages/LauncherPage';
+import { RecorderPage } from './pages/RecorderPage';
 import '@studio/ui/styles.css';
 import './styles.css';
 
@@ -20,7 +21,8 @@ const routes: DevRoute[] = [
   { path: '/desktop', step: '0.4', label: 'Desktop shell', render: () => <DesktopPage /> },
   { path: '/kit', step: '0.5', label: 'Design kit', render: () => <KitPage /> },
   { path: '/workspace', step: '0.6', label: 'Workspace', render: () => <WorkspacePage /> },
-  { path: '/launcher', step: '1.1', label: 'VS Code launcher', render: () => <LauncherPage /> },
+  { path: '/launcher', step: '1.1', label: 'Integrator launcher', render: () => <LauncherPage /> },
+  { path: '/recorder', step: '1.2', label: 'Recorder helpers', render: () => <RecorderPage /> },
 ];
 
 const isLive = window.location.hash.startsWith('#/live');

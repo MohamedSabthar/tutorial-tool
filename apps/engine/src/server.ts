@@ -18,7 +18,9 @@ import {
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
 import { Workspace } from './workspace';
-import { launchCheck } from '@studio/recorder/node';
+import { launchCheck, runSample } from '@studio/recorder/node';
+import os from 'node:os';
+import path from 'node:path';
 
 export const ENGINE_VERSION = '0.0.1';
 
@@ -41,6 +43,8 @@ export interface Engine {
 }
 
 type Handlers = { [M in RpcMethod]: (params: never) => Promise<RpcResult<M>> };
+
+const dataUrl = (png: Buffer) => `data:image/png;base64,${png.toString('base64')}`;
 
 export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const token = opts.token ?? randomBytes(24).toString('hex');
@@ -103,7 +107,40 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           broadcast('recorder.progress', { message, at: Date.now() }),
         );
         const { png, ...size } = r.screenshot;
-        return { ...r, screenshot: { ...size, dataUrl: `data:image/png;base64,${png.toString('base64')}` } };
+        return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
+      } finally {
+        recorderBusy = false;
+      }
+    },
+    'recorder.runSample': async ({ mode, broken }: { mode: 'dry' | 'record'; broken: boolean }) => {
+      if (recorderBusy) throw new RpcError('the recorder is already running', 'bad_request');
+      recorderBusy = true;
+      const eventsFile = path.join(os.tmpdir(), 'tutorial-studio', `sample-${mode}.jsonl`);
+      try {
+        const r = await runSample({
+          mode,
+          broken,
+          eventsFile,
+          onEvent: (e) => broadcast('recorder.event', e),
+          onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
+        });
+        return {
+          passed: r.passed,
+          mode: r.mode,
+          viewport: r.viewport,
+          eventsFile,
+          events: r.events,
+          targetFrames: r.targetFrames.map(({ png, ...f }) => ({ ...f, dataUrl: dataUrl(png) })),
+          failure: r.failure && {
+            stepId: r.failure.stepId,
+            title: r.failure.title,
+            error: r.failure.error,
+            dataUrl: dataUrl(r.failure.screenshot),
+            ariaSnapshot: r.failure.ariaSnapshot,
+            webviewAriaSnapshot: r.failure.webviewAriaSnapshot,
+          },
+          durationMs: r.durationMs,
+        };
       } finally {
         recorderBusy = false;
       }
