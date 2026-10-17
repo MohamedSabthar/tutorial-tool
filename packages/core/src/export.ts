@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ExportPhase = z.enum(['render', 'audio', 'concat', 'mux', 'done']);
+export const ExportPhase = z.enum(['render', 'audio', 'concat', 'mux', 'docs', 'done']);
 
 /** A project's export job, as the engine reports it (`export.progress`). */
 export const ExportState = z.object({
@@ -19,5 +19,9 @@ export const ExportState = z.object({
   /** The finished MP4, relative to the project folder (e.g. output/demo.mp4). */
   file: z.string().nullable(),
   error: z.string().nullable(),
+  /** Every file written (relative to the project folder): the MP4, captions, doc, stills, script. */
+  outputs: z.array(z.string()).default([]),
+  /** Things worth knowing about the result (e.g. a step without a still). */
+  notes: z.array(z.string()).default([]),
 });
 export type ExportState = z.infer<typeof ExportState>;

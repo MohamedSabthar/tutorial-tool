@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { buildTimeMap, RpcError, voiceSpans, type ExportState } from '@studio/core';
 import { exportVideo, RenderHost, type ExportProgress } from '@studio/exporters/node';
+import type { DocWriter } from './docs';
 import type { ProjectStore } from './projects';
 import type { TimelineStore } from './timeline';
 import { resolveUiUrl } from './ui';
@@ -19,6 +20,7 @@ export class Exporter {
     private deps: {
       store: ProjectStore;
       timelines: TimelineStore;
+      docs: Pick<DocWriter, 'write'>;
       engine: () => { port: number; token: string };
       emit: (state: ExportState) => void;
       /** Parallel workers (default: CPU cores / 2). */
@@ -53,6 +55,8 @@ export class Exporter {
       seconds: null,
       file: null,
       error: null,
+      outputs: [],
+      notes: [],
     };
     const abort = new AbortController();
     const engine = this.deps.engine;
@@ -82,20 +86,40 @@ export class Exporter {
       ...(this.deps.workers ? { workers: this.deps.workers } : {}),
       signal: abort.signal,
       onProgress: (p: ExportProgress) =>
+        // The video is 96% of the job; the doc (captions, stills, instructions) the rest.
+        p.phase !== 'done' &&
         update(
-          { phase: p.phase, frames: p.frames, total: p.total, progress: p.progress },
+          { phase: p.phase, frames: p.frames, total: p.total, progress: p.progress * 0.96 },
           p.phase !== 'render' || p.frames === p.total,
         ),
-    }).then(
-      (r) => update({ state: 'done', phase: 'done', progress: 1, seconds: r.seconds, file: rel }, true),
-      (e: unknown) =>
-        update(
-          abort.signal.aborted
-            ? { state: 'cancelled' }
-            : { state: 'failed', error: e instanceof Error ? e.message : String(e) },
-          true,
-        ),
-    );
+    })
+      .then(async (r) => {
+        update({ phase: 'docs', progress: 0.96, file: rel }, true);
+        const doc = await this.deps.docs.write(slug, { signal: abort.signal });
+        if (abort.signal.aborted) throw new Error('export cancelled');
+        return { ...r, doc };
+      })
+      .then(
+        (r) =>
+          update(
+            {
+              state: 'done',
+              phase: 'done',
+              progress: 1,
+              seconds: (Date.now() - Date.parse(state.startedAt)) / 1000,
+              outputs: [rel, ...r.doc.files],
+              notes: r.doc.notes,
+            },
+            true,
+          ),
+        (e: unknown) =>
+          update(
+            abort.signal.aborted
+              ? { state: 'cancelled' }
+              : { state: 'failed', error: e instanceof Error ? e.message : String(e) },
+            true,
+          ),
+      );
     this.jobs.set(slug, { state, abort, done });
     this.deps.emit({ ...state });
     return { ...state };

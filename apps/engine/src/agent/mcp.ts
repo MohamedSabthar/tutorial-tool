@@ -9,6 +9,7 @@ import { pipelineTools } from './tools/pipeline';
 import { voTools } from './tools/vo';
 import { checkOverlayTools } from './tools/checkOverlay';
 import { explainerTools } from './tools/insertExplainer';
+import { docTools } from './tools/doc';
 
 /**
  * The in-process `studio` MCP server a project's session talks to. Its tools run in the
@@ -30,6 +31,7 @@ export function studioServer(ctx: ToolContext): Record<string, McpServerConfig> 
       ...voTools(ctx),
       ...checkOverlayTools(ctx),
       ...explainerTools(ctx),
+      ...docTools(ctx),
     ],
   });
   return { studio: server };

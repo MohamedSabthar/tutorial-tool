@@ -27,7 +27,7 @@ import {
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
-import { isUiPath, registerUi } from './ui';
+import { isUiPath, registerUi, resolveUiUrl } from './ui';
 import { Workspace } from './workspace';
 import { Runner } from './runner';
 import { stepTimings } from './recording';
@@ -50,6 +50,8 @@ import { withCaptions } from './captions';
 import { annotationMessage } from './agent/annotationContext';
 import { HeadlessStage } from './render';
 import { Exporter } from './export';
+import { DocWriter } from './docs';
+import { RenderHost } from '@studio/exporters/node';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
 import { Library } from './library';
@@ -103,12 +105,6 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   // Composited frames for check_overlay (and later export); it needs the engine's own address.
   let listening = { port: 0, token };
   const headless = new HeadlessStage(() => listening);
-  const exporter = new Exporter({
-    store,
-    timelines,
-    engine: () => listening,
-    emit: (state) => broadcast('export.progress', state),
-  });
   const runner = new Runner(store, workspace, (event, data) => broadcast(event, data));
   let overlayServer: Promise<OverlayServer> | null = null;
   let overlayVersion = 0;
@@ -129,6 +125,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         pipeline,
         voiceover,
         explainers,
+        docs,
         checkScene: async (sceneId) =>
           checkScene({
             workspace: opts.workspace,
@@ -251,6 +248,29 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       await agents.get(slug).send(text);
     },
     emit: (slug) => broadcast('explainers.changed', { slug }),
+  });
+  // Stills for the Markdown doc: exact frames from an export-mode host (software WebGL is fine).
+  const stills = new RenderHost({
+    engine: () => listening,
+    uiUrl: () => resolveUiUrl(`http://127.0.0.1:${listening.port}`),
+    exportMode: true,
+  });
+  const docs = new DocWriter({
+    store,
+    timelines,
+    send: async (slug, text) => {
+      await workspace.ensure();
+      await runs.begin(slug, { prompt: text.split('\n')[0]!.slice(0, 200) });
+      await agents.get(slug).send(text);
+    },
+    render: async (slug, t, timeline) => (await stills.render(slug, [t], timeline))[0]!.png,
+  });
+  const exporter = new Exporter({
+    store,
+    timelines,
+    docs,
+    engine: () => listening,
+    emit: (state) => broadcast('export.progress', state),
   });
   const library = new Library({
     workspace: opts.workspace,
@@ -788,6 +808,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       await agents.closeAll().catch(() => {});
       await runner.close();
       await exporter.close();
+      await stills.close();
       await headless.close();
       if (overlayServer) await (await overlayServer).close().catch(() => {});
       for (const ws of sockets) ws.terminate();

@@ -93,6 +93,7 @@ beforeAll(async () => {
     catalog: () => loadCatalog(server, project.slug),
     runId: () => run,
     runner: null as never,
+    docs: null as never,
     pipeline: null as never,
     voiceover: null as never,
     checkOverlay: null as never,
