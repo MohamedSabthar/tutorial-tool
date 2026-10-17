@@ -6,6 +6,8 @@ export interface EncodeOptions {
   bitrate?: string;
   /** Video encoder; default: the hardware one when ffmpeg has it (`hardwareEncoder()`). */
   codec?: 'h264_videotoolbox' | 'libx264';
+  /** Output size when it differs from the frames' (e.g. 720p from 1080p frames). */
+  size?: { width: number; height: number };
 }
 
 let hardware: Promise<boolean> | null = null;
@@ -25,6 +27,7 @@ export function videoArgs(
   codec: NonNullable<EncodeOptions['codec']>,
   fps: number,
   bitrate: string,
+  size?: { width: number; height: number },
 ): string[] {
   const enc =
     codec === 'h264_videotoolbox'
@@ -33,7 +36,7 @@ export function videoArgs(
   return [
     // Screenshots are sRGB; tag and convert them as BT.709 so players show the same colours.
     '-vf',
-    'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
+    `scale=${size ? `${size.width}:${size.height}:flags=lanczos:` : ''}out_color_matrix=bt709:out_range=tv,format=yuv420p`,
     ...enc,
     '-bf',
     '0',
@@ -91,7 +94,7 @@ export class FrameEncoder {
       String(opts.fps),
       '-i',
       '-',
-      ...videoArgs(codec, opts.fps, opts.bitrate ?? '12M'),
+      ...videoArgs(codec, opts.fps, opts.bitrate ?? '12M', opts.size),
       '-an',
       '-movflags',
       '+faststart',

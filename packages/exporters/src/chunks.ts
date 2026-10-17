@@ -1,5 +1,6 @@
 import { cpus } from 'node:os';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { mixAudio, type AudioClip } from './audio';
 import { ffmpeg, FrameEncoder, type EncodeOptions } from './encode';
@@ -18,8 +19,10 @@ const AFTER: Record<Exclude<ExportPhase, 'render'>, number> = {
 
 export interface ExportProgress {
   phase: ExportPhase;
-  /** Frames rendered so far, of `total`. */
+  /** Frames rendered so far, of `total` (including reused ones). */
   frames: number;
+  /** Frames reused from an earlier, cancelled export with the same inputs. */
+  resumed: number;
   total: number;
   /** 0–1 over the whole export (rendering is most of it). */
   progress: number;
@@ -34,8 +37,16 @@ export interface ExportVideoOptions {
   fps: number;
   /** The finished MP4. */
   out: string;
-  /** Scratch folder for chunks (removed afterwards). */
+  /** Scratch folder for chunks (removed once the export is done). */
   work: string;
+  /**
+   * Fingerprint of everything that affects the frames (timeline, settings, components). With
+   * it, a cancelled or failed export keeps its finished chunks, and the next export with the
+   * same fingerprint reuses them.
+   */
+  key?: string;
+  /** Output size when it differs from the rendered frames. */
+  size?: { width: number; height: number };
   /** A fresh export-mode render host per worker. */
   host: () => RenderHost;
   /** Voice-over clips at their output times. */
@@ -59,6 +70,40 @@ export function planChunks(total: number, fps: number, n: number, min = 60): Fra
   return out;
 }
 
+interface Manifest {
+  key: string;
+  chunks: FrameRange[];
+}
+
+const chunkFile = (work: string, k: number) => path.join(work, `chunk-${String(k).padStart(3, '0')}.mp4`);
+const doneFile = (work: string, k: number) => `${chunkFile(work, k)}.done`;
+
+/** The chunk plan for an export: a few chunks per worker. */
+function chunkPlan(total: number, fps: number, workers: number): FrameRange[] {
+  // Frames differ in cost (explainers draw more than recordings): small chunks taken from a
+  // queue keep every worker busy to the end.
+  return planChunks(total, fps, workers * 4);
+}
+
+async function readManifest(work: string): Promise<Manifest | null> {
+  try {
+    return JSON.parse(await readFile(path.join(work, 'manifest.json'), 'utf8')) as Manifest;
+  } catch {
+    return null;
+  }
+}
+
+/** Frames a new export with this fingerprint would reuse from an unfinished one in `work`. */
+export async function resumableFrames(work: string, key: string): Promise<number> {
+  const m = await readManifest(work);
+  if (m?.key !== key) return 0;
+  return m.chunks.reduce(
+    (n, c, k) =>
+      n + (existsSync(doneFile(work, k)) && existsSync(chunkFile(work, k)) ? c.to - c.from + 1 : 0),
+    0,
+  );
+}
+
 /**
  * Renders the tutorial to an MP4: frames are split into chunks rendered by parallel workers
  * (each pipes PNGs into its own H.264 encoder), the voice-over is mixed meanwhile, then the
@@ -70,19 +115,28 @@ export async function exportVideo(
   const t0 = performance.now();
   const total = Math.max(1, Math.round(o.duration * o.fps));
   const workers = o.workers ?? Math.max(1, Math.floor(cpus().length / 2));
-  // A few chunks per worker, taken from a queue: frames differ in cost (explainers draw more
-  // than recordings), so equal shares would leave one worker finishing alone.
-  const chunks = planChunks(total, o.fps, workers * 4);
-  await rm(o.work, { recursive: true, force: true });
+  // Resume: reuse the finished chunks of an unfinished export with the same inputs.
+  const old = o.key ? await readManifest(o.work) : null;
+  const chunks = old && old.key === o.key ? old.chunks : chunkPlan(total, o.fps, workers);
+  const reuse = new Set<number>();
+  if (old && old.key === o.key) {
+    for (const k of chunks.keys())
+      if (existsSync(doneFile(o.work, k)) && existsSync(chunkFile(o.work, k))) reuse.add(k);
+  } else {
+    await rm(o.work, { recursive: true, force: true });
+  }
   await mkdir(o.work, { recursive: true });
   await mkdir(path.dirname(o.out), { recursive: true });
+  if (o.key) await writeFile(path.join(o.work, 'manifest.json'), JSON.stringify({ key: o.key, chunks }));
 
-  let frames = 0;
+  const resumed = [...reuse].reduce((n, k) => n + chunks[k]!.to - chunks[k]!.from + 1, 0);
+  let frames = resumed;
   let phase: ExportPhase = 'render';
   const progress = (latest?: ExportProgress['latest']) =>
     o.onProgress?.({
       phase,
       frames,
+      resumed,
       total,
       progress: phase === 'render' ? (frames / total) * 0.94 : AFTER[phase],
       ...(latest ? { latest } : {}),
@@ -97,19 +151,24 @@ export async function exportVideo(
   o.signal?.addEventListener('abort', abort, { once: true });
   try {
     progress();
-    const files = chunks.map((_, k) => path.join(o.work, `chunk-${String(k).padStart(3, '0')}.mp4`));
+    const files = chunks.map((_, k) => chunkFile(o.work, k));
+    const todo = [...chunks.keys()].filter((k) => !reuse.has(k));
     const audioFile = path.join(o.work, 'audio.m4a');
     const audio = mixAudio(o.audio, audioFile, { duration: total / o.fps, signal: o.signal });
     audio.catch(() => {});
     let next = 0;
     await Promise.all(
-      Array.from({ length: Math.min(workers, chunks.length) }, async () => {
+      Array.from({ length: Math.min(workers, todo.length) }, async () => {
         const host = o.host();
         hosts.push(host);
         try {
-          for (let k = next++; k < chunks.length; k = next++) {
+          for (let k = todo[next++]; k !== undefined; k = todo[next++]) {
             if (o.signal?.aborted) throw new Error('export cancelled');
-            const enc = await FrameEncoder.start(files[k]!, { ...o.encode, fps: o.fps });
+            const enc = await FrameEncoder.start(files[k]!, {
+              ...o.encode,
+              fps: o.fps,
+              ...(o.size ? { size: o.size } : {}),
+            });
             encoders.push(enc);
             await renderFrames(host, o.slug, chunks[k]!, async (index, png) => {
               if (o.signal?.aborted) throw new Error('export cancelled');
@@ -118,6 +177,7 @@ export async function exportVideo(
               progress({ index, png });
             });
             await enc.finish();
+            if (o.key) await writeFile(doneFile(o.work, k), '');
           }
         } finally {
           await host.close();
@@ -169,12 +229,14 @@ export async function exportVideo(
 
     phase = 'done';
     progress();
+    await rm(o.work, { recursive: true, force: true }).catch(() => {});
     return { file: o.out, frames: total, seconds: (performance.now() - t0) / 1000 };
   } catch (e) {
     abort();
+    // Keep finished chunks for a resume (only with a fingerprint to match them by).
+    if (!o.key) await rm(o.work, { recursive: true, force: true }).catch(() => {});
     throw o.signal?.aborted ? new Error('export cancelled') : e;
   } finally {
     o.signal?.removeEventListener('abort', abort);
-    await rm(o.work, { recursive: true, force: true }).catch(() => {});
   }
 }

@@ -101,7 +101,8 @@ export function Scene3D({ children }: { children?: ReactNode }) {
       orthographic
       // On demand in preview; in export the driver draws each frame itself (exportFrameReady).
       frameloop={mode === 'export' ? 'never' : 'demand'}
-      dpr={1}
+      // Export at 4K renders the page at 2 device pixels per stage pixel; the canvas follows.
+      dpr={mode === 'export' ? window.devicePixelRatio : 1}
       flat
       gl={{ antialias: true, preserveDrawingBuffer: mode === 'export' }}
       // The stage surface is CSS-scaled to fit; measure untransformed size so the canvas

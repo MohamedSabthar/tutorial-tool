@@ -241,12 +241,14 @@ export function Segmented<T extends string>({
   value,
   onChange,
   block = false,
+  disabled = false,
 }: {
   label: string;
   options: readonly { value: T; label: ReactNode }[] | readonly T[];
   value: T;
   onChange: (v: T) => void;
   block?: boolean;
+  disabled?: boolean;
 }) {
   const items = options.map((o) => (typeof o === 'string' ? { value: o as T, label: o } : o));
   return (
@@ -257,6 +259,7 @@ export function Segmented<T extends string>({
           type="button"
           className="ui-seg-item"
           aria-pressed={o.value === value}
+          disabled={disabled}
           onClick={() => onChange(o.value)}
         >
           {o.label}

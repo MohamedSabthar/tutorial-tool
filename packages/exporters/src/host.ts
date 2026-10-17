@@ -41,6 +41,8 @@ export interface RenderHostOptions {
   requireGpu?: boolean;
   /** Mount the stage in export mode (unscaled surface). */
   exportMode?: boolean;
+  /** Device pixels per stage pixel: 2 renders the 1920×1080 stage at 3840×2160 (4K). */
+  scale?: number;
 }
 
 export class RenderHost {
@@ -93,7 +95,10 @@ export class RenderHost {
             );
         }
         const browser = await this.launch();
-        const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+        const page = await browser.newPage({
+          viewport: { width: 1920, height: 1080 },
+          deviceScaleFactor: this.opts.scale ?? 1,
+        });
         const { port, token } = this.opts.engine();
         const mode = this.opts.exportMode ? '&export=1' : '';
         const base = await this.ui();

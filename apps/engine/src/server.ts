@@ -24,6 +24,7 @@ import {
   remapOutputItems,
   removeExplainerScene,
   type Timeline,
+  type ExportSettings,
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
@@ -269,8 +270,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     store,
     timelines,
     docs,
+    workspace: opts.workspace,
     engine: () => listening,
     emit: (state) => broadcast('export.progress', state),
+    frame: (f) => broadcast('export.frame', f),
   });
   const library = new Library({
     workspace: opts.workspace,
@@ -554,7 +557,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       interrupted: await agents.get(slug).interrupt(),
     }),
     'agent.reset': async ({ slug }: { slug: string }) => agents.get(slug).reset(),
-    'export.start': async ({ slug, fps }: { slug: string; fps: number }) => exporter.start(slug, fps),
+    'export.start': async ({ slug, settings }: { slug: string; settings: ExportSettings }) =>
+      exporter.start(slug, settings),
+    'export.plan': async ({ slug, settings }: { slug: string; settings: ExportSettings }) =>
+      exporter.plan(slug, settings),
     'export.cancel': async ({ slug }: { slug: string }) => ({ cancelled: await exporter.cancel(slug) }),
     'export.status': async ({ slug }: { slug: string }) => exporter.status(slug),
     'project.reveal': async ({ slug, path: rel }: { slug: string; path: string }) => {

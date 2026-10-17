@@ -26,6 +26,7 @@ import { BriefScreen } from './routes/brief/BriefScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { RenderScreen } from './render/RenderScreen';
 import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
+import { ExportScreen } from './routes/export/ExportScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
@@ -91,6 +92,8 @@ function App() {
   }
   const render = match(path, 'render');
   if (render) return <RenderScreen slug={render} />;
+  const exporting = match(path, 'export');
+  if (exporting) return <ExportScreen key={exporting} slug={exporting} />;
   const storyboard = match(path, 'storyboard');
   if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
   return <DevShell routes={routes} />;

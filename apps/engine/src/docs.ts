@@ -126,24 +126,59 @@ export class DocWriter {
   /** Writes the captions, the Markdown doc with stills, and the script with its README into output/. */
   async write(
     slug: string,
-    opts: { onStep?: (message: string) => void; signal?: AbortSignal } = {},
+    opts: {
+      /** Which outputs to write (all by default). */
+      captions?: boolean;
+      doc?: boolean;
+      script?: boolean;
+      onStep?: (message: string) => void;
+      signal?: AbortSignal;
+    } = {},
   ): Promise<DocResult> {
+    const want = { captions: opts.captions ?? true, doc: opts.doc ?? true, script: opts.script ?? true };
     const dir = this.deps.store.dir(slug);
     const out = path.join(dir, 'output');
     await mkdir(out, { recursive: true });
     const { timeline } = await this.deps.timelines.get(slug);
-    const { project } = await this.deps.store.open(slug);
-    const brief = await this.deps.store.readBrief(slug);
     const tm = buildTimeMap(timeline);
     const files: string[] = [];
     const notes: string[] = [];
 
     // Captions: the timeline's cues (or cues from the voice-over when there are none).
-    opts.onStep?.('captions');
-    const cues = timeline.captions.length ? timeline.captions : cuesFromVoice(voiceSpans(timeline, tm));
-    await writeFile(path.join(out, 'captions.srt'), toSrt(cues));
-    await writeFile(path.join(out, 'captions.vtt'), toVtt(cues));
-    files.push('output/captions.srt', 'output/captions.vtt');
+    if (want.captions) {
+      opts.onStep?.('captions');
+      const cues = timeline.captions.length ? timeline.captions : cuesFromVoice(voiceSpans(timeline, tm));
+      await writeFile(path.join(out, 'captions.srt'), toSrt(cues));
+      await writeFile(path.join(out, 'captions.vtt'), toVtt(cues));
+      files.push('output/captions.srt', 'output/captions.vtt');
+    }
+    if (want.doc) await this.writeDoc(slug, timeline, tm, files, notes, opts);
+    if (opts.signal?.aborted) throw new Error('export cancelled');
+
+    // The script, and how to re-record it.
+    const script = path.join(dir, 'script.spec.ts');
+    if (want.script && existsSync(script)) {
+      opts.onStep?.('script');
+      await copyFile(script, path.join(out, 'script.spec.ts'));
+      await writeFile(path.join(out, 'README.md'), scriptReadme(slug));
+      files.push('output/script.spec.ts', 'output/README.md');
+    }
+    return { files, notes };
+  }
+
+  /** `tutorial.md`: stills, then the agent's instructions. */
+  private async writeDoc(
+    slug: string,
+    timeline: Timeline,
+    tm: ReturnType<typeof buildTimeMap>,
+    files: string[],
+    notes: string[],
+    opts: { onStep?: (message: string) => void; signal?: AbortSignal },
+  ) {
+    const dir = this.deps.store.dir(slug);
+    const out = path.join(dir, 'output');
+    const { project } = await this.deps.store.open(slug);
+    const brief = await this.deps.store.readBrief(slug);
 
     // Stills: the moment before each step's action, with its target boxed.
     opts.onStep?.('stills');
@@ -184,20 +219,11 @@ export class DocWriter {
         title: (brief.goal.trim() && briefTitle(brief.goal)) || project.title,
         intro: brief.goal.trim(),
         ...(existsSync(path.join(out, video)) ? { video } : {}),
-        captions: 'captions.vtt',
+        ...(existsSync(path.join(out, 'captions.vtt')) ? { captions: 'captions.vtt' } : {}),
         steps,
       }),
     );
     files.push('output/tutorial.md');
-
-    // The script, and how to re-record it.
-    const script = path.join(dir, 'script.spec.ts');
-    if (existsSync(script)) {
-      await copyFile(script, path.join(out, 'script.spec.ts'));
-      await writeFile(path.join(out, 'README.md'), scriptReadme(slug));
-      files.push('output/script.spec.ts', 'output/README.md');
-    }
-    return { files, notes };
   }
 }
 

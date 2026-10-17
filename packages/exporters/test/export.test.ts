@@ -3,7 +3,15 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { FrameEncoder, mixAudio, mixGraph, planChunks } from '../src/node';
+import {
+  exportVideo,
+  FrameEncoder,
+  mixAudio,
+  mixGraph,
+  planChunks,
+  resumableFrames,
+  type RenderHost,
+} from '../src/node';
 
 const dir = mkdtempSync(path.join(tmpdir(), 'export-test-'));
 const probe = (file: string, entries: string) =>
@@ -105,5 +113,64 @@ describe('FrameEncoder', () => {
     expect(info).toContain('nb_frames=15');
     expect(info).toContain('r_frame_rate=30/1');
     expect(info).toContain('color_space=bt709');
+  });
+});
+
+describe('exportVideo resume', () => {
+  it('keeps finished chunks when cancelled and reuses them on the next export', async () => {
+    const png = execFileSync('ffmpeg', [
+      '-v',
+      'error',
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=navy:s=160x90',
+      '-frames:v',
+      '1',
+      '-f',
+      'image2pipe',
+      '-vcodec',
+      'png',
+      '-',
+    ]);
+    const rendered: number[] = [];
+    const host = () =>
+      ({
+        frame: async (_slug: string, t: number) => {
+          rendered.push(t);
+          return { t, png, errors: {} };
+        },
+        close: async () => {},
+      }) as unknown as RenderHost;
+    const work = path.join(dir, 'work');
+    const out = path.join(dir, 'resume.mp4');
+    const base = {
+      slug: 'p',
+      duration: 4,
+      fps: 30,
+      out,
+      work,
+      host,
+      audio: [],
+      workers: 1,
+      key: 'k1',
+      encode: { codec: 'libx264' as const },
+    };
+
+    // Cancel once the first chunk (frames 0–59) is done.
+    const abort = new AbortController();
+    await expect(
+      exportVideo({ ...base, signal: abort.signal, onProgress: (p) => p.frames >= 70 && abort.abort() }),
+    ).rejects.toThrow('export cancelled');
+    expect(await resumableFrames(work, 'k1')).toBe(60);
+    expect(await resumableFrames(work, 'other')).toBe(0);
+
+    rendered.length = 0;
+    let resumed = 0;
+    await exportVideo({ ...base, onProgress: (p) => (resumed = p.resumed) });
+    expect(resumed).toBe(60);
+    expect(rendered).toHaveLength(60);
+    expect(probe(out, 'stream=nb_frames')).toContain('nb_frames=120');
+    expect(await resumableFrames(work, 'k1')).toBe(0);
   });
 });
