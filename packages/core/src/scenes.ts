@@ -2,6 +2,8 @@ import { buildTimeMap, sceneDuration } from './timemap';
 import type { ExplainerScene, RecordingScene, Scene, Segment, Timeline } from './schemas';
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
+/** Splits closer than this (seconds) to a segment edge happen at the edge. */
+const SNAP = 0.07;
 
 /** A scene id not used yet (`sc-<n>`). */
 export function nextSceneId(tl: Pick<Timeline, 'scenes'>): string {
@@ -86,8 +88,10 @@ export function insertExplainerScene(
     const first: Segment[] = [];
     const second: Segment[] = [];
     for (const g of tm.segments.filter((x) => x.sceneId === s.id)) {
-      if (g.end <= at + 1e-6) first.push(g.segment);
-      else if (g.start >= at - 1e-6) second.push(g.segment);
+      // Within a couple of frames of a segment edge, split at the edge: a sliver of a step would
+      // otherwise stay before the explainer (and carry that step's voice line with it).
+      if (g.end <= at + SNAP) first.push(g.segment);
+      else if (g.start >= at - SNAP) second.push(g.segment);
       else {
         const parts = splitSegment(g.segment, at - g.start);
         if (parts) {

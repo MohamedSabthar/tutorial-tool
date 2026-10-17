@@ -10,6 +10,8 @@ export interface CatalogEntry {
   /** JSON Schema of the component's props (input side, so defaults are optional). */
   props: unknown;
   path?: string;
+  /** Scenes: the beat names the component animates on. */
+  beats?: string[];
   /** Set when the component file could not be loaded. */
   error?: string;
 }
@@ -25,6 +27,7 @@ interface Meta {
   description?: string;
   kind?: 'overlay' | 'scene';
   props?: z.ZodType;
+  beats?: string[];
 }
 
 let shared: Promise<void> | null = null;
@@ -85,6 +88,7 @@ export async function loadCatalog(server: OverlayServer, slug: string): Promise<
       name: meta.name ?? id,
       description: meta.description ?? '',
       props: propsSchema(meta),
+      ...(meta.beats?.length ? { beats: meta.beats } : {}),
       ...extra,
     });
     if (meta.props) schemas.set(id, meta.props);

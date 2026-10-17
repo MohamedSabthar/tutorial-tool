@@ -296,3 +296,46 @@
 .annotation-item[data-resolved] .annotation-item-text {
   color: var(--ui-gray-600);
 }
+
+/* Explainer storyboard cards (Studio) */
+.xsb-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.xsb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--ui-gray-300);
+  border-radius: 10px;
+  background: var(--ui-white);
+}
+.xsb-card img,
+.xsb-noframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--ui-gradient-dark);
+}
+.xsb-noframe {
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--ui-steel-300);
+}
+.xsb-beat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-orange-ink);
+}
+.xsb-card .ui-textarea {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.xsb-visual {
+  font-size: 11px;
+  color: var(--ui-gray-600);
+}

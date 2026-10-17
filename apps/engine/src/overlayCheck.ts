@@ -131,7 +131,7 @@ export function sampleTimes(start: number, end: number, duration: number) {
 }
 
 /** A grid of frames (3 per row, 640 px wide) with their labels, as one JPEG. */
-async function contactSheet(frames: { png: Buffer; label: string }[]): Promise<Buffer> {
+export async function contactSheet(frames: { png: Buffer; label: string }[]): Promise<Buffer> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'studio-sheet-'));
   try {
     const font = [

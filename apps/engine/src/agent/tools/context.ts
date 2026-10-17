@@ -6,6 +6,8 @@ import type { Runner } from '../../runner';
 import type { PipelineManager } from '../../pipeline/machine';
 import type { Voiceover } from '../../vo';
 import type { CheckResult } from '../../overlayCheck';
+import type { SceneCheckResult } from '../../sceneCheck';
+import type { Explainers } from '../../explainers';
 
 /** What the studio tools of one project can reach. */
 export interface ToolContext {
@@ -17,6 +19,8 @@ export interface ToolContext {
   pipeline: Pick<PipelineManager, 'savePlan' | 'stageDone'>;
   voiceover: Pick<Voiceover, 'generate'>;
   checkOverlay(file: string, opts: { times?: number[]; instanceId?: string }): Promise<CheckResult>;
+  checkScene(sceneId: string): Promise<SceneCheckResult>;
+  explainers: Explainers;
   /** Called after a run registered a new take (reload the timeline everywhere). */
   onTake(): void;
   /** Undo group of the agent's current turn: its patches undo as one step. */

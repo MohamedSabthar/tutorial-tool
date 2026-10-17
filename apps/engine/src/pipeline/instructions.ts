@@ -67,6 +67,10 @@ export function postInstruction(plan: Plan | null = null): string {
       ? "The user reviewed this narration in the storyboard and may have edited it; keep their wording unless it doesn't fit the step's length:\n\n" +
         plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n')
       : '',
+    plan?.explainers.length
+      ? 'The approved plan also proposes explainers. For each, call insert_explainer at the end of the step it follows (get_timeline gives step times), with the idea as the brief, and write its storyboard; stop there for each, the user approves storyboards in the Studio:\n\n' +
+        plan.explainers.map((e) => `- after ${e.after}: ${e.idea}`).join('\n')
+      : '',
     done('post'),
   ]
     .filter(Boolean)

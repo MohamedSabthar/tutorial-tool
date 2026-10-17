@@ -51,6 +51,8 @@ import { HeadlessStage } from './render';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
 import { Library } from './library';
+import { Explainers } from './explainers';
+import { checkScene } from './sceneCheck';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -117,6 +119,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         runner,
         pipeline,
         voiceover,
+        explainers,
+        checkScene: async (sceneId) =>
+          checkScene({
+            workspace: opts.workspace,
+            slug,
+            sceneId,
+            timeline: (await timelines.get(slug)).timeline,
+            overlays: await overlays(),
+            stage: headless,
+          }),
         checkOverlay: async (file, o) =>
           checkOverlay({
             workspace: opts.workspace,
@@ -170,6 +182,67 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       .map((k) => ({ op: 'replace' as const, path: `/${k}`, value: next[k] }));
     return timelines.patch(slug, patch, { author: 'user', label });
   };
+  /** Inserts an explainer (FreezeMorph in and out next to the recording); returns the new state and its id. */
+  const insertScene = async (
+    slug: string,
+    at: number,
+    component: string,
+    props: Record<string, unknown>,
+    duration?: number,
+    transitions = true,
+  ) => {
+    let sceneId = '';
+    const state = await sceneEdit(slug, 'Insert explainer', (tl) => {
+      const inserted = insertExplainerScene(tl, at, {
+        kind: 'explainer',
+        component,
+        props,
+        narration: [],
+        beats: [],
+        duration: duration ?? 'auto',
+        estimatedDuration: duration ?? 6,
+      });
+      sceneId = inserted.sceneId;
+      const next = inserted.timeline;
+      if (!transitions) return next;
+      const i = next.scenes.findIndex((s) => s.id === sceneId);
+      const before = next.scenes[i - 1];
+      const after = next.scenes[i + 1];
+      const morph = (a: string, b: string) => ({
+        id: `tr-${a}-${b}`,
+        between: [a, b] as [string, string],
+        component: 'core:FreezeMorph',
+        duration: 1,
+      });
+      const withTransitions = {
+        ...next,
+        transitions: [
+          ...next.transitions,
+          ...(before?.kind === 'recording' ? [morph(before.id, sceneId)] : []),
+          ...(after?.kind === 'recording' ? [morph(sceneId, after.id)] : []),
+        ],
+      };
+      // Transitions overlap the scenes: move later items by what the video actually gained.
+      return remapOutputItems(withTransitions, outputRemapper(next, withTransitions));
+    });
+    return { state, sceneId };
+  };
+  const explainers = new Explainers({
+    store,
+    timelines,
+    catalog: async (slug) => loadCatalog(await overlays(), slug),
+    insertScene: async (slug, at, component, props) =>
+      (await insertScene(slug, at, component, props)).sceneId,
+    removeScene: async (slug, sceneId) => {
+      await sceneEdit(slug, 'Remove explainer', (tl) => removeExplainerScene(tl, sceneId));
+    },
+    send: async (slug, text) => {
+      await workspace.ensure();
+      await runs.begin(slug, { prompt: text.split('\n')[0]!.slice(0, 200) });
+      await agents.get(slug).send(text);
+    },
+    emit: (slug) => broadcast('explainers.changed', { slug }),
+  });
   const library = new Library({
     workspace: opts.workspace,
     timelines,
@@ -343,35 +416,26 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       duration?: number;
       transitions?: boolean;
     }) =>
-      sceneEdit(p.slug, 'Insert explainer', (tl) => {
-        const { timeline: next, sceneId } = insertExplainerScene(tl, p.at, {
-          kind: 'explainer',
-          component: p.component,
-          props: p.props ?? {},
-          narration: [],
-          beats: [],
-          duration: p.duration ?? 'auto',
-          estimatedDuration: p.duration ?? 6,
-        });
-        if (p.transitions === false) return next;
-        // FreezeMorph into and out of the explainer where the neighbour is the recording.
-        const i = next.scenes.findIndex((s) => s.id === sceneId);
-        const before = next.scenes[i - 1];
-        const after = next.scenes[i + 1];
-        const morph = (a: string, b: string) => ({
-          id: `tr-${a}-${b}`,
-          between: [a, b] as [string, string],
-          component: 'core:FreezeMorph',
-          duration: 1,
-        });
-        const add = [
-          ...(before?.kind === 'recording' ? [morph(before.id, sceneId)] : []),
-          ...(after?.kind === 'recording' ? [morph(sceneId, after.id)] : []),
-        ];
-        const withTransitions = { ...next, transitions: [...next.transitions, ...add] };
-        // Transitions overlap the scenes: move later items by what the video actually gained.
-        return remapOutputItems(withTransitions, outputRemapper(next, withTransitions));
-      }),
+      (await insertScene(p.slug, p.at, p.component, p.props ?? {}, p.duration, p.transitions !== false))
+        .state,
+    'explainers.list': async ({ slug }: { slug: string }) => explainers.list(slug),
+    'explainers.start': async ({ slug, at, brief }: { slug: string; at: number; brief: string }) =>
+      explainers.start(slug, at, brief, true),
+    'explainers.editBeat': async (p: { slug: string; sceneId: string; beatId: string; narration: string }) =>
+      explainers.editBeat(p.slug, p.sceneId, p.beatId, p.narration),
+    'explainers.approve': async ({ slug, sceneId }: { slug: string; sceneId: string }) =>
+      explainers.approve(slug, sceneId),
+    'explainers.revise': async ({
+      slug,
+      sceneId,
+      feedback,
+    }: {
+      slug: string;
+      sceneId: string;
+      feedback: string;
+    }) => explainers.revise(slug, sceneId, feedback),
+    'explainers.cancel': async ({ slug, sceneId }: { slug: string; sceneId: string }) =>
+      explainers.cancel(slug, sceneId),
     'scenes.remove': async ({ slug, sceneId }: { slug: string; sceneId: string }) =>
       sceneEdit(slug, 'Remove explainer', (tl) => {
         try {

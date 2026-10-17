@@ -40,6 +40,7 @@ import { AnnotationPopover } from './AnnotationPopover';
 import { screenToStage } from './StageHost';
 import { useRuns } from './useRuns';
 import { ExplainerInspector } from './ExplainerInspector';
+import { ExplainerStoryboard, useExplainers } from '../routes/storyboard/ExplainerStoryboard';
 import { Manipulator, type SnapTarget } from './Manipulator';
 import { sourceToStage } from '@studio/stage';
 import type { Rect } from '@studio/core';
@@ -85,6 +86,9 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [tool, setTool] = useState<Tool>('select');
   const [sceneComponent, setSceneComponent] = useState<string>('');
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
+  const jobs = useExplainers(slug).filter(
+    (j) => j.status === 'storyboarding' || j.status === 'review' || j.status === 'building',
+  );
   const { runs } = useRuns(slug);
   const toReview = runs.filter((r) => r.status === 'review');
   const [note, setNote] = useState<string | null>(null);
@@ -712,6 +716,19 @@ export function StudioScreen({ slug }: { slug: string }) {
               />
             </div>
           </Panel>
+          {jobs.map((job) => (
+            <div key={job.sceneId} style={{ marginTop: 12 }}>
+              <ExplainerStoryboard
+                slug={slug}
+                job={job}
+                onSeek={() => {
+                  const span = resolved?.tm.scenes.find((x) => x.sceneId === job.sceneId);
+                  if (span) controls.seek(span.start + 0.5);
+                  setSelectedScene(job.sceneId);
+                }}
+              />
+            </div>
+          ))}
         </main>
 
         <aside
@@ -788,6 +805,12 @@ export function StudioScreen({ slug }: { slug: string }) {
                 value={sceneComponent}
                 onChange={setSceneComponent}
                 onInsert={insertExplainer}
+                onAsk={(brief) => {
+                  controls.pause();
+                  return client!
+                    .call('explainers.start', { slug, at: Math.round(t * 100) / 100, brief })
+                    .then(() => undefined);
+                }}
               />
             </>
           }
@@ -923,13 +946,19 @@ function InsertExplainer({
   value,
   onChange,
   onInsert,
+  onAsk,
 }: {
   registry: Record<string, OverlayModule>;
   value: string;
   onChange: (id: string) => void;
   onInsert: () => void;
+  /** Ask the agent to storyboard and build an explainer from a brief, at the playhead. */
+  onAsk: (brief: string) => Promise<void>;
 }) {
   const scenes = Object.entries(registry).filter(([, m]) => m.meta?.kind === 'scene');
+  const [asking, setAsking] = useState(false);
+  const [brief, setBrief] = useState('');
+  const [sending, setSending] = useState(false);
   return (
     <>
       <span style={{ width: 1, height: 22, background: 'var(--ui-gray-300)', margin: '0 2px' }} />
@@ -959,6 +988,76 @@ function InsertExplainer({
       >
         + Insert explainer
       </Button>
+      <span style={{ position: 'relative' }}>
+        <Button
+          size="sm"
+          onClick={() => setAsking((a) => !a)}
+          title="Describe an explainer; the agent storyboards it for your approval"
+        >
+          Ask the agent…
+        </Button>
+        {asking && (
+          <span
+            role="dialog"
+            aria-label="Explainer brief"
+            style={{
+              position: 'absolute',
+              top: 34,
+              left: 0,
+              zIndex: 10,
+              width: 320,
+              padding: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              background: 'var(--ui-white)',
+              border: '1px solid var(--ui-gray-300)',
+              borderRadius: 10,
+              boxShadow: 'var(--ui-shadow-md)',
+            }}
+          >
+            <label
+              htmlFor="explainer-brief"
+              style={{ fontSize: 12, fontWeight: 600, color: 'var(--ui-navy)' }}
+            >
+              What should the explainer show?
+            </label>
+            <textarea
+              id="explainer-brief"
+              className="ui-textarea"
+              rows={3}
+              placeholder="e.g. explain how a request reaches /greeting"
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <span style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
+              Inserted at the playhead. You approve the storyboard before it is built.
+            </span>
+            <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+              <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>
+                Close
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={brief.trim().length < 3 || sending}
+                onClick={() => {
+                  setSending(true);
+                  void onAsk(brief.trim())
+                    .then(() => {
+                      setBrief('');
+                      setAsking(false);
+                    })
+                    .finally(() => setSending(false));
+                }}
+              >
+                {sending ? 'Inserting…' : 'Storyboard it'}
+              </Button>
+            </span>
+          </span>
+        )}
+      </span>
     </>
   );
 }

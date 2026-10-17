@@ -5,6 +5,7 @@ import { AgentEvent, AgentStatus } from './agent';
 import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
 import { Brief, PlanEdit } from './brief';
 import { Run } from './runs';
+import { ExplainerJob } from './explainers';
 
 /** A component in the shared overlay library (`overlays/index.json`). */
 export const LibraryEntry = z.object({
@@ -175,6 +176,30 @@ export const rpcMethods = {
     }),
     result: TimelineState,
   },
+  /** Explainers being made with the agent (storyboards waiting for review, builds). */
+  'explainers.list': { params: z.object({ slug: z.string() }), result: z.array(ExplainerJob) },
+  /** Inserts a placeholder explainer at `at` and asks the agent for a storyboard from `brief`. */
+  'explainers.start': {
+    params: z.object({ slug: z.string(), at: z.number().min(0), brief: z.string().min(3).max(400) }),
+    result: ExplainerJob,
+  },
+  'explainers.editBeat': {
+    params: z.object({
+      slug: z.string(),
+      sceneId: z.string(),
+      beatId: z.string(),
+      narration: z.string().min(1).max(300),
+    }),
+    result: ExplainerJob,
+  },
+  /** Approves a storyboard: the agent builds, voices and checks the scene. */
+  'explainers.approve': { params: z.object({ slug: z.string(), sceneId: z.string() }), result: ExplainerJob },
+  'explainers.revise': {
+    params: z.object({ slug: z.string(), sceneId: z.string(), feedback: z.string().min(1).max(2000) }),
+    result: ExplainerJob,
+  },
+  /** Removes the explainer scene and closes the job. */
+  'explainers.cancel': { params: z.object({ slug: z.string(), sceneId: z.string() }), result: ExplainerJob },
   /** Removes an explainer scene; the recording around it joins up again. */
   'scenes.remove': { params: z.object({ slug: z.string(), sceneId: z.string() }), result: TimelineState },
   /** The shared overlay library's index (promoted components with props summaries and thumbnails). */
@@ -467,6 +492,7 @@ export const rpcEvents = {
   }),
   'agent.event': AgentEvent,
   'runs.changed': z.object({ slug: z.string() }),
+  'explainers.changed': z.object({ slug: z.string() }),
   'agent.state': AgentStatus,
   'pipeline.changed': PipelineState,
   'live.session': z.object({

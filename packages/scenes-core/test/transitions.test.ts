@@ -18,7 +18,9 @@ describe('transitions', () => {
     expect(start.top).toBe('from');
     expect(start.from.transform).toBe('translate(0px, 0px) scale(1)');
     const mid = f(0.75, ctx('recording', 'explainer'));
-    const [x, y, k] = String(mid.from.transform).match(/-?[\d.]+/g)!.map(Number);
+    const [x, y, k] = String(mid.from.transform)
+      .match(/-?[\d.]+/g)!
+      .map(Number);
     expect(x).toBeCloseTo(target.x, 6);
     expect(y).toBeCloseTo(target.y, 6);
     expect(k).toBeCloseTo(target.w / 1920, 6);

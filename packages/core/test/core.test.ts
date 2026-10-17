@@ -447,3 +447,38 @@ describe('output remapping', () => {
     expect(moved.annotations[0]!.t).toBe(28);
   });
 });
+
+describe('explainer insert snapping', () => {
+  it('snaps an insert point a few milliseconds past a segment edge to the edge', () => {
+    const tl = parseTimeline({
+      version: 1,
+      takes: [
+        { id: 'take-1', video: 'v.mp4', events: 'e.jsonl', width: 1000, height: 600, fps: 30, duration: 30 },
+      ],
+      scenes: [
+        {
+          id: 'sc-1',
+          kind: 'recording',
+          take: 'take-1',
+          segments: [
+            { kind: 'speed', from: 0, to: 12.939, rate: 1.5 },
+            { kind: 'src', from: 12.939, to: 30 },
+          ],
+        },
+      ],
+      steps: [{ id: 's3', title: 'Three', take: 'take-1', from: 12.939, to: 30 }],
+    });
+    const { timeline } = insertExplainerScene(tl, 8.63, {
+      kind: 'explainer',
+      component: 'project:X',
+      props: {},
+      narration: [],
+      beats: [],
+      duration: 5,
+      estimatedDuration: 5,
+    });
+    const first = timeline.scenes[0]!;
+    expect(first.kind === 'recording' && first.segments.at(-1)).toMatchObject({ kind: 'speed', to: 12.939 });
+    expect(tmFor(timeline).toOutput('take-1', 12.939)[0]).toBeCloseTo(8.626 + 5, 2);
+  });
+});
