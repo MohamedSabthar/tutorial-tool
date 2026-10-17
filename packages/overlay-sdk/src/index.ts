@@ -19,7 +19,8 @@ export {
   type OverlayTime,
   type RecordingInfo,
 } from './context';
-export { gsap, useGsap } from './gsap';
+export { gsap, useGsap, type GsapContext } from './gsap';
+export * from './scene';
 export { DomLayer, OverlayBoundary, OverlayRenderer, ThreeLayer, useStageToScene } from './layers';
 export { theme, type Theme } from './theme';
 

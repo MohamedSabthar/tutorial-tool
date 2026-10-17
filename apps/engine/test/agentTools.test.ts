@@ -273,7 +273,8 @@ describe('studio tools', () => {
       lines: { stepId: string }[];
       skipped: { stepId: string }[];
     };
-    expect(r.lines.map((l) => l.stepId)).toEqual(['s1', 's2']);
+    // Steps with narration, then the explainer sc-2's two narration lines.
+    expect(r.lines.map((l) => l.stepId)).toEqual(['s1', 's2', 'sc-2', 'sc-2']);
     expect(r.skipped).toEqual([{ stepId: 's3', reason: 'no narration' }]);
     expect(ttsCalls[0]).toMatchObject({ text: 'Open the project.', nextText: 'Add an HTTP service.' });
     expect(ttsCalls[1]).toMatchObject({ previousText: 'Open the project.' });
@@ -282,14 +283,22 @@ describe('studio tools', () => {
     expect(timeline.voice.map((v) => [v.id, v.owner, v.start, v.duration])).toEqual([
       ['vo-s1', 's1', 0.25, 1.2],
       ['vo-s2', 's2', 0.25, 1.2],
+      // Explainer lines play one after another inside the scene.
+      ['vo-sc-2-0', 'sc-2', 0.4, 1.2],
+      ['vo-sc-2-1', 'sc-2', 1.9, 1.2],
     ]);
     expect(timeline.voice[1]!.words.map((w) => w.w)).toEqual(['Add', 'an', 'HTTP', 'service.']);
     const spans = voiceSpans(timeline, buildTimeMap(timeline));
-    expect(spans.map((x) => x.start)).toEqual([0.25, 10.25]);
+    expect(spans.filter((x) => x.line.owner !== 'sc-2').map((x) => x.start)).toEqual([0.25, 10.25]);
 
     // Redo one step: the other line stays.
     await call('generate_voiceover', { stepIds: ['s1'] });
-    expect((await timelines.get(slug)).timeline.voice.map((v) => v.id).sort()).toEqual(['vo-s1', 'vo-s2']);
+    expect((await timelines.get(slug)).timeline.voice.map((v) => v.id).sort()).toEqual([
+      'vo-s1',
+      'vo-s2',
+      'vo-sc-2-0',
+      'vo-sc-2-1',
+    ]);
     expect((await call('generate_voiceover', { stepIds: ['s9'] })).isError).toBe(true);
 
     const peaks = await vo.peaks(slug, timeline.voice[0]!.audio!);

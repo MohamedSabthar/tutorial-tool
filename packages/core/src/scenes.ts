@@ -166,3 +166,46 @@ export function removeExplainerScene(tl: Timeline, sceneId: string): Timeline {
   };
   return shiftAfter(kept, span.end, -len);
 }
+
+/**
+ * Maps output times of `before` to `after` through what they show: a recorded moment maps to
+ * where that take time plays now; a moment in an explainer keeps its offset into the scene
+ * (clamped to its new length). Used when scene timing changes (an explainer's narration, holds,
+ * speed, cuts) so overlays, captions and annotations stay on their content.
+ */
+export function outputRemapper(before: Timeline, after: Timeline): (t: number) => number {
+  const a = buildTimeMap(before);
+  const b = buildTimeMap(after);
+  return (t: number) => {
+    const pos = a.toSource(t);
+    if (!pos) return t;
+    if (pos.kind === 'recording') {
+      const outs = b.toOutput(pos.take, pos.takeTime);
+      if (outs.length) return r3(outs.reduce((best, x) => (Math.abs(x - t) < Math.abs(best - t) ? x : best)));
+    }
+    const span = b.scenes.find((s) => s.sceneId === pos.sceneId);
+    return span ? r3(span.start + Math.min(pos.local, span.end - span.start)) : t;
+  };
+}
+
+/** User overlays, hand-edited captions and annotations moved with `remap` (automatic ones are rebuilt elsewhere). */
+export function remapOutputItems(tl: Timeline, remap: (t: number) => number): Timeline {
+  return {
+    ...tl,
+    overlays: tl.overlays.map((o) => {
+      if (o.author === 'auto') return o;
+      const start = remap(o.start);
+      const end = Math.max(start + 0.05, remap(o.end));
+      return start === o.start && end === o.end ? o : { ...o, start, end: r3(end) };
+    }),
+    captions: tl.captions.map((c) => {
+      const start = remap(c.start);
+      const end = Math.max(start + 0.2, remap(c.end));
+      return start === c.start && end === c.end ? c : { ...c, start, end: r3(end) };
+    }),
+    annotations: tl.annotations.map((x) => {
+      const t = remap(x.t);
+      return t === x.t ? x : { ...x, t };
+    }),
+  };
+}

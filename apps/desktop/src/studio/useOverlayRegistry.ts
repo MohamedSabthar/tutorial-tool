@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { OverlayModule } from '@studio/overlay-sdk';
 import { coreOverlays } from '@studio/overlays-core';
+import { coreScenes } from '@studio/scenes-core';
 import { useEngine } from '../engine';
 
 export interface LoadedOverlay {
@@ -70,7 +71,7 @@ export function useOverlayRegistry(slug: string) {
     };
   }, [client, state, slug, load, base]);
 
-  const registry = useMemo(() => ({ ...coreOverlays, ...modules }), [modules]);
+  const registry = useMemo(() => ({ ...coreOverlays, ...coreScenes, ...modules }), [modules]);
   const reportError = useCallback((id: string, error: Error) => {
     setStatus((s) => (s[id] ? { ...s, [id]: { ...s[id]!, error: error.message } } : s));
   }, []);

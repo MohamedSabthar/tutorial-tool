@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   buildTimeMap,
+  outputRemapper,
+  remapOutputItems,
   RecorderEvent,
   RpcError,
   voiceSpans,
@@ -253,7 +255,8 @@ export class TimingFit {
     const r = fitTiming(timeline, events);
     // Automatic overlays are in output time: rebuild them for the new timing.
     const { project } = await this.deps.store.open(slug);
-    const captioned = withCaptions(r.timeline);
+    // User overlays and annotations follow their recorded moments through the new timing.
+    const captioned = withCaptions(remapOutputItems(r.timeline, outputRemapper(timeline, r.timeline)));
     const overlays = withAutoOverlays(captioned, events, { title: project.title }).overlays;
     const patch: TimelinePatch = [
       ...r.timeline.scenes.flatMap((s, i) =>
@@ -263,6 +266,7 @@ export class TimingFit {
       ),
       { op: 'replace', path: '/voice', value: r.timeline.voice },
       { op: 'replace', path: '/captions', value: captioned.captions },
+      { op: 'replace', path: '/annotations', value: captioned.annotations },
       { op: 'replace', path: '/overlays', value: overlays },
     ];
     await this.deps.timelines.patch(slug, patch, {

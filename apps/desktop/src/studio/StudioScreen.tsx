@@ -39,6 +39,7 @@ import { AnnotationLayer, AnnotationsPanel, type Shape } from './Annotations';
 import { AnnotationPopover } from './AnnotationPopover';
 import { screenToStage } from './StageHost';
 import { useRuns } from './useRuns';
+import { ExplainerInspector } from './ExplainerInspector';
 import { Manipulator, type SnapTarget } from './Manipulator';
 import { sourceToStage } from '@studio/stage';
 import type { Rect } from '@studio/core';
@@ -83,6 +84,7 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [view, setView] = useState<View>('Final');
   const [tool, setTool] = useState<Tool>('select');
   const [sceneComponent, setSceneComponent] = useState<string>('');
+  const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const { runs } = useRuns(slug);
   const toReview = runs.filter((r) => r.status === 'review');
   const [note, setNote] = useState<string | null>(null);
@@ -722,6 +724,22 @@ export function StudioScreen({ slug }: { slug: string }) {
             gap: 12,
           }}
         >
+          {tl.timeline &&
+            (() => {
+              const i = tl.timeline.scenes.findIndex((x) => x.id === selectedScene);
+              const sc = tl.timeline.scenes[i];
+              return sc?.kind === 'explainer' ? (
+                <ExplainerInspector
+                  key={`${sc.id}:${JSON.stringify(sc.narration)}:${JSON.stringify(sc.props)}`}
+                  scene={sc}
+                  index={i}
+                  voice={tl.timeline.voice.filter((v) => v.owner === sc.id)}
+                  mod={registry[sc.component]}
+                  patch={tl.patch}
+                  onClose={() => setSelectedScene(null)}
+                />
+              ) : null;
+            })()}
           {tl.timeline && (
             <Inspector
               timeline={tl.timeline}
@@ -773,6 +791,11 @@ export function StudioScreen({ slug }: { slug: string }) {
               />
             </>
           }
+          onSelectScene={(id) => {
+            setSelectedScene(id);
+            const span = resolved.tm.scenes.find((x) => x.sceneId === id);
+            if (span && (t < span.start || t >= span.end)) controls.seek(span.start + 0.01);
+          }}
           onRemoveScene={(id) =>
             client &&
             void client

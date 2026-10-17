@@ -10,6 +10,7 @@ import * as core from '@studio/core';
 import * as stage from '@studio/stage';
 import * as sdk from '@studio/overlay-sdk';
 import * as overlaysCore from '@studio/overlays-core';
+import * as scenesCore from '@studio/scenes-core';
 
 /**
  * Overlays compiled by the engine read these instead of importing their own copies, so they
@@ -30,5 +31,6 @@ export function registerSharedModules() {
     '@studio/stage': stage,
     '@studio/overlay-sdk': sdk,
     '@studio/overlays-core': overlaysCore,
+    '@studio/scenes-core': scenesCore,
   };
 }

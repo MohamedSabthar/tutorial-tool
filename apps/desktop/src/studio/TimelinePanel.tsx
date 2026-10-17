@@ -40,6 +40,8 @@ interface Props {
   onAnnotation?: (id: string) => void;
   /** Remove an explainer scene (× on its block). */
   onRemoveScene?: (sceneId: string) => void;
+  /** An explainer block was clicked. */
+  onSelectScene?: (sceneId: string) => void;
 }
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -75,6 +77,7 @@ export function TimelinePanel({
   actions,
   onAnnotation,
   onRemoveScene,
+  onSelectScene,
 }: Props) {
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -232,6 +235,11 @@ export function TimelinePanel({
             return (
               <div
                 key={sc.sceneId}
+                role="button"
+                tabIndex={0}
+                aria-label={`Explainer ${name}`}
+                onClick={() => onSelectScene?.(sc.sceneId)}
+                onKeyDown={(e) => e.key === 'Enter' && onSelectScene?.(sc.sceneId)}
                 title={`Explainer ${name} · ${fmt(sc.start)}–${fmt(sc.end)}`}
                 style={{
                   position: 'absolute',
@@ -253,6 +261,7 @@ export function TimelinePanel({
                   color: 'var(--ui-orange-ink)',
                   fontWeight: 600,
                   zIndex: 1,
+                  cursor: 'pointer',
                 }}
               >
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
@@ -263,7 +272,10 @@ export function TimelinePanel({
                     type="button"
                     aria-label={`Remove explainer ${name}`}
                     title="Remove this explainer"
-                    onClick={() => onRemoveScene(sc.sceneId)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveScene(sc.sceneId);
+                    }}
                     style={{
                       border: 0,
                       background: 'transparent',

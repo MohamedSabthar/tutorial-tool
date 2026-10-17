@@ -1,5 +1,7 @@
 import {
   buildTimeMap,
+  type ExplainerScene,
+  type VoiceLine,
   type OverlayInstance,
   type RecorderEvent,
   type Timeline,
@@ -24,6 +26,9 @@ export interface ExplainerSpan {
   /** Output time span of the scene. */
   start: number;
   end: number;
+  scene: ExplainerScene;
+  /** Voice lines narrating the scene (scene-local starts). */
+  voice: VoiceLine[];
 }
 
 export interface Resolved {
@@ -80,6 +85,8 @@ export function resolveTimeline(tl: Timeline, _events: RecorderEvent[]): Resolve
         props: sc.props,
         start: span.start,
         end: span.end,
+        scene: sc,
+        voice: tl.voice.filter((v) => v.owner === sc.id),
       });
   }
   const layersAt = (t: number) => {

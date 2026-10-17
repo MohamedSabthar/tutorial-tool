@@ -10,6 +10,8 @@ import {
   TimelineError,
   TimelinePatch,
   type Timeline,
+  outputRemapper,
+  remapOutputItems,
 } from '@studio/core';
 import type { ProjectStore } from './projects';
 
@@ -80,6 +82,20 @@ export class TimelineStore {
       let after: Timeline;
       try {
         after = applyPatch(before, parsed.data);
+        // Scene timing changed (an explainer's narration or voice-over, segments) and the patch
+        // didn't place items itself: keep overlays, captions and annotations on their content.
+        const timing = parsed.data.some((op) => /^\/(scenes|transitions|voice)(\/|$)/.test(op.path));
+        const places = parsed.data.some((op) => /^\/(overlays|captions|annotations)(\/|$)/.test(op.path));
+        if (timing && !places) {
+          const moved = remapOutputItems(after, outputRemapper(before, after));
+          const extra = (['overlays', 'captions', 'annotations'] as const)
+            .filter((k) => JSON.stringify(moved[k]) !== JSON.stringify(after[k]))
+            .map((k) => ({ op: 'replace' as const, path: `/${k}`, value: moved[k] }));
+          if (extra.length) {
+            parsed.data = [...parsed.data, ...extra];
+            after = applyPatch(before, parsed.data);
+          }
+        }
       } catch (e) {
         if (e instanceof PatchError || e instanceof TimelineError)
           throw new RpcError(e.message, 'bad_request');

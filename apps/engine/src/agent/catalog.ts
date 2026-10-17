@@ -51,6 +51,7 @@ export function registerSharedModules(): Promise<void> {
       ['@studio/stage', () => import('@studio/stage')],
       ['@studio/overlay-sdk', () => import('@studio/overlay-sdk')],
       ['@studio/overlays-core', () => import('@studio/overlays-core')],
+      ['@studio/scenes-core', () => import('@studio/scenes-core')],
     ] as const)
       modules[name] = await load();
     (globalThis as unknown as { __STUDIO_SHARED__: Record<string, unknown> }).__STUDIO_SHARED__ = modules;
@@ -73,6 +74,7 @@ function propsSchema(meta: Meta): unknown {
 export async function loadCatalog(server: OverlayServer, slug: string): Promise<Catalog> {
   await registerSharedModules();
   const { coreOverlays } = await import('@studio/overlays-core');
+  const { coreScenes } = await import('@studio/scenes-core');
   const entries: CatalogEntry[] = [];
   const schemas = new Map<string, z.ZodType>();
   const add = (id: string, scope: CatalogEntry['scope'], meta: Meta, extra: Partial<CatalogEntry> = {}) => {
@@ -87,7 +89,8 @@ export async function loadCatalog(server: OverlayServer, slug: string): Promise<
     });
     if (meta.props) schemas.set(id, meta.props);
   };
-  for (const [id, mod] of Object.entries(coreOverlays)) add(id, 'core', mod.meta as Meta);
+  for (const [id, mod] of Object.entries({ ...coreOverlays, ...coreScenes }))
+    add(id, 'core', mod.meta as Meta);
   for (const f of await server.list(slug)) {
     try {
       const mod = await server.load(f.path);

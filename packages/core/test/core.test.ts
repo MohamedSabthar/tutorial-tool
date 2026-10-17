@@ -164,9 +164,13 @@ describe('time map', () => {
     const sc = tl.scenes[1]!;
     if (sc.kind !== 'explainer') throw new Error('expected explainer');
     sc.duration = 'auto';
-    expect(buildTimeMap(tl).scenes[1]!.end - buildTimeMap(tl).scenes[1]!.start).toBe(5);
+    // Not voiced yet: as long as the two narration lines take to read (8 + 4 words), plus a tail.
+    expect(buildTimeMap(tl).scenes[1]!.end - buildTimeMap(tl).scenes[1]!.start).toBeCloseTo(6.3, 6);
     tl.voice.push({ id: 'v1', owner: 'sc-2', text: 'x', start: 0, duration: 12, words: [] });
-    expect(buildTimeMap(tl).scenes[1]!.end - buildTimeMap(tl).scenes[1]!.start).toBe(12);
+    expect(buildTimeMap(tl).scenes[1]!.end - buildTimeMap(tl).scenes[1]!.start).toBeCloseTo(12.8, 6);
+    sc.narration = [];
+    tl.voice = [];
+    expect(buildTimeMap(tl).scenes[1]!.end - buildTimeMap(tl).scenes[1]!.start).toBe(5);
   });
 });
 
@@ -348,5 +352,98 @@ describe('explainer scenes in the timeline', () => {
   it('inserts between scenes without splitting at a boundary', () => {
     const { timeline: tl } = insertExplainerScene(base(), 30, explainer);
     expect(tl.scenes.map((s) => s.kind)).toEqual(['recording', 'explainer']);
+  });
+});
+
+import { outputRemapper, remapOutputItems, resolveBeats } from '../src/index';
+
+describe('explainer beats', () => {
+  const scene = (narration: string[], beats: { id: string; at: string | number }[] = []) =>
+    ({
+      id: 'sc-x',
+      kind: 'explainer',
+      component: 'project:RequestFlow',
+      props: {},
+      narration,
+      beats,
+      duration: 'auto',
+      estimatedDuration: 6,
+    }) as never;
+
+  it('places default beats on narration lines and re-times them when a line changes', () => {
+    const lines = ['A client sends a request.', 'The listener receives it.', 'The resource answers.'];
+    const a = resolveBeats(scene(lines), [], ['client', 'listener', 'resource']);
+    expect(a.order).toEqual(['client', 'listener', 'resource']);
+    expect(a.beats.client).toBe(0.4);
+    const longer = resolveBeats(
+      scene(['A client somewhere on the network sends a request.', ...lines.slice(1)]),
+      [],
+      ['client', 'listener', 'resource'],
+    );
+    expect(longer.beats.client).toBe(0.4);
+    expect(longer.beats.listener! - a.beats.listener!).toBeCloseTo(4 / 2.5, 6); // four more words
+    expect(longer.beats.resource! - a.beats.resource!).toBeCloseTo(4 / 2.5, 6);
+  });
+
+  it('resolves word cues and uses the voice-over when there is one', () => {
+    const sc = scene(
+      ['A client sends a request.', 'The listener matches /greeting.'],
+      [
+        { id: 'match', at: 'word:matches' },
+        { id: 'fixed', at: 7 },
+      ],
+    );
+    const voice = [
+      { id: 'v0', owner: 'sc-x', text: 'A client sends a request.', start: 0.4, duration: 2, words: [] },
+      {
+        id: 'v1',
+        owner: 'sc-x',
+        text: 'The listener matches /greeting.',
+        start: 2.7,
+        duration: 2,
+        words: [
+          { w: 'The', start: 0, end: 0.2 },
+          { w: 'listener', start: 0.25, end: 0.8 },
+          { w: 'matches', start: 0.9, end: 1.3 },
+          { w: '/greeting.', start: 1.35, end: 2 },
+        ],
+      },
+    ];
+    const t = resolveBeats(sc, voice);
+    expect(t.beats).toEqual({ match: 3.6, fixed: 7 });
+    expect(t.lines.map((l) => l.start)).toEqual([0.4, 2.7]);
+  });
+});
+
+describe('output remapping', () => {
+  it('keeps items on their content when an explainer gets longer', () => {
+    const before = parseTimeline({
+      version: 1,
+      takes: [
+        { id: 'take-1', video: 'v.mp4', events: 'e.jsonl', width: 1000, height: 600, fps: 30, duration: 30 },
+      ],
+      scenes: [
+        { id: 'sc-1', kind: 'recording', take: 'take-1', segments: [{ kind: 'src', from: 0, to: 10 }] },
+        { id: 'sc-2', kind: 'explainer', component: 'project:X', duration: 5 },
+        { id: 'sc-3', kind: 'recording', take: 'take-1', segments: [{ kind: 'src', from: 10, to: 30 }] },
+      ],
+      overlays: [
+        { id: 'a', component: 'core:Callout', start: 2, end: 4 },
+        { id: 'in', component: 'core:Callout', start: 11, end: 12 },
+        { id: 'b', component: 'core:Callout', start: 20, end: 22 },
+      ],
+      annotations: [{ id: 'n', t: 25, shape: { kind: 'point', x: 1, y: 1 }, comment: '', status: 'open' }],
+    });
+    const after = {
+      ...before,
+      scenes: before.scenes.map((s) => (s.kind === 'explainer' ? { ...s, duration: 8 } : s)),
+    };
+    const moved = remapOutputItems(after, outputRemapper(before, after));
+    expect(moved.overlays.map((o) => [o.id, o.start, o.end])).toEqual([
+      ['a', 2, 4],
+      ['in', 11, 12],
+      ['b', 23, 25],
+    ]);
+    expect(moved.annotations[0]!.t).toBe(28);
   });
 });

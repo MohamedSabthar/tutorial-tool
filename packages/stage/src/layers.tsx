@@ -259,8 +259,14 @@ export function FrameShadow() {
   );
 }
 
-/** Video elements of mounted VideoPlanes. */
+/** Video elements of mounted VideoPlanes (and recorded-frame helpers). */
 const liveVideos = new Set<HTMLVideoElement>();
+
+/** Makes videosSettled() wait for this video's seeks too; returns the untrack function. */
+export function trackVideo(video: HTMLVideoElement): () => void {
+  liveVideos.add(video);
+  return () => void liveVideos.delete(video);
+}
 
 /**
  * Resolves once every mounted video has finished seeking and has a frame, and the canvas has

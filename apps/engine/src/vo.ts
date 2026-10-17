@@ -1,7 +1,15 @@
 import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { RpcError, VoiceLine, wordsFromAlignment, type Step } from '@studio/core';
+import {
+  RpcError,
+  SCENE_LEAD_IN,
+  SCENE_LINE_GAP,
+  VoiceLine,
+  wordsFromAlignment,
+  type ExplainerScene,
+  type Step,
+} from '@studio/core';
 import type { ProjectStore } from './projects';
 import type { Author, TimelineStore } from './timeline';
 import type { TtsService } from './tts';
@@ -48,15 +56,21 @@ export class Voiceover {
     const brief = await this.deps.store.readBrief(slug);
     if (!brief.voice) throw new RpcError('Choose a voice in the brief first.', 'bad_request');
     const { timeline } = await this.deps.timelines.get(slug);
-    if (!timeline.steps.length)
-      throw new RpcError('There are no recorded steps to voice yet.', 'bad_request');
+    const explainers = timeline.scenes.filter((s): s is ExplainerScene => s.kind === 'explainer');
+    if (!timeline.steps.length && !explainers.length)
+      throw new RpcError('There are no recorded steps or explainers to voice yet.', 'bad_request');
     const wanted = opts.stepIds?.length ? new Set(opts.stepIds) : null;
-    const unknown = opts.stepIds?.filter((id) => !timeline.steps.some((s) => s.id === id)) ?? [];
-    if (unknown.length) throw new RpcError(`No step ${unknown.join(', ')} in the timeline.`, 'not_found');
+    const unknown =
+      opts.stepIds?.filter(
+        (id) => !timeline.steps.some((s) => s.id === id) && !explainers.some((e) => e.id === id),
+      ) ?? [];
+    if (unknown.length)
+      throw new RpcError(`No step or scene ${unknown.join(', ')} in the timeline.`, 'not_found');
 
     const narrated = timeline.steps.filter((s) => s.narration.trim());
     const result: VoiceoverResult = { lines: [], skipped: [], seconds: 0 };
     const fresh = new Map<string, VoiceLine>();
+    const freshScenes = new Map<string, VoiceLine[]>();
     for (const step of timeline.steps) {
       if (wanted && !wanted.has(step.id)) continue;
       if (!step.narration.trim()) {
@@ -76,21 +90,59 @@ export class Voiceover {
       result.lines.push({ stepId: step.id, duration: r.duration, cached: r.cached });
     }
 
-    // Keep lines of steps that weren't regenerated (and explainer lines); replace the rest.
+    // Explainers: each narration line in turn, one after the other inside the scene.
+    for (const scene of explainers) {
+      if (wanted && !wanted.has(scene.id)) continue;
+      const texts = scene.narration.map((x) => x.trim()).filter(Boolean);
+      if (!texts.length) {
+        result.skipped.push({ stepId: scene.id, reason: 'no narration' });
+        continue;
+      }
+      const lines: VoiceLine[] = [];
+      let at = SCENE_LEAD_IN;
+      for (const [i, text] of texts.entries()) {
+        const r = await this.deps.tts.synthesize(slug, {
+          text,
+          voiceId: brief.voice,
+          ...(texts[i - 1] ? { previousText: texts[i - 1] } : {}),
+          ...(texts[i + 1] ? { nextText: texts[i + 1] } : {}),
+        });
+        lines.push(
+          VoiceLine.parse({
+            id: `vo-${scene.id}-${i}`,
+            owner: scene.id,
+            text,
+            audio: r.audio,
+            start: Math.round(at * 1000) / 1000,
+            duration: Math.round(r.duration * 1000) / 1000,
+            words: wordsFromAlignment(r.alignment),
+          }),
+        );
+        result.lines.push({ stepId: scene.id, duration: r.duration, cached: r.cached });
+        at += r.duration + SCENE_LINE_GAP;
+      }
+      freshScenes.set(scene.id, lines);
+    }
+
+    // Keep lines of steps and scenes that weren't regenerated; replace the rest.
     const voice = [
       ...timeline.voice.filter(
-        (v) => !fresh.has(v.owner) && !(wanted === null && isStepLine(v, timeline.steps)),
+        (v) =>
+          !fresh.has(v.owner) &&
+          !freshScenes.has(v.owner) &&
+          !(wanted === null && isStepLine(v, timeline.steps)),
       ),
       ...fresh.values(),
+      ...[...freshScenes.values()].flat(),
     ];
-    if (fresh.size || voice.length !== timeline.voice.length)
+    if (fresh.size || freshScenes.size || voice.length !== timeline.voice.length)
       await this.deps.timelines.patch(slug, [{ op: 'replace', path: '/voice', value: voice }], {
         author: opts.author ?? 'user',
         group: opts.group ?? null,
         label: 'Generate voice-over',
       });
     result.seconds = Math.round(result.lines.reduce((n, l) => n + l.duration, 0) * 100) / 100;
-    if (this.deps.after && fresh.size && timeline.takes.length) {
+    if (this.deps.after && (fresh.size || freshScenes.size) && timeline.takes.length) {
       const f = await this.deps.after(slug, { author: opts.author ?? 'user', group: opts.group ?? null });
       result.fit = {
         before: f.before,

@@ -1,6 +1,21 @@
 import { useMemo, type ReactNode } from 'react';
-import type { Caption, Rect, RecorderEvent, Take } from '@studio/core';
-import { CaptionsContext, OverlayRenderer, RecordingContext, type OverlayModule } from '@studio/overlay-sdk';
+import {
+  resolveBeats,
+  type Caption,
+  type ExplainerScene,
+  type Rect,
+  type RecorderEvent,
+  type Take,
+  type VoiceLine,
+} from '@studio/core';
+import {
+  CaptionsContext,
+  OverlayRenderer,
+  RecordingContext,
+  SceneContext,
+  TakeContext,
+  type OverlayModule,
+} from '@studio/overlay-sdk';
 import { coreOverlays, zoomMove } from '@studio/overlays-core';
 import {
   cameraAt,
@@ -84,6 +99,8 @@ export function StageHost({
       start: number;
       end: number;
       weight: number;
+      scene: ExplainerScene;
+      voice: VoiceLine[];
     }[];
   };
   children?: ReactNode;
@@ -93,60 +110,65 @@ export function StageHost({
   // Overlays that follow the recording (cursor, ripples) disappear while it isn't on screen.
   const showsRecording = !layers || layers.recording > 0;
   const recording = showsRecording ? recordingInfo : null;
+  const takeInfo = useMemo(() => ({ take, src }), [take, src]);
   const moves = useMemo(() => cameraMoves(instances), [instances]);
   const camera = cameraAt(t, showOverlays ? moves : [], restCamera(STAGE), fit.rect, STAGE);
   const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
 
   return (
     <Stage t={t} {...STAGE} background={FRAME.backdrop}>
-      <RecordingContext.Provider value={recording}>
-        <CaptionsContext.Provider value={captions}>
-          <CameraProvider camera={camera} source={take}>
-            <FrameShadow />
-            <Scene3D>
-              <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
-            </Scene3D>
-            {layers?.explainers.map((e) => {
-              const mod = registry[e.component];
-              return (
-                <ExplainerLayer key={e.id} weight={e.weight}>
-                  {mod && (
-                    <OverlayRenderer
-                      key={moduleKey(mod)}
-                      id={e.id}
-                      start={e.start}
-                      end={e.end}
-                      onError={onOverlayError}
-                    >
-                      <mod.default props={withDefaults(mod, e.props)} duration={e.end - e.start} />
-                    </OverlayRenderer>
-                  )}
-                </ExplainerLayer>
-              );
-            })}
-            {(showOverlays ? instances : []).map((inst) => {
-              const mod = registry[inst.component];
-              if (!mod) return null;
-              // Overlays placed on the recording (anchored or with a rect) leave with it.
-              if (!showsRecording && inst.anchor) return null;
-              const Comp = mod.default;
-              return (
-                <OverlayRenderer
-                  key={`${inst.id}:${moduleKey(mod)}`}
-                  id={inst.id}
-                  start={inst.start}
-                  end={inst.end}
-                  anchor={inst.anchor}
-                  onError={onOverlayError}
-                >
-                  <Comp props={withDefaults(mod, inst.props)} duration={inst.end - inst.start} />
-                </OverlayRenderer>
-              );
-            })}
-            {children}
-          </CameraProvider>
-        </CaptionsContext.Provider>
-      </RecordingContext.Provider>
+      <TakeContext.Provider value={takeInfo}>
+        <RecordingContext.Provider value={recording}>
+          <CaptionsContext.Provider value={captions}>
+            <CameraProvider camera={camera} source={take}>
+              <FrameShadow />
+              <Scene3D>
+                <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
+              </Scene3D>
+              {layers?.explainers.map((e) => {
+                const mod = registry[e.component];
+                return (
+                  <ExplainerLayer key={e.id} weight={e.weight}>
+                    {mod && (
+                      <OverlayRenderer
+                        key={moduleKey(mod)}
+                        id={e.id}
+                        start={e.start}
+                        end={e.end}
+                        onError={onOverlayError}
+                      >
+                        <SceneContext.Provider value={resolveBeats(e.scene, e.voice, mod.meta?.beats ?? [])}>
+                          <mod.default props={withDefaults(mod, e.props)} duration={e.end - e.start} />
+                        </SceneContext.Provider>
+                      </OverlayRenderer>
+                    )}
+                  </ExplainerLayer>
+                );
+              })}
+              {(showOverlays ? instances : []).map((inst) => {
+                const mod = registry[inst.component];
+                if (!mod) return null;
+                // Overlays placed on the recording (anchored or with a rect) leave with it.
+                if (!showsRecording && inst.anchor) return null;
+                const Comp = mod.default;
+                return (
+                  <OverlayRenderer
+                    key={`${inst.id}:${moduleKey(mod)}`}
+                    id={inst.id}
+                    start={inst.start}
+                    end={inst.end}
+                    anchor={inst.anchor}
+                    onError={onOverlayError}
+                  >
+                    <Comp props={withDefaults(mod, inst.props)} duration={inst.end - inst.start} />
+                  </OverlayRenderer>
+                );
+              })}
+              {children}
+            </CameraProvider>
+          </CaptionsContext.Provider>
+        </RecordingContext.Provider>
+      </TakeContext.Provider>
     </Stage>
   );
 }

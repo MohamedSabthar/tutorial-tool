@@ -63,6 +63,7 @@ export function AgentFixScreen({ slug, initialRun }: { slug: string; initialRun:
     runs.at(-1)?.n ??
     null;
   const summary = runs.find((r) => r.n === current) ?? null;
+  const framesKey = JSON.stringify(summary?.frames ?? {});
   useEffect(() => {
     if (!client || current === null) return;
     let live = true;
@@ -74,7 +75,7 @@ export function AgentFixScreen({ slug, initialRun }: { slug: string; initialRun:
       live = false;
     };
     // Re-fetch when the run's record changes (frames arrive, status changes).
-  }, [client, slug, current, summary?.status, summary?.after, JSON.stringify(summary?.frames ?? {})]);
+  }, [client, slug, current, summary?.status, summary?.after, framesKey]);
 
   const run = detail?.run.n === current ? detail.run : null;
   const notes = tl.timeline?.annotations ?? [];

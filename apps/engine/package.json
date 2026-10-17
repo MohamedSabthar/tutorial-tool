@@ -21,6 +21,7 @@
     "@studio/overlay-sdk": "workspace:*",
     "@studio/overlays-core": "workspace:*",
     "@studio/recorder": "workspace:*",
+    "@studio/scenes-core": "workspace:*",
     "@studio/stage": "workspace:*",
     "@studio/tts": "workspace:*",
     "es-module-lexer": "^1.7.0",

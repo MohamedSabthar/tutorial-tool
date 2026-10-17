@@ -199,7 +199,10 @@ export async function checkOverlay(opts: {
     // A built-in component: nothing to type-check or bundle; render it in place.
     await registerSharedModules();
     const { coreOverlays } = await import('@studio/overlays-core');
-    const found = (coreOverlays as unknown as Record<string, Record<string, unknown>>)[opts.file];
+    const { coreScenes } = await import('@studio/scenes-core');
+    const found = ({ ...coreOverlays, ...coreScenes } as unknown as Record<string, Record<string, unknown>>)[
+      opts.file
+    ];
     if (!found) throw new RpcError(`no core component ${opts.file}`, 'not_found');
     component = opts.file;
     mod = found;

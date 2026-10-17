@@ -24,6 +24,7 @@ export const SHARED_MODULES = [
   '@react-three/fiber',
   '@studio/overlay-sdk',
   '@studio/overlays-core',
+  '@studio/scenes-core',
   '@studio/stage',
   '@studio/core',
 ] as const;

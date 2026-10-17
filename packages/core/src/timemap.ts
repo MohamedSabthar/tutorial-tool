@@ -1,3 +1,4 @@
+import { resolveBeats, sceneNarrationLength } from './beats';
 import type { ExplainerScene, Scene, Segment, Timeline, Transition } from './schemas';
 
 /**
@@ -62,9 +63,18 @@ export function sceneDuration(scene: Scene, voiceSeconds?: number): number {
   return explainerDuration(scene, voiceSeconds);
 }
 
+/** Pause after an explainer's last line before the next scene. */
+const EXPLAINER_TAIL = 0.8;
+
+/**
+ * An "auto" explainer lasts as long as its voice-over (plus a short tail); before it is voiced,
+ * as long as its narration takes to read at a normal pace; with neither, its estimate.
+ */
 function explainerDuration(scene: ExplainerScene, voiceSeconds?: number): number {
   if (scene.duration !== 'auto') return scene.duration;
-  return voiceSeconds && voiceSeconds > 0 ? voiceSeconds : scene.estimatedDuration;
+  if (voiceSeconds && voiceSeconds > 0) return voiceSeconds + EXPLAINER_TAIL;
+  const narrated = sceneNarrationLength(resolveBeats(scene, []), EXPLAINER_TAIL);
+  return narrated > 0 ? narrated : scene.estimatedDuration;
 }
 
 function takeTimeInSegment(s: Segment, local: number): number {

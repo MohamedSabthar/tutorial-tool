@@ -13,6 +13,11 @@ export interface OverlayMeta<P extends z.ZodType = z.ZodType> {
   /** Validates instance props, and drives the inspector form. */
   props: P;
   kind?: 'overlay' | 'scene';
+  /**
+   * Scenes: the beat names the component animates on, in order. Without explicit beats in the
+   * timeline, beat i fires at the start of narration line i.
+   */
+  beats?: string[];
   /** Seconds, used when the instance is first created. */
   defaultDuration?: number;
 }
