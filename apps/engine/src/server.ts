@@ -86,6 +86,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     ));
   const agents: AgentManager = new AgentManager({
     projectDir: (slug) => store.dir(slug),
+    permissionMode: async (slug) => ((await store.readBrief(slug)).autoMode ? 'auto' : 'default'),
     workspaceDir: opts.workspace,
     mcpServers: (slug) =>
       studioServer({
@@ -168,6 +169,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'brief.get': async ({ slug }: { slug: string }) => store.readBrief(slug),
     'brief.save': async ({ slug, brief }: { slug: string; brief: Brief }) => {
       const saved = await store.saveBrief(slug, brief);
+      await agents
+        .get(slug)
+        .setPermissionMode(saved.autoMode ? 'auto' : 'default')
+        .catch((e: unknown) =>
+          console.error(`[agent ${slug}] could not change the permission mode: ${String(e)}`),
+        );
       broadcast('project.changed', { slug });
       return saved;
     },

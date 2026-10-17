@@ -237,6 +237,24 @@ describe('AgentSession', () => {
     await b.close();
   });
 
+  it("starts in the project's permission mode, defaulting to manual approval", async () => {
+    const calls: Options[] = [];
+    const a = new AgentSession('demo', {
+      ...host(fakeQuery([[init('s-6'), result(0)]], calls)),
+      permissionMode: async () => 'auto' as const,
+    });
+    await a.send('hello');
+    await until(() => events.some((e) => e.kind === 'result'));
+    expect(calls[0]?.permissionMode).toBe('auto');
+    await a.close();
+    const calls2: Options[] = [];
+    const b = new AgentSession('demo2', host(fakeQuery([[init('s-7'), result(0)]], calls2)));
+    await b.send('hello');
+    await until(() => calls2.length > 0);
+    expect(calls2[0]?.permissionMode).toBe('default');
+    await b.close();
+  });
+
   it('recovers when the generator throws: the next message starts the session again', async () => {
     const calls: Options[] = [];
     const a = new AgentSession(

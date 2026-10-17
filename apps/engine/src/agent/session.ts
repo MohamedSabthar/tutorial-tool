@@ -41,6 +41,8 @@ export interface AgentHost {
   emit(event: AgentEvent): void;
   state(status: AgentStatus): void;
   settings?: Partial<AgentSettings>;
+  /** The project's own permission mode (from its brief), read when a session starts. */
+  permissionMode?(slug: string): Promise<PermissionMode | undefined>;
   /** Replaces the SDK's `query` in tests. */
   query?: typeof query;
 }
@@ -270,6 +272,8 @@ export class AgentSession {
     const skills = await this.host.skills().catch(() => []);
     const queue = new AsyncQueue<SDKUserMessage>();
     const resume = this.stored.sessionId ?? undefined;
+    const permissionMode =
+      (await this.host.permissionMode?.(this.slug).catch(() => undefined)) ?? this.settings.permissionMode;
     const options: Options = {
       cwd: this.host.projectDir(this.slug),
       // The skills and shared libraries live above the project folder; the permission rules
@@ -284,7 +288,7 @@ export class AgentSession {
       settings: { disableClaudeAiConnectors: true, disableBundledSkills: true },
       skills,
       ...(this.settings.model ? { model: this.settings.model } : {}),
-      permissionMode: this.settings.permissionMode,
+      permissionMode,
       allowedTools: this.settings.allowedTools,
       mcpServers: this.host.mcpServers(this.slug),
       canUseTool: this.canUseTool,
@@ -406,6 +410,16 @@ export class AgentSession {
       });
     }).then((r) => (r.behavior === 'allow' ? { ...r, updatedInput: r.updatedInput ?? input } : r));
   };
+
+  /** Switches a running session's permission mode (the next start reads it from the host). */
+  async setPermissionMode(mode: PermissionMode): Promise<void> {
+    if (!this.q || !this.queue || this.queue.isClosed) return;
+    await this.q.setPermissionMode(mode);
+    this.emit({
+      kind: 'status',
+      text: mode === 'auto' ? 'Auto mode on' : 'Auto mode off: every tool call is checked',
+    });
+  }
 
   answerPermission(requestId: string, allow: boolean, message?: string): boolean {
     const done = this.permissions.get(requestId);

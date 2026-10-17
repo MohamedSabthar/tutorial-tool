@@ -285,6 +285,17 @@ export function BriefScreen({ slug }: { slug: string }) {
                 />
               </div>
             </div>
+            <div className="brief-auto">
+              <Switch
+                label="Auto mode: approve safe tool calls without asking"
+                checked={brief.autoMode}
+                onChange={(v) => update({ autoMode: v })}
+              />
+              <span className="ui-field-hint">
+                A safety classifier checks each command and file change; you are asked only when it is unsure.
+                Off: every call outside the workspace rules waits for Allow or Deny.
+              </span>
+            </div>
             <fieldset className="brief-gates">
               <legend>Review gates: pause for my approval</legend>
               <div className="brief-gate-list">

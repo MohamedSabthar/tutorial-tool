@@ -278,6 +278,11 @@
   font-weight: 600;
   color: var(--ui-navy);
 }
+.brief-auto {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .brief-gates {
   border: 0;
   padding: 0;

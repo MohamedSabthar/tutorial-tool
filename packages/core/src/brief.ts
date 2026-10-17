@@ -73,6 +73,8 @@ export const Brief = z.object({
   /** ElevenLabs voice id; null until voices are available (4.1). */
   voice: z.string().nullable().default(null),
   explainers: z.boolean().default(true),
+  /** Claude Code's auto mode: a safety classifier approves tool calls and asks only when unsure. */
+  autoMode: z.boolean().default(true),
   gates: BriefGates.default({ storyboard: true, recording: false, export: true }),
   notes: z.string().max(4000).default(''),
   references: z.array(BriefReference).max(30).default([]),
