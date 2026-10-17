@@ -91,15 +91,15 @@
   box-shadow: var(--ui-shadow-md);
   box-sizing: border-box;
 }
-.projects-product {
+.projects-product.ui-select {
   height: 52px;
+  line-height: 50px;
   border-radius: 10px;
-  border: 1px solid var(--ui-gray-300);
-  background: var(--ui-gray-50);
+  background-color: var(--ui-gray-50);
   color: var(--ui-navy);
   font-weight: 600;
-  padding: 0 12px;
-  font-family: inherit;
+  padding: 0 38px 0 14px;
+  background-position: right 14px center;
 }
 .projects-topic {
   flex: 1 1 320px;

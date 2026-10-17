@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { briefTitle, type ProjectSummary, type RpcResult } from '@studio/core';
-import { Chip, IconArrowRight, Rule, type ChipTone } from '@studio/ui';
+import { Chip, IconArrowRight, Rule, Select, type ChipTone } from '@studio/ui';
 import { useEngine } from '../../engine';
 import { AppFrame, formatDuration, navigate } from '../frame';
 
@@ -112,7 +112,7 @@ export function ProjectsScreen() {
             the narration, overlays and explainers for you to refine.
           </p>
           <form className="projects-prompt" onSubmit={(e) => void submit(e)}>
-            <select
+            <Select
               aria-label="Product"
               className="projects-product"
               value={product}
@@ -123,7 +123,7 @@ export function ProjectsScreen() {
                   {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <input
               aria-label="Tutorial topic"
               className="projects-topic"
