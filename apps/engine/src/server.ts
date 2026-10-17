@@ -37,6 +37,7 @@ import { knowledgeSummary, skillCoverage } from './brief';
 import { projectCard } from './cards';
 import { secretStore } from './secrets';
 import { TtsService } from './tts';
+import { Voiceover } from './vo';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -99,6 +100,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         timelines,
         runner,
         pipeline,
+        voiceover,
         onTake: () => {
           timelines.invalidate(slug);
           broadcast('project.changed', { slug });
@@ -115,6 +117,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   });
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
+  const voiceover = new Voiceover({ store, timelines, tts });
   const pipeline: PipelineManager = new PipelineManager({
     store,
     agents,
@@ -125,6 +128,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       broadcast('project.changed', { slug });
     },
     emit: (s) => broadcast('pipeline.changed', s),
+    voiceover: async (slug, group) => {
+      if (!(await store.readBrief(slug)).voice) return 'No voice chosen in the brief, so no voice-over yet.';
+      if (!(await tts.status()).configured) return 'ElevenLabs has no key yet, so no voice-over.';
+      const r = await voiceover.generate(slug, { author: 'auto', group });
+      return `Voice-over: ${r.lines.length} lines, ${r.seconds.toFixed(1)} s.`;
+    },
     git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });
@@ -195,6 +204,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'skills.coverage': async ({ product, goal }: { product: string; goal: string }) =>
       skillCoverage(opts.workspace, product, goal),
     'knowledge.summary': async () => knowledgeSummary(opts.workspace),
+    'vo.generate': async ({ slug, stepIds }: { slug: string; stepIds?: string[] }) =>
+      voiceover.generate(slug, {
+        ...(stepIds ? { stepIds } : {}),
+        author: 'user',
+        group: `vo-${Date.now()}`,
+      }),
+    'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
     'tts.status': async () => tts.status(),
     'tts.setKey': async ({ apiKey }: { apiKey: string }) => tts.setKey(apiKey),
     'tts.clearKey': async () => tts.clearKey(),

@@ -133,6 +133,20 @@ export const rpcMethods = {
       }),
     }),
   },
+  /** Voices each step's narration and writes the lines to the timeline (one undo step). */
+  'vo.generate': {
+    params: z.object({ slug: z.string(), stepIds: z.array(z.string()).optional() }),
+    result: z.object({
+      lines: z.array(z.object({ stepId: z.string(), duration: z.number(), cached: z.boolean() })),
+      skipped: z.array(z.object({ stepId: z.string(), reason: z.string() })),
+      seconds: z.number(),
+    }),
+  },
+  /** Waveform peaks (0–1) of a project audio file, `rate` per second. */
+  'vo.peaks': {
+    params: z.object({ slug: z.string(), audio: z.string() }),
+    result: z.object({ rate: z.number(), peaks: z.array(z.number()) }),
+  },
   /** Products and the size of the knowledge base, for the Projects screen. */
   'knowledge.summary': {
     params: z.object({}),

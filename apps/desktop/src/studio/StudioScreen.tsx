@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { buildTimeMap, pointerOverlayInstances, type Segment, type TimelinePatch } from '@studio/core';
+import {
+  buildTimeMap,
+  pointerOverlayInstances,
+  voiceSpans,
+  type Segment,
+  type TimelinePatch,
+} from '@studio/core';
 import { resolveProps } from '@studio/overlays-core';
 import { usePlayer } from '@studio/stage';
 import {
@@ -26,6 +32,7 @@ import { StageHost } from './StageHost';
 import { TimelinePanel } from './TimelinePanel';
 import { Inspector } from './Inspector';
 import { Library } from './Library';
+import { VoicePlayer } from './VoicePlayer';
 import { Manipulator, type SnapTarget } from './Manipulator';
 import { sourceToStage } from '@studio/stage';
 import type { Rect } from '@studio/core';
@@ -72,6 +79,10 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [dragRect, setDragRect] = useState<Rect | null>(null);
 
   const t = player.t;
+  const spans = useMemo(
+    () => (tl.timeline && resolved ? voiceSpans(tl.timeline, resolved.tm) : []),
+    [tl.timeline, resolved],
+  );
   const steps = resolved?.steps ?? [];
   const current = stepAt(steps, t);
 
@@ -507,8 +518,10 @@ export function StudioScreen({ slug }: { slug: string }) {
         </aside>
       </div>
 
+      <VoicePlayer spans={spans} t={t} playing={player.playing} media={media} />
       {tl.timeline && resolved && (
         <TimelinePanel
+          slug={slug}
           timeline={tl.timeline}
           resolved={resolved}
           t={t}
@@ -527,8 +540,48 @@ export function StudioScreen({ slug }: { slug: string }) {
           canRedo={tl.canRedo}
           onUndo={() => void tl.undo()}
           onRedo={() => void tl.redo()}
+          actions={<RegenerateVo slug={slug} />}
         />
       )}
     </div>
+  );
+}
+
+/** Voices every step's narration again (cached lines are free) and reports what happened. */
+function RegenerateVo({ slug }: { slug: string }) {
+  const { client } = useEngine();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="steel"
+        disabled={!client || busy}
+        title="Synthesize the voice-over from each step's narration with the brief's voice"
+        onClick={() => {
+          setBusy(true);
+          setNote(null);
+          client!
+            .call('vo.generate', { slug })
+            .then(
+              (r) =>
+                setNote({
+                  tone: 'ok',
+                  text: `${r.lines.length} line${r.lines.length === 1 ? '' : 's'} · ${r.seconds.toFixed(1)} s${
+                    r.lines.some((l) => l.cached)
+                      ? ` · ${r.lines.filter((l) => l.cached).length} from cache`
+                      : ''
+                  }${r.skipped.length ? ` · ${r.skipped.length} without narration` : ''}`,
+                }),
+              (e: unknown) => setNote({ tone: 'error', text: e instanceof Error ? e.message : String(e) }),
+            )
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? 'Voicing…' : 'Regenerate VO'}
+      </Button>
+      {note && <Chip tone={note.tone}>{note.text}</Chip>}
+    </>
   );
 }

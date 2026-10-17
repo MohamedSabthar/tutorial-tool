@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { OverlayInstance, Timeline, TimelinePatch } from '@studio/core';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
+import { voiceSpans, type OverlayInstance, type Timeline, type TimelinePatch } from '@studio/core';
 import { Button, Chip, Eyebrow } from '@studio/ui';
 import type { Resolved } from './resolve';
 import { OVERLAY_DRAG_TYPE } from './Library';
+import { Waveform } from './Waveform';
 
 const LABEL_W = 120;
 const LANE_H = 30;
@@ -11,6 +19,7 @@ const SNAP = 1 / 30;
 type DragMode = 'move' | 'start' | 'end';
 
 interface Props {
+  slug: string;
   timeline: Timeline;
   resolved: Resolved;
   t: number;
@@ -25,6 +34,8 @@ interface Props {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  /** Extra toolbar actions (e.g. Regenerate VO). */
+  actions?: ReactNode;
 }
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -43,6 +54,7 @@ function packRows(items: OverlayInstance[]): Map<string, number> {
 }
 
 export function TimelinePanel({
+  slug,
   timeline,
   resolved,
   t,
@@ -56,6 +68,7 @@ export function TimelinePanel({
   canRedo,
   onUndo,
   onRedo,
+  actions,
 }: Props) {
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -299,23 +312,27 @@ export function TimelinePanel({
       height: LANE_H,
       render: () =>
         timeline.voice.length ? (
-          timeline.voice.map((v) => (
+          voiceSpans(timeline, resolved.tm).map(({ line, start, end }) => (
             <div
-              key={v.id}
+              key={line.id}
+              title={`${line.owner}: ${line.text}`}
               style={{
                 position: 'absolute',
-                top: 6,
-                height: LANE_H - 12,
-                left: x(v.start),
-                width: x(v.duration),
+                top: 4,
+                height: LANE_H - 8,
+                left: x(start),
+                width: x(end - start),
                 background: 'var(--ui-green-100)',
                 borderRadius: 4,
+                overflow: 'hidden',
               }}
-            />
+            >
+              {line.audio && <Waveform slug={slug} audio={line.audio} height={LANE_H - 8} />}
+            </div>
           ))
         ) : (
           <span style={{ position: 'absolute', left: 8, top: 8, fontSize: 11, color: 'var(--ui-gray-500)' }}>
-            Generated in step 4.2
+            No voice-over yet: write narration, then Regenerate VO
           </span>
         ),
     },
@@ -394,6 +411,7 @@ export function TimelinePanel({
         >
           Delete
         </Button>
+        {actions}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
           Space play · J/L ±1 s · ←/→ frame · S split · ⌫ delete

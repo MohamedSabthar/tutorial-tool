@@ -32,6 +32,11 @@ export interface PipelineDeps {
   stopRun(): void;
   onTake(slug: string): void;
   emit(state: PipelineState): void;
+  /**
+   * Voices the narration after post-production; returns a line for the stage summary, or null
+   * when there is no voice or key yet (optional in tests).
+   */
+  voiceover?(slug: string, group: string): Promise<string | null>;
   /** Knowledge commits after repairs (optional in tests). */
   git?: WorkspaceGit;
   onCommit?(): void;
@@ -555,6 +560,12 @@ export class PipelineManager {
         }
         case 'post': {
           await this.agentStageWithHelp(slug, live, 'post', postInstruction((await this.get(slug)).plan));
+          if (this.deps.voiceover) {
+            const note = await this.deps
+              .voiceover(slug, (await this.get(slug)).runId ?? 'pipeline')
+              .catch((e: unknown) => `Voice-over failed: ${e instanceof Error ? e.message : String(e)}`);
+            if (note) await this.annotate(slug, note);
+          }
           stage = 'retro';
           break;
         }

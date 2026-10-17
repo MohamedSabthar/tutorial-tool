@@ -13,6 +13,9 @@ import type { ToolContext } from '../src/agent/tools/context';
 import { timelineTools } from '../src/agent/tools/timeline';
 import { projectTools } from '../src/agent/tools/project';
 import { frameTools } from '../src/agent/tools/frames';
+import { voTools } from '../src/agent/tools/vo';
+import { Voiceover } from '../src/vo';
+import { buildTimeMap, voiceSpans } from '@studio/core';
 
 let ws: string;
 let server: OverlayServer;
@@ -20,6 +23,8 @@ let ctx: ToolContext;
 let store: ProjectStore;
 let timelines: TimelineStore;
 let run = 'agent-run-1';
+let vo: Voiceover;
+const ttsCalls: { text: string; previousText?: string; nextText?: string }[] = [];
 const changes: { author: string }[] = [];
 
 const CUSTOM = `import { z } from 'zod';
@@ -88,8 +93,46 @@ beforeAll(async () => {
     runId: () => run,
     runner: null as never,
     pipeline: null as never,
+    voiceover: null as never,
     onTake: () => {},
   };
+  // A fake ElevenLabs: a real 1.2 s MP3 (ffmpeg sine) and evenly spread character timings.
+  ttsCalls.length = 0;
+  ctx.voiceover = vo = new Voiceover({
+    store,
+    timelines,
+    tts: {
+      synthesize: async (slug, input) => {
+        ttsCalls.push(input);
+        const rel = `audio/${input.text.length}-${ttsCalls.length}.mp3`;
+        await mkdir(path.join(store.dir(slug), 'audio'), { recursive: true });
+        execFileSync('ffmpeg', [
+          '-v',
+          'error',
+          '-y',
+          '-f',
+          'lavfi',
+          '-i',
+          'sine=frequency=440:duration=1.2',
+          path.join(store.dir(slug), rel),
+        ]);
+        const chars = [...input.text];
+        const step = 1.2 / chars.length;
+        return {
+          hash: 'h',
+          audio: rel,
+          audioPath: '',
+          duration: 1.2,
+          cached: false,
+          alignment: {
+            chars,
+            starts: chars.map((_, i) => i * step),
+            ends: chars.map((_, i) => (i + 1) * step),
+          },
+        };
+      },
+    },
+  });
 }, 30000);
 
 afterAll(async () => {
@@ -97,7 +140,7 @@ afterAll(async () => {
   await rm(ws, { recursive: true, force: true });
 });
 
-const tools = () => [...timelineTools(ctx), ...projectTools(ctx), ...frameTools(ctx)];
+const tools = () => [...timelineTools(ctx), ...projectTools(ctx), ...frameTools(ctx), ...voTools(ctx)];
 async function call(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
   const t = tools().find((x) => x.name === name);
   if (!t) throw new Error(`no tool ${name}`);
@@ -209,5 +252,48 @@ describe('studio tools', () => {
     // sc-1 is 32 s; the explainer follows the 1 s transition.
     const explainer = await call('capture_frame', { t: 36 });
     expect(text(explainer)).toMatch(/explainer scene "sc-2"/);
+  });
+
+  it('voices step narration into timeline lines with word timings, and computes waveform peaks', async () => {
+    const slug = ctx.slug;
+    expect(text(await call('generate_voiceover'))).toMatch(/Choose a voice/);
+    await store.saveBrief(slug, { ...(await store.readBrief(slug)), voice: 'voice-1' });
+    await timelines.patch(
+      slug,
+      [
+        { op: 'replace', path: '/steps/0/narration', value: 'Open the project.' },
+        { op: 'replace', path: '/steps/1/narration', value: 'Add an HTTP service.' },
+      ],
+      { author: 'user' },
+    );
+    run = 'agent-run-vo';
+    const r = JSON.parse(text(await call('generate_voiceover'))) as {
+      lines: { stepId: string }[];
+      skipped: { stepId: string }[];
+    };
+    expect(r.lines.map((l) => l.stepId)).toEqual(['s1', 's2']);
+    expect(r.skipped).toEqual([{ stepId: 's3', reason: 'no narration' }]);
+    expect(ttsCalls[0]).toMatchObject({ text: 'Open the project.', nextText: 'Add an HTTP service.' });
+    expect(ttsCalls[1]).toMatchObject({ previousText: 'Open the project.' });
+
+    const { timeline } = await timelines.get(slug);
+    expect(timeline.voice.map((v) => [v.id, v.owner, v.start, v.duration])).toEqual([
+      ['vo-s1', 's1', 0.25, 1.2],
+      ['vo-s2', 's2', 0.25, 1.2],
+    ]);
+    expect(timeline.voice[1]!.words.map((w) => w.w)).toEqual(['Add', 'an', 'HTTP', 'service.']);
+    const spans = voiceSpans(timeline, buildTimeMap(timeline));
+    expect(spans.map((x) => x.start)).toEqual([0.25, 10.25]);
+
+    // Redo one step: the other line stays.
+    await call('generate_voiceover', { stepIds: ['s1'] });
+    expect((await timelines.get(slug)).timeline.voice.map((v) => v.id).sort()).toEqual(['vo-s1', 'vo-s2']);
+    expect((await call('generate_voiceover', { stepIds: ['s9'] })).isError).toBe(true);
+
+    const peaks = await vo.peaks(slug, timeline.voice[0]!.audio!);
+    expect(peaks.rate).toBe(50);
+    expect(Math.abs(peaks.peaks.length - 60)).toBeLessThanOrEqual(3);
+    expect(Math.max(...peaks.peaks)).toBeCloseTo(0.125, 1); // ffmpeg sine amplitude
+    await expect(vo.peaks(slug, '../tutorial.json')).rejects.toThrow(/audio/);
   });
 });
