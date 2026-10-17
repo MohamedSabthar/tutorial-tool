@@ -1,15 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { VoiceLine } from '@studio/core';
 
-/** Correct only real drift, and not more often than this: WebKit's audio clock is coarse. */
-const DRIFT = 0.3;
-const RESYNC_MS = 1000;
+/**
+ * Re-seek only on a real jump (scrubbing while playing). Every seek is an audible break in
+ * WebKit, and the audio and the preview clock run at the same rate, so small drift is left alone.
+ */
+const JUMP = 1;
 
 /**
  * Plays the voice-over with the preview: the line under the playhead plays natively while the
  * player runs, and nothing plays while paused. It seeks when a line starts (or playback starts)
- * and afterwards only corrects drift over 0.3 s, at most once a second. Seeking on every frame
- * (as the video does) keeps restarting audio in WebKit, whose `currentTime` lags after a seek.
+ * and afterwards only when the playhead jumps by more than a second. Seeking to correct small
+ * drift (as the video does) breaks or silences audio in WebKit, whose clock lags after a seek.
  * Export mixes the audio itself (7.3); this is only for listening while editing.
  */
 export function VoicePlayer({
@@ -37,10 +39,15 @@ export function VoicePlayer({
     const el = audio.current;
     if (!el) return;
     const st = state.current;
-    if (!playing || !active || !src) {
+    if (!playing) {
       if (!el.paused) el.pause();
       st.wasPlaying = false;
-      if (!active) st.line = null;
+      return;
+    }
+    if (!active || !src) {
+      // Past the end of a line: let it finish on its own (it starts a little late, so stopping
+      // at the span's end would clip its last words); the next line takes over when it starts.
+      st.line = el.paused ? null : st.line;
       return;
     }
     const at = Math.max(0, t - active.start);
@@ -59,11 +66,8 @@ export function VoicePlayer({
       seek(at);
     } else if (!st.wasPlaying) {
       seek(at); // playback (re)started, possibly after a scrub
-    } else {
-      const drift = Math.abs(el.currentTime - at);
-      // A jump (scrubbing while playing) right away; small drift only now and then.
-      if ((drift > 1 && now - st.lastSeek > 300) || (drift > DRIFT && now - st.lastSeek > RESYNC_MS))
-        seek(at);
+    } else if (Math.abs(el.currentTime - at) > JUMP && now - st.lastSeek > 500) {
+      seek(at); // the playhead jumped (a scrub while playing)
     }
     st.wasPlaying = true;
     if (el.paused) void el.play().catch(() => {});
