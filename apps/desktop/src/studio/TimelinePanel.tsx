@@ -38,6 +38,8 @@ interface Props {
   actions?: ReactNode;
   /** An annotation pin on the lane was clicked. */
   onAnnotation?: (id: string) => void;
+  /** Remove an explainer scene (× on its block). */
+  onRemoveScene?: (sceneId: string) => void;
 }
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -72,6 +74,7 @@ export function TimelinePanel({
   onRedo,
   actions,
   onAnnotation,
+  onRemoveScene,
 }: Props) {
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -220,8 +223,85 @@ export function TimelinePanel({
       name: 'Scenes',
       swatch: 'var(--ui-orange)',
       height: LANE_H,
-      render: () =>
-        resolved.tm.segments.map((g) => (
+      render: () => [
+        ...resolved.tm.scenes
+          .filter((sc) => sc.kind === 'explainer')
+          .map((sc) => {
+            const scene = timeline.scenes.find((x) => x.id === sc.sceneId);
+            const name = scene?.kind === 'explainer' ? scene.component.split(':')[1] : sc.sceneId;
+            return (
+              <div
+                key={sc.sceneId}
+                title={`Explainer ${name} · ${fmt(sc.start)}–${fmt(sc.end)}`}
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  height: LANE_H - 8,
+                  left: x(sc.start),
+                  width: Math.max(x(sc.end) - x(sc.start), 2),
+                  background: 'var(--ui-orange-100)',
+                  border: '1.5px solid var(--ui-orange)',
+                  borderRadius: 6,
+                  boxSizing: 'border-box',
+                  fontSize: 11,
+                  padding: '0 4px 0 8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  color: 'var(--ui-orange-ink)',
+                  fontWeight: 600,
+                  zIndex: 1,
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                  Explainer · {name}
+                </span>
+                {onRemoveScene && (
+                  <button
+                    type="button"
+                    aria-label={`Remove explainer ${name}`}
+                    title="Remove this explainer"
+                    onClick={() => onRemoveScene(sc.sceneId)}
+                    style={{
+                      border: 0,
+                      background: 'transparent',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      padding: '0 4px',
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          }),
+        ...timeline.transitions.map((tr) => {
+          const b = resolved.tm.scenes.find((x) => x.sceneId === tr.between[1]);
+          if (!b) return null;
+          return (
+            <span
+              key={tr.id}
+              title={`${tr.component.split(':')[1]} · ${tr.duration} s`}
+              aria-label={`Transition ${tr.component.split(':')[1]}`}
+              style={{
+                position: 'absolute',
+                top: LANE_H / 2 - 7,
+                left: x(b.start) + x(tr.duration) / 2 - 7,
+                width: 14,
+                height: 14,
+                transform: 'rotate(45deg)',
+                background: 'var(--ui-navy)',
+                border: '2px solid var(--ui-white)',
+                zIndex: 2,
+              }}
+            />
+          );
+        }),
+        ...resolved.tm.segments.map((g) => (
           <div
             key={`${g.sceneId}-${g.index}`}
             title={`${g.segment.kind} · ${fmt(g.start)}–${fmt(g.end)}`}
@@ -249,6 +329,7 @@ export function TimelinePanel({
               : g.segment.kind}
           </div>
         )),
+      ],
     },
     {
       name: 'Steps',

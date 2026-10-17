@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { OverlayModule } from '@studio/overlay-sdk';
 import {
   buildTimeMap,
   pointerOverlayInstances,
@@ -81,6 +82,7 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
   const [tool, setTool] = useState<Tool>('select');
+  const [sceneComponent, setSceneComponent] = useState<string>('');
   const { runs } = useRuns(slug);
   const toReview = runs.filter((r) => r.status === 'review');
   const [note, setNote] = useState<string | null>(null);
@@ -168,6 +170,7 @@ export function StudioScreen({ slug }: { slug: string }) {
       else if (e.key === 'ArrowLeft') controls.seek(controls.get().t - 1 / 30);
       else if (e.key === 'ArrowRight') controls.seek(controls.get().t + 1 / 30);
       else if (e.key === 's') split();
+      else if (e.key === 'x') insertExplainer();
       else if (!mod && !e.altKey && toolForKey(e.key)) chooseTool(toolForKey(e.key)!);
       else if ((e.key === 'Backspace' || e.key === 'Delete') && selected && tl.timeline) {
         const i = tl.timeline.overlays.findIndex((o) => o.id === selected);
@@ -264,6 +267,19 @@ export function StudioScreen({ slug }: { slug: string }) {
     } catch (e) {
       setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' });
     }
+  }
+  /** Inserts the chosen explainer scene at the playhead (X). */
+  function insertExplainer() {
+    const scenesAvailable = Object.entries(registry).filter(([, m]) => m.meta?.kind === 'scene');
+    const component = sceneComponent || scenesAvailable[0]?.[0];
+    if (!client || !component) {
+      setSending({ text: 'No explainer scenes yet: add one to scenes/ (or ask the agent)', tone: 'error' });
+      return;
+    }
+    controls.pause();
+    void client
+      .call('scenes.insert', { slug, at: Math.round(t * 100) / 100, component })
+      .catch((e: unknown) => setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }));
   }
   const stepLabel = (at: number) => {
     const i = steps.findIndex((s) => at >= s.start && at < s.end);
@@ -563,6 +579,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                   registry={registry}
                   onOverlayError={reportError}
                   captions={tl.timeline?.captions ?? []}
+                  layers={resolved.layersAt(t)}
                 >
                   {showHandles && selectedInstance?.anchor && (
                     <Manipulator
@@ -745,7 +762,23 @@ export function StudioScreen({ slug }: { slug: string }) {
           canRedo={tl.canRedo}
           onUndo={() => void tl.undo()}
           onRedo={() => void tl.redo()}
-          actions={<RegenerateVo slug={slug} />}
+          actions={
+            <>
+              <RegenerateVo slug={slug} />
+              <InsertExplainer
+                registry={registry}
+                value={sceneComponent}
+                onChange={setSceneComponent}
+                onInsert={insertExplainer}
+              />
+            </>
+          }
+          onRemoveScene={(id) =>
+            client &&
+            void client
+              .call('scenes.remove', { slug, sceneId: id })
+              .catch((e: unknown) => setSending({ text: String(e), tone: 'error' }))
+          }
           onAnnotation={(id) => {
             const a = tl.timeline?.annotations.find((x) => x.id === id);
             if (!a) return;
@@ -837,6 +870,52 @@ function RegenerateVo({ slug }: { slug: string }) {
         {busy === 'auto' ? 'Rebuilding…' : 'Auto overlays'}
       </Button>
       {note && <Chip tone={note.tone}>{note.text}</Chip>}
+    </>
+  );
+}
+
+/** Pick an explainer scene component and insert it at the playhead. */
+function InsertExplainer({
+  registry,
+  value,
+  onChange,
+  onInsert,
+}: {
+  registry: Record<string, OverlayModule>;
+  value: string;
+  onChange: (id: string) => void;
+  onInsert: () => void;
+}) {
+  const scenes = Object.entries(registry).filter(([, m]) => m.meta?.kind === 'scene');
+  return (
+    <>
+      <span style={{ width: 1, height: 22, background: 'var(--ui-gray-300)', margin: '0 2px' }} />
+      <Select
+        aria-label="Explainer scene"
+        value={value || scenes[0]?.[0] || ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={!scenes.length}
+        style={{ width: 150, height: 30 }}
+      >
+        {scenes.length ? (
+          scenes.map(([id, m]) => (
+            <option key={id} value={id}>
+              {m.meta?.name ?? id}
+            </option>
+          ))
+        ) : (
+          <option value="">No scenes yet</option>
+        )}
+      </Select>
+      <Button
+        size="sm"
+        variant="accent"
+        disabled={!scenes.length}
+        onClick={onInsert}
+        title="Insert the explainer at the playhead (X)"
+      >
+        + Insert explainer
+      </Button>
     </>
   );
 }

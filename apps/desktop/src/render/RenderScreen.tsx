@@ -105,6 +105,7 @@ export function RenderScreen({ slug }: { slug: string }) {
         sourceTime={resolved.sourceTime}
         registry={registry}
         captions={timeline.captions}
+        layers={resolved.layersAt(t)}
         onOverlayError={(id, e) => {
           errors.current[id] = e.message;
         }}

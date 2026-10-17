@@ -162,6 +162,19 @@ export const rpcMethods = {
     params: z.object({ slug: z.string() }),
     result: TimelineState.extend({ count: z.number() }),
   },
+  /** Inserts an explainer scene at output time `at` (splitting the recording there). */
+  'scenes.insert': {
+    params: z.object({
+      slug: z.string(),
+      at: z.number().min(0),
+      component: z.string(),
+      props: z.record(z.string(), z.unknown()).optional(),
+      duration: z.number().positive().optional(),
+    }),
+    result: TimelineState,
+  },
+  /** Removes an explainer scene; the recording around it joins up again. */
+  'scenes.remove': { params: z.object({ slug: z.string(), sceneId: z.string() }), result: TimelineState },
   /** The shared overlay library's index (promoted components with props summaries and thumbnails). */
   'library.index': { params: z.object({}), result: z.array(LibraryEntry) },
   /** Moves project:Name into the shared library (it must pass check_overlay first). */

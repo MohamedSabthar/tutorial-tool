@@ -16,6 +16,16 @@ export interface StepSpan {
   end: number;
 }
 
+/** An explainer scene visible at some output time. */
+export interface ExplainerSpan {
+  id: string;
+  component: string;
+  props: Record<string, unknown>;
+  /** Output time span of the scene. */
+  start: number;
+  end: number;
+}
+
 export interface Resolved {
   tm: TimeMap;
   fit: Fit | null;
@@ -25,6 +35,8 @@ export interface Resolved {
   sourceTime: (t: number) => number;
   /** True when output time t shows moving video (not a hold or an explainer). */
   videoRuns: (t: number) => boolean;
+  /** What output time t shows: the recording's weight and the explainers with theirs. */
+  layersAt: (t: number) => { recording: number; explainers: (ExplainerSpan & { weight: number })[] };
 }
 
 /**
@@ -57,7 +69,34 @@ export function resolveTimeline(tl: Timeline, _events: RecorderEvent[]): Resolve
     const seg = tm.segments.find((g) => g.sceneId === pos.sceneId && g.index === pos.segment);
     return seg?.segment.kind !== 'hold';
   };
-  return { tm, fit, steps, instances, sourceTime, videoRuns };
+  const explainers = new Map<string, ExplainerSpan>();
+  for (const sc of tl.scenes) {
+    if (sc.kind !== 'explainer') continue;
+    const span = tm.scenes.find((x) => x.sceneId === sc.id);
+    if (span)
+      explainers.set(sc.id, {
+        id: sc.id,
+        component: sc.component,
+        props: sc.props,
+        start: span.start,
+        end: span.end,
+      });
+  }
+  const layersAt = (t: number) => {
+    let recording = 0;
+    const out: (ExplainerSpan & { weight: number })[] = [];
+    for (const a of tm.activeAt(t)) {
+      if (a.position.kind === 'recording') recording += a.weight;
+      else {
+        const e = explainers.get(a.position.sceneId);
+        if (e) out.push({ ...e, weight: a.weight });
+      }
+    }
+    // Before the first scene or with no scenes at all, the recording shows.
+    if (!tm.scenes.length) recording = 1;
+    return { recording, explainers: out };
+  };
+  return { tm, fit, steps, instances, sourceTime, videoRuns, layersAt };
 }
 
 /** The step that contains output time t. */

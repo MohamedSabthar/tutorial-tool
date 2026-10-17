@@ -277,3 +277,76 @@ describe('captions', () => {
     ]);
   });
 });
+
+import {
+  insertExplainerScene,
+  removeExplainerScene,
+  buildTimeMap as tmFor,
+  voiceSpans as spansFor,
+} from '../src/index';
+
+describe('explainer scenes in the timeline', () => {
+  const base = () =>
+    parseTimeline({
+      version: 1,
+      takes: [
+        { id: 'take-1', video: 'v.mp4', events: 'e.jsonl', width: 1000, height: 600, fps: 30, duration: 30 },
+      ],
+      scenes: [
+        { id: 'sc-1', kind: 'recording', take: 'take-1', segments: [{ kind: 'src', from: 0, to: 30 }] },
+      ],
+      steps: [
+        { id: 's1', title: 'One', take: 'take-1', from: 0, to: 9 },
+        { id: 's2', title: 'Two', take: 'take-1', from: 9, to: 30 },
+      ],
+      overlays: [
+        { id: 'early', component: 'core:Callout', start: 2, end: 4 },
+        { id: 'late', component: 'core:Callout', start: 12, end: 14 },
+      ],
+      captions: [{ id: 'cap-1', start: 15, end: 17, text: 'Later' }],
+      voice: [{ id: 'vo-s2', owner: 's2', text: 'x', start: 0.25, duration: 2, words: [] }],
+      annotations: [
+        { id: 'an-1', t: 20, shape: { kind: 'point', x: 1, y: 1 }, comment: 'c', status: 'open' },
+      ],
+    });
+  const explainer = {
+    kind: 'explainer' as const,
+    component: 'project:Hello',
+    props: {},
+    narration: [],
+    beats: [],
+    duration: 5,
+    estimatedDuration: 5,
+  };
+
+  it('splits the recording at the insert point and moves later items with their content', () => {
+    const { timeline: tl, sceneId } = insertExplainerScene(base(), 9, explainer);
+    expect(tl.scenes.map((s) => [s.id, s.kind])).toEqual([
+      ['sc-1', 'recording'],
+      [sceneId, 'explainer'],
+      ['sc-3', 'recording'],
+    ]);
+    const tm = tmFor(tl);
+    expect(tm.duration).toBe(35);
+    expect(tm.activeAt(10)[0]!.position).toMatchObject({ kind: 'explainer', sceneId });
+    expect(tm.toOutput('take-1', 9)).toEqual([14]);
+    expect(tl.overlays.map((o) => [o.id, o.start, o.end])).toEqual([
+      ['early', 2, 4],
+      ['late', 17, 19],
+    ]);
+    expect(tl.captions[0]).toMatchObject({ start: 20, end: 22 });
+    expect(tl.annotations[0]!.t).toBe(25);
+    expect(spansFor(tl, tm)[0]!.start).toBe(14.25);
+  });
+
+  it('removing the scene restores the timeline exactly', () => {
+    const before = base();
+    const { timeline, sceneId } = insertExplainerScene(before, 9, explainer);
+    expect(removeExplainerScene(timeline, sceneId)).toEqual(before);
+  });
+
+  it('inserts between scenes without splitting at a boundary', () => {
+    const { timeline: tl } = insertExplainerScene(base(), 30, explainer);
+    expect(tl.scenes.map((s) => s.kind)).toEqual(['recording', 'explainer']);
+  });
+});

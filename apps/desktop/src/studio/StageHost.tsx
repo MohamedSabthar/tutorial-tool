@@ -10,6 +10,7 @@ import {
   Scene3D,
   FRAME,
   FrameShadow,
+  ExplainerLayer,
   Stage,
   STAGE_SIZE,
   VideoPlane,
@@ -54,6 +55,7 @@ export function StageHost({
   registry = coreOverlays,
   onOverlayError,
   captions = [],
+  layers,
   children,
 }: {
   take: Take;
@@ -72,10 +74,25 @@ export function StageHost({
   onOverlayError?: (id: string, error: Error) => void;
   /** Caption cues for the Captions overlay. */
   captions?: Caption[];
+  /** Scenes at t (from the resolver); without it the recording fills the stage. */
+  layers?: {
+    recording: number;
+    explainers: {
+      id: string;
+      component: string;
+      props: Record<string, unknown>;
+      start: number;
+      end: number;
+      weight: number;
+    }[];
+  };
   children?: ReactNode;
 }) {
   const fit = useMemo(() => fitSource(take, STAGE), [take]);
-  const recording = useMemo(() => ({ events, fit, sourceTime }), [events, fit, sourceTime]);
+  const recordingInfo = useMemo(() => ({ events, fit, sourceTime }), [events, fit, sourceTime]);
+  // Overlays that follow the recording (cursor, ripples) disappear while it isn't on screen.
+  const showsRecording = !layers || layers.recording > 0;
+  const recording = showsRecording ? recordingInfo : null;
   const moves = useMemo(() => cameraMoves(instances), [instances]);
   const camera = cameraAt(t, showOverlays ? moves : [], restCamera(STAGE), fit.rect, STAGE);
   const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
@@ -89,9 +106,29 @@ export function StageHost({
             <Scene3D>
               <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
             </Scene3D>
+            {layers?.explainers.map((e) => {
+              const mod = registry[e.component];
+              return (
+                <ExplainerLayer key={e.id} weight={e.weight}>
+                  {mod && (
+                    <OverlayRenderer
+                      key={moduleKey(mod)}
+                      id={e.id}
+                      start={e.start}
+                      end={e.end}
+                      onError={onOverlayError}
+                    >
+                      <mod.default props={withDefaults(mod, e.props)} duration={e.end - e.start} />
+                    </OverlayRenderer>
+                  )}
+                </ExplainerLayer>
+              );
+            })}
             {(showOverlays ? instances : []).map((inst) => {
               const mod = registry[inst.component];
               if (!mod) return null;
+              // Overlays placed on the recording (anchored or with a rect) leave with it.
+              if (!showsRecording && inst.anchor) return null;
               const Comp = mod.default;
               return (
                 <OverlayRenderer
@@ -102,7 +139,7 @@ export function StageHost({
                   anchor={inst.anchor}
                   onError={onOverlayError}
                 >
-                  <Comp props={inst.props} duration={inst.end - inst.start} />
+                  <Comp props={withDefaults(mod, inst.props)} duration={inst.end - inst.start} />
                 </OverlayRenderer>
               );
             })}
@@ -132,4 +169,10 @@ export function screenToStage(r: Rect, take: Take, instances: HostInstance[], t:
     w: r.w / cam.zoom,
     h: r.h / cam.zoom,
   };
+}
+
+/** Instance props with the component's schema defaults filled in (invalid props pass through). */
+function withDefaults(mod: OverlayModule, props: Record<string, unknown>): Record<string, unknown> {
+  const parsed = mod.meta?.props?.safeParse(props);
+  return parsed?.success ? (parsed.data as Record<string, unknown>) : props;
 }

@@ -19,6 +19,9 @@ import {
   formatIssues,
   RecorderEvent,
   withTake,
+  insertExplainerScene,
+  removeExplainerScene,
+  type Timeline,
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
@@ -147,6 +150,24 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     render: (slug, times) => headless.render(slug, times),
     emit: (slug) => broadcast('runs.changed', { slug }),
   });
+  /**
+   * Applies a scene edit as one patch, then rebuilds what lives in output time and is derived
+   * (captions from the voice-over, automatic overlays from the recording).
+   */
+  const sceneEdit = async (slug: string, label: string, edit: (tl: Timeline) => Timeline) => {
+    const { timeline } = await timelines.get(slug);
+    let next = withCaptions(edit(timeline));
+    const take = next.takes.at(-1);
+    if (take)
+      next = withAutoOverlays(next, await readEvents(store.dir(slug), take.events), {
+        title: (await store.open(slug)).project.title,
+      });
+    const keys = ['scenes', 'transitions', 'overlays', 'captions', 'annotations', 'voice'] as const;
+    const patch = keys
+      .filter((k) => JSON.stringify(next[k]) !== JSON.stringify(timeline[k]))
+      .map((k) => ({ op: 'replace' as const, path: `/${k}`, value: next[k] }));
+    return timelines.patch(slug, patch, { author: 'user', label });
+  };
   const library = new Library({
     workspace: opts.workspace,
     timelines,
@@ -312,6 +333,35 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       );
       return { sent: msg.ids.length, images: msg.images.length };
     },
+    'scenes.insert': async (p: {
+      slug: string;
+      at: number;
+      component: string;
+      props?: Record<string, unknown>;
+      duration?: number;
+    }) =>
+      sceneEdit(
+        p.slug,
+        'Insert explainer',
+        (tl) =>
+          insertExplainerScene(tl, p.at, {
+            kind: 'explainer',
+            component: p.component,
+            props: p.props ?? {},
+            narration: [],
+            beats: [],
+            duration: p.duration ?? 'auto',
+            estimatedDuration: p.duration ?? 6,
+          }).timeline,
+      ),
+    'scenes.remove': async ({ slug, sceneId }: { slug: string; sceneId: string }) =>
+      sceneEdit(slug, 'Remove explainer', (tl) => {
+        try {
+          return removeExplainerScene(tl, sceneId);
+        } catch (e) {
+          throw new RpcError(e instanceof Error ? e.message : String(e), 'not_found');
+        }
+      }),
     'library.index': async () => library.index(),
     'library.promote': async ({ slug, id }: { slug: string; id: string }) => library.promote(slug, id),
     'runs.list': async ({ slug }: { slug: string }) =>

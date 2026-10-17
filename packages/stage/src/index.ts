@@ -9,3 +9,4 @@ export * from './Stage';
 export * from './camera';
 export * from './layers';
 export * from './tunnel';
+export * from './Scenes';
