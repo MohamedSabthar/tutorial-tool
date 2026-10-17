@@ -380,6 +380,9 @@ export function StudioScreen({ slug }: { slug: string }) {
         actions={
           <>
             <EngineChip />
+            <LinkButton href={`#/brief/${slug}`} title="Goal, audience, voice and the rest of the brief">
+              Brief
+            </LinkButton>
             <LinkButton href="#/reference">Re-record</LinkButton>
             <Button variant="primary" disabled title="Export arrives in Phase 7">
               Export
@@ -949,6 +952,11 @@ function RegenerateVo({ slug }: { slug: string }) {
         {busy === 'auto' ? 'Rebuilding…' : 'Auto overlays'}
       </Button>
       {note && <Chip tone={note.tone}>{note.text}</Chip>}
+      {note?.tone === 'error' && /voice in the brief/i.test(note.text) && (
+        <LinkButton size="sm" variant="primary" href={`#/brief/${slug}`}>
+          Open the brief
+        </LinkButton>
+      )}
     </>
   );
 }

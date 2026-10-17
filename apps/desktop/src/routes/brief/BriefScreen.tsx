@@ -61,10 +61,25 @@ export function BriefScreen({ slug }: { slug: string }) {
 
   // Voices, when ElevenLabs has a key (otherwise the picker explains where to add one).
   const [voices, setVoices] = useState<{ id: string; name: string; description: string }[] | null>(null);
+  /** Why voices couldn't be listed (no key, or ElevenLabs rejected it). */
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   useEffect(() => {
     if (!client || state !== 'open') return;
     void client.call('tts.status', {}).then(
-      async (s) => setVoices(s.configured ? await client.call('voices.list', {}) : []),
+      async (s) => {
+        if (!s.configured) {
+          setVoices([]);
+          setVoiceError('no-key');
+          return;
+        }
+        try {
+          setVoices(await client.call('voices.list', {}));
+          setVoiceError(null);
+        } catch (e) {
+          setVoices([]);
+          setVoiceError(e instanceof Error ? e.message : String(e));
+        }
+      },
       () => setVoices([]),
     );
   }, [client, state]);
@@ -283,9 +298,13 @@ export function BriefScreen({ slug }: { slug: string }) {
               <Field
                 label="Voice (ElevenLabs)"
                 hint={
-                  voices && !voices.length ? (
+                  voiceError === 'no-key' ? (
                     <>
                       Add an ElevenLabs key on the <a href="#/voice">Voice page</a> to choose a voice.
+                    </>
+                  ) : voiceError ? (
+                    <>
+                      {voiceError}. Save a working key on the <a href="#/voice">Voice page</a>.
                     </>
                   ) : (
                     'Used for the voice-over after recording.'
