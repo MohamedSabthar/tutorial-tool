@@ -145,6 +145,11 @@ export const rpcMethods = {
         .optional(),
     }),
   },
+  /** Rebuilds the automatic overlays (pointer, zooms, blurs, title) from the take's events; keeps the rest. */
+  'overlays.auto': {
+    params: z.object({ slug: z.string() }),
+    result: TimelineState.extend({ count: z.number() }),
+  },
   /** Fits the recording to the voice-over: freezes where the voice is longer, speeds up idle stretches (≤1.5×). */
   'timing.fit': {
     params: z.object({ slug: z.string() }),

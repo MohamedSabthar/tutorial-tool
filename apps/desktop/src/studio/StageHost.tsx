@@ -9,11 +9,12 @@ import {
   restCamera,
   Scene3D,
   Stage,
+  STAGE_SIZE,
   VideoPlane,
   type CameraMove,
 } from '@studio/stage';
 
-export const STAGE = { width: 1920, height: 1080 };
+export const STAGE = STAGE_SIZE;
 
 // A per-module number, so a reloaded overlay remounts (and its error boundary resets).
 const moduleKeys = new WeakMap<object, number>();

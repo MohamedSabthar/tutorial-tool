@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseTimeline, RecorderEvent, RpcError, withTake, type Take } from '@studio/core';
+import { withAutoOverlays } from './autoOverlays';
 import {
   loadScript,
   probe,
@@ -80,7 +81,12 @@ export async function registerTake(dir: string, take: Take, takePath: string): P
     .split('\n')
     .filter(Boolean)
     .map((l) => RecorderEvent.parse(JSON.parse(l)));
-  await writeFile(file, JSON.stringify(parseTimeline(withTake(tl, entry, events)), null, 2) + '\n');
+  const title = await readFile(path.join(dir, 'project.json'), 'utf8').then(
+    (t) => (JSON.parse(t) as { title?: string }).title ?? '',
+    () => '',
+  );
+  const next = withAutoOverlays(withTake(tl, entry, events), events, { title });
+  await writeFile(file, JSON.stringify(parseTimeline(next), null, 2) + '\n');
 }
 
 /** Step start/end times (take seconds) from a run's events. */

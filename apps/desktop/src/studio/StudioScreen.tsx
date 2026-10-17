@@ -550,7 +550,7 @@ export function StudioScreen({ slug }: { slug: string }) {
 /** Voice-over and timing-fit actions for the timeline toolbar, with a one-line report. */
 function RegenerateVo({ slug }: { slug: string }) {
   const { client } = useEngine();
-  const [busy, setBusy] = useState<'vo' | 'fit' | null>(null);
+  const [busy, setBusy] = useState<'vo' | 'fit' | 'auto' | null>(null);
   const [note, setNote] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
   const len = (s: number) => {
     const t = Math.round(s);
@@ -558,7 +558,7 @@ function RegenerateVo({ slug }: { slug: string }) {
   };
   const fitText = (f: { before: number; after: number; holds: number; spedUp: number }) =>
     `fitted ${len(f.before)} → ${len(f.after)} (${f.holds} freeze${f.holds === 1 ? '' : 's'}, ${f.spedUp} sped up)`;
-  const run = (kind: 'vo' | 'fit', fn: () => Promise<string>) => {
+  const run = (kind: 'vo' | 'fit' | 'auto', fn: () => Promise<string>) => {
     setBusy(kind);
     setNote(null);
     fn()
@@ -609,6 +609,19 @@ function RegenerateVo({ slug }: { slug: string }) {
         }
       >
         {busy === 'fit' ? 'Fitting…' : 'Fit timing'}
+      </Button>
+      <Button
+        size="sm"
+        disabled={!client || !!busy}
+        title="Rebuild the automatic overlays from the recording: pointer, zooms on clicks and typing, blurs over masked areas, and the title card. Overlays you added or edited stay."
+        onClick={() =>
+          run('auto', async () => {
+            const r = await client!.call('overlays.auto', { slug });
+            return `${r.count} automatic overlay${r.count === 1 ? '' : 's'}`;
+          })
+        }
+      >
+        {busy === 'auto' ? 'Rebuilding…' : 'Auto overlays'}
       </Button>
       {note && <Chip tone={note.tone}>{note.text}</Chip>}
     </>

@@ -38,7 +38,8 @@ import { projectCard } from './cards';
 import { secretStore } from './secrets';
 import { TtsService } from './tts';
 import { Voiceover } from './vo';
-import { TimingFit } from './timing';
+import { readEvents, TimingFit } from './timing';
+import { withAutoOverlays } from './autoOverlays';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -212,6 +213,18 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         author: 'user',
         group: `vo-${Date.now()}`,
       }),
+    'overlays.auto': async ({ slug }: { slug: string }) => {
+      const { timeline } = await timelines.get(slug);
+      const take = timeline.takes.at(-1);
+      if (!take) throw new RpcError('this project has no take yet', 'bad_request');
+      const events = await readEvents(store.dir(slug), take.events);
+      const next = withAutoOverlays(timeline, events, { title: (await store.open(slug)).project.title });
+      const r = await timelines.patch(slug, [{ op: 'replace', path: '/overlays', value: next.overlays }], {
+        author: 'auto',
+        label: 'Automatic overlays',
+      });
+      return { ...r, count: next.overlays.filter((o) => o.author === 'auto').length };
+    },
     'timing.fit': async ({ slug }: { slug: string }) =>
       timing.fit(slug, { author: 'user', group: `fit-${Date.now()}` }),
     'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
@@ -269,7 +282,9 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         .split('\n')
         .filter(Boolean)
         .map((l) => RecorderEvent.parse(JSON.parse(l)));
-      const next = withTake(timeline, take, events);
+      const next = withAutoOverlays(withTake(timeline, take, events), events, {
+        title: (await store.open(slug)).project.title,
+      });
       return timelines.patch(
         slug,
         [

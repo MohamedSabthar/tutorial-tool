@@ -14,6 +14,7 @@ import {
 import type { ProjectStore } from './projects';
 import type { Author, TimelineStore } from './timeline';
 import { LEAD_IN } from './vo';
+import { withAutoOverlays } from './autoOverlays';
 
 /** Fastest an idle stretch is played. */
 export const MAX_SPEED = 1.5;
@@ -247,12 +248,11 @@ export class TimingFit {
     const take = timeline.takes.at(-1);
     if (!take) throw new RpcError('There is no take to fit yet.', 'bad_request');
     if (!timeline.voice.length) throw new RpcError('There is no voice-over to fit to yet.', 'bad_request');
-    const text = await readFile(path.join(this.deps.store.dir(slug), take.events), 'utf8');
-    const events = text
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => RecorderEvent.parse(JSON.parse(l)));
+    const events = await readEvents(this.deps.store.dir(slug), take.events);
     const r = fitTiming(timeline, events);
+    // Automatic overlays are in output time: rebuild them for the new timing.
+    const { project } = await this.deps.store.open(slug);
+    const overlays = withAutoOverlays(r.timeline, events, { title: project.title }).overlays;
     const patch: TimelinePatch = [
       ...r.timeline.scenes.flatMap((s, i) =>
         s.kind === 'recording'
@@ -260,12 +260,7 @@ export class TimingFit {
           : [],
       ),
       { op: 'replace', path: '/voice', value: r.timeline.voice },
-      // The automatic pointer overlays cover the whole video, so they follow its new length.
-      ...r.timeline.overlays.flatMap((o, i) =>
-        o.author === 'auto' && (o.id === 'auto-cursor' || o.id === 'auto-click-ripple') && r.after > 0
-          ? [{ op: 'replace' as const, path: `/overlays/${i}/end`, value: r.after }]
-          : [],
-      ),
+      { op: 'replace', path: '/overlays', value: overlays },
     ];
     await this.deps.timelines.patch(slug, patch, {
       author: opts.author ?? 'user',
@@ -274,4 +269,12 @@ export class TimingFit {
     });
     return { steps: r.steps, before: r.before, after: r.after };
   }
+}
+
+export async function readEvents(projectDir: string, rel: string): Promise<RecorderEvent[]> {
+  const text = await readFile(path.join(projectDir, rel), 'utf8');
+  return text
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => RecorderEvent.parse(JSON.parse(l)));
 }

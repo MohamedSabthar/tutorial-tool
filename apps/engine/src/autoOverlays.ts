@@ -1,0 +1,155 @@
+import {
+  buildTimeMap,
+  pointerOverlayInstances,
+  type OverlayInstance,
+  type Rect,
+  type RecorderEvent,
+  type Timeline,
+} from '@studio/core';
+import { fitSource, sourceToStage, STAGE_SIZE } from '@studio/stage';
+
+/** Actions closer than this (take seconds, same step) share one zoom. */
+const CLUSTER_GAP = 3;
+const ZOOM_IN = 0.7;
+const ZOOM_OUT = 1.0;
+const TYPE_CPS = 14;
+
+type Action = Extract<RecorderEvent, { kind: 'click' | 'type' }>;
+
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+function union(boxes: Rect[]): Rect {
+  const x = Math.min(...boxes.map((b) => b.x));
+  const y = Math.min(...boxes.map((b) => b.y));
+  const x2 = Math.max(...boxes.map((b) => b.x + b.w));
+  const y2 = Math.max(...boxes.map((b) => b.y + b.h));
+  return { x, y, w: x2 - x, h: y2 - y };
+}
+
+/** Zoom that keeps the target comfortably inside the frame: 1.25×–1.8×. */
+export function zoomFor(stageBox: Rect): number {
+  const fill = Math.min(
+    (STAGE_SIZE.width * 0.5) / Math.max(stageBox.w, 1),
+    (STAGE_SIZE.height * 0.5) / Math.max(stageBox.h, 1),
+  );
+  return Math.round(Math.min(1.8, Math.max(1.25, fill)) * 100) / 100;
+}
+
+export interface AutoOptions {
+  /** Tutorial title for the opening TitleCard (none when empty). */
+  title?: string;
+  subtitle?: string;
+}
+
+/**
+ * The default edit, derived from the recorder's events: the pointer (Cursor + ClickRipple),
+ * a short Zoom on each cluster of clicks and typing, a Blur over every `tut.mask` area, and a
+ * TitleCard on the first step. Times are output times of the current timeline, so this runs
+ * again whenever the timeline's timing changes (take registered, timing fit).
+ */
+export function autoOverlays(
+  tl: Timeline,
+  events: RecorderEvent[],
+  opts: AutoOptions = {},
+): OverlayInstance[] {
+  const take = tl.takes.at(-1);
+  if (!take) return [];
+  const tm = buildTimeMap(tl);
+  const fit = fitSource(take, STAGE_SIZE);
+  const out = (t: number) => tm.toOutput(take.id, t)[0];
+  const stage = (b: Rect) => {
+    const s = sourceToStage(b, fit);
+    return { x: r3(s.x), y: r3(s.y), w: r3(s.w), h: r3(s.h) };
+  };
+  const result: OverlayInstance[] = events.some((e) => e.kind === 'mouse' || e.kind === 'click')
+    ? pointerOverlayInstances(tm.duration)
+    : [];
+
+  // Zooms on clusters of actions.
+  const actions = events.filter((e): e is Action => e.kind === 'click' || e.kind === 'type');
+  const clusters: Action[][] = [];
+  for (const a of actions) {
+    const cur = clusters.at(-1);
+    const last = cur?.at(-1);
+    const lastEnd = last ? last.t + (last.kind === 'type' ? last.text.length / TYPE_CPS : 0) : -Infinity;
+    if (cur && last && last.stepId === a.stepId && a.t - lastEnd < CLUSTER_GAP) cur.push(a);
+    else clusters.push([a]);
+  }
+  const zooms: { start: number; end: number; box: Rect }[] = [];
+  for (const c of clusters) {
+    const first = c[0]!;
+    const last = c.at(-1)!;
+    const s = out(first.t);
+    const e = out(last.t + (last.kind === 'type' ? last.text.length / TYPE_CPS : 0));
+    if (s === undefined || e === undefined) continue; // cut out of the video
+    const z = {
+      start: Math.max(0, s - ZOOM_IN),
+      end: Math.min(tm.duration, e + ZOOM_OUT),
+      box: union(c.map((a) => a.bbox)),
+    };
+    const prev = zooms.at(-1);
+    // Overlapping zooms become one, so the camera doesn't bounce.
+    if (prev && z.start < prev.end + 0.3) {
+      prev.end = Math.max(prev.end, z.end);
+      prev.box = union([prev.box, z.box]);
+    } else zooms.push(z);
+  }
+  zooms.forEach((z, i) => {
+    if (z.end - z.start < 0.5) return;
+    const rect = stage(z.box);
+    result.push({
+      id: `auto-zoom-${i + 1}`,
+      component: 'core:Zoom',
+      start: r3(z.start),
+      end: r3(z.end),
+      layer: 5,
+      rect,
+      props: { zoom: zoomFor(rect), ease: 0.5 },
+      author: 'auto',
+    });
+  });
+
+  // Blur every masked area from the moment it was marked.
+  events
+    .filter((e): e is Extract<RecorderEvent, { kind: 'mask' }> => e.kind === 'mask')
+    .forEach((m, i) => {
+      const s = out(m.t) ?? 0;
+      if (tm.duration - s < 0.1) return;
+      result.push({
+        id: `auto-blur-${i + 1}`,
+        component: 'core:Blur',
+        start: r3(s),
+        end: r3(tm.duration),
+        layer: 80,
+        rect: stage(m.bbox),
+        props: {},
+        author: 'auto',
+      });
+    });
+
+  // A title card over the start of the first step.
+  const firstStep = tl.steps[0];
+  const titleAt = firstStep ? out(firstStep.from) : undefined;
+  if (opts.title && titleAt !== undefined && tm.duration - titleAt > 1) {
+    result.push({
+      id: 'auto-title',
+      component: 'core:TitleCard',
+      start: r3(titleAt + 0.2),
+      end: r3(Math.min(tm.duration, titleAt + 3.2)),
+      layer: 60,
+      props: { title: opts.title, ...(opts.subtitle ? { subtitle: opts.subtitle } : {}) },
+      author: 'auto',
+    });
+  }
+  return result;
+}
+
+/**
+ * Replaces the timeline's automatic overlays (author "auto", id "auto-…") with fresh ones. An
+ * automatic overlay the user edited keeps its id but became theirs; its fresh twin is skipped.
+ */
+export function withAutoOverlays(tl: Timeline, events: RecorderEvent[], opts: AutoOptions = {}): Timeline {
+  const kept = tl.overlays.filter((o) => !(o.author === 'auto' && o.id.startsWith('auto-')));
+  const taken = new Set(kept.map((o) => o.id));
+  return { ...tl, overlays: [...kept, ...autoOverlays(tl, events, opts).filter((o) => !taken.has(o.id))] };
+}

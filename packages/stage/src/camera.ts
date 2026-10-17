@@ -14,6 +14,9 @@ export interface Fit {
   rect: Rect;
 }
 
+/** The composition size every overlay and export uses (stage px). */
+export const STAGE_SIZE = { width: 1920, height: 1080 } as const;
+
 export function fitSource(
   src: { width: number; height: number },
   stage: { width: number; height: number },

@@ -76,6 +76,7 @@ export class TimelineStore {
     if (!parsed.success) throw new RpcError(`invalid patch: ${formatIssues(parsed.error)}`, 'bad_request');
     return this.run(slug, async (doc) => {
       const before = doc.timeline;
+      if (opts.author === 'user') parsed.data = claimAutoOverlays(before, parsed.data);
       let after: Timeline;
       try {
         after = applyPatch(before, parsed.data);
@@ -201,4 +202,28 @@ export class TimelineStore {
     this.queues.set(slug, next);
     return next;
   }
+}
+
+/**
+ * A user edit to an automatic overlay (move, trim, props) makes it the user's, so rebuilding the
+ * automatic overlays later doesn't undo the edit. Patches that add or remove overlays are left
+ * as they are (their indexes may shift).
+ */
+export function claimAutoOverlays(tl: Timeline, patch: TimelinePatch): TimelinePatch {
+  if (patch.some((op) => op.op !== 'replace' && /^\/overlays(\/\d+)?$/.test(op.path))) return patch;
+  const claimed = new Set<number>();
+  for (const op of patch) {
+    const m = /^\/overlays\/(\d+)\/(?!author$)/.exec(op.path);
+    if (m && tl.overlays[Number(m[1])]?.author === 'auto') claimed.add(Number(m[1]));
+  }
+  return claimed.size
+    ? [
+        ...patch,
+        ...[...claimed].map((i) => ({
+          op: 'replace' as const,
+          path: `/overlays/${i}/author`,
+          value: 'user',
+        })),
+      ]
+    : patch;
 }
