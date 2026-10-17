@@ -13,6 +13,9 @@
     },
     {
       "path": "../../packages/recorder"
+    },
+    {
+      "path": "../../packages/tts"
     }
   ]
 }

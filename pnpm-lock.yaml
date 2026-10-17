@@ -138,6 +138,9 @@ importers:
       '@studio/stage':
         specifier: workspace:*
         version: link:../../packages/stage
+      '@studio/tts':
+        specifier: workspace:*
+        version: link:../../packages/tts
       es-module-lexer:
         specifier: ^1.7.0
         version: 1.7.0
@@ -316,7 +319,11 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
 
-  packages/tts: {}
+  packages/tts:
+    dependencies:
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/ui:
     devDependencies:

@@ -20,6 +20,7 @@ import { SdkPage } from './pages/SdkPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { HotReloadPage } from './pages/HotReloadPage';
 import { TimelineSyncPage } from './pages/TimelineSyncPage';
+import { VoicePage } from './pages/VoicePage';
 import { ProjectsScreen } from './routes/projects/ProjectsScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
@@ -50,6 +51,7 @@ const routes: DevRoute[] = [
   { path: '/studio-link', step: '2.7', label: 'Studio (demo-http)', render: () => <StudioLink /> },
   // Handled by <App> (the real home screen); listed so the developer shell links to it.
   { path: '/projects', step: '3.8', label: 'Projects (app home)', render: () => null },
+  { path: '/voice', step: '4.1', label: 'Voice (ElevenLabs)', render: () => <VoicePage /> },
 ];
 
 /** Opens the real Studio screen (full window) for the reference project. */

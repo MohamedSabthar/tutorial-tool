@@ -51,9 +51,13 @@ export interface AgentHost {
 const OUTER_SESSION_ENV =
   /^(CLAUDECODE|CLAUDE_PID|CLAUDE_EFFORT|CLAUDE_CODE_(ENTRYPOINT|EXECPATH|SESSION_ID|CHILD_SESSION|SESSION_ATTENDED|MESSAGING_\w+|SSE_PORT))$/;
 
+/** The engine's own service keys: the agent never sees them. */
+const ENGINE_SECRETS = /^(ELEVENLABS_\w+|XI_API_KEY)$/;
+
 export function agentEnv(env: NodeJS.ProcessEnv = process.env): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
-  for (const [k, v] of Object.entries(env)) if (!OUTER_SESSION_ENV.test(k)) out[k] = v;
+  for (const [k, v] of Object.entries(env))
+    if (!OUTER_SESSION_ENV.test(k) && !ENGINE_SECRETS.test(k)) out[k] = v;
   return out;
 }
 

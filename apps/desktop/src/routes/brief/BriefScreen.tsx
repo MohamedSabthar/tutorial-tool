@@ -59,6 +59,16 @@ export function BriefScreen({ slug }: { slug: string }) {
     );
   }, [client, state, slug]);
 
+  // Voices, when ElevenLabs has a key (otherwise the picker explains where to add one).
+  const [voices, setVoices] = useState<{ id: string; name: string; description: string }[] | null>(null);
+  useEffect(() => {
+    if (!client || state !== 'open') return;
+    void client.call('tts.status', {}).then(
+      async (s) => setVoices(s.configured ? await client.call('voices.list', {}) : []),
+      () => setVoices([]),
+    );
+  }, [client, state]);
+
   const update = (patch: Partial<Brief>) => {
     setBrief((b) => (b ? { ...b, ...patch } : b));
     setDirty(true);
@@ -270,10 +280,32 @@ export function BriefScreen({ slug }: { slug: string }) {
               </div>
             ))}
             <div className="brief-grid">
-              <Field label="Voice (ElevenLabs)" hint="Voices load once ElevenLabs is connected.">
+              <Field
+                label="Voice (ElevenLabs)"
+                hint={
+                  voices && !voices.length ? (
+                    <>
+                      Add an ElevenLabs key on the <a href="#/voice">Voice page</a> to choose a voice.
+                    </>
+                  ) : (
+                    'Used for the voice-over after recording.'
+                  )
+                }
+              >
                 {(id) => (
-                  <Select id={id} value="" disabled>
-                    <option value="">Default voice</option>
+                  <Select
+                    id={id}
+                    value={brief.voice ?? ''}
+                    disabled={!voices?.length}
+                    onChange={(e) => update({ voice: e.target.value || null })}
+                  >
+                    <option value="">{voices?.length ? 'Choose a voice' : 'No voices yet'}</option>
+                    {voices?.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                        {v.description ? ` · ${v.description}` : ''}
+                      </option>
+                    ))}
                   </Select>
                 )}
               </Field>

@@ -107,6 +107,7 @@ describe('agentEnv', () => {
       CLAUDE_CODE_SESSION_ID: 'x',
       CLAUDE_CONFIG_DIR: '/c',
       ANTHROPIC_API_KEY: 'k',
+      ELEVENLABS_API_KEY: 'never-for-the-agent',
       PATH: '/bin',
     });
     expect(Object.keys(env).sort()).toEqual(['ANTHROPIC_API_KEY', 'CLAUDE_CONFIG_DIR', 'PATH']);

@@ -35,6 +35,8 @@ import { PipelineManager } from './pipeline/machine';
 import { WorkspaceGit } from './workspaceGit';
 import { knowledgeSummary, skillCoverage } from './brief';
 import { projectCard } from './cards';
+import { secretStore } from './secrets';
+import { TtsService } from './tts';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -56,6 +58,8 @@ export interface EngineOptions {
   /** Generated when omitted. */
   token?: string;
   logger?: boolean;
+  /** Replaces the ElevenLabs service (tests). */
+  tts?: TtsService;
 }
 
 export interface Engine {
@@ -110,6 +114,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     state: (s) => broadcast('agent.state', s),
   });
   const knowledge = new WorkspaceGit(opts.workspace);
+  const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
   const pipeline: PipelineManager = new PipelineManager({
     store,
     agents,
@@ -190,6 +195,19 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'skills.coverage': async ({ product, goal }: { product: string; goal: string }) =>
       skillCoverage(opts.workspace, product, goal),
     'knowledge.summary': async () => knowledgeSummary(opts.workspace),
+    'tts.status': async () => tts.status(),
+    'tts.setKey': async ({ apiKey }: { apiKey: string }) => tts.setKey(apiKey),
+    'tts.clearKey': async () => tts.clearKey(),
+    'voices.list': async ({ refresh }: { refresh: boolean }) => tts.listVoices(refresh),
+    'tts.synthesize': async (p: { slug: string; text: string; voiceId: string; modelId?: string }) => {
+      await store.open(p.slug);
+      const r = await tts.synthesize(p.slug, {
+        text: p.text,
+        voiceId: p.voiceId,
+        ...(p.modelId ? { modelId: p.modelId } : {}),
+      });
+      return { hash: r.hash, audio: r.audio, duration: r.duration, cached: r.cached, alignment: r.alignment };
+    },
     'agent.status': async ({ slug, history }: { slug: string; history: number }) => {
       await store.open(slug);
       return agents.get(slug).status(history);

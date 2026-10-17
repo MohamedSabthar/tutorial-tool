@@ -37,6 +37,11 @@ const ReferenceSource = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('data'), name: z.string().min(1).max(200), base64: z.string().max(7_000_000) }),
 ]);
 
+const TtsStatus = z.object({
+  configured: z.boolean(),
+  source: z.enum(['env', 'keychain', 'file']).nullable(),
+});
+
 export const SkillCoverage = z.object({
   product: z.string(),
   /** The product's skill folder, null when the workspace has none. */
@@ -89,6 +94,44 @@ export const rpcMethods = {
   'skills.coverage': {
     params: z.object({ product: z.string(), goal: z.string().max(2000).default('') }),
     result: SkillCoverage,
+  },
+  /** Whether ElevenLabs has a key (never the key itself). */
+  'tts.status': { params: z.object({}), result: TtsStatus },
+  /** Checks the key against ElevenLabs, then stores it (Keychain on macOS). */
+  'tts.setKey': { params: z.object({ apiKey: z.string().min(1).max(200) }), result: TtsStatus },
+  'tts.clearKey': { params: z.object({}), result: TtsStatus },
+  'voices.list': {
+    params: z.object({ refresh: z.boolean().default(false) }),
+    result: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        category: z.string().nullable(),
+        description: z.string(),
+        previewUrl: z.string().nullable(),
+      }),
+    ),
+  },
+  /** Synthesizes one line into the project's audio/ cache (returns per-character timings). */
+  'tts.synthesize': {
+    params: z.object({
+      slug: z.string(),
+      text: z.string().min(1).max(5000),
+      voiceId: z.string().min(1),
+      modelId: z.string().optional(),
+    }),
+    result: z.object({
+      hash: z.string(),
+      /** Project-relative path, served by /media. */
+      audio: z.string(),
+      duration: z.number(),
+      cached: z.boolean(),
+      alignment: z.object({
+        chars: z.array(z.string()),
+        starts: z.array(z.number()),
+        ends: z.array(z.number()),
+      }),
+    }),
   },
   /** Products and the size of the knowledge base, for the Projects screen. */
   'knowledge.summary': {
