@@ -18,6 +18,11 @@ export interface OverlayMeta<P extends z.ZodType = z.ZodType> {
    * timeline, beat i fires at the start of narration line i.
    */
   beats?: string[];
+  /**
+   * Scenes: where a recorded frame lands in the scene's first layout (stage px), for the
+   * FreezeMorph transition. Defaults to a centred box.
+   */
+  morph?: { x: number; y: number; w: number; h: number };
   /** Seconds, used when the instance is first created. */
   defaultDuration?: number;
 }

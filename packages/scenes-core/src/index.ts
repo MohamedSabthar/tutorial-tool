@@ -18,3 +18,5 @@ export const coreScenes: Record<string, OverlayModule> = {
   'core:CodeWalkthrough': { default: CodeWalkthrough, meta: codeWalkthroughMeta } as OverlayModule,
   'core:ArchitectureZoom': { default: ArchitectureZoom, meta: architectureZoomMeta } as OverlayModule,
 };
+
+export * from './transitions';

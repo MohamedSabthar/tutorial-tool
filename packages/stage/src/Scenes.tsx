@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 /** Backdrop behind explainer scenes that don't paint their own (SceneFrame does). */
 export const EXPLAINER_BACKDROP =
@@ -9,7 +9,16 @@ export const EXPLAINER_BACKDROP =
  * apply), above the recording and below overlays. `weight` < 1 while a transition blends it
  * with its neighbour.
  */
-export function ExplainerLayer({ weight, children }: { weight: number; children: ReactNode }) {
+export function ExplainerLayer({
+  weight,
+  style,
+  children,
+}: {
+  weight: number;
+  /** A transition's styles (transform, opacity) while one is playing. */
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
   if (weight <= 0) return null;
   return (
     <div
@@ -20,6 +29,7 @@ export function ExplainerLayer({ weight, children }: { weight: number; children:
         overflow: 'hidden',
         background: EXPLAINER_BACKDROP,
         opacity: Math.min(1, weight),
+        ...style,
       }}
     >
       {children}

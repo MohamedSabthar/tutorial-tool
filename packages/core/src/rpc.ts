@@ -170,6 +170,8 @@ export const rpcMethods = {
       component: z.string(),
       props: z.record(z.string(), z.unknown()).optional(),
       duration: z.number().positive().optional(),
+      /** FreezeMorph in and out where the neighbours are the recording (default true). */
+      transitions: z.boolean().optional(),
     }),
     result: TimelineState,
   },

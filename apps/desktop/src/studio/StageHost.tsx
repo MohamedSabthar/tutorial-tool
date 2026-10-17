@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import {
   resolveBeats,
   type Caption,
@@ -17,6 +17,7 @@ import {
   type OverlayModule,
 } from '@studio/overlay-sdk';
 import { coreOverlays, zoomMove } from '@studio/overlays-core';
+import { coreTransitions, DEFAULT_MORPH_TARGET, type TransitionFrame } from '@studio/scenes-core';
 import {
   cameraAt,
   CameraProvider,
@@ -102,6 +103,13 @@ export function StageHost({
       scene: ExplainerScene;
       voice: VoiceLine[];
     }[];
+    transition: {
+      id: string;
+      component: string;
+      u: number;
+      from: { sceneId: string; kind: 'recording' | 'explainer' };
+      to: { sceneId: string; kind: 'recording' | 'explainer' };
+    } | null;
   };
   children?: ReactNode;
 }) {
@@ -115,55 +123,119 @@ export function StageHost({
   const camera = cameraAt(t, showOverlays ? moves : [], restCamera(STAGE), fit.rect, STAGE);
   const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
 
+  // Overlays on the recording (anchored, or drawing the pointer) travel with it in transitions;
+  // the rest (titles, captions, labels) stay on screen.
+  const onRecording = instances.filter((i) => i.anchor || POINTER.has(i.component));
+  const onScreen = instances.filter((i) => !(i.anchor || POINTER.has(i.component)));
+  const renderInstance = (inst: HostInstance) => {
+    const mod = registry[inst.component];
+    if (!mod) return null;
+    const Comp = mod.default;
+    return (
+      <OverlayRenderer
+        key={`${inst.id}:${moduleKey(mod)}`}
+        id={inst.id}
+        start={inst.start}
+        end={inst.end}
+        anchor={inst.anchor}
+        onError={onOverlayError}
+      >
+        <Comp props={withDefaults(mod, inst.props)} duration={inst.end - inst.start} />
+      </OverlayRenderer>
+    );
+  };
+
+  // Scene layers in paint order, with a transition's styles when one is playing.
+  type Layer =
+    | { kind: 'recording'; style: CSSProperties }
+    | { kind: 'explainer'; e: NonNullable<typeof layers>['explainers'][number]; style: CSSProperties };
+  const tr = layers?.transition ?? null;
+  const module = tr ? (coreTransitions[tr.component] ?? coreTransitions['core:Crossfade']!) : null;
+  const explainerOf = (id: string) => layers?.explainers.find((e) => e.id === id);
+  let frame: TransitionFrame | null = null;
+  if (tr && module) {
+    const explainer = explainerOf(tr.from.kind === 'explainer' ? tr.from.sceneId : tr.to.sceneId);
+    const meta = explainer ? registry[explainer.component]?.meta : undefined;
+    frame = module.frame(tr.u, {
+      from: tr.from.kind,
+      to: tr.to.kind,
+      target: meta?.morph ?? DEFAULT_MORPH_TARGET(STAGE),
+      stage: STAGE,
+    });
+  }
+  const styleFor = (sceneKind: 'recording' | 'explainer', id?: string): CSSProperties => {
+    if (!tr || !frame) return {};
+    const isFrom = tr.from.kind === sceneKind && (sceneKind === 'recording' || tr.from.sceneId === id);
+    const isTo = tr.to.kind === sceneKind && (sceneKind === 'recording' || tr.to.sceneId === id);
+    return isFrom ? frame.from : isTo ? frame.to : {};
+  };
+  const recordingLayer: Layer = {
+    kind: 'recording',
+    style: { ...styleFor('recording'), ...(showsRecording ? {} : { visibility: 'hidden' }) },
+  };
+  const explainerLayers: Layer[] = (layers?.explainers ?? []).map((e) => ({
+    kind: 'explainer',
+    e,
+    style: tr ? styleFor('explainer', e.id) : { opacity: e.weight },
+  }));
+  let ordered: Layer[] = [recordingLayer, ...explainerLayers];
+  if (tr && frame) {
+    const topId = frame.top === 'from' ? tr.from : tr.to;
+    const isTop = (l: Layer) =>
+      l.kind === topId.kind &&
+      (l.kind === 'recording' || (l.kind === 'explainer' && l.e.id === topId.sceneId));
+    ordered = [...ordered.filter((l) => !isTop(l)), ...ordered.filter(isTop)];
+  }
+
   return (
     <Stage t={t} {...STAGE} background={FRAME.backdrop}>
       <TakeContext.Provider value={takeInfo}>
         <RecordingContext.Provider value={recording}>
           <CaptionsContext.Provider value={captions}>
             <CameraProvider camera={camera} source={take}>
-              <FrameShadow />
-              <Scene3D>
-                <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
-              </Scene3D>
-              {layers?.explainers.map((e) => {
-                const mod = registry[e.component];
-                return (
-                  <ExplainerLayer key={e.id} weight={e.weight}>
-                    {mod && (
+              {ordered.map((layer) =>
+                layer.kind === 'recording' ? (
+                  // The recording, its shadow and the overlays placed on it move as one layer.
+                  <div key="recording" style={{ position: 'absolute', inset: 0, ...layer.style }}>
+                    <FrameShadow />
+                    <Scene3D>
+                      <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
+                    </Scene3D>
+                    {(showOverlays ? onRecording : []).map(renderInstance)}
+                  </div>
+                ) : (
+                  <ExplainerLayer key={layer.e.id} weight={1} style={layer.style}>
+                    {registry[layer.e.component] && (
                       <OverlayRenderer
-                        key={moduleKey(mod)}
-                        id={e.id}
-                        start={e.start}
-                        end={e.end}
+                        key={moduleKey(registry[layer.e.component]!)}
+                        id={layer.e.id}
+                        start={layer.e.start}
+                        end={layer.e.end}
                         onError={onOverlayError}
                       >
-                        <SceneContext.Provider value={resolveBeats(e.scene, e.voice, mod.meta?.beats ?? [])}>
-                          <mod.default props={withDefaults(mod, e.props)} duration={e.end - e.start} />
+                        <SceneContext.Provider
+                          value={resolveBeats(
+                            layer.e.scene,
+                            layer.e.voice,
+                            registry[layer.e.component]!.meta?.beats ?? [],
+                          )}
+                        >
+                          {(() => {
+                            const mod = registry[layer.e.component]!;
+                            return (
+                              <mod.default
+                                props={withDefaults(mod, layer.e.props)}
+                                duration={layer.e.end - layer.e.start}
+                              />
+                            );
+                          })()}
                         </SceneContext.Provider>
                       </OverlayRenderer>
                     )}
                   </ExplainerLayer>
-                );
-              })}
-              {(showOverlays ? instances : []).map((inst) => {
-                const mod = registry[inst.component];
-                if (!mod) return null;
-                // Overlays placed on the recording (anchored or with a rect) leave with it.
-                if (!showsRecording && inst.anchor) return null;
-                const Comp = mod.default;
-                return (
-                  <OverlayRenderer
-                    key={`${inst.id}:${moduleKey(mod)}`}
-                    id={inst.id}
-                    start={inst.start}
-                    end={inst.end}
-                    anchor={inst.anchor}
-                    onError={onOverlayError}
-                  >
-                    <Comp props={withDefaults(mod, inst.props)} duration={inst.end - inst.start} />
-                  </OverlayRenderer>
-                );
-              })}
+                ),
+              )}
+              {(showOverlays ? onScreen : []).map(renderInstance)}
               {children}
             </CameraProvider>
           </CaptionsContext.Provider>
@@ -198,3 +270,6 @@ function withDefaults(mod: OverlayModule, props: Record<string, unknown>): Recor
   const parsed = mod.meta?.props?.safeParse(props);
   return parsed?.success ? (parsed.data as Record<string, unknown>) : props;
 }
+
+/** Overlays that draw the recorded pointer: they belong to the recording layer. */
+const POINTER = new Set(['core:Cursor', 'core:ClickRipple']);

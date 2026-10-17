@@ -42,6 +42,8 @@ interface Props {
   onRemoveScene?: (sceneId: string) => void;
   /** An explainer block was clicked. */
   onSelectScene?: (sceneId: string) => void;
+  /** Set (component and duration) or remove (null) the transition between two scenes. */
+  onTransition?: (between: [string, string], value: { component: string; duration: number } | null) => void;
 }
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -78,6 +80,7 @@ export function TimelinePanel({
   onAnnotation,
   onRemoveScene,
   onSelectScene,
+  onTransition,
 }: Props) {
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -291,25 +294,18 @@ export function TimelinePanel({
               </div>
             );
           }),
-        ...timeline.transitions.map((tr) => {
-          const b = resolved.tm.scenes.find((x) => x.sceneId === tr.between[1]);
-          if (!b) return null;
+        ...timeline.scenes.slice(1).map((sc, i) => {
+          const prev = timeline.scenes[i]!;
+          const span = resolved.tm.scenes.find((x) => x.sceneId === sc.id);
+          if (!span) return null;
+          const tr = timeline.transitions.find((x) => x.between[0] === prev.id && x.between[1] === sc.id);
           return (
-            <span
-              key={tr.id}
-              title={`${tr.component.split(':')[1]} · ${tr.duration} s`}
-              aria-label={`Transition ${tr.component.split(':')[1]}`}
-              style={{
-                position: 'absolute',
-                top: LANE_H / 2 - 7,
-                left: x(b.start) + x(tr.duration) / 2 - 7,
-                width: 14,
-                height: 14,
-                transform: 'rotate(45deg)',
-                background: 'var(--ui-navy)',
-                border: '2px solid var(--ui-white)',
-                zIndex: 2,
-              }}
+            <TransitionControl
+              key={`tr-${prev.id}-${sc.id}`}
+              left={x(span.start) + (tr ? x(tr.duration) / 2 : 0)}
+              top={LANE_H / 2}
+              transition={tr ? { component: tr.component, duration: tr.duration } : null}
+              onChange={(v) => onTransition?.([prev.id, sc.id], v)}
             />
           );
         }),
@@ -757,5 +753,131 @@ function CaptionCue({
     >
       {text.replace('\n', ' ')}
     </button>
+  );
+}
+
+const TRANSITIONS = [
+  ['core:FreezeMorph', 'FreezeMorph', 1],
+  ['core:Crossfade', 'Crossfade', 0.6],
+  ['core:Push', 'Push', 0.7],
+  ['core:ZoomThrough', 'ZoomThrough', 0.8],
+] as const;
+
+/** A scene boundary on the Scenes lane: "+" to add a transition, a diamond to change or remove it. */
+function TransitionControl({
+  left,
+  top,
+  transition,
+  onChange,
+}: {
+  left: number;
+  top: number;
+  transition: { component: string; duration: number } | null;
+  onChange: (v: { component: string; duration: number } | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [component, setComponent] = useState(transition?.component ?? 'core:FreezeMorph');
+  const [duration, setDuration] = useState(transition?.duration ?? 1);
+  const name = transition?.component.split(':')[1];
+  return (
+    <span style={{ position: 'absolute', left, top, zIndex: 3 }}>
+      <button
+        type="button"
+        aria-label={transition ? `Transition ${name}: change` : 'Add a transition here'}
+        title={transition ? `${name} · ${transition.duration} s (click to change)` : 'Add a transition here'}
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          position: 'absolute',
+          left: -8,
+          top: -8,
+          width: 16,
+          height: 16,
+          padding: 0,
+          border: '2px solid var(--ui-white)',
+          borderRadius: transition ? 2 : '50%',
+          transform: transition ? 'rotate(45deg)' : undefined,
+          background: transition ? 'var(--ui-navy)' : 'var(--ui-gray-300)',
+          color: 'var(--ui-navy)',
+          fontSize: 11,
+          lineHeight: '12px',
+          cursor: 'pointer',
+        }}
+      >
+        {transition ? '' : '+'}
+      </button>
+      {open && (
+        <span
+          role="dialog"
+          aria-label="Transition"
+          style={{
+            position: 'absolute',
+            left: 12,
+            top: 12,
+            width: 220,
+            padding: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            background: 'var(--ui-white)',
+            border: '1px solid var(--ui-gray-300)',
+            borderRadius: 10,
+            boxShadow: 'var(--ui-shadow-md)',
+          }}
+        >
+          <select
+            aria-label="Transition type"
+            className="ui-select"
+            value={component}
+            onChange={(e) => {
+              setComponent(e.target.value);
+              setDuration(TRANSITIONS.find((x) => x[0] === e.target.value)?.[2] ?? 0.8);
+            }}
+          >
+            {TRANSITIONS.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+            Seconds
+            <input
+              type="number"
+              className="ui-input"
+              min={0.2}
+              max={3}
+              step={0.1}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              style={{ width: 80 }}
+            />
+          </label>
+          <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            {transition && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+              >
+                Remove
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                onChange({ component, duration: Math.min(3, Math.max(0.2, duration)) });
+                setOpen(false);
+              }}
+            >
+              Apply
+            </Button>
+          </span>
+        </span>
+      )}
+    </span>
   );
 }

@@ -20,6 +20,8 @@ import {
   RecorderEvent,
   withTake,
   insertExplainerScene,
+  outputRemapper,
+  remapOutputItems,
   removeExplainerScene,
   type Timeline,
 } from '@studio/core';
@@ -339,21 +341,37 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       component: string;
       props?: Record<string, unknown>;
       duration?: number;
+      transitions?: boolean;
     }) =>
-      sceneEdit(
-        p.slug,
-        'Insert explainer',
-        (tl) =>
-          insertExplainerScene(tl, p.at, {
-            kind: 'explainer',
-            component: p.component,
-            props: p.props ?? {},
-            narration: [],
-            beats: [],
-            duration: p.duration ?? 'auto',
-            estimatedDuration: p.duration ?? 6,
-          }).timeline,
-      ),
+      sceneEdit(p.slug, 'Insert explainer', (tl) => {
+        const { timeline: next, sceneId } = insertExplainerScene(tl, p.at, {
+          kind: 'explainer',
+          component: p.component,
+          props: p.props ?? {},
+          narration: [],
+          beats: [],
+          duration: p.duration ?? 'auto',
+          estimatedDuration: p.duration ?? 6,
+        });
+        if (p.transitions === false) return next;
+        // FreezeMorph into and out of the explainer where the neighbour is the recording.
+        const i = next.scenes.findIndex((s) => s.id === sceneId);
+        const before = next.scenes[i - 1];
+        const after = next.scenes[i + 1];
+        const morph = (a: string, b: string) => ({
+          id: `tr-${a}-${b}`,
+          between: [a, b] as [string, string],
+          component: 'core:FreezeMorph',
+          duration: 1,
+        });
+        const add = [
+          ...(before?.kind === 'recording' ? [morph(before.id, sceneId)] : []),
+          ...(after?.kind === 'recording' ? [morph(sceneId, after.id)] : []),
+        ];
+        const withTransitions = { ...next, transitions: [...next.transitions, ...add] };
+        // Transitions overlap the scenes: move later items by what the video actually gained.
+        return remapOutputItems(withTransitions, outputRemapper(next, withTransitions));
+      }),
     'scenes.remove': async ({ slug, sceneId }: { slug: string; sceneId: string }) =>
       sceneEdit(slug, 'Remove explainer', (tl) => {
         try {

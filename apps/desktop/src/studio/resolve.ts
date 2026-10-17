@@ -8,6 +8,7 @@ import {
   type TimeMap,
 } from '@studio/core';
 import { fitSource, sourceToStage, type Fit } from '@studio/stage';
+import { coreTransitions } from '@studio/scenes-core';
 import { STAGE, type HostInstance } from './StageHost';
 
 export interface StepSpan {
@@ -31,6 +32,23 @@ export interface ExplainerSpan {
   voice: VoiceLine[];
 }
 
+/** A transition in progress between two scenes. */
+export interface LayerTransition {
+  id: string;
+  component: string;
+  /** 0 → 1 across the overlap. */
+  u: number;
+  from: { sceneId: string; kind: 'recording' | 'explainer' };
+  to: { sceneId: string; kind: 'recording' | 'explainer' };
+}
+
+/** Transitions that hold the recorded frame while they play. */
+const FREEZING = new Set(
+  Object.entries(coreTransitions)
+    .filter(([, m]) => m.meta.freezes)
+    .map(([id]) => id),
+);
+
 export interface Resolved {
   tm: TimeMap;
   fit: Fit | null;
@@ -40,8 +58,12 @@ export interface Resolved {
   sourceTime: (t: number) => number;
   /** True when output time t shows moving video (not a hold or an explainer). */
   videoRuns: (t: number) => boolean;
-  /** What output time t shows: the recording's weight and the explainers with theirs. */
-  layersAt: (t: number) => { recording: number; explainers: (ExplainerSpan & { weight: number })[] };
+  /** What output time t shows: the recording's weight, the explainers, and a transition between them. */
+  layersAt: (t: number) => {
+    recording: number;
+    explainers: (ExplainerSpan & { weight: number })[];
+    transition: LayerTransition | null;
+  };
 }
 
 /**
@@ -64,14 +86,32 @@ export function resolveTimeline(tl: Timeline, _events: RecorderEvent[]): Resolve
     const anchor = o.rect ?? (box && fit ? sourceToStage(box, fit) : null);
     return { id: o.id, component: o.component, start: o.start, end: o.end, props: o.props, anchor };
   });
-  const sourceTime = (t: number) => {
-    const pos = tm.toSource(t);
-    return pos && pos.kind === 'recording' ? pos.takeTime : 0;
+  /**
+   * The recording position at t. During a freezing transition (FreezeMorph) the recording holds
+   * the frame at the transition's edge: the last frame shown before it cuts away, or the first
+   * frame it comes back to.
+   */
+  const recordingAt = (t: number) => {
+    const active = tm.activeAt(t);
+    const rec = [...active].reverse().find((a) => a.position.kind === 'recording');
+    if (!rec || rec.position.kind !== 'recording') return null;
+    const tr = rec.transitionId ? tl.transitions.find((x) => x.id === rec.transitionId) : undefined;
+    if (tr && FREEZING.has(tr.component)) {
+      const incoming = tm.scenes.find((x) => x.sceneId === tr.between[1]);
+      if (incoming) {
+        const edge = tm
+          .activeAt(incoming.start + 1e-4)
+          .find((a) => a.position.sceneId === rec.position.sceneId);
+        if (edge?.position.kind === 'recording') return { pos: edge.position, frozen: true };
+      }
+    }
+    return { pos: rec.position, frozen: false };
   };
+  const sourceTime = (t: number) => recordingAt(t)?.pos.takeTime ?? 0;
   const videoRuns = (t: number) => {
-    const pos = tm.toSource(t);
-    if (!pos || pos.kind !== 'recording') return false;
-    const seg = tm.segments.find((g) => g.sceneId === pos.sceneId && g.index === pos.segment);
+    const r = recordingAt(t);
+    if (!r || r.frozen) return false;
+    const seg = tm.segments.find((g) => g.sceneId === r.pos.sceneId && g.index === r.pos.segment);
     return seg?.segment.kind !== 'hold';
   };
   const explainers = new Map<string, ExplainerSpan>();
@@ -101,7 +141,21 @@ export function resolveTimeline(tl: Timeline, _events: RecorderEvent[]): Resolve
     }
     // Before the first scene or with no scenes at all, the recording shows.
     if (!tm.scenes.length) recording = 1;
-    return { recording, explainers: out };
+    // A transition between the two active scenes, with its progress.
+    let transition: LayerTransition | null = null;
+    const pair = tm.activeAt(t);
+    if (pair.length === 2 && pair[1]!.transitionId) {
+      const tr = tl.transitions.find((x) => x.id === pair[1]!.transitionId);
+      if (tr)
+        transition = {
+          id: tr.id,
+          component: tr.component,
+          u: pair[1]!.weight,
+          from: { sceneId: pair[0]!.position.sceneId, kind: pair[0]!.position.kind },
+          to: { sceneId: pair[1]!.position.sceneId, kind: pair[1]!.position.kind },
+        };
+    }
+    return { recording, explainers: out, transition };
   };
   return { tm, fit, steps, instances, sourceTime, videoRuns, layersAt };
 }

@@ -796,6 +796,26 @@ export function StudioScreen({ slug }: { slug: string }) {
             const span = resolved.tm.scenes.find((x) => x.sceneId === id);
             if (span && (t < span.start || t >= span.end)) controls.seek(span.start + 0.01);
           }}
+          onTransition={(between, value) => {
+            if (!tl.timeline) return;
+            const rest = tl.timeline.transitions.filter(
+              (x) => !(x.between[0] === between[0] && x.between[1] === between[1]),
+            );
+            const next = value
+              ? [
+                  ...rest,
+                  {
+                    id: `tr-${between[0]}-${between[1]}`,
+                    between,
+                    component: value.component,
+                    duration: value.duration,
+                  },
+                ]
+              : rest;
+            void tl.patch([{ op: 'replace', path: '/transitions', value: next }], {
+              label: value ? 'Set transition' : 'Remove transition',
+            });
+          }}
           onRemoveScene={(id) =>
             client &&
             void client
