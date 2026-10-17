@@ -49,12 +49,14 @@ import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
 import { annotationMessage } from './agent/annotationContext';
 import { HeadlessStage } from './render';
+import { Exporter } from './export';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
 import { Library } from './library';
 import { Explainers } from './explainers';
 import { checkScene } from './sceneCheck';
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import {
   access,
   readdir,
@@ -101,6 +103,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   // Composited frames for check_overlay (and later export); it needs the engine's own address.
   let listening = { port: 0, token };
   const headless = new HeadlessStage(() => listening);
+  const exporter = new Exporter({
+    store,
+    timelines,
+    engine: () => listening,
+    emit: (state) => broadcast('export.progress', state),
+  });
   const runner = new Runner(store, workspace, (event, data) => broadcast(event, data));
   let overlayServer: Promise<OverlayServer> | null = null;
   let overlayVersion = 0;
@@ -526,6 +534,20 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       interrupted: await agents.get(slug).interrupt(),
     }),
     'agent.reset': async ({ slug }: { slug: string }) => agents.get(slug).reset(),
+    'export.start': async ({ slug, fps }: { slug: string; fps: number }) => exporter.start(slug, fps),
+    'export.cancel': async ({ slug }: { slug: string }) => ({ cancelled: await exporter.cancel(slug) }),
+    'export.status': async ({ slug }: { slug: string }) => exporter.status(slug),
+    'project.reveal': async ({ slug, path: rel }: { slug: string; path: string }) => {
+      const dir = store.dir(slug);
+      const file = path.resolve(dir, rel);
+      if (!file.startsWith(dir + path.sep) || !existsSync(file))
+        throw new RpcError(`no ${rel} in this project`, 'not_found');
+      if (process.platform !== 'darwin') return { ok: false };
+      await new Promise<void>((resolve, reject) =>
+        execFile('open', ['-R', file], (err) => (err ? reject(err) : resolve())),
+      );
+      return { ok: true };
+    },
     'agent.permission': async (p: { slug: string; requestId: string; allow: boolean; message?: string }) => ({
       resolved: agents.get(p.slug).answerPermission(p.requestId, p.allow, p.message),
     }),
@@ -765,6 +787,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     async close() {
       await agents.closeAll().catch(() => {});
       await runner.close();
+      await exporter.close();
       await headless.close();
       if (overlayServer) await (await overlayServer).close().catch(() => {});
       for (const ws of sockets) ws.terminate();

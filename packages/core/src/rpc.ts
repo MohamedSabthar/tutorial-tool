@@ -6,6 +6,7 @@ import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './p
 import { Brief, PlanEdit } from './brief';
 import { Run } from './runs';
 import { ExplainerJob } from './explainers';
+import { ExportState } from './export';
 
 /** A component in the shared overlay library (`overlays/index.json`). */
 export const LibraryEntry = z.object({
@@ -444,6 +445,19 @@ export const rpcMethods = {
     params: z.object({ slug: z.string(), edits: z.array(PlanEdit).min(1).max(50) }),
     result: PipelineState,
   },
+  /** Starts exporting the tutorial to `output/<slug>.mp4` (progress arrives as `export.progress`). */
+  'export.start': {
+    params: z.object({ slug: z.string(), fps: z.union([z.literal(30), z.literal(60)]).default(30) }),
+    result: ExportState,
+  },
+  'export.cancel': { params: z.object({ slug: z.string() }), result: z.object({ cancelled: z.boolean() }) },
+  /** The project's current or last export this session. */
+  'export.status': { params: z.object({ slug: z.string() }), result: ExportState.nullable() },
+  /** Shows a file of the project in Finder. */
+  'project.reveal': {
+    params: z.object({ slug: z.string(), path: z.string() }),
+    result: z.object({ ok: z.boolean() }),
+  },
   /** Answers a tool permission request raised by `canUseTool`. */
   'agent.permission': {
     params: z.object({
@@ -497,6 +511,7 @@ export const rpcEvents = {
   'runs.changed': z.object({ slug: z.string() }),
   'explainers.changed': z.object({ slug: z.string() }),
   'agent.state': AgentStatus,
+  'export.progress': ExportState,
   'pipeline.changed': PipelineState,
   'live.session': z.object({
     state: z.enum(['started', 'stopped']),

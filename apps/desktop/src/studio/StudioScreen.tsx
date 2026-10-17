@@ -49,6 +49,7 @@ import { useTimeline } from './useTimeline';
 import { AgentPanel } from './AgentPanel';
 import { PipelinePanel } from './PipelinePanel';
 import { KnowledgePanel } from './KnowledgePanel';
+import { ExportButton } from './ExportButton';
 
 /** A component's default props, or {} when its schema can't produce them. */
 function defaultProps(
@@ -384,9 +385,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               Brief
             </LinkButton>
             <LinkButton href="#/reference">Re-record</LinkButton>
-            <Button variant="primary" disabled title="Export arrives in Phase 7">
-              Export
-            </Button>
+            <ExportButton slug={slug} />
           </>
         }
       />
