@@ -196,6 +196,8 @@ export const Timeline = z
     overlays: z.array(OverlayInstance).default([]),
     voice: z.array(VoiceLine).default([]),
     captions: z.array(Caption).default([]),
+    /** Whether captions are drawn on the video (preview and export); the cues are kept either way. */
+    showCaptions: z.boolean().default(true),
     annotations: z.array(Annotation).default([]),
   })
   .superRefine((tl, ctx) => {

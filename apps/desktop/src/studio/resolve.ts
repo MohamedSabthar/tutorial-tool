@@ -81,7 +81,9 @@ export function resolveTimeline(tl: Timeline, _events: RecorderEvent[]): Resolve
     return { id: s.id, title: s.title, start, end: Math.max(end, start) };
   });
   const stepBox = new Map(tl.steps.map((s) => [s.id, s.bbox]));
-  const instances: HostInstance[] = tl.overlays.map((o: OverlayInstance) => {
+  // Captions off: their overlays aren't drawn (the cues stay for SRT/VTT).
+  const shown = tl.showCaptions ? tl.overlays : tl.overlays.filter((o) => o.component !== 'core:Captions');
+  const instances: HostInstance[] = shown.map((o: OverlayInstance) => {
     const box = o.anchor ? stepBox.get(o.anchor.stepId) : undefined;
     const anchor = o.rect ?? (box && fit ? sourceToStage(box, fit) : null);
     return { id: o.id, component: o.component, start: o.start, end: o.end, props: o.props, anchor };

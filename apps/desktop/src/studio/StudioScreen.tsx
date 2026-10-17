@@ -710,6 +710,24 @@ export function StudioScreen({ slug }: { slug: string }) {
                 {fmt(t)} <span style={{ color: 'var(--ui-gray-600)' }}>/ {fmt(duration)}</span>
               </span>
               <span style={{ flex: 1 }} />
+              {tl.timeline && (
+                <Button
+                  size="sm"
+                  aria-pressed={tl.timeline.showCaptions}
+                  title={
+                    tl.timeline.showCaptions
+                      ? 'Captions are drawn on the video (and burned into the export). Click to hide them; the SRT/VTT files are still exported.'
+                      : 'Captions are hidden from the video. Click to show them.'
+                  }
+                  onClick={() =>
+                    void tl.patch([{ op: 'add', path: '/showCaptions', value: !tl.timeline!.showCaptions }], {
+                      label: tl.timeline!.showCaptions ? 'Hide captions' : 'Show captions',
+                    })
+                  }
+                >
+                  {tl.timeline.showCaptions ? 'Captions on' : 'Captions off'}
+                </Button>
+              )}
               <Segmented
                 label="View"
                 options={['Final', 'With annotations', 'Raw take'] as const}
@@ -790,7 +808,14 @@ export function StudioScreen({ slug }: { slug: string }) {
         </aside>
       </div>
 
-      <VoicePlayer spans={spans} t={t} playing={player.playing} media={media} />
+      <VoicePlayer
+        spans={spans}
+        t={t}
+        playing={player.playing}
+        rate={player.rate}
+        media={media}
+        onSync={(at) => controls.seek(at)}
+      />
       {tl.timeline && resolved && (
         <TimelinePanel
           slug={slug}
