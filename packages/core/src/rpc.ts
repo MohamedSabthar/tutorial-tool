@@ -140,6 +140,27 @@ export const rpcMethods = {
       lines: z.array(z.object({ stepId: z.string(), duration: z.number(), cached: z.boolean() })),
       skipped: z.array(z.object({ stepId: z.string(), reason: z.string() })),
       seconds: z.number(),
+      fit: z
+        .object({ before: z.number(), after: z.number(), holds: z.number(), spedUp: z.number() })
+        .optional(),
+    }),
+  },
+  /** Fits the recording to the voice-over: freezes where the voice is longer, speeds up idle stretches (≤1.5×). */
+  'timing.fit': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({
+      before: z.number(),
+      after: z.number(),
+      steps: z.array(
+        z.object({
+          stepId: z.string(),
+          action: z.number(),
+          needed: z.number(),
+          hold: z.number(),
+          speed: z.number(),
+          overrun: z.number(),
+        }),
+      ),
     }),
   },
   /** Waveform peaks (0–1) of a project audio file, `rate` per second. */

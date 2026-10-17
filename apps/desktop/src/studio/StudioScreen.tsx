@@ -547,39 +547,68 @@ export function StudioScreen({ slug }: { slug: string }) {
   );
 }
 
-/** Voices every step's narration again (cached lines are free) and reports what happened. */
+/** Voice-over and timing-fit actions for the timeline toolbar, with a one-line report. */
 function RegenerateVo({ slug }: { slug: string }) {
   const { client } = useEngine();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'vo' | 'fit' | null>(null);
   const [note, setNote] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
+  const len = (s: number) => {
+    const t = Math.round(s);
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  };
+  const fitText = (f: { before: number; after: number; holds: number; spedUp: number }) =>
+    `fitted ${len(f.before)} → ${len(f.after)} (${f.holds} freeze${f.holds === 1 ? '' : 's'}, ${f.spedUp} sped up)`;
+  const run = (kind: 'vo' | 'fit', fn: () => Promise<string>) => {
+    setBusy(kind);
+    setNote(null);
+    fn()
+      .then(
+        (text) => setNote({ tone: 'ok', text }),
+        (e: unknown) => setNote({ tone: 'error', text: e instanceof Error ? e.message : String(e) }),
+      )
+      .finally(() => setBusy(null));
+  };
   return (
     <>
       <Button
         size="sm"
         variant="steel"
-        disabled={!client || busy}
-        title="Synthesize the voice-over from each step's narration with the brief's voice"
-        onClick={() => {
-          setBusy(true);
-          setNote(null);
-          client!
-            .call('vo.generate', { slug })
-            .then(
-              (r) =>
-                setNote({
-                  tone: 'ok',
-                  text: `${r.lines.length} line${r.lines.length === 1 ? '' : 's'} · ${r.seconds.toFixed(1)} s${
-                    r.lines.some((l) => l.cached)
-                      ? ` · ${r.lines.filter((l) => l.cached).length} from cache`
-                      : ''
-                  }${r.skipped.length ? ` · ${r.skipped.length} without narration` : ''}`,
-                }),
-              (e: unknown) => setNote({ tone: 'error', text: e instanceof Error ? e.message : String(e) }),
-            )
-            .finally(() => setBusy(false));
-        }}
+        disabled={!client || !!busy}
+        title="Synthesize the voice-over from each step's narration with the brief's voice, then fit the timing"
+        onClick={() =>
+          run('vo', async () => {
+            const r = await client!.call('vo.generate', { slug });
+            const cached = r.lines.filter((l) => l.cached).length;
+            return [
+              `${r.lines.length} line${r.lines.length === 1 ? '' : 's'} · ${r.seconds.toFixed(1)} s`,
+              cached ? `${cached} from cache` : '',
+              r.skipped.length ? `${r.skipped.length} without narration` : '',
+              r.fit ? fitText(r.fit) : '',
+            ]
+              .filter(Boolean)
+              .join(' · ');
+          })
+        }
       >
-        {busy ? 'Voicing…' : 'Regenerate VO'}
+        {busy === 'vo' ? 'Voicing…' : 'Regenerate VO'}
+      </Button>
+      <Button
+        size="sm"
+        disabled={!client || !!busy}
+        title="Freeze where the voice runs longer than the action; speed up idle stretches (at most 1.5×) where it is shorter"
+        onClick={() =>
+          run('fit', async () => {
+            const r = await client!.call('timing.fit', { slug });
+            return fitText({
+              before: r.before,
+              after: r.after,
+              holds: r.steps.filter((x) => x.hold > 0).length,
+              spedUp: r.steps.filter((x) => x.speed > 1).length,
+            });
+          })
+        }
+      >
+        {busy === 'fit' ? 'Fitting…' : 'Fit timing'}
       </Button>
       {note && <Chip tone={note.tone}>{note.text}</Chip>}
     </>

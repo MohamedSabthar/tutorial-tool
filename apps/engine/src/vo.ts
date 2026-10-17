@@ -17,7 +17,15 @@ export interface VoiceoverResult {
   skipped: { stepId: string; reason: string }[];
   /** Total seconds of voice-over. */
   seconds: number;
+  /** Timing fit run right after (output length before and after). */
+  fit?: { before: number; after: number; holds: number; spedUp: number };
 }
+
+/** Runs after new lines land (the timing fit), in the same undo group. */
+export type AfterVoice = (
+  slug: string,
+  opts: { author: Author; group: string | null },
+) => Promise<{ before: number; after: number; steps: { hold: number; speed: number }[] }>;
 
 /**
  * The voice-over: one line per recorded step, synthesized from the step's narration with the
@@ -29,6 +37,7 @@ export class Voiceover {
       store: ProjectStore;
       timelines: TimelineStore;
       tts: Pick<TtsService, 'synthesize'>;
+      after?: AfterVoice;
     },
   ) {}
 
@@ -81,6 +90,15 @@ export class Voiceover {
         label: 'Generate voice-over',
       });
     result.seconds = Math.round(result.lines.reduce((n, l) => n + l.duration, 0) * 100) / 100;
+    if (this.deps.after && fresh.size && timeline.takes.length) {
+      const f = await this.deps.after(slug, { author: opts.author ?? 'user', group: opts.group ?? null });
+      result.fit = {
+        before: f.before,
+        after: f.after,
+        holds: f.steps.filter((s) => s.hold > 0).length,
+        spedUp: f.steps.filter((s) => s.speed > 1).length,
+      };
+    }
     return result;
   }
 

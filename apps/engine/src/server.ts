@@ -38,6 +38,7 @@ import { projectCard } from './cards';
 import { secretStore } from './secrets';
 import { TtsService } from './tts';
 import { Voiceover } from './vo';
+import { TimingFit } from './timing';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -117,7 +118,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   });
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
-  const voiceover = new Voiceover({ store, timelines, tts });
+  const timing = new TimingFit({ store, timelines });
+  const voiceover = new Voiceover({ store, timelines, tts, after: (slug, o) => timing.fit(slug, o) });
   const pipeline: PipelineManager = new PipelineManager({
     store,
     agents,
@@ -210,6 +212,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         author: 'user',
         group: `vo-${Date.now()}`,
       }),
+    'timing.fit': async ({ slug }: { slug: string }) =>
+      timing.fit(slug, { author: 'user', group: `fit-${Date.now()}` }),
     'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
     'tts.status': async () => tts.status(),
     'tts.setKey': async ({ apiKey }: { apiKey: string }) => tts.setKey(apiKey),
