@@ -145,7 +145,10 @@ export class Workspace {
     await this.git(['add', '-A', ...spec]);
     const staged = await this.git(['diff', '--cached', '--name-only', ...spec]);
     if (!staged.trim()) return null;
-    await this.git([...(await this.identity()), 'commit', '-q', '-m', message, ...spec]);
+    // Commit exactly the staged files: a given path may match nothing git knows (an emptied,
+    // never-tracked folder), which a pathspec on `git commit` rejects.
+    const files = paths?.length ? ['--', ...staged.split('\n').filter(Boolean)] : [];
+    await this.git([...(await this.identity()), 'commit', '-q', '-m', message, ...files]);
     return this.git(['rev-parse', '--short', 'HEAD']);
   }
 

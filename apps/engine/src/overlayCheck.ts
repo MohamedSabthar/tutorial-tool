@@ -30,6 +30,8 @@ export interface CheckResult {
   frames: { t: number; label: string }[];
   /** JPEG contact sheet of the rendered frames (null when nothing rendered). */
   sheet: Buffer | null;
+  /** PNG of the middle frame (library thumbnails). */
+  middle: Buffer | null;
   /** The instance that was rendered, and whether it was a temporary test instance. */
   instance: { id: string; start: number; end: number; test: boolean } | null;
 }
@@ -223,7 +225,7 @@ export async function checkOverlay(opts: {
         stage: 'bundle',
         message: e instanceof Error ? e.message.split('\n').slice(0, 6).join('\n') : String(e),
       });
-      return { ok: false, component, problems, frames: [], sheet: null, instance: null };
+      return { ok: false, component, problems, frames: [], sheet: null, middle: null, instance: null };
     }
   }
 
@@ -290,6 +292,7 @@ export async function checkOverlay(opts: {
     problems,
     frames: times,
     sheet,
+    middle: mid.png,
     instance: { id: instance.id, start: instance.start, end: instance.end, test },
   };
 }

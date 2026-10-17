@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { RpcResult } from '@studio/core';
 import type { OverlayModule } from '@studio/overlay-sdk';
-import { Panel, Segmented } from '@studio/ui';
+import { Button, Chip, Panel, Segmented } from '@studio/ui';
+import { useEngine } from '../engine';
 
 export const OVERLAY_DRAG_TYPE = 'application/x-studio-overlay';
 
@@ -50,13 +52,44 @@ const glyphs: Record<string, React.CSSProperties> = {
  * timeline's Overlays lane (or click Add) to create an instance.
  */
 export function Library({
+  slug,
   registry,
   onAdd,
 }: {
+  slug: string;
   registry: Record<string, OverlayModule>;
   onAdd: (id: string) => void;
 }) {
   const [tab, setTab] = useState<'Overlays' | 'Explainers'>('Overlays');
+  const { client, info, state } = useEngine();
+  const [index, setIndex] = useState<RpcResult<'library.index'>>([]);
+  const [note, setNote] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null);
+  const loadIndex = useCallback(async () => {
+    if (client) setIndex(await client.call('library.index', {}).catch(() => []));
+  }, [client]);
+  useEffect(() => {
+    if (!client || state !== 'open') return;
+    void Promise.resolve().then(loadIndex);
+    return client.on('workspace.changed', () => void loadIndex());
+  }, [client, state, loadIndex]);
+  const thumb = (id: string) => {
+    const e = index.find((x) => x.id === id);
+    return e?.thumbnail && info
+      ? `http://127.0.0.1:${info.port}/library/thumb/${id.split(':')[1]}?token=${encodeURIComponent(info.token)}&v=${encodeURIComponent(e.promotedAt)}`
+      : null;
+  };
+  const promote = async (id: string) => {
+    if (!client) return;
+    const name = registry[id]?.meta?.name ?? id;
+    if (!window.confirm(`Move ${name} into the shared library so every tutorial can use it?`)) return;
+    setNote({ text: `Checking and promoting ${name}…`, tone: 'info' });
+    try {
+      await client.call('library.promote', { slug, id });
+      setNote({ text: `${name} is in the library`, tone: 'ok' });
+    } catch (e) {
+      setNote({ text: e instanceof Error ? e.message : String(e), tone: 'error' });
+    }
+  };
   const entries = Object.entries(registry).filter(
     ([, m]) => (m.meta?.kind ?? 'overlay') === (tab === 'Overlays' ? 'overlay' : 'scene'),
   );
@@ -72,60 +105,85 @@ export function Library({
       {entries.length === 0 && (
         <span style={{ color: 'var(--ui-gray-600)', fontSize: 12 }}>No explainer scenes yet (Phase 6).</span>
       )}
+      {note && <Chip tone={note.tone}>{note.text}</Chip>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
         {entries.map(([id, m]) => (
-          <button
-            key={id}
-            type="button"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData(OVERLAY_DRAG_TYPE, id);
-              e.dataTransfer.effectAllowed = 'copy';
-            }}
-            onClick={() => onAdd(id)}
-            title={`${m.meta?.description ?? id} (drag onto the timeline, or click to add at the playhead)`}
-            style={{
-              background: 'var(--ui-white)',
-              border: '1px solid var(--ui-gray-300)',
-              borderRadius: 10,
-              overflow: 'hidden',
-              padding: 0,
-              cursor: 'grab',
-              textAlign: 'left',
-            }}
-          >
-            <span
+          <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <button
+              type="button"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(OVERLAY_DRAG_TYPE, id);
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+              onClick={() => onAdd(id)}
+              title={`${m.meta?.description ?? id} (drag onto the timeline, or click to add at the playhead)`}
               style={{
-                height: 50,
-                background: 'var(--ui-navy)',
-                display: 'grid',
-                placeItems: 'center',
+                background: 'var(--ui-white)',
+                border: '1px solid var(--ui-gray-300)',
+                borderRadius: 10,
                 overflow: 'hidden',
+                padding: 0,
+                cursor: 'grab',
+                textAlign: 'left',
               }}
             >
               <span
-                style={
-                  glyphs[id] ?? { width: '50%', height: '40%', border: '2px dashed #A9C6DD', borderRadius: 6 }
-                }
-              />
-            </span>
-            <span
-              style={{
-                display: 'block',
-                padding: '6px 8px',
-                fontSize: 11,
-                color: 'var(--ui-navy)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {m.meta?.name ?? id}
-              {!id.startsWith('core:') && (
-                <span style={{ color: 'var(--ui-gray-600)' }}> · {id.split(':')[0]}</span>
-              )}
-            </span>
-          </button>
+                style={{
+                  height: 50,
+                  background: 'var(--ui-navy)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  overflow: 'hidden',
+                }}
+              >
+                {thumb(id) ? (
+                  <img
+                    src={thumb(id)!}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <span
+                    style={
+                      glyphs[id] ?? {
+                        width: '50%',
+                        height: '40%',
+                        border: '2px dashed #A9C6DD',
+                        borderRadius: 6,
+                      }
+                    }
+                  />
+                )}
+              </span>
+              <span
+                style={{
+                  display: 'block',
+                  padding: '6px 8px',
+                  fontSize: 11,
+                  color: 'var(--ui-navy)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {m.meta?.name ?? id}
+                {!id.startsWith('core:') && (
+                  <span style={{ color: 'var(--ui-gray-600)' }}> · {id.split(':')[0]}</span>
+                )}
+              </span>
+            </button>
+            {id.startsWith('project:') && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void promote(id)}
+                title="Move into the shared library"
+              >
+                Promote
+              </Button>
+            )}
+          </div>
         ))}
       </div>
     </Panel>

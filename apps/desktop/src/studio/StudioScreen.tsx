@@ -719,7 +719,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               }}
             />
           )}
-          <Library registry={registry} onAdd={(id) => addOverlay(id)} />
+          <Library slug={slug} registry={registry} onAdd={(id) => addOverlay(id)} />
         </aside>
       </div>
 

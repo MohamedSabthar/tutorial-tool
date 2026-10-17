@@ -6,6 +6,17 @@ import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './p
 import { Brief, PlanEdit } from './brief';
 import { Run } from './runs';
 
+/** A component in the shared overlay library (`overlays/index.json`). */
+export const LibraryEntry = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  props: z.array(z.string()),
+  thumbnail: z.string().nullable(),
+  from: z.string(),
+  promotedAt: z.string(),
+});
+
 /**
  * The engine's WebSocket protocol.
  *   request  { id, method, params }
@@ -150,6 +161,13 @@ export const rpcMethods = {
   'overlays.auto': {
     params: z.object({ slug: z.string() }),
     result: TimelineState.extend({ count: z.number() }),
+  },
+  /** The shared overlay library's index (promoted components with props summaries and thumbnails). */
+  'library.index': { params: z.object({}), result: z.array(LibraryEntry) },
+  /** Moves project:Name into the shared library (it must pass check_overlay first). */
+  'library.promote': {
+    params: z.object({ slug: z.string(), id: z.string() }),
+    result: LibraryEntry,
   },
   /** Agent runs that changed something, oldest first. */
   'runs.list': { params: z.object({ slug: z.string() }), result: z.array(Run) },

@@ -45,6 +45,7 @@ import { annotationMessage } from './agent/annotationContext';
 import { HeadlessStage } from './render';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
+import { Library } from './library';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -146,6 +147,25 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     render: (slug, times) => headless.render(slug, times),
     emit: (slug) => broadcast('runs.changed', { slug }),
   });
+  const library = new Library({
+    workspace: opts.workspace,
+    timelines,
+    overlays: () => overlays(),
+    check: async (slug, file) =>
+      checkOverlay({
+        workspace: opts.workspace,
+        slug,
+        file,
+        timeline: (await timelines.get(slug)).timeline,
+        overlays: await overlays(),
+        stage: headless,
+      }),
+    commit: async (message, paths) => {
+      const head = await workspace.commit(message, paths);
+      broadcast('workspace.changed', { head });
+      return head;
+    },
+  });
   const voiceover = new Voiceover({ store, timelines, tts, after: (slug, o) => timing.fit(slug, o) });
   const pipeline: PipelineManager = new PipelineManager({
     store,
@@ -192,6 +212,14 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return reply.code(401).send({ error: 'unauthorized' });
   });
   app.get('/health', async () => ({ ok: true, version: ENGINE_VERSION }));
+  // Library thumbnails (workspace overlays/thumbs/<Name>.jpg); token-checked like media.
+  app.get<{ Params: { name: string } }>('/library/thumb/:name', async (req, reply) => {
+    const file = library.thumbPath(req.params.name);
+    if (!file) return reply.code(404).send({ error: 'not found' });
+    reply.header('content-type', 'image/jpeg');
+    reply.header('cache-control', 'no-cache');
+    return reply.send(await readFileP(file));
+  });
   registerMedia(app, store);
 
   const handlers: Handlers = {
@@ -284,6 +312,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       );
       return { sent: msg.ids.length, images: msg.images.length };
     },
+    'library.index': async () => library.index(),
+    'library.promote': async ({ slug, id }: { slug: string; id: string }) => library.promote(slug, id),
     'runs.list': async ({ slug }: { slug: string }) =>
       (await runs.list(slug)).filter((r) => r.status !== 'empty'),
     'runs.get': async ({ slug, n }: { slug: string; n: number }) => ({
