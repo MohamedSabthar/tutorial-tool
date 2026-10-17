@@ -80,6 +80,60 @@ export function workspaceFileAllowed(
   return true;
 }
 
+const READ_ONLY = new Set(
+  'cat ls head tail grep egrep fgrep rg find wc sort uniq cut tr echo printf pwd cd file stat tree basename dirname realpath du diff jq column nl true'.split(
+    ' ',
+  ),
+);
+const GIT_READ_ONLY = new Set(['log', 'show', 'diff', 'status', 'ls-files', 'grep', 'rev-parse', 'blame']);
+
+/**
+ * Read-only shell commands that stay inside the workspace (e.g. `cd <skill>; cat components/*.md; ls`)
+ * run without asking. Anything that writes, substitutes commands, runs other programs or touches
+ * a path outside the workspace still goes to the user.
+ */
+export function readOnlyBashAllowed(workspace: string, cwd: string, command: string): boolean {
+  const root = path.resolve(workspace);
+  const inside = (p: string) => {
+    const rel = path.relative(root, p);
+    return !rel.startsWith('..') && !path.isAbsolute(rel);
+  };
+  const text = command.replace(/\s2>\s*\/dev\/null/g, ' ').replace(/\s2>&1/g, ' ');
+  if (/[<>`]|\$\(|\$\{|(^|[^&])&([^&]|$)/.test(text)) return false;
+  let dir = path.resolve(cwd);
+  for (const segment of text.split(/&&|\|\||[;|\n]/)) {
+    const words = segment.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+    const [prog, ...args] = words;
+    if (!prog || !READ_ONLY.has(prog)) {
+      if (prog !== 'git' && prog !== 'sed') return false;
+    }
+    // sed only as a printer: `sed -n '10,80p' file`.
+    if (prog === 'sed' && !(args[0] === '-n' && /^['"]?[\d,$]*p['"]?$/.test(args[1] ?? ''))) return false;
+    if (prog === 'find' && args.some((a) => /^-(exec|execdir|ok|okdir|delete|fprint|fprintf|fls)$/.test(a)))
+      return false;
+    if (prog === 'git') {
+      const sub = args.find((a) => !a.startsWith('-') && args[args.indexOf(a) - 1] !== '-C');
+      if (!sub || !GIT_READ_ONLY.has(sub)) return false;
+    }
+    for (const raw of args) {
+      const a = raw.replace(/^['"]|['"]$/g, '');
+      if (a.startsWith('~')) return false;
+      if (a.startsWith('/') || a.startsWith('.') || a.includes('/')) {
+        if (a.startsWith('-')) continue;
+        if (!inside(path.resolve(dir, a.replace(/[*?[].*$/, '') || '.'))) return false;
+      }
+    }
+    if (prog === 'cd') {
+      const target = args[0]?.replace(/^['"]|['"]$/g, '');
+      if (!target) return false;
+      dir = path.resolve(dir, target);
+      if (!inside(dir)) return false;
+    }
+  }
+  return inside(dir);
+}
+
 interface Stored {
   sessionId: string | null;
   costUsd: number;
@@ -321,6 +375,12 @@ export class AgentSession {
     if (opts.mcpServer?.source === 'sdk' && opts.mcpServer.name === 'studio')
       return Promise.resolve({ behavior: 'allow', updatedInput: input });
     if (workspaceFileAllowed(this.host.workspaceDir, toolName, input))
+      return Promise.resolve({ behavior: 'allow', updatedInput: input });
+    if (
+      toolName === 'Bash' &&
+      typeof input.command === 'string' &&
+      readOnlyBashAllowed(this.host.workspaceDir, this.host.projectDir(this.slug), input.command)
+    )
       return Promise.resolve({ behavior: 'allow', updatedInput: input });
     const requestId = randomUUID();
     this.emit({

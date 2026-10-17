@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentEvent, AgentStatus } from '@studio/core';
 import { AsyncQueue } from '../src/agent/queue';
 import { normalize } from '../src/agent/events';
-import { AgentSession, agentEnv, workspaceFileAllowed } from '../src/agent/session';
+import { AgentSession, agentEnv, readOnlyBashAllowed, workspaceFileAllowed } from '../src/agent/session';
 
 const init = (sessionId: string) =>
   ({
@@ -300,5 +300,32 @@ describe('AgentSession', () => {
     await until(() => calls.length === 2);
     expect(calls[1]!.resume).toBeUndefined();
     await a.close();
+  });
+});
+
+describe('readOnlyBashAllowed', () => {
+  const ws = '/w';
+  const ok = (cmd: string) => readOnlyBashAllowed(ws, '/w/projects/p', cmd);
+  it('allows read-only commands inside the workspace', () => {
+    expect(
+      ok(
+        'cd /w/.claude/skills/wso2-integrator; cat components/*.md; cat pages/*.ts | head -300; ls ../../../projects/',
+      ),
+    ).toBe(true);
+    expect(ok("sed -n '1,80p' script.spec.ts && grep -rn Resource ../../.claude 2>/dev/null")).toBe(true);
+    expect(ok('git log --oneline -5')).toBe(true);
+    expect(ok('find . -name "*.md"')).toBe(true);
+  });
+  it('asks for anything that writes, runs programs or leaves the workspace', () => {
+    expect(ok('cat /etc/passwd')).toBe(false);
+    expect(ok('ls ~/Desktop')).toBe(false);
+    expect(ok('cd ../../..; ls')).toBe(false);
+    expect(ok('echo x > file')).toBe(false);
+    expect(ok("sed -i 's/a/b/' f")).toBe(false);
+    expect(ok('find . -delete')).toBe(false);
+    expect(ok('cat $(which node)')).toBe(false);
+    expect(ok('rm -rf x')).toBe(false);
+    expect(ok('git commit -m x')).toBe(false);
+    expect(ok('ls & rm x')).toBe(false);
   });
 });

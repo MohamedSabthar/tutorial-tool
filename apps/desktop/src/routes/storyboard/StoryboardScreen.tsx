@@ -12,6 +12,7 @@ import { Button, Chip, GateBanner, LinkButton, Panel, Stepper, TextArea } from '
 import { openLiveWindow, useEngine } from '../../engine';
 import { pipelineSteps, usePipeline } from '../../pipeline';
 import { AppFrame, formatDuration } from '../frame';
+import { PermissionRequests } from '../../studio/PermissionRequests';
 
 /** Rough length of an explainer until scenes exist (Phase 6). */
 const EXPLAINER_SECONDS = 20;
@@ -211,7 +212,16 @@ export function StoryboardScreen({ slug }: { slug: string }) {
   })();
 
   return (
-    <AppFrame current="projects" slug={slug} banner={banner}>
+    <AppFrame
+      current="projects"
+      slug={slug}
+      banner={
+        <>
+          {banner}
+          <PermissionRequests slug={slug} />
+        </>
+      }
+    >
       <div className="storyboard">
         <main className="storyboard-cards" aria-label="Storyboard">
           <div className="storyboard-head">

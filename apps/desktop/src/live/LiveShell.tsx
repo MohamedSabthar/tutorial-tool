@@ -34,6 +34,8 @@ interface LogLine {
   tag: string;
   tone: ChipTone;
   text: string;
+  /** A tool call waiting for Allow or Deny. */
+  request?: { slug: string; id: string };
 }
 
 const PIPELINE: { stage: Stage; label: string }[] = [
@@ -83,7 +85,13 @@ function agentLine(e: AgentEvent): LogLine | null {
     case 'tool_use':
       return { t, tag: e.name.replace(/^mcp__studio__/, 'studio · '), tone: 'neutral', text: e.summary };
     case 'permission':
-      return { t, tag: 'Needs approval', tone: 'active', text: `${e.tool}: ${e.summary}` };
+      return {
+        t,
+        tag: 'Needs approval',
+        tone: 'active',
+        text: `${e.tool}: ${e.summary}`,
+        request: { slug: e.slug, id: e.requestId },
+      };
     case 'result':
       return {
         t,
@@ -122,6 +130,8 @@ export function LiveShell() {
   const [elapsed, setElapsed] = useState(0);
   const [stopping, setStopping] = useState(false);
   const [agent, setAgent] = useState<AgentStatus | null>(null);
+  /** Pending permission requests per project, from agent.state. */
+  const [pending, setPending] = useState<Record<string, string[]>>({});
   const [steer, setSteer] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const pipe = usePipeline(null);
@@ -169,7 +179,10 @@ export function LiveShell() {
           ),
         );
       }),
-      client.on('agent.state', setAgent),
+      client.on('agent.state', (a) => {
+        setAgent(a);
+        setPending((p) => ({ ...p, [a.slug]: a.pending }));
+      }),
       client.on('agent.event', (e) => {
         const line = agentLine(e);
         if (line) setLog((l) => [...l, line].slice(-80));
@@ -196,6 +209,31 @@ export function LiveShell() {
   const fw = session?.frame?.width ?? 1;
   const fh = session?.frame?.height ?? 1;
   const mmss = `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, '0')}`;
+
+  // A window opened while a request is waiting still shows it.
+  const pipeSlug = pipe.state?.slug ?? null;
+  useEffect(() => {
+    if (!client || state !== 'open' || !pipeSlug) return;
+    void client.call('agent.status', { slug: pipeSlug, history: 200 }).then(
+      ({ status, history }) => {
+        setAgent((a) => a ?? status);
+        setPending((p) => ({ ...p, [status.slug]: status.pending }));
+        const waiting = history.filter(
+          (e) => e.kind === 'permission' && status.pending.includes(e.requestId),
+        );
+        if (waiting.length)
+          setLog((l) => {
+            const have = new Set(l.map((x) => x.request?.id));
+            const lines = waiting.map(agentLine).filter((x): x is LogLine => !!x && !have.has(x.request?.id));
+            return [...l, ...lines].slice(-80);
+          });
+      },
+      () => undefined,
+    );
+  }, [client, state, pipeSlug]);
+
+  const answer = (r: { slug: string; id: string }, allow: boolean) =>
+    void client?.call('agent.permission', { slug: r.slug, requestId: r.id, allow }).catch(() => undefined);
 
   async function stop() {
     if (!client) return;
@@ -558,6 +596,16 @@ export function LiveShell() {
                       {l.tag}
                     </Chip>
                     <span style={{ lineHeight: 1.45 }}>{l.text}</span>
+                    {l.request && pending[l.request.slug]?.includes(l.request.id) && (
+                      <span style={{ display: 'flex', gap: 6 }}>
+                        <Button size="sm" variant="primary" onClick={() => answer(l.request!, true)}>
+                          Allow
+                        </Button>
+                        <Button size="sm" onClick={() => answer(l.request!, false)}>
+                          Deny
+                        </Button>
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}

@@ -621,3 +621,37 @@
   height: 10px;
   border-radius: 2px;
 }
+
+/* Agent permission requests (Storyboard) */
+.permission-requests {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 22px;
+  background: var(--ui-orange-100);
+  border-bottom: 1px solid var(--ui-orange);
+}
+.permission-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.permission-request-text {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ui-navy);
+  font-size: 13px;
+}
+.permission-request-text code {
+  font-family: var(--ui-mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+.permission-request-reason {
+  font-size: 11px;
+  color: var(--ui-gray-600);
+}
