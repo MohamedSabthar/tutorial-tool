@@ -76,14 +76,7 @@ export function StageHost({
 }) {
   const fit = useMemo(() => fitSource(take, STAGE), [take]);
   const recording = useMemo(() => ({ events, fit, sourceTime }), [events, fit, sourceTime]);
-  const moves = useMemo<CameraMove[]>(
-    () =>
-      instances
-        .filter((i) => i.component === 'core:Zoom' && i.anchor)
-        .sort((a, b) => a.start - b.start)
-        .map((i) => zoomMove(i, i.anchor!)),
-    [instances],
-  );
+  const moves = useMemo(() => cameraMoves(instances), [instances]);
   const camera = cameraAt(t, showOverlays ? moves : [], restCamera(STAGE), fit.rect, STAGE);
   const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
 
@@ -93,7 +86,7 @@ export function StageHost({
         <CaptionsContext.Provider value={captions}>
           <CameraProvider camera={camera} source={take}>
             <FrameShadow />
-          <Scene3D>
+            <Scene3D>
               <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
             </Scene3D>
             {(showOverlays ? instances : []).map((inst) => {
@@ -119,4 +112,24 @@ export function StageHost({
       </RecordingContext.Provider>
     </Stage>
   );
+}
+
+/** Camera moves from the Zoom instances (they render nothing themselves). */
+export function cameraMoves(instances: HostInstance[]): CameraMove[] {
+  return instances
+    .filter((i) => i.component === 'core:Zoom' && i.anchor)
+    .sort((a, b) => a.start - b.start)
+    .map((i) => zoomMove(i, i.anchor!));
+}
+
+/** Converts a rect seen on screen at time t (stage px, after the camera) back to stage px. */
+export function screenToStage(r: Rect, take: Take, instances: HostInstance[], t: number): Rect {
+  const fit = fitSource(take, STAGE);
+  const cam = cameraAt(t, cameraMoves(instances), restCamera(STAGE), fit.rect, STAGE);
+  return {
+    x: (r.x - STAGE.width / 2) / cam.zoom + cam.focusX,
+    y: (r.y - STAGE.height / 2) / cam.zoom + cam.focusY,
+    w: r.w / cam.zoom,
+    h: r.h / cam.zoom,
+  };
 }

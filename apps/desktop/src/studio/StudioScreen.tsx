@@ -33,6 +33,10 @@ import { TimelinePanel } from './TimelinePanel';
 import { Inspector } from './Inspector';
 import { Library } from './Library';
 import { VoicePlayer } from './VoicePlayer';
+import { ToolRail, toolForKey, type Tool } from './ToolRail';
+import { AnnotationLayer, AnnotationsPanel, type Shape } from './Annotations';
+import { AnnotationPopover } from './AnnotationPopover';
+import { screenToStage } from './StageHost';
 import { Manipulator, type SnapTarget } from './Manipulator';
 import { sourceToStage } from '@studio/stage';
 import type { Rect } from '@studio/core';
@@ -75,6 +79,10 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [player, controls] = usePlayer(duration);
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
+  const [tool, setTool] = useState<Tool>('select');
+  const [note, setNote] = useState<string | null>(null);
+  /** A note created by the last click: closing it empty discards it. */
+  const [fresh, setFresh] = useState<string | null>(null);
   const [adding, setAdding] = useState('core:Callout');
   const [dragRect, setDragRect] = useState<Rect | null>(null);
 
@@ -157,6 +165,7 @@ export function StudioScreen({ slug }: { slug: string }) {
       else if (e.key === 'ArrowLeft') controls.seek(controls.get().t - 1 / 30);
       else if (e.key === 'ArrowRight') controls.seek(controls.get().t + 1 / 30);
       else if (e.key === 's') split();
+      else if (!mod && !e.altKey && toolForKey(e.key)) chooseTool(toolForKey(e.key)!);
       else if ((e.key === 'Backspace' || e.key === 'Delete') && selected && tl.timeline) {
         const i = tl.timeline.overlays.findIndex((o) => o.id === selected);
         if (i >= 0)
@@ -164,11 +173,87 @@ export function StudioScreen({ slug }: { slug: string }) {
             label: 'Delete overlay',
           });
         setSelected(null);
-      } else if (e.key === 'Escape') setSelected(null);
+      } else if (e.key === 'Escape') {
+        setSelected(null);
+        setTool('select');
+        closeNote();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  function chooseTool(next: Tool) {
+    setTool(next);
+    if (next === 'pin' || next === 'region') setView('With annotations');
+  }
+
+  const noteIndex = (id: string) => tl.timeline?.annotations.findIndex((a) => a.id === id) ?? -1;
+  function patchNote(id: string, path: string, value: unknown, label: string) {
+    const i = noteIndex(id);
+    if (i >= 0) void tl.patch([{ op: 'replace', path: `/annotations/${i}/${path}`, value }], { label });
+  }
+  function removeNote(id: string) {
+    const i = noteIndex(id);
+    if (i >= 0) void tl.patch([{ op: 'remove', path: `/annotations/${i}` }], { label: 'Delete annotation' });
+    if (note === id) setNote(null);
+  }
+  function closeNote() {
+    const a = note ? tl.timeline?.annotations.find((x) => x.id === note) : null;
+    if (a && a.id === fresh && !a.comment.trim()) removeNote(a.id);
+    setNote(null);
+    setFresh(null);
+  }
+  function createNote(shape: Shape) {
+    controls.pause();
+    const id = `an-${Date.now().toString(36)}`;
+    void tl.patch(
+      [
+        {
+          op: 'add',
+          path: '/annotations/-',
+          value: { id, t: Math.round(t * 100) / 100, shape, comment: '', status: 'open' },
+        },
+      ],
+      { label: 'Add annotation' },
+    );
+    setNote(id);
+    setFresh(id);
+    setTool('select');
+  }
+  /** T, Z and B on the preview: a TextLabel at the point, or a Zoom/Blur over the area. */
+  function addFromArea(kind: 'text' | 'zoom' | 'blur', area: Rect) {
+    if (!take || !resolved) return;
+    controls.pause();
+    const id = `${kind}-${Date.now().toString(36)}`;
+    const start = Math.round(t * 100) / 100;
+    const component = kind === 'text' ? 'core:TextLabel' : kind === 'zoom' ? 'core:Zoom' : 'core:Blur';
+    const len = kind === 'zoom' ? 2.5 : kind === 'blur' ? 3 : 2;
+    const value =
+      kind === 'text'
+        ? {
+            id,
+            component,
+            start,
+            end: Math.min(start + len, duration),
+            props: { ...resolveProps(component, {}), x: area.x, y: area.y },
+          }
+        : {
+            id,
+            component,
+            start,
+            end: Math.min(start + len, duration),
+            rect: screenToStage(area, take, resolved.instances, t),
+            props: resolveProps(component, {}),
+          };
+    void tl.patch([{ op: 'add', path: '/overlays/-', value }], { label: `Add ${component.slice(5)}` });
+    setSelected(id);
+    setTool('select');
+  }
+  const stepLabel = (at: number) => {
+    const i = steps.findIndex((s) => at >= s.start && at < s.end);
+    return i >= 0 ? `step ${i + 1}` : null;
+  };
 
   const selectedOverlay = tl.timeline?.overlays.find((o) => o.id === selected) ?? null;
   const selectedInstance = resolved?.instances.find((i) => i.id === selected) ?? null;
@@ -374,6 +459,20 @@ export function StudioScreen({ slug }: { slug: string }) {
               ))}
             </ol>
           </Panel>
+          {tl.timeline && (
+            <AnnotationsPanel
+              annotations={tl.timeline.annotations}
+              stepLabel={stepLabel}
+              selected={note}
+              onOpen={(a) => {
+                controls.pause();
+                controls.seek(a.t);
+                if (note && note !== a.id) closeNote();
+                setNote(a.id);
+                setView('With annotations');
+              }}
+            />
+          )}
           <Panel title="Add overlay">
             <Select aria-label="Overlay type" value={adding} onChange={(e) => setAdding(e.target.value)}>
               {Object.keys(registry).map((id) => (
@@ -397,7 +496,14 @@ export function StudioScreen({ slug }: { slug: string }) {
         <main style={{ flex: '999 1 560px', minWidth: 0 }}>
           <Panel>
             {take && src && resolved ? (
-              <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--ui-gray-300)' }}>
+              <div
+                style={{
+                  position: 'relative',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  border: '1px solid var(--ui-gray-300)',
+                }}
+              >
                 <StageHost
                   take={take}
                   src={src}
@@ -421,6 +527,46 @@ export function StudioScreen({ slug }: { slug: string }) {
                     />
                   )}
                 </StageHost>
+                {tl.timeline && (
+                  <AnnotationLayer
+                    annotations={tl.timeline.annotations}
+                    t={t}
+                    tool={tool}
+                    show={view === 'With annotations'}
+                    selected={note}
+                    onSelect={(id) => {
+                      if (note && note !== id) closeNote();
+                      setNote(id);
+                    }}
+                    onCreate={createNote}
+                    onArea={addFromArea}
+                    popover={(a, style) => (
+                      <AnnotationPopover
+                        key={a.id}
+                        annotation={a}
+                        n={noteIndex(a.id) + 1}
+                        stepLabel={stepLabel(a.t)}
+                        style={style}
+                        onSave={(text) => {
+                          patchNote(a.id, 'comment', text, 'Edit annotation');
+                          setFresh(null);
+                          setNote(null);
+                        }}
+                        onResolve={(done) =>
+                          patchNote(
+                            a.id,
+                            'status',
+                            done ? 'resolved' : 'open',
+                            done ? 'Resolve annotation' : 'Reopen annotation',
+                          )
+                        }
+                        onDelete={() => removeNote(a.id)}
+                        onClose={closeNote}
+                      />
+                    )}
+                  />
+                )}
+                <ToolRail tool={tool} onTool={chooseTool} />
               </div>
             ) : (
               <div
@@ -542,6 +688,14 @@ export function StudioScreen({ slug }: { slug: string }) {
           onUndo={() => void tl.undo()}
           onRedo={() => void tl.redo()}
           actions={<RegenerateVo slug={slug} />}
+          onAnnotation={(id) => {
+            const a = tl.timeline?.annotations.find((x) => x.id === id);
+            if (!a) return;
+            controls.pause();
+            controls.seek(a.t);
+            setNote(id);
+            setView('With annotations');
+          }}
         />
       )}
     </div>

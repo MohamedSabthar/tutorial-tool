@@ -36,6 +36,8 @@ interface Props {
   onRedo: () => void;
   /** Extra toolbar actions (e.g. Regenerate VO). */
   actions?: ReactNode;
+  /** An annotation pin on the lane was clicked. */
+  onAnnotation?: (id: string) => void;
 }
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -69,6 +71,7 @@ export function TimelinePanel({
   onUndo,
   onRedo,
   actions,
+  onAnnotation,
 }: Props) {
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -374,9 +377,25 @@ export function TimelinePanel({
       height: LANE_H,
       render: () =>
         timeline.annotations.map((a, i) => (
-          <span key={a.id} className="ui-pin" style={{ position: 'absolute', top: 5, left: x(a.t) - 10 }}>
+          <button
+            key={a.id}
+            type="button"
+            className="ui-pin"
+            data-resolved={a.status === 'resolved' || undefined}
+            aria-label={`Annotation ${i + 1}${a.comment ? `: ${a.comment}` : ''}`}
+            title={a.comment || `Annotation ${i + 1}`}
+            onClick={() => onAnnotation?.(a.id)}
+            style={{
+              position: 'absolute',
+              top: 5,
+              left: x(a.t) - 10,
+              border: 0,
+              padding: 0,
+              cursor: 'pointer',
+            }}
+          >
             {i + 1}
-          </span>
+          </button>
         )),
     },
   ];

@@ -142,3 +142,157 @@
     opacity: 0;
   }
 }
+
+/* Studio: preview tool rail and annotations (drawn over the preview, never exported) */
+.tool-rail {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 4;
+}
+.tool-rail-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  font: 700 11px var(--ui-font);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ui-navy);
+  box-shadow: var(--ui-shadow-sm);
+  cursor: pointer;
+}
+.tool-rail-btn[aria-pressed='true'] {
+  background: var(--ui-orange);
+  color: var(--ui-white);
+}
+.annotation-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.annotation-layer[data-drawing] {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+.annotation-pin {
+  position: absolute;
+  border: 0;
+  padding: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  transform: translate(-2px, calc(-100% + 2px));
+  box-shadow: 0 0 0 3px rgba(123, 164, 199, 0.35);
+}
+.ui-pin[data-resolved] {
+  background: var(--ui-gray-500);
+}
+.annotation-pin[data-active] {
+  box-shadow: 0 0 0 4px rgba(255, 88, 0, 0.35);
+}
+.annotation-region,
+.annotation-draft {
+  position: absolute;
+  border: 2px dashed var(--ui-steel);
+  border-radius: 6px;
+  background: rgba(79, 122, 163, 0.1);
+}
+.annotation-region[data-resolved] {
+  border-color: var(--ui-gray-500);
+  background: transparent;
+}
+.annotation-region[data-active] {
+  border-color: var(--ui-orange);
+}
+.annotation-draft[data-tool='zoom'] {
+  border-color: var(--ui-navy);
+  background: rgba(19, 33, 59, 0.08);
+}
+.annotation-draft[data-tool='blur'] {
+  border-color: var(--ui-gray-600);
+  background: rgba(255, 255, 255, 0.35);
+}
+.annotation-popover {
+  position: absolute;
+  width: 290px;
+  background: var(--ui-white);
+  border: 1px solid var(--ui-gray-300);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--ui-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+  cursor: default;
+}
+.annotation-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.annotation-popover-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ui-navy);
+}
+.annotation-popover-time,
+.annotation-popover-context {
+  font-size: 11px;
+  color: var(--ui-gray-600);
+}
+.annotation-popover-text {
+  border-radius: 8px;
+  border: 1.5px solid var(--ui-orange);
+  padding: 8px;
+  font: 12px/1.4 var(--ui-font);
+  color: var(--ui-ink);
+  resize: none;
+}
+.annotation-popover-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.annotation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.annotation-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--ui-gray-50);
+  border: 1px solid var(--ui-gray-100);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.annotation-item[aria-current='true'] {
+  border-color: var(--ui-orange);
+}
+.annotation-item-meta {
+  font-size: 11px;
+  color: var(--ui-gray-600);
+}
+.annotation-item-text {
+  line-height: 1.4;
+  color: var(--ui-ink);
+  overflow-wrap: anywhere;
+}
+.annotation-item[data-resolved] .annotation-item-text {
+  color: var(--ui-gray-600);
+}
