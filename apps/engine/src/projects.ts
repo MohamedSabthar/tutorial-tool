@@ -72,7 +72,8 @@ export class ProjectStore {
   /** The voice last chosen in any brief: the default for briefs without one. */
   async defaultVoice(): Promise<string | null> {
     try {
-      const v = (JSON.parse(await readFile(this.settingsFile, 'utf8')) as { defaultVoice?: unknown }).defaultVoice;
+      const v = (JSON.parse(await readFile(this.settingsFile, 'utf8')) as { defaultVoice?: unknown })
+        .defaultVoice;
       return typeof v === 'string' && v ? v : null;
     } catch {
       return null;

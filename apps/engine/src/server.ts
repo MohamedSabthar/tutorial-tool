@@ -27,6 +27,7 @@ import {
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
+import { isUiPath, registerUi } from './ui';
 import { Workspace } from './workspace';
 import { Runner } from './runner';
 import { stepTimings } from './recording';
@@ -311,7 +312,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       reply.header('access-control-allow-methods', 'GET, HEAD, OPTIONS');
       return reply.code(204).send();
     }
-    if (req.url === '/health') return;
+    if (req.url === '/health' || isUiPath(req.url)) return;
     const q = (req.query as Record<string, unknown> | undefined)?.[TOKEN_QUERY];
     if (!tokenOk(req.headers[TOKEN_HEADER]) && !tokenOk(q))
       return reply.code(401).send({ error: 'unauthorized' });
@@ -329,6 +330,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
   );
   registerMedia(app, store);
+  registerUi(app);
 
   const handlers: Handlers = {
     'pipeline.get': async ({ slug }: { slug: string }) => {

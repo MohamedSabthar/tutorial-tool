@@ -72,6 +72,7 @@ export function StageHost({
   onOverlayError,
   captions = [],
   layers,
+  mode = 'preview',
   children,
 }: {
   take: Take;
@@ -111,6 +112,8 @@ export function StageHost({
       to: { sceneId: string; kind: 'recording' | 'explainer' };
     } | null;
   };
+  /** Export mounts the stage unscaled at 1920×1080. */
+  mode?: 'preview' | 'export';
   children?: ReactNode;
 }) {
   const fit = useMemo(() => fitSource(take, STAGE), [take]);
@@ -188,7 +191,7 @@ export function StageHost({
   }
 
   return (
-    <Stage t={t} {...STAGE} background={FRAME.backdrop}>
+    <Stage t={t} {...STAGE} background={FRAME.backdrop} mode={mode}>
       <TakeContext.Provider value={takeInfo}>
         <RecordingContext.Provider value={recording}>
           <CaptionsContext.Provider value={captions}>

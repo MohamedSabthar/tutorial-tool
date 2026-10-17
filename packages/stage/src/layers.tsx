@@ -82,7 +82,8 @@ export function Scene3D({ children }: { children?: ReactNode }) {
   return (
     <Canvas
       orthographic
-      frameloop={mode === 'export' ? 'never' : 'demand'}
+      // Rendered on demand in both modes: export waits for each frame (videosSettled) before capturing.
+      frameloop="demand"
       dpr={1}
       flat
       gl={{ antialias: true, preserveDrawingBuffer: mode === 'export' }}
@@ -274,7 +275,10 @@ export function trackVideo(video: HTMLVideoElement): () => void {
  */
 export async function videosSettled(timeoutMs = 10_000): Promise<void> {
   const until = performance.now() + timeoutMs;
-  const ready = () => [...liveVideos].every((v) => !v.src || (!v.seeking && v.readyState >= 2));
+  // The canvas commits its children in its own React root: give its effects (the video's src
+  // and seek) a frame to run, and count a video without a src yet as not ready.
+  for (let i = 0; i < 2; i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
+  const ready = () => [...liveVideos].every((v) => !!v.src && !v.seeking && v.readyState >= 2);
   while (!ready() && performance.now() < until) await new Promise((r) => setTimeout(r, 16));
   for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
 }

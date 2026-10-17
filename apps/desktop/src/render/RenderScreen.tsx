@@ -33,6 +33,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export function RenderScreen({ slug }: { slug: string }) {
   const tl = useTimeline(slug);
+  const exportMode = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('export') === '1';
   const { take, events, media } = useLatestTake(slug);
   const { registry, status } = useOverlayRegistry(slug);
   const [req, setReq] = useState<{
@@ -106,6 +107,7 @@ export function RenderScreen({ slug }: { slug: string }) {
         registry={registry}
         captions={timeline.captions}
         layers={resolved.layersAt(t)}
+        mode={exportMode ? 'export' : 'preview'}
         onOverlayError={(id, e) => {
           errors.current[id] = e.message;
         }}
