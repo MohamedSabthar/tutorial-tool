@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseTimeline, RecorderEvent } from '@studio/core';
+import { fitSource, sourceToStage, STAGE_SIZE } from '@studio/stage';
 import { autoOverlays, withAutoOverlays, zoomFor } from '../src/autoOverlays';
 import { claimAutoOverlays } from '../src/timeline';
 
@@ -24,7 +25,7 @@ const events = RecorderEvent.array().parse([
     ],
   },
   { kind: 'click', t: 2, stepId: 's1', x: 50, y: 110, target: 'a', bbox: box(0) },
-  { kind: 'click', t: 3.5, stepId: 's1', x: 250, y: 110, target: 'b', bbox: box(200) },
+  { kind: 'click', t: 3.5, stepId: 's1', x: 190, y: 110, target: 'b', bbox: box(140) },
   { kind: 'mask', t: 4, label: 'path', bbox: { x: 600, y: 0, w: 300, h: 20 } },
   { kind: 'step-start', t: 10, stepId: 's2', title: 'Two' },
   { kind: 'type', t: 12, stepId: 's2', text: '/greeting', target: 'path', bbox: box(800) },
@@ -53,15 +54,23 @@ describe('autoOverlays', () => {
       'core:Zoom',
       'core:Zoom',
       'core:Blur',
-      'core:TitleCard',
     ]);
     const zooms = list.filter((o) => o.component === 'core:Zoom');
     // Clicks at 2 and 3.5 s share a zoom framing both targets.
-    expect(zooms[0]).toMatchObject({ start: 1.3, end: 4.5, rect: { x: 0, y: 100, w: 320, h: 30 } });
+    const r = sourceToStage({ x: 0, y: 100, w: 260, h: 30 }, fitSource(take, STAGE_SIZE));
+    expect(zooms[0]).toMatchObject({ start: 1, end: 4.7 });
+    expect(zooms[0]!.rect!.x).toBeCloseTo(r.x, 2);
+    expect(zooms[0]!.rect!.w).toBeCloseTo(r.w, 2);
     // Typing keeps the zoom for the typing time.
-    expect(zooms[1]!.end).toBeCloseTo(12 + 9 / 14 + 1, 2);
+    expect(zooms[1]!.end).toBeCloseTo(12 + 9 / 14 + 1.2, 2);
     expect(list.find((o) => o.component === 'core:Blur')).toMatchObject({ start: 4, end: 30 });
-    expect(list.find((o) => o.component === 'core:TitleCard')!.props).toEqual({ title: 'HTTP service' });
+    // The first click (2 s) leaves no room for a title card that would cover it.
+    expect(list.some((o) => o.component === 'core:TitleCard')).toBe(false);
+    const later = events.map((e) => ('stepId' in e && e.kind !== 'step-start' ? { ...e, t: e.t + 4 } : e));
+    const title = autoOverlays(tl(), later, { title: 'HTTP service' }).find(
+      (o) => o.component === 'core:TitleCard',
+    )!;
+    expect(title).toMatchObject({ start: 0.2, end: 3.2, props: { title: 'HTTP service' } });
   });
 
   it('follows the timeline timing and skips actions that were cut', () => {
@@ -72,7 +81,7 @@ describe('autoOverlays', () => {
     ]);
     const zooms = autoOverlays(cut, events).filter((o) => o.component === 'core:Zoom');
     expect(zooms).toHaveLength(2); // typing at 12 s was cut
-    expect(zooms[1]!.start).toBeCloseTo(20 - 15 + 7 - 0.7, 3);
+    expect(zooms[1]!.start).toBeCloseTo(20 - 15 + 7 - 1, 3);
   });
 
   it('replaces only automatic overlays and keeps ones the user edited', () => {
@@ -101,8 +110,19 @@ describe('autoOverlays', () => {
     expect(claimAutoOverlays(first, [{ op: 'remove', path: '/overlays/0' }])).toHaveLength(1);
   });
 
+  it('gives far-apart targets their own shots that meet, so the camera glides between them', () => {
+    const far = RecorderEvent.array().parse([
+      { kind: 'step-start', t: 0, stepId: 's1', title: 'One' },
+      { kind: 'click', t: 2, stepId: 's1', x: 50, y: 110, target: 'a', bbox: box(0) },
+      { kind: 'click', t: 3.5, stepId: 's1', x: 1500, y: 110, target: 'b', bbox: box(1450) },
+    ]);
+    const zooms = autoOverlays(tl(), far).filter((o) => o.component === 'core:Zoom');
+    expect(zooms).toHaveLength(2);
+    expect(zooms[0]!.end).toBeCloseTo(zooms[1]!.start, 3);
+  });
+
   it('sizes zooms to the target', () => {
     expect(zoomFor({ x: 0, y: 0, w: 2000, h: 900 })).toBe(1.25);
-    expect(zoomFor({ x: 0, y: 0, w: 60, h: 20 })).toBe(1.8);
+    expect(zoomFor({ x: 0, y: 0, w: 60, h: 20 })).toBe(1.55);
   });
 });

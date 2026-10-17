@@ -3,7 +3,8 @@ import type { Rect } from '@studio/core';
 /**
  * Coordinates:
  * - source px: pixels of the recorded frame (events, bboxes)
- * - stage px: the 1920×1080 composition; the source frame is fitted inside (letterbox)
+ * - stage px: the 1920×1080 composition; the source frame is fitted inside with a margin, as
+ *   a window on the backdrop (`FRAME`)
  * - the camera zooms around a focus point in stage px: at zoom z, stage point `focus`
  *   appears at the stage centre and everything is scaled by z.
  */
@@ -17,11 +18,24 @@ export interface Fit {
 /** The composition size every overlay and export uses (stage px). */
 export const STAGE_SIZE = { width: 1920, height: 1080 } as const;
 
+/**
+ * How the recording sits on the stage at rest: inset by `inset` stage px on its tighter side,
+ * with rounded corners and a soft shadow over the backdrop. Recordings rarely match 16:9 (a
+ * MacBook screen is about 3:2), so the free space reads as a deliberate frame, not black bars.
+ */
+export const FRAME = {
+  inset: 44,
+  radius: 18,
+  backdrop: 'radial-gradient(120% 120% at 15% 0%, #FFFFFF 0%, #F3F3F3 45%, #E4EEF6 100%)',
+  shadow: '0 30px 80px rgba(19, 33, 59, 0.22), 0 6px 18px rgba(19, 33, 59, 0.12)',
+} as const;
+
 export function fitSource(
   src: { width: number; height: number },
   stage: { width: number; height: number },
+  inset: number = FRAME.inset,
 ): Fit {
-  const scale = Math.min(stage.width / src.width, stage.height / src.height);
+  const scale = Math.min((stage.width - 2 * inset) / src.width, (stage.height - 2 * inset) / src.height);
   const w = src.width * scale;
   const h = src.height * scale;
   return { scale, rect: { x: (stage.width - w) / 2, y: (stage.height - h) / 2, w, h } };
@@ -96,14 +110,57 @@ export interface CameraMove {
   ease?: number;
 }
 
-const smooth = (u: number) => {
-  const x = Math.min(Math.max(u, 0), 1);
-  return x * x * x * (x * (x * 6 - 15) + 10);
-};
+/** Moves closer than this glide from one target to the next instead of zooming out between. */
+export const CHAIN_GAP = 1.5;
+/** How much the camera keeps pushing in while it holds on a target (fraction of the zoom). */
+const HOLD_DRIFT = 0.03;
 
+const clamp01 = (u: number) => Math.min(Math.max(u, 0), 1);
+/** Cubic ease-in-out: softer starts and stops than a quintic smoothstep. */
+const ease = (u: number) => {
+  const x = clamp01(u);
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+};
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 
-/** Camera at time t from a list of non-overlapping moves (later moves win on overlap). */
+/**
+ * Camera between two states. A zoom pivots about the one stage point that sits at the same
+ * screen position in both views, so the target grows in place instead of sliding while the
+ * zoom changes (zoom is interpolated in log space, which reads as constant speed). A pan at
+ * one zoom dips out slightly in the middle, like a camera operator re-framing.
+ */
+export function blendCamera(
+  a: CameraState,
+  b: CameraState,
+  u: number,
+  stage: { width: number },
+): CameraState {
+  const k = ease(u);
+  const ratio = Math.log(b.zoom / a.zoom);
+  if (Math.abs(ratio) < 0.02) {
+    const dist = Math.hypot(b.focusX - a.focusX, b.focusY - a.focusY);
+    const dip = Math.min(0.12, (dist * a.zoom) / stage.width / 4);
+    return {
+      zoom: a.zoom * (1 - dip * Math.sin(Math.PI * k)),
+      focusX: lerp(a.focusX, b.focusX, k),
+      focusY: lerp(a.focusY, b.focusY, k),
+    };
+  }
+  const zoom = Math.exp(lerp(Math.log(a.zoom), Math.log(b.zoom), k));
+  const px = (b.focusX * b.zoom - a.focusX * a.zoom) / (b.zoom - a.zoom);
+  const py = (b.focusY * b.zoom - a.focusY * a.zoom) / (b.zoom - a.zoom);
+  return {
+    zoom,
+    focusX: px + ((a.focusX - px) * a.zoom) / zoom,
+    focusY: py + ((a.focusY - py) * a.zoom) / zoom,
+  };
+}
+
+/**
+ * Camera at time t. Moves become shots: ease in from rest (or glide from the previous shot when
+ * the gap is under CHAIN_GAP), hold with a slow push-in, ease back out. Targets are clamped to
+ * the video first, so the motion between them never needs correcting mid-way.
+ */
 export function cameraAt(
   t: number,
   moves: CameraMove[],
@@ -111,16 +168,44 @@ export function cameraAt(
   bounds: Rect,
   stage: { width: number; height: number },
 ): CameraState {
-  let cam = rest;
-  for (const m of moves) {
-    if (t < m.start || t > m.end) continue;
-    const e = Math.min(m.ease ?? 0.6, (m.end - m.start) / 2);
-    const u = t < m.start + e ? smooth((t - m.start) / e) : t > m.end - e ? smooth((m.end - t) / e) : 1;
-    cam = {
-      zoom: lerp(rest.zoom, m.to.zoom, u),
-      focusX: lerp(rest.focusX, m.to.focusX, u),
-      focusY: lerp(rest.focusY, m.to.focusY, u),
-    };
+  const shots = [...moves]
+    .filter((m) => m.end > m.start)
+    .sort((a, b) => a.start - b.start)
+    .map((m) => ({
+      ...m,
+      to: clampCamera(m.to, bounds, stage),
+      e: Math.min(m.ease ?? 0.9, (m.end - m.start) / 2),
+    }));
+  const held = (s: (typeof shots)[number], at: number): CameraState => {
+    const span = Math.max(s.end - s.start, 1e-3);
+    const z = s.to.zoom * (1 + HOLD_DRIFT * clamp01((at - s.start) / span));
+    return clampCamera({ ...s.to, zoom: z }, bounds, stage);
+  };
+  for (let i = 0; i < shots.length; i++) {
+    const s = shots[i]!;
+    const prev = shots[i - 1];
+    const next = shots[i + 1];
+    const chainedIn = !!prev && s.start - prev.end < CHAIN_GAP;
+    const chainedOut = !!next && next.start - s.end < CHAIN_GAP;
+    const holdStart = s.start + s.e;
+    // Overlapping moves: leave this shot no later than the next one starts.
+    const outStart = chainedOut ? Math.min(s.end - s.e, next!.start) : s.end - s.e;
+    const outEnd = chainedOut ? Math.max(next!.start + next!.e, outStart + 0.2) : s.end;
+    if (t < holdStart) {
+      // A chained shot is entered by the previous shot's glide (handled on its iteration).
+      if (chainedIn) continue;
+      if (t < s.start) return rest;
+      return clampCamera(blendCamera(rest, s.to, (t - s.start) / s.e, stage), bounds, stage);
+    }
+    if (t <= outStart) return held(s, t);
+    if (t <= outEnd) {
+      const to = chainedOut ? held(next!, next!.start + next!.e) : rest;
+      return clampCamera(
+        blendCamera(held(s, outStart), to, (t - outStart) / (outEnd - outStart), stage),
+        bounds,
+        stage,
+      );
+    }
   }
-  return clampCamera(cam, bounds, stage);
+  return rest;
 }

@@ -8,6 +8,8 @@ import {
   fitSource,
   restCamera,
   Scene3D,
+  FRAME,
+  FrameShadow,
   Stage,
   STAGE_SIZE,
   VideoPlane,
@@ -86,11 +88,12 @@ export function StageHost({
   const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
 
   return (
-    <Stage t={t} {...STAGE}>
+    <Stage t={t} {...STAGE} background={FRAME.backdrop}>
       <RecordingContext.Provider value={recording}>
         <CaptionsContext.Provider value={captions}>
           <CameraProvider camera={camera} source={take}>
-            <Scene3D>
+            <FrameShadow />
+          <Scene3D>
               <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
             </Scene3D>
             {(showOverlays ? instances : []).map((inst) => {

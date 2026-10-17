@@ -6,12 +6,13 @@ import {
   type RecorderEvent,
   type Timeline,
 } from '@studio/core';
-import { fitSource, sourceToStage, STAGE_SIZE } from '@studio/stage';
+import { clampCamera, fitSource, sourceToStage, STAGE_SIZE, type Fit } from '@studio/stage';
 
 /** Actions closer than this (take seconds, same step) share one zoom. */
 const CLUSTER_GAP = 3;
-const ZOOM_IN = 0.7;
-const ZOOM_OUT = 1.0;
+// The camera starts moving this long before the first action, so it has settled when it happens.
+const ZOOM_IN = 1.0;
+const ZOOM_OUT = 1.2;
 const TYPE_CPS = 14;
 
 type Action = Extract<RecorderEvent, { kind: 'click' | 'type' }>;
@@ -26,13 +27,43 @@ function union(boxes: Rect[]): Rect {
   return { x, y, w: x2 - x, h: y2 - y };
 }
 
-/** Zoom that keeps the target comfortably inside the frame: 1.25×–1.8×. */
+/** Whether a box sits close enough to a group of boxes to share one shot with them. */
+function near(group: Rect[], box: Rect): boolean {
+  const u = union([...group, box]);
+  const w = Math.max(box.w, ...group.map((b) => b.w));
+  const h = Math.max(box.h, ...group.map((b) => b.h));
+  return u.w <= 2.5 * w && u.h <= 2.5 * h;
+}
+
+/**
+ * Whether `box` (source px) is comfortably visible in the shot framing `shot` (source px): the
+ * zoomed, clamped view keeps a 10% margin around it.
+ */
+function inView(shot: Rect, box: Rect, fit: Fit): boolean {
+  const s = sourceToStage(shot, fit);
+  const b = sourceToStage(box, fit);
+  const cam = clampCamera(
+    { zoom: zoomFor(s), focusX: s.x + s.w / 2, focusY: s.y + s.h / 2 },
+    fit.rect,
+    STAGE_SIZE,
+  );
+  const halfW = (STAGE_SIZE.width / 2 / cam.zoom) * 0.9;
+  const halfH = (STAGE_SIZE.height / 2 / cam.zoom) * 0.9;
+  return (
+    b.x >= cam.focusX - halfW &&
+    b.x + b.w <= cam.focusX + halfW &&
+    b.y >= cam.focusY - halfH &&
+    b.y + b.h <= cam.focusY + halfH
+  );
+}
+
+/** Zoom that keeps the target comfortably inside the frame, with context around it: 1.25×–1.55×. */
 export function zoomFor(stageBox: Rect): number {
   const fill = Math.min(
     (STAGE_SIZE.width * 0.5) / Math.max(stageBox.w, 1),
     (STAGE_SIZE.height * 0.5) / Math.max(stageBox.h, 1),
   );
-  return Math.round(Math.min(1.8, Math.max(1.25, fill)) * 100) / 100;
+  return Math.round(Math.min(1.55, Math.max(1.25, fill)) * 100) / 100;
 }
 
 export interface AutoOptions {
@@ -72,7 +103,17 @@ export function autoOverlays(
     const cur = clusters.at(-1);
     const last = cur?.at(-1);
     const lastEnd = last ? last.t + (last.kind === 'type' ? last.text.length / TYPE_CPS : 0) : -Infinity;
-    if (cur && last && last.stepId === a.stepId && a.t - lastEnd < CLUSTER_GAP) cur.push(a);
+    if (
+      cur &&
+      last &&
+      last.stepId === a.stepId &&
+      a.t - lastEnd < CLUSTER_GAP &&
+      near(
+        cur.map((x) => x.bbox),
+        a.bbox,
+      )
+    )
+      cur.push(a);
     else clusters.push([a]);
   }
   const zooms: { start: number; end: number; box: Rect }[] = [];
@@ -88,11 +129,22 @@ export function autoOverlays(
       box: union(c.map((a) => a.bbox)),
     };
     const prev = zooms.at(-1);
-    // Overlapping zooms become one, so the camera doesn't bounce.
-    if (prev && z.start < prev.end + 0.3) {
+    if (prev && z.start < prev.end + 1.5 && inView(prev.box, z.box, fit)) {
+      // The next target is already on screen in this shot: hold it instead of moving.
       prev.end = Math.max(prev.end, z.end);
-      prev.box = union([prev.box, z.box]);
-    } else zooms.push(z);
+      continue;
+    }
+    if (prev && z.start < prev.end + 0.3) {
+      if (near([prev.box], z.box)) {
+        // Targets side by side: one shot framing both.
+        prev.end = Math.max(prev.end, z.end);
+        prev.box = union([prev.box, z.box]);
+        continue;
+      }
+      // Targets apart: separate shots that meet, so the camera glides from one to the next.
+      prev.end = Math.max(prev.start + 0.8, Math.min(prev.end, z.start));
+    }
+    zooms.push(z);
   }
   zooms.forEach((z, i) => {
     if (z.end - z.start < 0.5) return;
@@ -104,7 +156,7 @@ export function autoOverlays(
       end: r3(z.end),
       layer: 5,
       rect,
-      props: { zoom: zoomFor(rect), ease: 0.5 },
+      props: { zoom: zoomFor(rect), ease: 0.9 },
       author: 'auto',
     });
   });
@@ -139,15 +191,18 @@ export function autoOverlays(
       author: 'auto',
     });
 
-  // A title card over the start of the first step.
+  // A title card over the start of the first step, gone before the first action so it never
+  // covers what is being clicked.
   const firstStep = tl.steps[0];
   const titleAt = firstStep ? out(firstStep.from) : undefined;
-  if (opts.title && titleAt !== undefined && tm.duration - titleAt > 1) {
+  const firstAction = actions.map((a) => out(a.t)).find((t) => t !== undefined);
+  const titleEnd = Math.min(tm.duration, (titleAt ?? 0) + 3.2, (firstAction ?? Infinity) - ZOOM_IN);
+  if (opts.title && titleAt !== undefined && titleEnd - titleAt >= 1.5) {
     result.push({
       id: 'auto-title',
       component: 'core:TitleCard',
       start: r3(titleAt + 0.2),
-      end: r3(Math.min(tm.duration, titleAt + 3.2)),
+      end: r3(titleEnd),
       layer: 60,
       props: { title: opts.title, ...(opts.subtitle ? { subtitle: opts.subtitle } : {}) },
       author: 'auto',

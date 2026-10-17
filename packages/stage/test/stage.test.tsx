@@ -115,15 +115,26 @@ describe('stage determinism', () => {
   });
 });
 
-import { cameraAt, clampCamera, fitSource, project, restCamera, sourceToStage } from '../src/camera';
+import {
+  blendCamera,
+  cameraAt,
+  clampCamera,
+  FRAME,
+  fitSource,
+  project,
+  restCamera,
+  sourceToStage,
+} from '../src/camera';
 
 describe('camera math', () => {
   const stage = { width: 1920, height: 1080 };
   const fit = fitSource({ width: 2268, height: 1472 }, stage);
 
-  it('fits a taller-than-16:9 recording by height, centred', () => {
-    expect(fit.rect.h).toBeCloseTo(1080);
-    expect(fit.rect.w).toBeCloseTo(2268 * (1080 / 1472));
+  it('fits a taller-than-16:9 recording by height inside the frame inset, centred', () => {
+    expect(fit.rect.h).toBeCloseTo(1080 - 2 * FRAME.inset);
+    expect(fit.rect.y).toBeCloseTo(FRAME.inset);
+    expect(fit.rect.w).toBeCloseTo(2268 * ((1080 - 2 * FRAME.inset) / 1472));
+    expect(fitSource({ width: 1920, height: 1080 }, stage, 0).rect).toEqual({ x: 0, y: 0, w: 1920, h: 1080 });
     expect(fit.rect.x).toBeCloseTo((1920 - fit.rect.w) / 2);
     expect(sourceToStage({ x: 0, y: 0, w: 2268, h: 1472 }, fit)).toEqual(fit.rect);
   });
@@ -137,15 +148,40 @@ describe('camera math', () => {
   it('never shows outside the video when zoomed', () => {
     const c = clampCamera({ zoom: 2, focusX: fit.rect.x, focusY: 0 }, fit.rect, stage);
     expect(c.focusX).toBeCloseTo(fit.rect.x + 480);
-    expect(c.focusY).toBeCloseTo(270);
+    expect(c.focusY).toBeCloseTo(fit.rect.y + 270);
   });
 
-  it('eases into a move, holds, and eases back', () => {
+  it('eases into a move, holds with a slow push-in, and eases back', () => {
     const rest = restCamera(stage);
     const moves = [{ start: 2, end: 6, to: { zoom: 2, focusX: 900, focusY: 500 }, ease: 1 }];
     expect(cameraAt(1, moves, rest, fit.rect, stage).zoom).toBe(1);
-    expect(cameraAt(2.5, moves, rest, fit.rect, stage).zoom).toBeCloseTo(1.5);
-    expect(cameraAt(4, moves, rest, fit.rect, stage).zoom).toBe(2);
+    // Log-space zoom: halfway is the geometric mean.
+    expect(cameraAt(2.5, moves, rest, fit.rect, stage).zoom).toBeCloseTo(Math.SQRT2, 2);
+    const hold = cameraAt(4, moves, rest, fit.rect, stage).zoom;
+    expect(hold).toBeGreaterThan(2);
+    expect(hold).toBeLessThan(2.05);
     expect(cameraAt(6.5, moves, rest, fit.rect, stage).zoom).toBe(1);
+  });
+
+  it('zooms about a fixed point, so the target grows in place instead of sliding', () => {
+    const rest = restCamera(stage);
+    const target = { zoom: 2, focusX: 900, focusY: 500 };
+    // The pivot: the stage point at the same screen position in both views.
+    const pivot = { x: (900 * 2 - 960) / (2 - 1), y: (500 * 2 - 540) / (2 - 1) };
+    const at = (u: number) => project(pivot, blendCamera(rest, target, u, stage), stage);
+    expect(at(0.3).x).toBeCloseTo(at(0.8).x, 6);
+    expect(at(0.3).y).toBeCloseTo(at(0.8).y, 6);
+  });
+
+  it('glides between close moves instead of returning to rest', () => {
+    const rest = restCamera(stage);
+    const moves = [
+      { start: 2, end: 4, to: { zoom: 1.8, focusX: 700, focusY: 400 }, ease: 0.8 },
+      { start: 4.8, end: 7, to: { zoom: 1.8, focusX: 1100, focusY: 600 }, ease: 0.8 },
+    ];
+    for (let t = 3.3; t <= 5.6; t += 0.1)
+      expect(cameraAt(t, moves, rest, fit.rect, stage).zoom).toBeGreaterThan(1.5);
+    const far = [moves[0]!, { ...moves[1]!, start: 8, end: 10 }];
+    expect(cameraAt(6, far, rest, fit.rect, stage).zoom).toBe(1);
   });
 });

@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/immutability -- three.js cameras/textures and <video> are imperative objects we drive from effects. */
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { NoToneMapping, SRGBColorSpace, VideoTexture, type OrthographicCamera } from 'three';
+import { CanvasTexture, NoToneMapping, SRGBColorSpace, VideoTexture, type OrthographicCamera } from 'three';
 import type { Rect } from '@studio/core';
-import { fitSource, restCamera, sourceToStage, type CameraState, type Fit } from './camera';
+import { FRAME, fitSource, restCamera, sourceToStage, type CameraState, type Fit } from './camera';
 import { useStageTime } from './Stage';
 import { TunnelOut } from './tunnel';
 
@@ -149,6 +149,10 @@ export function VideoPlane({
 
   useEffect(() => () => texture.dispose(), [texture]);
 
+  // Rounded corners: an alpha mask the size of the fitted frame.
+  const mask = useMemo(() => roundedMask(fit.rect.w, fit.rect.h, FRAME.radius), [fit.rect.w, fit.rect.h]);
+  useEffect(() => () => mask?.dispose(), [mask]);
+
   // Redraw on every decoded video frame.
   useEffect(() => {
     let id = 0;
@@ -185,7 +189,7 @@ export function VideoPlane({
   return (
     <mesh position={[cx, cy, 0]}>
       <planeGeometry args={[fit.rect.w, fit.rect.h]} />
-      <meshBasicMaterial map={texture} toneMapped={false} />
+      <meshBasicMaterial map={texture} toneMapped={false} transparent={!!mask} alphaMap={mask ?? null} />
     </mesh>
   );
 }
@@ -205,5 +209,46 @@ export function DomLayer({ follow = false, children }: { follow?: boolean; child
         {children}
       </div>
     </div>
+  );
+}
+
+/** A white rounded rectangle on black, as an alpha map (null where there is no 2D canvas, e.g. tests). */
+function roundedMask(w: number, h: number, radius: number): CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  const k = Math.min(1, 1024 / Math.max(w, h));
+  canvas.width = Math.max(2, Math.round(w * k));
+  canvas.height = Math.max(2, Math.round(h * k));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, canvas.width, canvas.height, radius * k);
+  ctx.fill();
+  return new CanvasTexture(canvas);
+}
+
+/**
+ * The recording's frame at rest: a soft shadow under the rounded video, moving with the camera.
+ * Put it before <Scene3D> so it sits behind the canvas.
+ */
+export function FrameShadow() {
+  const { fit } = useCamera();
+  return (
+    <DomLayer follow>
+      <div
+        style={{
+          position: 'absolute',
+          left: fit.rect.x,
+          top: fit.rect.y,
+          width: fit.rect.w,
+          height: fit.rect.h,
+          borderRadius: FRAME.radius,
+          boxShadow: FRAME.shadow,
+        }}
+      />
+    </DomLayer>
   );
 }

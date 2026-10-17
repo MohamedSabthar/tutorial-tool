@@ -37,7 +37,7 @@ describe('core overlay helpers', () => {
   });
 
   it('fills defaults and validates props', () => {
-    expect(resolveProps('core:Zoom', {})).toEqual({ zoom: 1.8, ease: 0.6 });
+    expect(resolveProps('core:Zoom', {})).toEqual({ zoom: 1.8, ease: 0.9 });
     expect(() => resolveProps('core:Zoom', { zoom: 9 })).toThrow();
     expect(zoomMove({ start: 1, end: 3, props: {} }, { x: 100, y: 100, w: 50, h: 20 }).to).toEqual({
       zoom: 1.8,

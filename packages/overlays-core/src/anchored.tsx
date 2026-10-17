@@ -23,7 +23,7 @@ import type { Rect } from '@studio/core';
 const ZoomProps = z.object({
   zoom: z.number().min(1).max(4).default(1.8),
   /** Seconds to ease in and out. */
-  ease: z.number().min(0.1).max(2).default(0.6),
+  ease: z.number().min(0.1).max(2).default(0.9),
 });
 type ZoomProps = z.infer<typeof ZoomProps>;
 
@@ -42,7 +42,7 @@ export function zoomMove(
   return {
     start: instance.start,
     end: instance.end,
-    ease: instance.props.ease ?? 0.6,
+    ease: instance.props.ease ?? 0.9,
     to: {
       zoom: instance.props.zoom ?? 1.8,
       focusX: anchor.x + anchor.w / 2,
