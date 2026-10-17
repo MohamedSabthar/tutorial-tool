@@ -45,6 +45,35 @@ const glyphs: Record<string, React.CSSProperties> = {
     marginTop: 24,
   },
   'core:TextLabel': { width: '40%', height: 14, background: '#FF5800', borderRadius: 4 },
+  'core:DiagramFlow': {
+    width: '70%',
+    height: 12,
+    borderLeft: '14px solid #FF5800',
+    borderRight: '14px solid #A9C6DD',
+    background: 'linear-gradient(90deg, #FF5800 0 40%, #A9C6DD 40%)',
+    backgroundSize: '100% 2px',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+  },
+  'core:ConceptCards': {
+    width: '66%',
+    height: '46%',
+    background: 'repeating-linear-gradient(90deg, #FFFFFF 0 28%, transparent 28% 36%)',
+    opacity: 0.85,
+  },
+  'core:CodeWalkthrough': {
+    width: '64%',
+    height: '50%',
+    background: 'repeating-linear-gradient(180deg, #A9C6DD 0 3px, transparent 3px 8px)',
+    borderLeft: '3px solid #FF5800',
+  },
+  'core:ArchitectureZoom': {
+    width: '30%',
+    height: '46%',
+    border: '2px solid #FF5800',
+    borderRadius: 4,
+    boxShadow: '-26px 0 0 -6px #A9C6DD, 26px 0 0 -6px #A9C6DD',
+  },
 };
 
 /**
@@ -55,10 +84,13 @@ export function Library({
   slug,
   registry,
   onAdd,
+  onInsertScene,
 }: {
   slug: string;
   registry: Record<string, OverlayModule>;
   onAdd: (id: string) => void;
+  /** Explainers tab: insert the scene at the playhead. */
+  onInsertScene?: (id: string) => void;
 }) {
   const [tab, setTab] = useState<'Overlays' | 'Explainers'>('Overlays');
   const { client, info, state } = useEngine();
@@ -75,7 +107,7 @@ export function Library({
   const thumb = (id: string) => {
     const e = index.find((x) => x.id === id);
     return e?.thumbnail && info
-      ? `http://127.0.0.1:${info.port}/library/thumb/${id.split(':')[1]}?token=${encodeURIComponent(info.token)}&v=${encodeURIComponent(e.promotedAt)}`
+      ? `http://127.0.0.1:${info.port}/library/thumb/${id.split(':')[1]}?token=${encodeURIComponent(info.token)}&kind=${e.kind}&v=${encodeURIComponent(e.promotedAt)}`
       : null;
   };
   const promote = async (id: string) => {
@@ -103,7 +135,7 @@ export function Library({
         block
       />
       {entries.length === 0 && (
-        <span style={{ color: 'var(--ui-gray-600)', fontSize: 12 }}>No explainer scenes yet (Phase 6).</span>
+        <span style={{ color: 'var(--ui-gray-600)', fontSize: 12 }}>No explainer scenes yet.</span>
       )}
       {note && <Chip tone={note.tone}>{note.text}</Chip>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
@@ -116,8 +148,12 @@ export function Library({
                 e.dataTransfer.setData(OVERLAY_DRAG_TYPE, id);
                 e.dataTransfer.effectAllowed = 'copy';
               }}
-              onClick={() => onAdd(id)}
-              title={`${m.meta?.description ?? id} (drag onto the timeline, or click to add at the playhead)`}
+              onClick={() => (tab === 'Explainers' && onInsertScene ? onInsertScene(id) : onAdd(id))}
+              title={
+                tab === 'Explainers'
+                  ? `${m.meta?.description ?? id} (click to insert at the playhead)`
+                  : `${m.meta?.description ?? id} (drag onto the timeline, or click to add at the playhead)`
+              }
               style={{
                 background: 'var(--ui-white)',
                 border: '1px solid var(--ui-gray-300)',

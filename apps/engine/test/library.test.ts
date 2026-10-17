@@ -10,6 +10,7 @@ import { startOverlayServer, type OverlayServer } from '../src/overlayServer';
 import { Library } from '../src/library';
 import { Workspace } from '../src/workspace';
 import type { CheckResult } from '../src/overlayCheck';
+import { insertExplainerScene } from '@studio/core';
 
 const BADGE = `import { z } from 'zod';
 import { DomLayer, type OverlayMeta, type OverlayProps } from '@studio/overlay-sdk';
@@ -84,6 +85,21 @@ beforeAll(async () => {
         instance: null,
       };
     },
+    checkScene: async (_slug, sceneId) => ({
+      ok: true,
+      sceneId,
+      component: 'project:Flow',
+      problems: [],
+      alignment: [],
+      voiced: false,
+      frames: [
+        { label: 'start', t: 0, beat: null, png },
+        { label: 'a', t: 1, beat: 'a', png },
+        { label: 'b', t: 2, beat: 'b', png },
+      ],
+      sheet: null,
+      span: { start: 0, end: 5 },
+    }),
     commit: (message, paths) => workspace.commit(message, paths),
   });
 }, 30_000);
@@ -131,11 +147,66 @@ describe('Library.promote', () => {
     );
   });
 
+  it('promotes a project scene used by an explainer into scenes/', async () => {
+    const scenes = path.join(store.dir(slug), 'scenes');
+    await mkdir(scenes, { recursive: true });
+    await writeFile(
+      path.join(scenes, 'Flow.tsx'),
+      BADGE.replace(
+        "name: 'Badge', description: 'A small badge'",
+        "name: 'Flow', kind: 'scene', beats: ['a', 'b'], description: 'A flow'",
+      ),
+    );
+    await expect(library.promote(slug, 'project:Flow')).rejects.toThrow(/use Flow in an explainer/);
+    const { timeline } = await timelines.get(slug);
+    const ins = insertExplainerScene(
+      {
+        ...timeline,
+        takes: [
+          { id: 'take-1', video: 'v.mp4', events: 'e.jsonl', width: 100, height: 60, fps: 30, duration: 20 },
+        ],
+        scenes: [
+          { id: 'sc-1', kind: 'recording', take: 'take-1', segments: [{ kind: 'src', from: 0, to: 20 }] },
+        ],
+      },
+      5,
+      {
+        kind: 'explainer',
+        component: 'project:Flow',
+        props: {},
+        narration: [],
+        beats: [],
+        duration: 4,
+        estimatedDuration: 4,
+      },
+    );
+    await timelines.patch(
+      slug,
+      [
+        { op: 'replace', path: '/takes', value: ins.timeline.takes },
+        { op: 'replace', path: '/scenes', value: ins.timeline.scenes },
+      ],
+      { author: 'user' },
+    );
+    const entry = await library.promote(slug, 'project:Flow');
+    expect(entry).toMatchObject({
+      id: 'workspace:Flow',
+      kind: 'scene',
+      beats: ['a', 'b'],
+      thumbnail: 'scenes/thumbs/Flow.jpg',
+    });
+    expect(existsSync(path.join(ws, 'scenes', 'Flow.tsx'))).toBe(true);
+    const after = (await timelines.get(slug)).timeline.scenes.find((s) => s.id === ins.sceneId);
+    expect(after).toMatchObject({ component: 'workspace:Flow' });
+    expect((await library.index()).map((e) => [e.id, e.kind])).toContainEqual(['workspace:Flow', 'scene']);
+    expect(library.thumbPath('Flow', 'scene')).toBe(path.join(ws, 'scenes', 'thumbs', 'Flow.jpg'));
+  });
+
   it('refuses components with relative imports, name clashes and non-project ids', async () => {
     await expect(library.promote(slug, 'project:Helper')).rejects.toThrow(/imports files next to it/);
     await writeFile(path.join(store.dir(slug), 'overlays', 'Badge.tsx'), BADGE);
     await expect(library.promote(slug, 'project:Badge')).rejects.toThrow(
-      /already has a component named Badge/,
+      /already has an overlay named Badge/,
     );
     await expect(library.promote(slug, 'workspace:Badge')).rejects.toThrow(/only project components/);
   });

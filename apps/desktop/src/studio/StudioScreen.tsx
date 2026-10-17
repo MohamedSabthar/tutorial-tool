@@ -771,7 +771,20 @@ export function StudioScreen({ slug }: { slug: string }) {
               }}
             />
           )}
-          <Library slug={slug} registry={registry} onAdd={(id) => addOverlay(id)} />
+          <Library
+            slug={slug}
+            registry={registry}
+            onAdd={(id) => addOverlay(id)}
+            onInsertScene={(id) => {
+              if (!client) return;
+              controls.pause();
+              void client
+                .call('scenes.insert', { slug, at: Math.round(t * 100) / 100, component: id })
+                .catch((e: unknown) =>
+                  setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }),
+                );
+            }}
+          />
         </aside>
       </div>
 

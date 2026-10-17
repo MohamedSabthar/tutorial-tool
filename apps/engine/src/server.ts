@@ -256,6 +256,15 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         overlays: await overlays(),
         stage: headless,
       }),
+    checkScene: async (slug, sceneId) =>
+      checkScene({
+        workspace: opts.workspace,
+        slug,
+        sceneId,
+        timeline: (await timelines.get(slug)).timeline,
+        overlays: await overlays(),
+        stage: headless,
+      }),
     commit: async (message, paths) => {
       const head = await workspace.commit(message, paths);
       broadcast('workspace.changed', { head });
@@ -309,13 +318,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   });
   app.get('/health', async () => ({ ok: true, version: ENGINE_VERSION }));
   // Library thumbnails (workspace overlays/thumbs/<Name>.jpg); token-checked like media.
-  app.get<{ Params: { name: string } }>('/library/thumb/:name', async (req, reply) => {
-    const file = library.thumbPath(req.params.name);
-    if (!file) return reply.code(404).send({ error: 'not found' });
-    reply.header('content-type', 'image/jpeg');
-    reply.header('cache-control', 'no-cache');
-    return reply.send(await readFileP(file));
-  });
+  app.get<{ Params: { name: string }; Querystring: { kind?: string } }>(
+    '/library/thumb/:name',
+    async (req, reply) => {
+      const file = library.thumbPath(req.params.name, req.query.kind === 'scene' ? 'scene' : 'overlay');
+      if (!file) return reply.code(404).send({ error: 'not found' });
+      reply.header('content-type', 'image/jpeg');
+      reply.header('cache-control', 'no-cache');
+      return reply.send(await readFileP(file));
+    },
+  );
   registerMedia(app, store);
 
   const handlers: Handlers = {

@@ -10,6 +10,9 @@ import { ExplainerJob } from './explainers';
 /** A component in the shared overlay library (`overlays/index.json`). */
 export const LibraryEntry = z.object({
   id: z.string(),
+  kind: z.enum(['overlay', 'scene']).default('overlay'),
+  /** Scenes: the beat names it animates on. */
+  beats: z.array(z.string()).optional(),
   name: z.string(),
   description: z.string(),
   props: z.array(z.string()),
