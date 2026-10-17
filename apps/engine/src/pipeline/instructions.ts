@@ -8,11 +8,11 @@ import type { Plan } from '@studio/core';
 const done = (stage: string) =>
   `When you have finished, call the studio tool stage_done with {"stage": "${stage}", "summary": "<one or two sentences>"}. If you changed a skill, add "knowledge": "<one line: what you learned>" and don't commit it yourself: the pipeline commits skill changes after each stage. If you cannot finish, call it with "ok": false and say what is blocking you.`;
 
-export function planInstruction(): string {
+export function planInstruction(opts: { explainers: boolean } = { explainers: true }): string {
   return [
     '[Pipeline · plan]',
-    "Plan this tutorial. Read the brief in this project's CLAUDE.md and the product skill, then follow the tutorial-authoring skill to split it into 3–8 steps.",
-    'Save the plan with the studio tool save_plan: for each step an id (s1, s2, …), a short imperative title, what happens on screen, and draft narration. Propose explainers only where a concept is easier to show than to click through.',
+    "Plan this tutorial. Read the brief in this project's CLAUDE.md (and any files it lists under References) and the product skill, then follow the tutorial-authoring skill to split it into 3–8 steps. Fit the length and style the brief asks for.",
+    `Save the plan with the studio tool save_plan: for each step an id (s1, s2, …), a short imperative title, what happens on screen, and draft narration. ${opts.explainers ? 'Propose explainers only where a concept is easier to show than to click through.' : "Don't propose explainers: the brief asks for a recording only."}`,
     "Don't write or run the script yet; the user reviews the plan first.",
     done('plan'),
   ].join('\n\n');
@@ -58,13 +58,19 @@ export function repairInstruction(input: {
     .join('\n\n');
 }
 
-export function postInstruction(): string {
+export function postInstruction(plan: Plan | null = null): string {
   return [
     '[Pipeline · post-production]',
     "The take is recorded. Write the narration for each recorded step: read them with list_steps, then set each step's narration with apply_timeline_patch (replace /steps/<index>/narration).",
     "Follow the narration style in the tutorial-authoring skill, start from the plan's draft narration, and fit each step's length at about 2.5 words per second.",
+    plan
+      ? "The user reviewed this narration in the storyboard and may have edited it; keep their wording unless it doesn't fit the step's length:\n\n" +
+        plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n')
+      : '',
     done('post'),
-  ].join('\n\n');
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function retroInstruction(input: {

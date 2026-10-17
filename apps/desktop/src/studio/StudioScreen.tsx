@@ -215,7 +215,7 @@ export function StudioScreen({ slug }: { slug: string }) {
       <AppHeader
         current="studio"
         hrefs={{
-          projects: '#/reference',
+          projects: '#/projects',
           studio: `#/studio/${slug}`,
           library: '#/gallery',
           settings: '#/workspace',

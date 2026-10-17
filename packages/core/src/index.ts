@@ -11,3 +11,4 @@ export * from './rpc';
 export * from './derive';
 export * from './agent';
 export * from './pipeline';
+export * from './brief';

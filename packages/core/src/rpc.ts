@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
-import { PipelineGates, PipelineState } from './pipeline';
+import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
+import { Brief, PlanEdit } from './brief';
 
 /**
  * The engine's WebSocket protocol.
@@ -15,7 +16,42 @@ import { PipelineGates, PipelineState } from './pipeline';
 export const NewProject = z.object({
   title: z.string().min(1).max(120),
   product: z.string().min(1).default('wso2-integrator'),
+  brief: Brief.partial().optional(),
 });
+
+/** A project card: metadata plus what the Projects screen shows and routes on. */
+export const ProjectSummary = Project.extend({
+  /** Output duration of the timeline in seconds, null before the first take. */
+  duration: z.number().nullable(),
+  /** Poster URL path on the engine (needs the token), null before the first take. */
+  poster: z.string().nullable(),
+  pipeline: z.object({ status: PipelineStatus, stage: PipelineStage.nullable() }),
+});
+export type ProjectSummary = z.infer<typeof ProjectSummary>;
+
+const ReferenceSource = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('url'), url: z.url() }),
+  /** A local file path (Tauri drag-and-drop gives paths). */
+  z.object({ kind: z.literal('path'), path: z.string().min(1) }),
+  /** File contents from a browser file input or drop (at most 5 MB). */
+  z.object({ kind: z.literal('data'), name: z.string().min(1).max(200), base64: z.string().max(7_000_000) }),
+]);
+
+export const SkillCoverage = z.object({
+  product: z.string(),
+  /** The product's skill folder, null when the workspace has none. */
+  skill: z.string().nullable(),
+  items: z.array(
+    z.object({
+      name: z.string(),
+      title: z.string(),
+      lastVerified: z.string().nullable(),
+      /** Shares words with the goal, so the plan will probably use it. */
+      relevant: z.boolean(),
+    }),
+  ),
+});
+export type SkillCoverage = z.infer<typeof SkillCoverage>;
 
 const WorkspaceStatus = z.object({
   path: z.string(),
@@ -39,7 +75,31 @@ export const rpcMethods = {
   },
   'project.list': {
     params: z.object({}),
-    result: z.array(Project),
+    result: z.array(ProjectSummary),
+  },
+  'brief.get': { params: z.object({ slug: z.string() }), result: Brief },
+  /** Saves the brief and renders it into the project's CLAUDE.md. Drafts also take their title from the goal. */
+  'brief.save': { params: z.object({ slug: z.string(), brief: Brief }), result: Brief },
+  'brief.addReference': { params: z.object({ slug: z.string(), source: ReferenceSource }), result: Brief },
+  'brief.removeReference': {
+    params: z.object({ slug: z.string(), index: z.number().int().min(0) }),
+    result: Brief,
+  },
+  /** What the product skill already covers, and which notes look relevant to a goal. */
+  'skills.coverage': {
+    params: z.object({ product: z.string(), goal: z.string().max(2000).default('') }),
+    result: SkillCoverage,
+  },
+  /** Products and the size of the knowledge base, for the Projects screen. */
+  'knowledge.summary': {
+    params: z.object({}),
+    result: z.object({
+      products: z.array(z.object({ id: z.string(), name: z.string(), skill: z.string().nullable() })),
+      productSkills: z.number(),
+      components: z.number(),
+      overlays: z.number(),
+      scenes: z.number(),
+    }),
   },
   'project.create': {
     params: NewProject,
@@ -209,6 +269,11 @@ export const rpcMethods = {
     result: PipelineState,
   },
   'pipeline.stop': { params: z.object({ slug: z.string() }), result: PipelineState },
+  /** Edits the plan in place during the storyboard review (narration, titles, explainer ideas). */
+  'pipeline.editPlan': {
+    params: z.object({ slug: z.string(), edits: z.array(PlanEdit).min(1).max(50) }),
+    result: PipelineState,
+  },
   /** Answers a tool permission request raised by `canUseTool`. */
   'agent.permission': {
     params: z.object({

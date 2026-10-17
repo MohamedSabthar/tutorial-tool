@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DevShell, type DevRoute } from './shell';
+import { DevShell, useHashPath, type DevRoute } from './shell';
 import { EngineProvider } from './engine';
 import { LiveShell } from './live/LiveShell';
 import { StudioScreen } from './studio/StudioScreen';
@@ -20,8 +20,12 @@ import { SdkPage } from './pages/SdkPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { HotReloadPage } from './pages/HotReloadPage';
 import { TimelineSyncPage } from './pages/TimelineSyncPage';
+import { ProjectsScreen } from './routes/projects/ProjectsScreen';
+import { BriefScreen } from './routes/brief/BriefScreen';
+import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
+import './routes/routes.css';
 import { registerSharedModules } from './studio/shared';
 
 registerSharedModules();
@@ -44,6 +48,8 @@ const routes: DevRoute[] = [
   { path: '/hot', step: '2.5', label: 'Overlay hot-loading', render: () => <HotReloadPage /> },
   { path: '/timeline-sync', step: '2.6', label: 'Timeline sync & undo', render: () => <TimelineSyncPage /> },
   { path: '/studio-link', step: '2.7', label: 'Studio (demo-http)', render: () => <StudioLink /> },
+  // Handled by <App> (the real home screen); listed so the developer shell links to it.
+  { path: '/projects', step: '3.8', label: 'Projects (app home)', render: () => null },
 ];
 
 /** Opens the real Studio screen (full window) for the reference project. */
@@ -55,30 +61,34 @@ function StudioLink() {
         The Studio is a full-window screen. It opens on the demo-http project; use the header’s Projects icon
         to come back here.
       </p>
-      <a
-        className="ui-btn ui-btn-primary"
-        href="#/studio/demo-http"
-        onClick={() => setTimeout(() => window.location.reload(), 0)}
-      >
+      <a className="ui-btn ui-btn-primary" href="#/studio/demo-http">
         Open the Studio
       </a>
     </div>
   );
 }
 
-const isLive = window.location.hash.startsWith('#/live');
-const studioSlug = /^#\/studio\/([a-z0-9-]+)/.exec(window.location.hash)?.[1];
+const SLUG = '([a-z0-9][a-z0-9-]*)';
+const match = (path: string, prefix: string) => new RegExp(`^/${prefix}/${SLUG}`).exec(path)?.[1];
+
+/** Hash routes: the app screens, the Live window, and the developer pages (anything else). */
+function App() {
+  const path = useHashPath();
+  if (path.startsWith('/live')) return <LiveShell />;
+  if (path === '/' || path === '/projects') return <ProjectsScreen />;
+  const studio = match(path, 'studio');
+  if (studio) return <StudioScreen key={studio} slug={studio} />;
+  const brief = match(path, 'brief');
+  if (brief) return <BriefScreen key={brief} slug={brief} />;
+  const storyboard = match(path, 'storyboard');
+  if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
+  return <DevShell routes={routes} />;
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <EngineProvider>
-      {isLive ? (
-        <LiveShell />
-      ) : studioSlug ? (
-        <StudioScreen slug={studioSlug} />
-      ) : (
-        <DevShell routes={routes} />
-      )}
+      <App />
     </EngineProvider>
   </StrictMode>,
 );

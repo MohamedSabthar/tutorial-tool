@@ -243,6 +243,41 @@ describe('PipelineManager', () => {
     await until(() => last().status === 'stopped');
   });
 
+  it('edits the plan only during the storyboard review, and passes the edits to post-production', async () => {
+    await store.saveBrief(slug, { ...(await store.readBrief(slug)), explainers: false });
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, { ...PLAN, explainers: [{ after: 's1', idea: 'Request flow' }] });
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true],
+    );
+    await expect(
+      p.editPlan(slug, [{ op: 'step', id: 's1', field: 'narration', value: 'x' }]),
+    ).rejects.toThrow(/storyboard review/);
+    await p.start(slug);
+    await until(() => last().status === 'waiting');
+    expect(sent[0]).toContain("Don't propose explainers");
+    await p.editPlan(slug, [
+      { op: 'step', id: 's2', field: 'narration', value: 'Click Create to finish.' },
+      { op: 'explainer', index: 0, idea: 'How a request reaches the service' },
+    ]);
+    expect(last().plan?.steps[1]?.narration).toBe('Click Create to finish.');
+    expect(last().plan?.explainers[0]?.idea).toBe('How a request reaches the service');
+    await expect(p.editPlan(slug, [{ op: 'step', id: 's9', field: 'title', value: 'x' }])).rejects.toThrow(
+      /no step/,
+    );
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    expect(sent.find((t) => t.includes('[Pipeline · post-production]'))).toContain(
+      's2 Create the service: Click Create to finish.',
+    );
+  });
+
   it('nudges once when a turn ends without stage_done, then asks the user for help', async () => {
     const { p, sent } = make(() => {}, []);
     await p.start(slug);

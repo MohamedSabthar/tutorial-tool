@@ -38,7 +38,7 @@ export function DevShell({ routes }: { routes: DevRoute[] }) {
   useEffect(() => {
     detectRuntime().then(setRuntime, () => setRuntime({ kind: 'browser' }));
   }, []);
-  const current = routes.find((r) => r.path === path) ?? routes[routes.length - 1]!;
+  const current = routes.find((r) => r.path === path) ?? routes[0]!;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>

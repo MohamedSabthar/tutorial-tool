@@ -6,6 +6,7 @@ import {
   PipelineState,
   RpcError,
   type AgentEvent,
+  type PlanEdit,
   type Gate,
   type PipelineStage,
   type Project,
@@ -164,6 +165,26 @@ export class PipelineManager {
     const parsed = Plan.parse(plan);
     await this.set(slug, { plan: parsed });
     return parsed;
+  }
+
+  /** Storyboard edits from the user, while the plan is waiting for review. */
+  async editPlan(slug: string, edits: PlanEdit[]): Promise<PipelineState> {
+    const state = await this.get(slug);
+    if (!state.plan || state.status !== 'waiting' || state.gate?.kind !== 'storyboard')
+      throw new RpcError('the plan can only be edited during the storyboard review', 'bad_request');
+    const plan = structuredClone(state.plan);
+    for (const e of edits) {
+      if (e.op === 'step') {
+        const step = plan.steps.find((s) => s.id === e.id);
+        if (!step) throw new RpcError(`no step "${e.id}" in the plan`, 'not_found');
+        step[e.field] = e.value;
+      } else {
+        const ex = plan.explainers[e.index];
+        if (!ex) throw new RpcError(`no explainer ${e.index} in the plan`, 'not_found');
+        ex.idea = e.idea;
+      }
+    }
+    return this.set(slug, { plan: Plan.parse(plan) });
   }
 
   /** `stage_done` from the agent: returns the text the tool replies with. */
@@ -409,7 +430,13 @@ export class PipelineManager {
       if (live.abort.signal.aborted) throw new Stopped();
       switch (stage) {
         case 'plan': {
-          await this.agentStageWithHelp(slug, live, 'plan', planInstruction());
+          const brief = await this.deps.store.readBrief(slug).catch(() => null);
+          await this.agentStageWithHelp(
+            slug,
+            live,
+            'plan',
+            planInstruction({ explainers: brief?.explainers ?? true }),
+          );
           if (!(await this.get(slug)).plan)
             await this.agentStageWithHelp(
               slug,
@@ -527,7 +554,7 @@ export class PipelineManager {
           break;
         }
         case 'post': {
-          await this.agentStageWithHelp(slug, live, 'post', postInstruction());
+          await this.agentStageWithHelp(slug, live, 'post', postInstruction((await this.get(slug)).plan));
           stage = 'retro';
           break;
         }

@@ -59,7 +59,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 2.6 Timeline store, patches, undo
   - [x] 2.7 Studio window: preview and timeline
   - [x] 2.8 Studio window: inspector and library
-- [ ] **Phase 3: Agent loop and self-learning skills**
+- [x] **Phase 3: Agent loop and self-learning skills**
   - [x] 3.1 Agent session manager
   - [x] 3.2 MCP tools: timeline and project
   - [x] 3.3 MCP tools: `run_script` and `inspect_ui`
@@ -67,7 +67,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 3.5 Pipeline orchestration and gates
   - [x] 3.6 Repair and research loop
   - [x] 3.7 Retrospective and knowledge commits
-  - [ ] 3.8 Projects, Brief and Storyboard screens
+  - [x] 3.8 Projects, Brief and Storyboard screens
 - [ ] **Phase 4: Voice-over and post-production**
   - [ ] 4.1 ElevenLabs client
   - [ ] 4.2 Narration and voice-over generation
@@ -803,3 +803,9 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-16 | 3.6 | `Workspace.commit` now takes the paths to commit: seed commits cover only the seed files `ensure()` added (plus `.gitignore`/`CLAUDE.md` upgrades), take and project commits only `projects/<slug>`. Before, every dry run's `ensure()` ran `git add -A` and swept the agent's skill edits into "workspace: add seed knowledge" commits | Found live: the first repair test produced no skills commit because of this |
 | 2026-10-16 | 3.7 | Retro stage: the agent gets the run's stage log and updates product skills, adds at most 3 one-line lessons/gotchas to the workspace CLAUDE.md (merge, don't repeat; 8 KB budget, current size given), and names overlays worth promoting in its summary (promotion itself is 5.5). Retro edits are not auto-committed: the machine collects the uncommitted knowledge diff (CLAUDE.md + `.claude/skills`, new files via intent-to-add) and opens a `knowledge` gate showing it. Commit → one `lessons: <line> [<version>]` commit; Revise → the agent redoes it with the feedback; Discard → changes reverted. No diff → no gate | Verified live: after a run whose script stage fixed a broken locator, the retro proposed measured timings in the skill plus two lessons and a gotcha; Commit produced `lessons: …` visible in the Knowledge panel |
 | 2026-10-16 | 3.7 | Knowledge panel in the Studio: the last 15 `skills(...)` and `lessons:` commits (via new `workspace.show`), each expandable to its diff. Commit subjects strip any commit-style prefix or version the agent put in its knowledge line | The agent wrote "skills(x): …" inside its line, producing doubled prefixes |
+| 2026-10-17 | 3.8 | The main window's home is now the Projects screen (`#/projects`). `main.tsx` routes by hash without reloads: `/projects`, `/brief/<slug>`, `/storyboard/<slug>`, `/studio/<slug>`, `/live`; anything else is a developer page ("Developer pages" in the header). "Set up tutorial" creates a draft project right away (title from the goal's first sentence), so the Brief always has a slug for references and Draft cards appear on Projects. Cards route by state: a running or waiting pipeline → Storyboard, a take → Studio, a draft → Brief | One code path for drafts; no special "unsaved" brief state |
+| 2026-10-17 | 3.8 | The brief is `brief.json` (zod `Brief` in core: goal, starting workspace, audience/length/style, voice, explainers, gates, notes, references). `brief.save` renders the Goal, Audience, Constraints and References sections of the project CLAUDE.md and keeps the rest (Outline, Notes, the agent's own sections). References are copied into `references/` (Tauri drops give paths; the browser and the file picker send contents, ≤5 MB) or kept as links. The plan instruction follows the explainers switch | The agent keeps reading the brief from CLAUDE.md as before |
+| 2026-10-17 | 3.8 | Not wired yet, shown disabled: the voice picker (4.1), and the "After recording" and "Before export" gates (only the storyboard gate exists). The cost and time estimate in "What happens next" is left out until there are enough past runs to base it on | Avoids controls that look like they work but don't |
+| 2026-10-17 | 3.8 | Skill coverage (`skills.coverage`) lists the product skill's component notes with `last_verified`, and marks notes that share words with the goal as "likely used". There is no list of the steps a goal needs before planning, so "needs research" is a sentence, not a per-step chip | Honest with the data that exists |
+| 2026-10-17 | 3.8 | Storyboard edits go through `pipeline.editPlan` with validated `PlanEdit`s (step narration, explainer idea), only while the storyboard gate is open, sent on blur and before Approve/Revise. They change the plan in `pipeline.json`, not `tutorial.json`: steps reach the timeline only after recording. Post-production now gets the reviewed narration in its instruction. Durations are estimates (narration at 150 wpm, at least 5 s a step; 20 s an explainer) until voice-over timing (4.3) | The spec said "sends patches"; the plan is not the timeline yet |
+| 2026-10-17 | 3.8 | `project.list` returns `ProjectSummary`: duration (timeline, or the take for older projects), a poster frame extracted once with ffmpeg into `.studio/poster-<take>.jpg`, and the pipeline status/stage for the chip and routing | Cards need real thumbnails and state |

@@ -10,7 +10,10 @@ import {
   TOKEN_QUERY,
   type RpcEvent,
   type RpcEventData,
+  type Brief,
+  type PlanEdit,
   type RpcMethod,
+  type RpcParams,
   type RpcReply,
   type RpcResult,
   formatIssues,
@@ -30,6 +33,8 @@ import { studioServer } from './agent/mcp';
 import { loadCatalog } from './agent/catalog';
 import { PipelineManager } from './pipeline/machine';
 import { WorkspaceGit } from './workspaceGit';
+import { knowledgeSummary, skillCoverage } from './brief';
+import { projectCard } from './cards';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -158,6 +163,26 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'pipeline.revise': async ({ slug, feedback }: { slug: string; feedback: string }) =>
       pipeline.revise(slug, feedback),
     'pipeline.stop': async ({ slug }: { slug: string }) => pipeline.stop(slug),
+    'pipeline.editPlan': async ({ slug, edits }: { slug: string; edits: PlanEdit[] }) =>
+      pipeline.editPlan(slug, edits),
+    'brief.get': async ({ slug }: { slug: string }) => store.readBrief(slug),
+    'brief.save': async ({ slug, brief }: { slug: string; brief: Brief }) => {
+      const saved = await store.saveBrief(slug, brief);
+      broadcast('project.changed', { slug });
+      return saved;
+    },
+    'brief.addReference': async ({
+      slug,
+      source,
+    }: {
+      slug: string;
+      source: RpcParams<'brief.addReference'>['source'];
+    }) => store.addReference(slug, source),
+    'brief.removeReference': async ({ slug, index }: { slug: string; index: number }) =>
+      store.removeReference(slug, index),
+    'skills.coverage': async ({ product, goal }: { product: string; goal: string }) =>
+      skillCoverage(opts.workspace, product, goal),
+    'knowledge.summary': async () => knowledgeSummary(opts.workspace),
     'agent.status': async ({ slug, history }: { slug: string; history: number }) => {
       await store.open(slug);
       return agents.get(slug).status(history);
@@ -241,8 +266,21 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       engineVersion: ENGINE_VERSION,
       workspace: opts.workspace,
     }),
-    'project.list': async () => store.list(),
-    'project.create': async (p: { title: string; product: string }) => {
+    'project.list': async () =>
+      Promise.all(
+        (await store.list()).map(async (p) =>
+          projectCard(
+            p,
+            store.dir(p.slug),
+            await timelines.get(p.slug).then(
+              (t) => t.timeline,
+              () => null,
+            ),
+            await pipeline.get(p.slug),
+          ),
+        ),
+      ),
+    'project.create': async (p: { title: string; product: string; brief?: Partial<Brief> }) => {
       await workspace.ensure();
       const project = await store.create(p);
       const head = await workspace.commit(`project: create ${project.slug}`, [`projects/${project.slug}`]);

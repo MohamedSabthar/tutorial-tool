@@ -1,13 +1,18 @@
-import { mkdir, readdir, readFile, writeFile, access } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile, access, copyFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { parseTimeline, Project, RpcError, type Timeline } from '@studio/core';
+import { Brief, briefTitle, parseTimeline, Project, RpcError, type Timeline } from '@studio/core';
 import { projectClaudeMd } from './templates';
+import { renderBrief } from './brief';
+
+const MAX_REFERENCE_BYTES = 5 << 20;
 
 /**
  * Reads and writes tutorial projects under `<workspace>/projects/<slug>/`:
  *   project.json   metadata
  *   tutorial.json  the timeline
- *   CLAUDE.md      the tutorial brief the agent reads
+ *   brief.json     the brief form (Brief screen)
+ *   CLAUDE.md      the tutorial brief the agent reads (brief sections rendered from brief.json)
+ *   references/    files attached to the brief
  */
 export class ProjectStore {
   constructor(readonly workspace: string) {}
@@ -37,7 +42,7 @@ export class ProjectStore {
     return projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  async create(input: { title: string; product: string }): Promise<Project> {
+  async create(input: { title: string; product: string; brief?: Partial<Brief> }): Promise<Project> {
     await mkdir(this.root, { recursive: true });
     const slug = await this.uniqueSlug(slugify(input.title));
     const now = new Date().toISOString();
@@ -53,7 +58,80 @@ export class ProjectStore {
     await writeJson(path.join(dir, 'project.json'), project);
     await writeJson(path.join(dir, 'tutorial.json'), parseTimeline({ version: 1 }));
     await writeFile(path.join(dir, 'CLAUDE.md'), projectClaudeMd(project));
+    if (input.brief) await this.saveBrief(slug, Brief.parse(input.brief));
     return project;
+  }
+
+  async readBrief(slug: string): Promise<Brief> {
+    try {
+      return Brief.parse(JSON.parse(await readFile(path.join(this.dir(slug), 'brief.json'), 'utf8')));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        await this.readProject(slug);
+        return Brief.parse({});
+      }
+      throw e;
+    }
+  }
+
+  /** Saves brief.json, renders it into CLAUDE.md, and retitles drafts from the goal. */
+  async saveBrief(slug: string, brief: Brief): Promise<Brief> {
+    const project = await this.readProject(slug);
+    const dir = this.dir(slug);
+    await writeJson(path.join(dir, 'brief.json'), brief);
+    const mdFile = path.join(dir, 'CLAUDE.md');
+    const md = await readFile(mdFile, 'utf8').catch(() => projectClaudeMd(project));
+    const title = project.status === 'draft' && brief.goal.trim() ? briefTitle(brief.goal) : project.title;
+    await writeFile(mdFile, renderBrief(md, { ...project, title }, brief));
+    await writeJson(
+      path.join(dir, 'project.json'),
+      Project.parse({ ...project, title, updatedAt: new Date().toISOString() }),
+    );
+    return brief;
+  }
+
+  /** Copies a file into references/ (or records a link) and adds it to the brief. */
+  async addReference(
+    slug: string,
+    source:
+      | { kind: 'url'; url: string }
+      | { kind: 'path'; path: string }
+      | { kind: 'data'; name: string; base64: string },
+  ): Promise<Brief> {
+    const brief = await this.readBrief(slug);
+    if (source.kind === 'url') {
+      if (brief.references.some((r) => r.kind === 'url' && r.url === source.url)) return brief;
+      return this.saveBrief(slug, {
+        ...brief,
+        references: [...brief.references, { kind: 'url', url: source.url }],
+      });
+    }
+    const name = path
+      .basename(source.kind === 'path' ? source.path : source.name)
+      .replace(/[^\w.@ -]+/g, '_');
+    if (!name || name.startsWith('.')) throw new RpcError('that file name cannot be used', 'bad_request');
+    const dir = path.join(this.dir(slug), 'references');
+    await mkdir(dir, { recursive: true });
+    const rel = `references/${name}`;
+    if (source.kind === 'path') {
+      const st = await stat(source.path).catch(() => null);
+      if (!st?.isFile()) throw new RpcError(`not a file: ${source.path}`, 'bad_request');
+      if (st.size > MAX_REFERENCE_BYTES) throw new RpcError(`${name} is larger than 5 MB`, 'bad_request');
+      await copyFile(source.path, path.join(this.dir(slug), rel));
+    } else {
+      const data = Buffer.from(source.base64, 'base64');
+      if (data.length > MAX_REFERENCE_BYTES) throw new RpcError(`${name} is larger than 5 MB`, 'bad_request');
+      await writeFile(path.join(this.dir(slug), rel), data);
+    }
+    const references = brief.references.filter((r) => !(r.kind === 'file' && r.path === rel));
+    return this.saveBrief(slug, { ...brief, references: [...references, { kind: 'file', name, path: rel }] });
+  }
+
+  /** Removes a reference from the brief (the copied file stays in references/). */
+  async removeReference(slug: string, index: number): Promise<Brief> {
+    const brief = await this.readBrief(slug);
+    if (!brief.references[index]) throw new RpcError('no such reference', 'not_found');
+    return this.saveBrief(slug, { ...brief, references: brief.references.filter((_, i) => i !== index) });
   }
 
   /** Returns the project with this slug, creating it if needed (used for built-in sample projects). */
