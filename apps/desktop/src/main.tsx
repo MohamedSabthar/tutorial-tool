@@ -25,6 +25,7 @@ import { ProjectsScreen } from './routes/projects/ProjectsScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { RenderScreen } from './render/RenderScreen';
+import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
@@ -83,6 +84,11 @@ function App() {
   if (studio) return <StudioScreen key={studio} slug={studio} />;
   const brief = match(path, 'brief');
   if (brief) return <BriefScreen key={brief} slug={brief} />;
+  const fix = match(path, 'agentfix');
+  if (fix) {
+    const run = Number(new URLSearchParams(path.split('?')[1] ?? '').get('run')) || null;
+    return <AgentFixScreen key={fix} slug={fix} initialRun={run} />;
+  }
   const render = match(path, 'render');
   if (render) return <RenderScreen slug={render} />;
   const storyboard = match(path, 'storyboard');

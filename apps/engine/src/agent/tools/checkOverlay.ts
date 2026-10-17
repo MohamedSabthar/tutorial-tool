@@ -6,7 +6,7 @@ export function checkOverlayTools(ctx: ToolContext) {
   return [
     tool(
       'check_overlay',
-      'Check an overlay component you wrote: type-check, determinism lint, bundle, then render it composited in the tutorial (recording, camera, other overlays) at its start, 25/50/75%, end and just after, render one moment twice to confirm it is deterministic, and return the problems plus a contact sheet image. Run it after every change to a component, and fix what it reports. file is relative to the project (e.g. "overlays/StepBadge.tsx") or the workspace ("overlays/…" for shared components).',
+      'Check an overlay component you wrote: type-check, determinism lint, bundle, then render it composited in the tutorial (recording, camera, other overlays) at its start, 25/50/75%, end and just after, render one moment twice to confirm it is deterministic, and return the problems plus a contact sheet image. Run it after every change to a component, and fix what it reports. file is relative to the project (e.g. "overlays/StepBadge.tsx") or the workspace ("overlays/…" for shared components), or a component id such as "core:Arrow" (built-ins skip the code checks and are only rendered).',
       {
         file: z.string().min(1),
         times: z.array(z.number().min(0)).max(9).optional(),

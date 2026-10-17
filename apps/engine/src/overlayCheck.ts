@@ -189,29 +189,42 @@ export async function checkOverlay(opts: {
   times?: number[];
   instanceId?: string;
 }): Promise<CheckResult> {
-  const abs = path.resolve(opts.workspace, 'projects', opts.slug, opts.file);
-  const fromWorkspace = path.resolve(opts.workspace, opts.file);
-  const file = existsSync(abs) ? abs : fromWorkspace;
-  if (!existsSync(file))
-    throw new RpcError(`no file ${opts.file} in the project or the workspace`, 'not_found');
-  const rel = path.relative(opts.workspace, file).split(path.sep).join('/');
-  const name = path.basename(file).replace(/\.(tsx|ts)$/, '');
-  const component = rel.startsWith('projects/') ? `project:${name}` : `workspace:${name}`;
-
-  const problems: Problem[] = [...(await typecheckOverlay(file)), ...(await lintOverlay(file))];
+  let component: string;
+  const problems: Problem[] = [];
   let mod: Record<string, unknown>;
-  try {
-    // Overlay modules read React, zod etc. from the shared registry (as in the app).
+  const ref = /^(core|workspace|project):([A-Za-z][A-Za-z0-9]*)$/.exec(opts.file);
+  if (ref?.[1] === 'core') {
+    // A built-in component: nothing to type-check or bundle; render it in place.
     await registerSharedModules();
-    mod = await opts.overlays.load(rel);
-    if (typeof mod.default !== 'function')
-      throw new Error('the module has no default export (the component)');
-  } catch (e) {
-    problems.push({
-      stage: 'bundle',
-      message: e instanceof Error ? e.message.split('\n').slice(0, 6).join('\n') : String(e),
-    });
-    return { ok: false, component, problems, frames: [], sheet: null, instance: null };
+    const { coreOverlays } = await import('@studio/overlays-core');
+    const found = (coreOverlays as unknown as Record<string, Record<string, unknown>>)[opts.file];
+    if (!found) throw new RpcError(`no core component ${opts.file}`, 'not_found');
+    component = opts.file;
+    mod = found;
+  } else {
+    const given = ref ? `overlays/${ref[2]}.tsx` : opts.file;
+    const abs = path.resolve(opts.workspace, 'projects', opts.slug, given);
+    const fromWorkspace = path.resolve(opts.workspace, given);
+    const file = ref?.[1] === 'workspace' ? fromWorkspace : existsSync(abs) ? abs : fromWorkspace;
+    if (!existsSync(file))
+      throw new RpcError(`no file ${given} in the project or the workspace`, 'not_found');
+    const rel = path.relative(opts.workspace, file).split(path.sep).join('/');
+    const name = path.basename(file).replace(/\.(tsx|ts)$/, '');
+    component = rel.startsWith('projects/') ? `project:${name}` : `workspace:${name}`;
+    problems.push(...(await typecheckOverlay(file)), ...(await lintOverlay(file)));
+    try {
+      // Overlay modules read React, zod etc. from the shared registry (as in the app).
+      await registerSharedModules();
+      mod = await opts.overlays.load(rel);
+      if (typeof mod.default !== 'function')
+        throw new Error('the module has no default export (the component)');
+    } catch (e) {
+      problems.push({
+        stage: 'bundle',
+        message: e instanceof Error ? e.message.split('\n').slice(0, 6).join('\n') : String(e),
+      });
+      return { ok: false, component, problems, frames: [], sheet: null, instance: null };
+    }
   }
 
   // The instance to render: the requested one, the first that uses the component, or a test one.

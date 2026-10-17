@@ -4,6 +4,7 @@ import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
 import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
 import { Brief, PlanEdit } from './brief';
+import { Run } from './runs';
 
 /**
  * The engine's WebSocket protocol.
@@ -149,6 +150,24 @@ export const rpcMethods = {
   'overlays.auto': {
     params: z.object({ slug: z.string() }),
     result: TimelineState.extend({ count: z.number() }),
+  },
+  /** Agent runs that changed something, oldest first. */
+  'runs.list': { params: z.object({ slug: z.string() }), result: z.array(Run) },
+  /** One run with the unified diff of its files. */
+  'runs.get': {
+    params: z.object({ slug: z.string(), n: z.number().int() }),
+    result: z.object({ run: Run, diff: z.string() }),
+  },
+  /** Accept: the run's annotations are resolved. */
+  'runs.accept': { params: z.object({ slug: z.string(), n: z.number().int() }), result: Run },
+  /** Reopen: the run's annotations go back to open (the changes stay). */
+  'runs.reopen': { params: z.object({ slug: z.string(), n: z.number().int() }), result: Run },
+  /** Revert: files and timeline go back to the snapshot before the run; annotations reopen. */
+  'runs.revert': { params: z.object({ slug: z.string(), n: z.number().int() }), result: Run },
+  /** Sends a follow-up about a run to the agent (a new run on the same annotations). */
+  'runs.followUp': {
+    params: z.object({ slug: z.string(), n: z.number().int(), text: z.string().min(1).max(4000) }),
+    result: z.object({ queued: z.boolean() }),
   },
   /** Sends annotations (given ids, or every open one) to the agent as one turn with frames and context. */
   'annotations.send': {
@@ -414,6 +433,7 @@ export const rpcEvents = {
     at: z.number(),
   }),
   'agent.event': AgentEvent,
+  'runs.changed': z.object({ slug: z.string() }),
   'agent.state': AgentStatus,
   'pipeline.changed': PipelineState,
   'live.session': z.object({

@@ -37,6 +37,7 @@ import { ToolRail, toolForKey, type Tool } from './ToolRail';
 import { AnnotationLayer, AnnotationsPanel, type Shape } from './Annotations';
 import { AnnotationPopover } from './AnnotationPopover';
 import { screenToStage } from './StageHost';
+import { useRuns } from './useRuns';
 import { Manipulator, type SnapTarget } from './Manipulator';
 import { sourceToStage } from '@studio/stage';
 import type { Rect } from '@studio/core';
@@ -80,6 +81,8 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
   const [tool, setTool] = useState<Tool>('select');
+  const { runs } = useRuns(slug);
+  const toReview = runs.filter((r) => r.status === 'review');
   const [note, setNote] = useState<string | null>(null);
   /** A note created by the last click: closing it empty discards it. */
   const [fresh, setFresh] = useState<string | null>(null);
@@ -401,6 +404,21 @@ export function StudioScreen({ slug }: { slug: string }) {
           }
         />
       )}
+      {toReview.length > 0 && (
+        <GateBanner
+          title={
+            toReview.length === 1
+              ? `Agent run #${toReview[0]!.n} is ready for review`
+              : `${toReview.length} agent runs are ready for review`
+          }
+          text={toReview.at(-1)!.summary.split('\n')[0]?.slice(0, 220)}
+          actions={
+            <LinkButton variant="primary" href={`#/agentfix/${slug}?run=${toReview.at(-1)!.n}`}>
+              Review changes
+            </LinkButton>
+          }
+        />
+      )}
       {tl.error && (
         <div style={{ padding: '6px 22px' }}>
           <Chip tone="error">{tl.error.slice(0, 220)}</Chip>
@@ -492,6 +510,11 @@ export function StudioScreen({ slug }: { slug: string }) {
                     </Button>
                   )}
                   {sending && <Chip tone={sending.tone}>{sending.text}</Chip>}
+                  {runs.length > 0 && (
+                    <LinkButton variant="ghost" href={`#/agentfix/${slug}`}>
+                      Review agent changes ({runs.length})
+                    </LinkButton>
+                  )}
                 </>
               }
             />

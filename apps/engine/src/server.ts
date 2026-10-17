@@ -44,6 +44,7 @@ import { withCaptions } from './captions';
 import { annotationMessage } from './agent/annotationContext';
 import { HeadlessStage } from './render';
 import { checkOverlay } from './overlayCheck';
+import { RunManager } from './runs';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -137,6 +138,14 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
   const timing = new TimingFit({ store, timelines });
+  const runs = new RunManager({
+    workspace: opts.workspace,
+    store,
+    timelines,
+    agents,
+    render: (slug, times) => headless.render(slug, times),
+    emit: (slug) => broadcast('runs.changed', { slug }),
+  });
   const voiceover = new Voiceover({ store, timelines, tts, after: (slug, o) => timing.fit(slug, o) });
   const pipeline: PipelineManager = new PipelineManager({
     store,
@@ -253,6 +262,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         ...(ids ? { ids } : {}),
       });
       await workspace.ensure();
+      await runs.begin(slug, {
+        prompt: msg.ids
+          .map((id) => timeline.annotations.find((a) => a.id === id)?.comment ?? '')
+          .filter(Boolean)
+          .join(' · '),
+        annotationIds: msg.ids,
+      });
       await agents.get(slug).send(msg.text, 'user', msg.images);
       const session = agents.get(slug);
       await timelines.patch(
@@ -267,6 +283,22 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         { author: 'user', label: 'Send annotations to the agent' },
       );
       return { sent: msg.ids.length, images: msg.images.length };
+    },
+    'runs.list': async ({ slug }: { slug: string }) =>
+      (await runs.list(slug)).filter((r) => r.status !== 'empty'),
+    'runs.get': async ({ slug, n }: { slug: string; n: number }) => ({
+      run: await runs.get(slug, n),
+      diff: await runs.diff(slug, n),
+    }),
+    'runs.accept': async ({ slug, n }: { slug: string; n: number }) => runs.accept(slug, n),
+    'runs.reopen': async ({ slug, n }: { slug: string; n: number }) => runs.reopen(slug, n),
+    'runs.revert': async ({ slug, n }: { slug: string; n: number }) => runs.revert(slug, n),
+    'runs.followUp': async ({ slug, n, text }: { slug: string; n: number; text: string }) => {
+      const r = await runs.get(slug, n);
+      const message = `Follow-up on run #${n}${r.annotationIds.length ? ' (the same annotations)' : ''}: ${text}`;
+      await runs.begin(slug, { prompt: text, annotationIds: r.annotationIds });
+      await agents.get(slug).send(message);
+      return { queued: true };
     },
     'captions.build': async ({ slug }: { slug: string }) => {
       const { timeline } = await timelines.get(slug);
@@ -310,6 +342,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'agent.send': async ({ slug, text }: { slug: string; text: string }) => {
       await store.open(slug);
       await workspace.ensure();
+      await runs.begin(slug, { prompt: text });
       await agents.get(slug).send(text);
       return { queued: true };
     },
