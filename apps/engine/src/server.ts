@@ -283,7 +283,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     emit: (s) => broadcast('pipeline.changed', s),
     voiceover: async (slug, group) => {
-      if (!(await store.readBrief(slug)).voice) return 'No voice chosen in the brief, so no voice-over yet.';
+      if (!(await store.voiceFor(slug))) return 'No voice chosen in the brief, so no voice-over yet.';
       if (!(await tts.status()).configured) return 'ElevenLabs has no key yet, so no voice-over.';
       const r = await voiceover.generate(slug, { author: 'auto', group });
       return `Voice-over: ${r.lines.length} lines, ${r.seconds.toFixed(1)} s.`;

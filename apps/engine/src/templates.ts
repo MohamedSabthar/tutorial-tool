@@ -67,6 +67,7 @@ projects/*/recordings/
 projects/*/audio/
 projects/*/output/
 projects/*/.studio/
+.studio/
 .DS_Store
 `;
 

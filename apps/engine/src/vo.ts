@@ -53,8 +53,8 @@ export class Voiceover {
     slug: string,
     opts: { stepIds?: string[]; author?: Author; group?: string | null } = {},
   ): Promise<VoiceoverResult> {
-    const brief = await this.deps.store.readBrief(slug);
-    if (!brief.voice) throw new RpcError('Choose a voice in the brief first.', 'bad_request');
+    const voiceId = await this.deps.store.voiceFor(slug);
+    if (!voiceId) throw new RpcError('Choose a voice in the brief first.', 'bad_request');
     const { timeline } = await this.deps.timelines.get(slug);
     const explainers = timeline.scenes.filter((s): s is ExplainerScene => s.kind === 'explainer');
     if (!timeline.steps.length && !explainers.length)
@@ -82,7 +82,7 @@ export class Voiceover {
       const next = narrated[i + 1]?.narration;
       const r = await this.deps.tts.synthesize(slug, {
         text: step.narration.trim(),
-        voiceId: brief.voice,
+        voiceId,
         ...(prev ? { previousText: prev } : {}),
         ...(next ? { nextText: next } : {}),
       });
@@ -103,7 +103,7 @@ export class Voiceover {
       for (const [i, text] of texts.entries()) {
         const r = await this.deps.tts.synthesize(slug, {
           text,
-          voiceId: brief.voice,
+          voiceId,
           ...(texts[i - 1] ? { previousText: texts[i - 1] } : {}),
           ...(texts[i + 1] ? { nextText: texts[i + 1] } : {}),
         });

@@ -58,8 +58,42 @@ export class ProjectStore {
     await writeJson(path.join(dir, 'project.json'), project);
     await writeJson(path.join(dir, 'tutorial.json'), parseTimeline({ version: 1 }));
     await writeFile(path.join(dir, 'CLAUDE.md'), projectClaudeMd(project));
-    if (input.brief) await this.saveBrief(slug, Brief.parse(input.brief));
+    // New briefs start with the voice used last.
+    const voice = input.brief?.voice ?? (await this.defaultVoice());
+    if (input.brief || voice) await this.saveBrief(slug, Brief.parse({ ...input.brief, voice }));
     return project;
+  }
+
+  /** Workspace preferences that aren't knowledge (git-ignored): the default voice. */
+  private get settingsFile() {
+    return path.join(this.workspace, '.studio', 'settings.json');
+  }
+
+  /** The voice last chosen in any brief: the default for briefs without one. */
+  async defaultVoice(): Promise<string | null> {
+    try {
+      const v = (JSON.parse(await readFile(this.settingsFile, 'utf8')) as { defaultVoice?: unknown }).defaultVoice;
+      return typeof v === 'string' && v ? v : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async setDefaultVoice(voice: string) {
+    let settings: Record<string, unknown> = {};
+    try {
+      settings = JSON.parse(await readFile(this.settingsFile, 'utf8')) as Record<string, unknown>;
+    } catch {
+      // First setting.
+    }
+    if (settings.defaultVoice === voice) return;
+    await mkdir(path.dirname(this.settingsFile), { recursive: true });
+    await writeFile(this.settingsFile, JSON.stringify({ ...settings, defaultVoice: voice }, null, 2) + '\n');
+  }
+
+  /** The voice for a project's voice-over: its brief's, or the default. */
+  async voiceFor(slug: string): Promise<string | null> {
+    return (await this.readBrief(slug)).voice ?? (await this.defaultVoice());
   }
 
   async readBrief(slug: string): Promise<Brief> {
@@ -68,7 +102,7 @@ export class ProjectStore {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
         await this.readProject(slug);
-        return Brief.parse({});
+        return Brief.parse({ voice: await this.defaultVoice() });
       }
       throw e;
     }
@@ -79,6 +113,7 @@ export class ProjectStore {
     const project = await this.readProject(slug);
     const dir = this.dir(slug);
     await writeJson(path.join(dir, 'brief.json'), brief);
+    if (brief.voice) await this.setDefaultVoice(brief.voice);
     const mdFile = path.join(dir, 'CLAUDE.md');
     const md = await readFile(mdFile, 'utf8').catch(() => projectClaudeMd(project));
     const title = project.status === 'draft' && brief.goal.trim() ? briefTitle(brief.goal) : project.title;

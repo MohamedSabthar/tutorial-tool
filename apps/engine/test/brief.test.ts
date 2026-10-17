@@ -55,6 +55,17 @@ describe('brief', () => {
     expect((await store.open(p.slug)).project.title).toBe('Build a greeting API');
   });
 
+  it('remembers the last voice as the default for other tutorials', async () => {
+    const a = await store.create({ title: 'A', product: 'wso2-integrator' });
+    const b = await store.create({ title: 'B', product: 'wso2-integrator' });
+    expect(await store.voiceFor(b.slug)).toBeNull();
+    await store.saveBrief(a.slug, Brief.parse({ goal: 'x', voice: 'voice-1' }));
+    expect(await store.voiceFor(b.slug)).toBe('voice-1');
+    expect((await store.readBrief(b.slug)).voice).toBe('voice-1');
+    const c = await store.create({ title: 'C', product: 'wso2-integrator', brief: { goal: 'y' } });
+    expect((await store.readBrief(c.slug)).voice).toBe('voice-1');
+  });
+
   it('adds file and link references', async () => {
     const p = await store.create({ title: 'x', product: 'wso2-integrator' });
     const src = path.join(ws, 'guide.md');
