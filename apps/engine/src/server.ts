@@ -42,6 +42,8 @@ import { readEvents, TimingFit } from './timing';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
 import { annotationMessage } from './agent/annotationContext';
+import { HeadlessStage } from './render';
+import { checkOverlay } from './overlayCheck';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -86,6 +88,9 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
   const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
+  // Composited frames for check_overlay (and later export); it needs the engine's own address.
+  let listening = { port: 0, token };
+  const headless = new HeadlessStage(() => listening);
   const runner = new Runner(store, workspace, (event, data) => broadcast(event, data));
   let overlayServer: Promise<OverlayServer> | null = null;
   let overlayVersion = 0;
@@ -105,6 +110,16 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         runner,
         pipeline,
         voiceover,
+        checkOverlay: async (file, o) =>
+          checkOverlay({
+            workspace: opts.workspace,
+            slug,
+            file,
+            timeline: (await timelines.get(slug)).timeline,
+            overlays: await overlays(),
+            stage: headless,
+            ...o,
+          }),
         onTake: () => {
           timelines.invalidate(slug);
           broadcast('project.changed', { slug });
@@ -530,6 +545,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   await app.listen({ host: '127.0.0.1', port: opts.port ?? 0 });
   const addr = app.server.address();
   const port = typeof addr === 'object' && addr ? addr.port : 0;
+  listening = { port, token };
 
   return {
     port,
@@ -540,6 +556,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     async close() {
       await agents.closeAll().catch(() => {});
       await runner.close();
+      await headless.close();
       if (overlayServer) await (await overlayServer).close().catch(() => {});
       for (const ws of sockets) ws.terminate();
       wss.close();

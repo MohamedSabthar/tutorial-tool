@@ -149,6 +149,12 @@ export function VideoPlane({
 
   useEffect(() => () => texture.dispose(), [texture]);
 
+  // Known to videosSettled() while mounted (headless rendering waits for seeks).
+  useEffect(() => {
+    liveVideos.add(video);
+    return () => void liveVideos.delete(video);
+  }, [video]);
+
   // Rounded corners: an alpha mask the size of the fitted frame.
   const mask = useMemo(() => roundedMask(fit.rect.w, fit.rect.h, FRAME.radius), [fit.rect.w, fit.rect.h]);
   useEffect(() => () => mask?.dispose(), [mask]);
@@ -251,4 +257,18 @@ export function FrameShadow() {
       />
     </DomLayer>
   );
+}
+
+/** Video elements of mounted VideoPlanes. */
+const liveVideos = new Set<HTMLVideoElement>();
+
+/**
+ * Resolves once every mounted video has finished seeking and has a frame, and the canvas has
+ * drawn it (two animation frames later). The headless renderer waits on this before a capture.
+ */
+export async function videosSettled(timeoutMs = 10_000): Promise<void> {
+  const until = performance.now() + timeoutMs;
+  const ready = () => [...liveVideos].every((v) => !v.src || (!v.seeking && v.readyState >= 2));
+  while (!ready() && performance.now() < until) await new Promise((r) => setTimeout(r, 16));
+  for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
 }

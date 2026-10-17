@@ -5,7 +5,7 @@
     "rootDir": ".",
     "emitDeclarationOnly": true
   },
-  "include": ["src", "test"],
+  "include": ["src", "test", "eslint-plugin"],
   "references": [
     {
       "path": "../core"

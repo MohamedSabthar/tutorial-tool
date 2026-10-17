@@ -5,6 +5,7 @@ import type { Catalog } from '../catalog';
 import type { Runner } from '../../runner';
 import type { PipelineManager } from '../../pipeline/machine';
 import type { Voiceover } from '../../vo';
+import type { CheckResult } from '../../overlayCheck';
 
 /** What the studio tools of one project can reach. */
 export interface ToolContext {
@@ -15,6 +16,7 @@ export interface ToolContext {
   runner: Runner;
   pipeline: Pick<PipelineManager, 'savePlan' | 'stageDone'>;
   voiceover: Pick<Voiceover, 'generate'>;
+  checkOverlay(file: string, opts: { times?: number[]; instanceId?: string }): Promise<CheckResult>;
   /** Called after a run registered a new take (reload the timeline everywhere). */
   onTake(): void;
   /** Undo group of the agent's current turn: its patches undo as one step. */

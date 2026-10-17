@@ -18,6 +18,10 @@ export const DEV_ENGINE = { port: 4317, token: 'dev-token' } as const;
 export const isTauri = () => '__TAURI_INTERNALS__' in window;
 
 export async function resolveEngine(): Promise<EngineInfo> {
+  // The engine's headless renderer opens #/render/<slug>?engine=<port>&token=<token>.
+  const q = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const port = Number(q.get('engine'));
+  if (port && q.get('token')) return { port, token: q.get('token')!, source: 'dev' };
   if (!isTauri()) return { ...DEV_ENGINE, source: 'dev' };
   const { invoke } = await import('@tauri-apps/api/core');
   const info = await invoke<{ port: number; token: string }>('get_engine');

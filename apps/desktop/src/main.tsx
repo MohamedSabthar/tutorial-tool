@@ -24,6 +24,7 @@ import { VoicePage } from './pages/VoicePage';
 import { ProjectsScreen } from './routes/projects/ProjectsScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
+import { RenderScreen } from './render/RenderScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
@@ -82,6 +83,8 @@ function App() {
   if (studio) return <StudioScreen key={studio} slug={studio} />;
   const brief = match(path, 'brief');
   if (brief) return <BriefScreen key={brief} slug={brief} />;
+  const render = match(path, 'render');
+  if (render) return <RenderScreen slug={render} />;
   const storyboard = match(path, 'storyboard');
   if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
   return <DevShell routes={routes} />;

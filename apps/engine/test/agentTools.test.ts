@@ -95,6 +95,7 @@ beforeAll(async () => {
     runner: null as never,
     pipeline: null as never,
     voiceover: null as never,
+    checkOverlay: null as never,
     onTake: () => {},
   };
   // A fake ElevenLabs: a real 1.2 s MP3 (ffmpeg sine) and evenly spread character timings.
