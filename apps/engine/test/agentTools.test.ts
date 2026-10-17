@@ -15,6 +15,7 @@ import { projectTools } from '../src/agent/tools/project';
 import { frameTools } from '../src/agent/tools/frames';
 import { voTools } from '../src/agent/tools/vo';
 import { Voiceover } from '../src/vo';
+import { annotationMessage } from '../src/agent/annotationContext';
 import { buildTimeMap, voiceSpans } from '@studio/core';
 
 let ws: string;
@@ -295,5 +296,46 @@ describe('studio tools', () => {
     expect(Math.abs(peaks.peaks.length - 60)).toBeLessThanOrEqual(3);
     expect(Math.max(...peaks.peaks)).toBeCloseTo(0.125, 1); // ffmpeg sine amplitude
     await expect(vo.peaks(slug, '../tutorial.json')).rejects.toThrow(/audio/);
+  });
+
+  it('builds one agent message per batch of annotations, with frames and context', async () => {
+    const slug = ctx.slug;
+    await timelines.patch(
+      slug,
+      [
+        { op: 'replace', path: '/steps/2/narration', value: 'Set the base path.' },
+        {
+          op: 'add',
+          path: '/annotations/-',
+          value: {
+            id: 'an-1',
+            t: 40,
+            shape: { kind: 'rect', x: 600, y: 300, w: 300, h: 80 },
+            comment: 'Add a callout here explaining the base path',
+            status: 'open',
+          },
+        },
+        {
+          op: 'add',
+          path: '/annotations/-',
+          value: { id: 'an-2', t: 5, shape: { kind: 'point', x: 100, y: 100 }, comment: '', status: 'open' },
+        },
+      ],
+      { author: 'user' },
+    );
+    const { timeline } = await timelines.get(slug);
+    await expect(annotationMessage({ timeline, projectDir: store.dir(slug), events: [] })).rejects.toThrow(
+      /Write what should change/,
+    );
+    const m = await annotationMessage({ timeline, projectDir: store.dir(slug), events: [], ids: ['an-1'] });
+    expect(m.ids).toEqual(['an-1']);
+    expect(m.text).toContain('Instruction: Add a callout here explaining the base path');
+    expect(m.text).toContain('Step 3 "Set the base path" (s3)');
+    expect(m.text).toContain('Narration: "Set the base path."');
+    expect(m.text).toMatch(/overlay rect \{x: \d+, y: \d+, w: 300, h: 80\}/);
+    expect(m.text).toContain('ov-2 workspace:CodeCallout');
+    expect(m.images).toHaveLength(2);
+    for (const im of m.images)
+      expect(Buffer.from(im.data, 'base64').subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
   });
 });

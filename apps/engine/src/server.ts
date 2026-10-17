@@ -41,6 +41,7 @@ import { Voiceover } from './vo';
 import { readEvents, TimingFit } from './timing';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
+import { annotationMessage } from './agent/annotationContext';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -225,6 +226,32 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         label: 'Automatic overlays',
       });
       return { ...r, count: next.overlays.filter((o) => o.author === 'auto').length };
+    },
+    'annotations.send': async ({ slug, ids }: { slug: string; ids?: string[] }) => {
+      const { timeline } = await timelines.get(slug);
+      const take = timeline.takes.at(-1);
+      const events = take ? await readEvents(store.dir(slug), take.events) : [];
+      const msg = await annotationMessage({
+        timeline,
+        projectDir: store.dir(slug),
+        events,
+        ...(ids ? { ids } : {}),
+      });
+      await workspace.ensure();
+      await agents.get(slug).send(msg.text, 'user', msg.images);
+      const session = agents.get(slug);
+      await timelines.patch(
+        slug,
+        msg.ids.flatMap((id) => {
+          const i = timeline.annotations.findIndex((a) => a.id === id);
+          return [
+            { op: 'replace' as const, path: `/annotations/${i}/status`, value: 'sent' },
+            { op: 'add' as const, path: `/annotations/${i}/runId`, value: session.runId },
+          ];
+        }),
+        { author: 'user', label: 'Send annotations to the agent' },
+      );
+      return { sent: msg.ids.length, images: msg.images.length };
     },
     'captions.build': async ({ slug }: { slug: string }) => {
       const { timeline } = await timelines.get(slug);

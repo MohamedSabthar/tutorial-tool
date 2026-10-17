@@ -150,6 +150,11 @@ export const rpcMethods = {
     params: z.object({ slug: z.string() }),
     result: TimelineState.extend({ count: z.number() }),
   },
+  /** Sends annotations (given ids, or every open one) to the agent as one turn with frames and context. */
+  'annotations.send': {
+    params: z.object({ slug: z.string(), ids: z.array(z.string()).optional() }),
+    result: z.object({ sent: z.number(), images: z.number() }),
+  },
   /** Rebuilds the caption cues from the voice-over (hand-edited cues stay). */
   'captions.build': { params: z.object({ slug: z.string() }), result: TimelineState },
   /** Fits the recording to the voice-over: freezes where the voice is longer, speeds up idle stretches (≤1.5×). */

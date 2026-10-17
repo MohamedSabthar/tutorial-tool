@@ -250,6 +250,18 @@ export function StudioScreen({ slug }: { slug: string }) {
     setSelected(id);
     setTool('select');
   }
+  const [sending, setSending] = useState<{ text: string; tone: 'ok' | 'error' | 'info' } | null>(null);
+  /** Sends annotations to the project's agent (one turn with frames and context). */
+  async function sendNotes(ids?: string[]) {
+    if (!client) return;
+    setSending({ text: 'Sending…', tone: 'info' });
+    try {
+      const r = await client.call('annotations.send', { slug, ...(ids ? { ids } : {}) });
+      setSending({ text: `Sent ${r.sent} annotation${r.sent === 1 ? '' : 's'} to the agent`, tone: 'ok' });
+    } catch (e) {
+      setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' });
+    }
+  }
   const stepLabel = (at: number) => {
     const i = steps.findIndex((s) => at >= s.start && at < s.end);
     return i >= 0 ? `step ${i + 1}` : null;
@@ -471,6 +483,17 @@ export function StudioScreen({ slug }: { slug: string }) {
                 setNote(a.id);
                 setView('With annotations');
               }}
+              actions={
+                <>
+                  {tl.timeline.annotations.some((a) => a.status === 'open') && (
+                    <Button variant="steel" onClick={() => void sendNotes()}>
+                      Send open annotations (
+                      {tl.timeline.annotations.filter((a) => a.status === 'open').length})
+                    </Button>
+                  )}
+                  {sending && <Chip tone={sending.tone}>{sending.text}</Chip>}
+                </>
+              }
             />
           )}
           <Panel title="Add overlay">
@@ -549,6 +572,18 @@ export function StudioScreen({ slug }: { slug: string }) {
                         style={style}
                         onSave={(text) => {
                           patchNote(a.id, 'comment', text, 'Edit annotation');
+                          setFresh(null);
+                          setNote(null);
+                        }}
+                        onSend={(text) => {
+                          // Save the text first, then send this one annotation.
+                          const i = noteIndex(a.id);
+                          if (i < 0 || !tl.timeline) return;
+                          void tl
+                            .patch([{ op: 'replace', path: `/annotations/${i}/comment`, value: text }], {
+                              label: 'Edit annotation',
+                            })
+                            .then(() => sendNotes([a.id]));
                           setFresh(null);
                           setNote(null);
                         }}

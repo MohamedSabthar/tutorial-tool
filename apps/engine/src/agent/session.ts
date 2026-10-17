@@ -258,15 +258,36 @@ export class AgentSession {
   }
 
   /** Queues a message, starting (or resuming) the session first if it isn't running. */
-  async send(text: string, source: 'user' | 'pipeline' = 'user'): Promise<void> {
+  async send(
+    text: string,
+    source: 'user' | 'pipeline' = 'user',
+    images: { data: string; mediaType: 'image/jpeg' | 'image/png' }[] = [],
+  ): Promise<void> {
     await this.loaded;
     if (!this.queue || this.queue.isClosed)
       await (this.starting ??= this.start().finally(() => (this.starting = null)));
-    this.emit({ kind: 'user', text, source });
+    this.emit({
+      kind: 'user',
+      text: images.length
+        ? `${text}\n\n[${images.length} image${images.length === 1 ? '' : 's'} attached]`
+        : text,
+      source,
+    });
     this.run = `agent-${this.slug}-${this.seq}`;
     this.queue!.push({
       type: 'user',
-      message: { role: 'user', content: text },
+      message: {
+        role: 'user',
+        content: images.length
+          ? [
+              { type: 'text', text },
+              ...images.map((im) => ({
+                type: 'image' as const,
+                source: { type: 'base64' as const, media_type: im.mediaType, data: im.data },
+              })),
+            ]
+          : text,
+      },
       parent_tool_use_id: null,
     });
     if (this.stateValue === 'idle') this.setState('busy');
