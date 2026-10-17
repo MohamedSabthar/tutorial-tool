@@ -7,6 +7,8 @@ export * from './types';
 export {
   OverlayContext,
   RecordingContext,
+  CaptionsContext,
+  useCaptions,
   useAnchor,
   useRecording,
   useCamera,

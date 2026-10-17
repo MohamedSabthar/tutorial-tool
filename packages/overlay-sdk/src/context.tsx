@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { Rect, RecorderEvent } from '@studio/core';
+import type { Caption, Rect, RecorderEvent } from '@studio/core';
 import type { Fit } from '@studio/stage';
 import { useCamera, useStageTime } from '@studio/stage';
 
@@ -69,4 +69,12 @@ export const RecordingContext = createContext<RecordingInfo | null>(null);
 /** Recorded events and the source→stage fit (null outside a recording scene). */
 export function useRecording(): RecordingInfo | null {
   return useContext(RecordingContext);
+}
+
+/** The timeline's caption cues (output time), for the Captions overlay. */
+export const CaptionsContext = createContext<Caption[]>([]);
+
+/** All caption cues of the tutorial. */
+export function useCaptions(): Caption[] {
+  return useContext(CaptionsContext);
 }

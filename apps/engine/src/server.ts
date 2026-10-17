@@ -40,6 +40,7 @@ import { TtsService } from './tts';
 import { Voiceover } from './vo';
 import { readEvents, TimingFit } from './timing';
 import { withAutoOverlays } from './autoOverlays';
+import { withCaptions } from './captions';
 import { execFile } from 'node:child_process';
 import {
   access,
@@ -224,6 +225,25 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         label: 'Automatic overlays',
       });
       return { ...r, count: next.overlays.filter((o) => o.author === 'auto').length };
+    },
+    'captions.build': async ({ slug }: { slug: string }) => {
+      const { timeline } = await timelines.get(slug);
+      if (!timeline.voice.length) throw new RpcError('There is no voice-over to caption yet.', 'bad_request');
+      const next = withCaptions(timeline);
+      const take = timeline.takes.at(-1);
+      const overlays = take
+        ? withAutoOverlays(next, await readEvents(store.dir(slug), take.events), {
+            title: (await store.open(slug)).project.title,
+          }).overlays
+        : next.overlays;
+      return timelines.patch(
+        slug,
+        [
+          { op: 'replace', path: '/captions', value: next.captions },
+          { op: 'replace', path: '/overlays', value: overlays },
+        ],
+        { author: 'user', group: `captions-${Date.now()}`, label: 'Build captions' },
+      );
     },
     'timing.fit': async ({ slug }: { slug: string }) =>
       timing.fit(slug, { author: 'user', group: `fit-${Date.now()}` }),

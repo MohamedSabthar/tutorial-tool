@@ -13,3 +13,4 @@ export * from './agent';
 export * from './pipeline';
 export * from './brief';
 export * from './voice';
+export * from './captions';

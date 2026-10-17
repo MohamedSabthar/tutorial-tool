@@ -410,6 +410,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                   showOverlays={view !== 'Raw take'}
                   registry={registry}
                   onOverlayError={reportError}
+                  captions={tl.timeline?.captions ?? []}
                 >
                   {showHandles && selectedInstance?.anchor && (
                     <Manipulator

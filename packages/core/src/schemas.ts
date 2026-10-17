@@ -154,7 +154,15 @@ export const VoiceLine = z.object({
 });
 export type VoiceLine = z.infer<typeof VoiceLine>;
 
-export const Caption = z.object({ id: Id, start: Seconds, end: Seconds, text: z.string() });
+export const Caption = z.object({
+  id: Id,
+  start: Seconds,
+  end: Seconds,
+  /** One or two lines, separated by "\n". */
+  text: z.string(),
+  /** Edited by hand: rebuilding the captions keeps it. */
+  edited: z.boolean().optional(),
+});
 export type Caption = z.infer<typeof Caption>;
 
 export const Annotation = z.object({

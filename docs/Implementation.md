@@ -68,12 +68,12 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 3.6 Repair and research loop
   - [x] 3.7 Retrospective and knowledge commits
   - [x] 3.8 Projects, Brief and Storyboard screens
-- [ ] **Phase 4: Voice-over and post-production**
+- [x] **Phase 4: Voice-over and post-production**
   - [x] 4.1 ElevenLabs client
   - [x] 4.2 Narration and voice-over generation
   - [x] 4.3 Timing fit
   - [x] 4.4 Auto-overlays from events
-  - [ ] 4.5 Captions model
+  - [x] 4.5 Captions model
 - [ ] **Phase 5: Interaction: annotations, chat, agent-written overlays**
   - [ ] 5.1 Annotation tools on the preview
   - [ ] 5.2 Annotation → agent context
@@ -820,3 +820,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-17 | 4.3 | Not guaranteed: "total within ±10% of the storyboard estimate". The estimate counts narration only; steps whose action is still longer than the voice after 1.5× keep their extra length (silence), as the plan prefers over faster playback | Reported instead of forced |
 | 2026-10-17 | 4.4 | `autoOverlays` (`apps/engine/src/autoOverlays.ts`): Cursor + ClickRipple over the whole video; one Zoom per cluster of clicks/typing in the same step less than 3 s apart (0.7 s before the first action to 1 s after the last; typing lasts length/14 s; overlapping zooms merge; zoom 1.25–1.8× so the target fills about half the frame); a Blur over each `tut.mask` box from its time to the end; a TitleCard with the project title over the first step. Zoom and Blur use `rect` in stage px (`STAGE_SIZE` now lives in @studio/stage). All are `author: "auto"`, ids `auto-…`. They are rebuilt when a take is registered, on Build from take, after every timing fit (they are in output time) and from "Auto overlays" | Verified on the reference take: 9 overlays, the zoom frames the base-path field while it is typed |
 | 2026-10-17 | 4.4 | A user edit to an automatic overlay (move, trim, props) also sets its author to "user" (`claimAutoOverlays` in the timeline store), so rebuilds keep it and skip its fresh twin. The reference script has no `tut.mask` yet (nothing sensitive in its title bar); the Blur rule was checked with a mask event added to a copy of the take | Rebuilding never throws away the user's edits |
+| 2026-10-17 | 4.5 | `cuesFromVoice` (core `captions.ts`): words of each placed voice line (from the alignment, or spread by length when there is none) packed into cues of ≤2 balanced lines of ≤42 characters and ≤6 s, ending a cue at a sentence end once it is ≥1 s; short cues stretch into the following gap up to 1 s. Captions are rebuilt inside every timing fit (they are in output time) and by `captions.build`; cues edited by hand carry `edited: true` and survive rebuilds (generated cues overlapping them are dropped). An `auto-captions` Captions overlay spans the video whenever cues exist; it reads the cue at t through a new SDK `CaptionsContext`/`useCaptions` (a fixed `text` prop still wins). On the Captions lane, click seeks, double-click or Enter edits in place (Enter saves, Shift+Enter second line, Escape cancels) | Export (7.5) reads the same `timeline.captions`, so an edit changes the preview and the SRT/VTT together |

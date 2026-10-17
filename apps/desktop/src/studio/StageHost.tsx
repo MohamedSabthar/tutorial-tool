@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
-import type { Rect, RecorderEvent, Take } from '@studio/core';
-import { OverlayRenderer, RecordingContext, type OverlayModule } from '@studio/overlay-sdk';
+import type { Caption, Rect, RecorderEvent, Take } from '@studio/core';
+import { CaptionsContext, OverlayRenderer, RecordingContext, type OverlayModule } from '@studio/overlay-sdk';
 import { coreOverlays, zoomMove } from '@studio/overlays-core';
 import {
   cameraAt,
@@ -51,6 +51,7 @@ export function StageHost({
   showOverlays = true,
   registry = coreOverlays,
   onOverlayError,
+  captions = [],
   children,
 }: {
   take: Take;
@@ -67,6 +68,8 @@ export function StageHost({
   showOverlays?: boolean;
   registry?: Record<string, OverlayModule>;
   onOverlayError?: (id: string, error: Error) => void;
+  /** Caption cues for the Captions overlay. */
+  captions?: Caption[];
   children?: ReactNode;
 }) {
   const fit = useMemo(() => fitSource(take, STAGE), [take]);
@@ -85,29 +88,31 @@ export function StageHost({
   return (
     <Stage t={t} {...STAGE}>
       <RecordingContext.Provider value={recording}>
-        <CameraProvider camera={camera} source={take}>
-          <Scene3D>
-            <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
-          </Scene3D>
-          {(showOverlays ? instances : []).map((inst) => {
-            const mod = registry[inst.component];
-            if (!mod) return null;
-            const Comp = mod.default;
-            return (
-              <OverlayRenderer
-                key={`${inst.id}:${moduleKey(mod)}`}
-                id={inst.id}
-                start={inst.start}
-                end={inst.end}
-                anchor={inst.anchor}
-                onError={onOverlayError}
-              >
-                <Comp props={inst.props} duration={inst.end - inst.start} />
-              </OverlayRenderer>
-            );
-          })}
-          {children}
-        </CameraProvider>
+        <CaptionsContext.Provider value={captions}>
+          <CameraProvider camera={camera} source={take}>
+            <Scene3D>
+              <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
+            </Scene3D>
+            {(showOverlays ? instances : []).map((inst) => {
+              const mod = registry[inst.component];
+              if (!mod) return null;
+              const Comp = mod.default;
+              return (
+                <OverlayRenderer
+                  key={`${inst.id}:${moduleKey(mod)}`}
+                  id={inst.id}
+                  start={inst.start}
+                  end={inst.end}
+                  anchor={inst.anchor}
+                  onError={onOverlayError}
+                >
+                  <Comp props={inst.props} duration={inst.end - inst.start} />
+                </OverlayRenderer>
+              );
+            })}
+            {children}
+          </CameraProvider>
+        </CaptionsContext.Provider>
       </RecordingContext.Provider>
     </Stage>
   );

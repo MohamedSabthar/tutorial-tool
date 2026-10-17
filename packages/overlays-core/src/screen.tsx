@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { DomLayer, theme, useGsap, type OverlayMeta, type OverlayProps } from '@studio/overlay-sdk';
+import { captionAt } from '@studio/core';
+import {
+  DomLayer,
+  theme,
+  useCaptions,
+  useGsap,
+  useOverlayTime,
+  type OverlayMeta,
+  type OverlayProps,
+} from '@studio/overlay-sdk';
 
 /** Screen-space overlays: they ignore the camera (titles, keys, captions, free labels). */
 
@@ -214,13 +223,17 @@ type CaptionsProps = z.infer<typeof CaptionsProps>;
 
 export const captionsMeta: OverlayMeta = {
   name: 'Captions',
-  description: 'A caption line at the bottom of the frame (fed from the captions track in step 4.5).',
+  description:
+    'Captions at the bottom of the frame: the captions track’s cue at each moment, or a fixed text when set.',
   props: CaptionsProps,
   defaultDuration: 3,
 };
 
 export function Captions({ props }: OverlayProps<CaptionsProps>) {
-  if (!props.text) return null;
+  const cues = useCaptions();
+  const { global: t } = useOverlayTime();
+  const text = props.text || captionAt(cues, t)?.text || '';
+  if (!text) return null;
   return (
     <DomLayer>
       <div
@@ -244,9 +257,10 @@ export function Captions({ props }: OverlayProps<CaptionsProps>) {
             background: 'rgba(12,21,38,0.86)',
             padding: '10px 24px',
             borderRadius: 12,
+            whiteSpace: 'pre-line',
           }}
         >
-          {props.text}
+          {text}
         </span>
       </div>
     </DomLayer>

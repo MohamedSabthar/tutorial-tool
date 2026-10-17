@@ -15,6 +15,7 @@ import type { ProjectStore } from './projects';
 import type { Author, TimelineStore } from './timeline';
 import { LEAD_IN } from './vo';
 import { withAutoOverlays } from './autoOverlays';
+import { withCaptions } from './captions';
 
 /** Fastest an idle stretch is played. */
 export const MAX_SPEED = 1.5;
@@ -252,7 +253,8 @@ export class TimingFit {
     const r = fitTiming(timeline, events);
     // Automatic overlays are in output time: rebuild them for the new timing.
     const { project } = await this.deps.store.open(slug);
-    const overlays = withAutoOverlays(r.timeline, events, { title: project.title }).overlays;
+    const captioned = withCaptions(r.timeline);
+    const overlays = withAutoOverlays(captioned, events, { title: project.title }).overlays;
     const patch: TimelinePatch = [
       ...r.timeline.scenes.flatMap((s, i) =>
         s.kind === 'recording'
@@ -260,6 +262,7 @@ export class TimingFit {
           : [],
       ),
       { op: 'replace', path: '/voice', value: r.timeline.voice },
+      { op: 'replace', path: '/captions', value: captioned.captions },
       { op: 'replace', path: '/overlays', value: overlays },
     ];
     await this.deps.timelines.patch(slug, patch, {

@@ -127,6 +127,18 @@ export function autoOverlays(
       });
     });
 
+  // Captions show the captions track's cue at each moment.
+  if (tl.captions.length)
+    result.push({
+      id: 'auto-captions',
+      component: 'core:Captions',
+      start: 0,
+      end: r3(tm.duration),
+      layer: 70,
+      props: {},
+      author: 'auto',
+    });
+
   // A title card over the start of the first step.
   const firstStep = tl.steps[0];
   const titleAt = firstStep ? out(firstStep.from) : undefined;

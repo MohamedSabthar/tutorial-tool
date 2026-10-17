@@ -341,27 +341,32 @@ export function TimelinePanel({
       swatch: 'var(--ui-gray-500)',
       height: LANE_H,
       render: () =>
-        timeline.captions.map((c) => (
-          <div
-            key={c.id}
-            style={{
-              position: 'absolute',
-              top: 4,
-              height: LANE_H - 8,
-              left: x(c.start),
-              width: x(c.end - c.start),
-              border: '1px solid var(--ui-gray-300)',
-              borderRadius: 4,
-              fontSize: 10,
-              padding: '2px 6px',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              boxSizing: 'border-box',
-            }}
-          >
-            {c.text}
-          </div>
-        )),
+        timeline.captions.length ? (
+          timeline.captions.map((c, i) => (
+            <CaptionCue
+              key={c.id}
+              text={c.text}
+              edited={!!c.edited}
+              left={x(c.start)}
+              width={x(c.end - c.start)}
+              height={LANE_H - 8}
+              onSeek={() => onSeek(c.start + 0.01)}
+              onSave={(text) =>
+                void patch(
+                  [
+                    { op: 'replace', path: `/captions/${i}/text`, value: text },
+                    { op: 'add', path: `/captions/${i}/edited`, value: true },
+                  ],
+                  { label: 'Edit caption' },
+                )
+              }
+            />
+          ))
+        ) : (
+          <span style={{ position: 'absolute', left: 8, top: 8, fontSize: 11, color: 'var(--ui-gray-500)' }}>
+            Built from the voice-over
+          </span>
+        ),
     },
     {
       name: 'Annotations',
@@ -546,5 +551,99 @@ export function TimelinePanel({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * One caption cue on the lane. Click seeks to it; double-click (or Enter when focused) edits
+ * the text in place: Enter saves, Shift+Enter adds the second line, Escape cancels.
+ */
+function CaptionCue({
+  text,
+  edited,
+  left,
+  width,
+  height,
+  onSeek,
+  onSave,
+}: {
+  text: string;
+  edited: boolean;
+  left: number;
+  width: number;
+  height: number;
+  onSeek: () => void;
+  onSave: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const box = {
+    position: 'absolute' as const,
+    top: 4,
+    left,
+    width: Math.max(width, 24),
+    height,
+    borderRadius: 4,
+    fontSize: 10,
+    boxSizing: 'border-box' as const,
+  };
+  if (draft !== null)
+    return (
+      <textarea
+        aria-label="Caption text"
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === 'Escape') setDraft(null);
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const t = draft.trim();
+            if (t && t !== text) onSave(t);
+            setDraft(null);
+          }
+        }}
+        style={{
+          ...box,
+          zIndex: 5,
+          minWidth: 220,
+          height: 52,
+          top: -12,
+          padding: '4px 6px',
+          border: '1px solid var(--ui-orange)',
+          fontFamily: 'inherit',
+          resize: 'none',
+        }}
+      />
+    );
+  return (
+    <button
+      type="button"
+      title={`${text}${edited ? ' (edited)' : ''} · double-click to edit`}
+      onClick={onSeek}
+      onDoubleClick={() => setDraft(text)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          setDraft(text);
+        }
+      }}
+      style={{
+        ...box,
+        border: `1px solid ${edited ? 'var(--ui-steel)' : 'var(--ui-gray-300)'}`,
+        background: 'var(--ui-white)',
+        color: 'var(--ui-ink)',
+        padding: '2px 6px',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
+        textAlign: 'left',
+        cursor: 'pointer',
+      }}
+    >
+      {text.replace('\n', ' ')}
+    </button>
   );
 }

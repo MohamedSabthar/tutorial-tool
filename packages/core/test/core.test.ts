@@ -224,3 +224,56 @@ describe('derive from take', () => {
     expect(withTake(parseTimeline({ version: 1 }), take, noMouse).overlays).toEqual([]);
   });
 });
+
+import { CAPTION_RULES, cuesFromVoice, mergeCaptions, wrapCaption } from '../src/index';
+
+describe('captions', () => {
+  const words = (text: string, start = 0, perWord = 0.4) =>
+    text
+      .split(' ')
+      .map((w, i) => ({ w, start: start + i * perWord, end: start + i * perWord + perWord - 0.05 }));
+  const line = (id: string, text: string, perWord = 0.4) => ({
+    id,
+    owner: 's1',
+    text,
+    start: 0,
+    duration: text.split(' ').length * perWord,
+    words: words(text, 0, perWord),
+  });
+
+  it('wraps into at most two balanced 42-character lines', () => {
+    expect(wrapCaption('Short line.')).toBe('Short line.');
+    expect(wrapCaption('Set the base path to /greeting so clients reach your service')).toBe(
+      'Set the base path to /greeting\nso clients reach your service',
+    );
+    expect(wrapCaption('x'.repeat(90))).toBeNull();
+  });
+
+  it('packs words into cues within the limits, ending cues at sentence ends', () => {
+    const text =
+      'Open the integration overview. From here you add every artifact your integration needs, starting with an HTTP service that listens on port 9090.';
+    const cues = cuesFromVoice([{ line: line('vo-s1', text), start: 10 }]);
+    expect(cues[0]!.text).toBe('Open the integration overview.');
+    expect(cues[0]!.start).toBe(10);
+    for (const c of cues) {
+      const lines = c.text.split('\n');
+      expect(lines.length).toBeLessThanOrEqual(CAPTION_RULES.maxLines);
+      expect(Math.max(...lines.map((l) => l.length))).toBeLessThanOrEqual(42);
+      expect(c.end - c.start).toBeLessThanOrEqual(6.001);
+      expect(c.end - c.start).toBeGreaterThanOrEqual(0.999);
+    }
+    expect(cues.map((c) => c.text.replace('\n', ' ')).join(' ')).toBe(text);
+  });
+
+  it('keeps hand-edited cues and drops generated cues that overlap them', () => {
+    const gen = [
+      { id: 'cap-1', start: 0, end: 2, text: 'a' },
+      { id: 'cap-2', start: 2, end: 4, text: 'b' },
+    ];
+    const merged = mergeCaptions(gen, [{ id: 'cap-2', start: 2.5, end: 3.5, text: 'B!', edited: true }]);
+    expect(merged.map((c) => [c.id, c.text])).toEqual([
+      ['cap-1', 'a'],
+      ['cap-2', 'B!'],
+    ]);
+  });
+});

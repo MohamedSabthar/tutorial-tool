@@ -150,6 +150,8 @@ export const rpcMethods = {
     params: z.object({ slug: z.string() }),
     result: TimelineState.extend({ count: z.number() }),
   },
+  /** Rebuilds the caption cues from the voice-over (hand-edited cues stay). */
+  'captions.build': { params: z.object({ slug: z.string() }), result: TimelineState },
   /** Fits the recording to the voice-over: freezes where the voice is longer, speeds up idle stretches (≤1.5×). */
   'timing.fit': {
     params: z.object({ slug: z.string() }),
