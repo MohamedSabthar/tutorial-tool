@@ -1,9 +1,17 @@
 /* eslint-disable react-hooks/immutability -- three.js cameras/textures and <video> are imperative objects we drive from effects. */
-import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { CanvasTexture, NoToneMapping, SRGBColorSpace, VideoTexture, type OrthographicCamera } from 'three';
+import {
+  CanvasTexture,
+  NoToneMapping,
+  SRGBColorSpace,
+  VideoFrameTexture,
+  VideoTexture,
+  type OrthographicCamera,
+} from 'three';
 import type { Rect } from '@studio/core';
 import { FRAME, fitSource, restCamera, sourceToStage, type CameraState, type Fit } from './camera';
+import { frameProvider, registerCanvas, trackPending } from './exportDriver';
 import { useStageTime } from './Stage';
 import { TunnelOut } from './tunnel';
 
@@ -77,13 +85,22 @@ function TimeInvalidator() {
   return null;
 }
 
+/** Tells the export driver each time the canvas's React root commits. */
+function CommitMarker() {
+  const { t } = useStageTime();
+  const [reg] = useState(registerCanvas);
+  useEffect(() => () => reg.dispose(), [reg]);
+  useEffect(() => reg.commit(t));
+  return null;
+}
+
 export function Scene3D({ children }: { children?: ReactNode }) {
   const { width, height, mode } = useStageTime();
   return (
     <Canvas
       orthographic
-      // Rendered on demand in both modes: export waits for each frame (videosSettled) before capturing.
-      frameloop="demand"
+      // On demand in preview; in export the driver draws each frame itself (exportFrameReady).
+      frameloop={mode === 'export' ? 'never' : 'demand'}
       dpr={1}
       flat
       gl={{ antialias: true, preserveDrawingBuffer: mode === 'export' }}
@@ -103,13 +120,16 @@ export function Scene3D({ children }: { children?: ReactNode }) {
       {children}
       {/* 3D content that overlays send in with <ThreeLayer>. */}
       <TunnelOut />
+      {/* Last, so its effect runs after the video plane's (which starts the frame's decode). */}
+      <CommitMarker />
     </Canvas>
   );
 }
 
 /**
  * The recording as a textured plane, fitted into the stage. In preview a <video> element
- * supplies frames; `sourceTime` (seconds in the take) keeps it in sync with stage time.
+ * supplies frames and `sourceTime` (seconds in the take) keeps it in sync with stage time; in
+ * export the exact frame at `sourceTime` comes from the WebCodecs frame provider.
  */
 export function VideoPlane({
   src,
@@ -121,7 +141,8 @@ export function VideoPlane({
   playing: boolean;
 }) {
   const { fit } = useCamera();
-  const { width, height } = useStageTime();
+  const { width, height, mode } = useStageTime();
+  const exporting = mode === 'export';
   const invalidate = useThree((s) => s.invalidate);
   const video = useMemo(() => {
     const v = document.createElement('video');
@@ -132,13 +153,25 @@ export function VideoPlane({
     return v;
   }, []);
   const texture = useMemo(() => {
-    const tex = new VideoTexture(video);
+    const tex = exporting ? new VideoFrameTexture() : new VideoTexture(video);
     tex.colorSpace = SRGBColorSpace;
     return tex;
-  }, [video]);
+  }, [video, exporting]);
   const lastSet = useRef(-1);
 
+  // Export: put the exact frame for this time on the texture before the frame is drawn.
   useEffect(() => {
+    if (!exporting || !(texture instanceof VideoFrameTexture)) return;
+    void trackPending(
+      (async () => {
+        const frames = await frameProvider(src);
+        texture.setFrame(await frames.frameAt(sourceTime));
+      })(),
+    );
+  }, [exporting, texture, src, sourceTime]);
+
+  useEffect(() => {
+    if (exporting) return;
     video.src = src;
     video.load();
     return () => {
@@ -146,15 +179,16 @@ export function VideoPlane({
       video.removeAttribute('src');
       video.load();
     };
-  }, [video, src]);
+  }, [video, src, exporting]);
 
   useEffect(() => () => texture.dispose(), [texture]);
 
   // Known to videosSettled() while mounted (headless rendering waits for seeks).
   useEffect(() => {
+    if (exporting) return;
     liveVideos.add(video);
     return () => void liveVideos.delete(video);
-  }, [video]);
+  }, [video, exporting]);
 
   // Rounded corners: an alpha mask the size of the fitted frame.
   const mask = useMemo(() => roundedMask(fit.rect.w, fit.rect.h, FRAME.radius), [fit.rect.w, fit.rect.h]);
@@ -178,6 +212,7 @@ export function VideoPlane({
 
   // Follow stage time: native playback while playing (correcting drift), exact seeks otherwise.
   useEffect(() => {
+    if (exporting) return;
     const frame = 1 / 30;
     if (playing) {
       if (video.paused) void video.play().catch(() => {});
@@ -189,7 +224,7 @@ export function VideoPlane({
         lastSet.current = sourceTime;
       }
     }
-  }, [video, sourceTime, playing]);
+  }, [video, sourceTime, playing, exporting]);
 
   const cx = fit.rect.x + fit.rect.w / 2 - width / 2;
   const cy = -(fit.rect.y + fit.rect.h / 2 - height / 2);

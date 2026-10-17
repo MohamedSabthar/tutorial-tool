@@ -1,4 +1,5 @@
 import { chromium, type Browser, type Page } from 'playwright';
+import { StageCapture } from './capture';
 
 /**
  * The render host: the app's `#/render/<slug>` page in headless Chromium on the GPU, driven
@@ -9,7 +10,9 @@ import { chromium, type Browser, type Page } from 'playwright';
 export const GPU_ARGS = [
   '--use-angle=metal',
   '--enable-gpu',
-  '--enable-gpu-rasterization',
+  // WebGL runs on the GPU, but the page's own layers rasterize on the CPU: GPU raster dithers
+  // gradients slightly differently from run to run (±1 on a pixel), and export must be repeatable.
+  '--disable-gpu-rasterization',
   '--ignore-gpu-blocklist',
   '--autoplay-policy=no-user-gesture-required',
 ];
@@ -43,6 +46,7 @@ export interface RenderHostOptions {
 export class RenderHost {
   private browser: Promise<Browser> | null = null;
   private pages = new Map<string, Promise<Page>>();
+  private captures = new Map<string, Promise<StageCapture>>();
   private renderer: string | null = null;
   constructor(private opts: RenderHostOptions) {}
 
@@ -129,10 +133,26 @@ export class RenderHost {
     return out;
   }
 
+  /** One frame at output time `t`, captured over CDP (the export path: fast, clipped to the stage). */
+  async frame(slug: string, t: number): Promise<RenderedFrame> {
+    const page = await this.page(slug);
+    let capture = this.captures.get(slug);
+    if (!capture) {
+      capture = StageCapture.open(page);
+      this.captures.set(slug, capture);
+      capture.catch(() => this.captures.delete(slug));
+    }
+    const { errors } = await page.evaluate((req) => window.__studioRender!(req), { t });
+    return { t, png: await (await capture).png(), errors };
+  }
+
   /** Drops a project's page (e.g. after its take changed). */
   async forget(slug: string) {
     const p = this.pages.get(slug);
     this.pages.delete(slug);
+    const c = this.captures.get(slug);
+    this.captures.delete(slug);
+    await c?.then((x) => x.close()).catch(() => {});
     await p?.then((page) => page.close()).catch(() => {});
   }
 
@@ -140,6 +160,7 @@ export class RenderHost {
     const b = this.browser;
     this.browser = null;
     this.pages.clear();
+    this.captures.clear();
     await b?.then((x) => x.close()).catch(() => {});
   }
 }

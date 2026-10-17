@@ -10,3 +10,6 @@ export * from './camera';
 export * from './layers';
 export * from './tunnel';
 export * from './Scenes';
+export * from './exportDriver';
+export * from './frameProvider';
+export * from './h264';

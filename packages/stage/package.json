@@ -17,6 +17,7 @@
   "dependencies": {
     "@react-three/fiber": "^9.8.2",
     "@studio/core": "workspace:*",
+    "mp4box": "2.4.1",
     "three": "^0.186.1"
   },
   "devDependencies": {

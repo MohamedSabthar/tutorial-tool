@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseTimeline, type Timeline } from '@studio/core';
-import { videosSettled } from '@studio/stage';
+import { canvasCommits, exportFrameReady, videosSettled } from '@studio/stage';
 import { useLatestTake } from '../useTake';
 import { resolveTimeline } from '../studio/resolve';
 import { StageHost } from '../studio/StageHost';
@@ -29,7 +29,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * The headless renderer's page: one Stage at 1920×1080, driven by the engine through
  * `window.__studioRender({t, timeline?})`, which resolves once overlays are loaded, the video
- * has seeked and the frame is drawn. Opened by Playwright, never by people.
+ * has seeked and the frame is drawn. With `?export=1` the stage is in export mode: recorded
+ * frames come exact from WebCodecs and the canvas is drawn once per request (exportFrameReady).
+ * Opened by Playwright, never by people.
  */
 export function RenderScreen({ slug }: { slug: string }) {
   const tl = useTimeline(slug);
@@ -39,6 +41,8 @@ export function RenderScreen({ slug }: { slug: string }) {
   const [req, setReq] = useState<{
     t: number;
     timeline: Timeline | null;
+    /** The canvases' commit counts before this request (export waits for the next commit). */
+    commits: Map<number, number>;
     done: (r: RenderResult) => void;
   } | null>(null);
   const errors = useRef<Record<string, string>>({});
@@ -56,7 +60,12 @@ export function RenderScreen({ slug }: { slug: string }) {
     window.__studioRender = (r) =>
       new Promise((done) => {
         errors.current = {};
-        setReq({ t: r.t, timeline: r.timeline ? parseTimeline(r.timeline) : null, done });
+        setReq({
+          t: r.t,
+          timeline: r.timeline ? parseTimeline(r.timeline) : null,
+          commits: canvasCommits(),
+          done,
+        });
       });
     window.__studioReady = true;
     return () => {
@@ -76,7 +85,12 @@ export function RenderScreen({ slug }: { slug: string }) {
         if (wanted.every((c) => reg[c] || st[c]?.error) || performance.now() > until) break;
         await sleep(50);
       }
-      await videosSettled();
+      if (exportMode) {
+        // Exact recorded frames, then one explicit draw (the canvas doesn't render on its own).
+        await exportFrameReady(req.t, req.commits).catch((e: unknown) => {
+          errors.current.recording = e instanceof Error ? e.message : String(e);
+        });
+      } else await videosSettled();
       if (cancelled) return;
       const { status: st, registry: reg } = live.current;
       for (const c of wanted) {
@@ -88,7 +102,7 @@ export function RenderScreen({ slug }: { slug: string }) {
     return () => {
       cancelled = true;
     };
-  }, [req, timeline]);
+  }, [req, timeline, exportMode]);
 
   if (!take || !resolved || !timeline) return null;
   const src = media(take.video);
