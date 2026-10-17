@@ -210,4 +210,17 @@ describe('derive from take', () => {
     expect(next.overlays[0]!.anchor).toBeUndefined();
     expect(next.takes.map((t) => t.id)).toEqual(['take-1']);
   });
+
+  it('adds the pointer overlays once per take, keeping other overlays', () => {
+    const first = parseTimeline(withTake(parseTimeline({ version: 1 }), take, events));
+    const auto = first.overlays.filter((o) => o.author === 'auto').map((o) => [o.component, o.start, o.end]);
+    expect(auto).toEqual([
+      ['core:Cursor', 0, 20],
+      ['core:ClickRipple', 0, 20],
+    ]);
+    const second = parseTimeline(withTake(first, { ...take, id: 'take-2', duration: 30 }, events));
+    expect(second.overlays.filter((o) => o.component === 'core:Cursor').map((o) => o.end)).toEqual([30]);
+    const noMouse = events.filter((e) => e.kind !== 'click');
+    expect(withTake(parseTimeline({ version: 1 }), take, noMouse).overlays).toEqual([]);
+  });
 });

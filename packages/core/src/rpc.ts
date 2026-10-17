@@ -317,6 +317,8 @@ export const rpcEvents = {
     label: z.string(),
     bbox: Rect,
   }),
+  /** The recorder's pointer in frame pixels, streamed while it moves (the video has no cursor). */
+  'live.pointer': z.object({ x: z.number(), y: z.number(), click: z.boolean() }),
   'live.stage': z.object({
     stage: z.enum(['fixture', 'launch', 'load', 'run', 'encode', 'done', 'failed', 'stopped']),
     at: z.number(),

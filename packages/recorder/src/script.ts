@@ -115,6 +115,7 @@ export interface RunOptions {
   captureTargets?: boolean;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
+  onPointer?: (p: { x: number; y: number; click: boolean }) => void;
   onFrame?: (f: ScreencastFrame) => void;
   onProgress?: Progress;
   onStage?: (stage: RunStage) => void;
@@ -219,6 +220,7 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       ...(eventsFile ? { eventsFile } : {}),
       ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
       ...(opts.onAction ? { onAction: opts.onAction } : {}),
+      ...(opts.onPointer ? { onPointer: opts.onPointer } : {}),
       timeout: opts.mode === 'dry' ? 10_000 : 20_000,
       captureTargets: opts.captureTargets ?? false,
     });

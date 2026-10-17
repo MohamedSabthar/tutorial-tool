@@ -125,3 +125,20 @@
   color: var(--ui-ink);
   padding: 8px 10px;
 }
+
+/* Live window: the ring drawn at the recorder's clicks (app chrome, not an overlay). */
+.live-click-ring {
+  border-radius: 50%;
+  border: 2px solid var(--ui-orange);
+  animation: live-click 0.5s var(--ui-ease) forwards;
+}
+@keyframes live-click {
+  from {
+    transform: scale(0.4);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}

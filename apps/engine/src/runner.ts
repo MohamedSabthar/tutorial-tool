@@ -95,6 +95,7 @@ export class Runner {
           });
       },
       onAction: (a: RpcEventData<'live.action'>) => broadcast('live.action', a),
+      onPointer: (p: RpcEventData<'live.pointer'>) => broadcast('live.pointer', p),
       onFrame: (f: RpcEventData<'live.frame'>) => broadcast('live.frame', f),
       onStage: (stage: RpcEventData<'live.stage'>['stage']) =>
         broadcast('live.stage', { stage, at: Date.now() }),

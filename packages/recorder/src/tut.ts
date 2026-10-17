@@ -33,6 +33,8 @@ export interface TutOptions {
   captureTargets?: boolean;
   /** Called when an action's target is located, before the action runs (live view). */
   onAction?: (a: LiveAction) => void;
+  /** Called as the pointer moves and clicks, in frame pixels (live cursor). */
+  onPointer?: (p: { x: number; y: number; click: boolean }) => void;
 }
 
 export interface LiveAction {
@@ -180,6 +182,7 @@ export class Tut {
     const p = clickPoint(box, this.random);
     await this.moveTo(p);
     await this.opts.page.mouse.click(p.x, p.y);
+    this.opts.onPointer?.({ x: this.px(p.x), y: this.px(p.y), click: true });
     await this.emit({
       kind: 'click',
       t: this.now(),
@@ -285,6 +288,7 @@ export class Tut {
     const mouse = this.opts.page.mouse;
     if (this.opts.mode === 'dry') {
       await mouse.move(p.x, p.y);
+      this.opts.onPointer?.({ x: this.px(p.x), y: this.px(p.y), click: false });
       this.pointer = p;
       return;
     }
@@ -293,6 +297,8 @@ export class Tut {
     const samples: [number, number, number][] = [];
     for (const [i, q] of path.entries()) {
       await mouse.move(q.x, q.y);
+      if (i % 2 === 1 || i === path.length - 1)
+        this.opts.onPointer?.({ x: this.px(q.x), y: this.px(q.y), click: false });
       samples.push([Math.round((t0 + (i * 16) / 1000) * 1000) / 1000, this.px(q.x), this.px(q.y)]);
       await sleep(16);
     }

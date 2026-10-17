@@ -123,6 +123,8 @@ export function LiveShell() {
   const [frame, setFrame] = useState<{ src: string; latencyMs: number } | null>(null);
   const [frames, setFrames] = useState(0);
   const [action, setAction] = useState<Action | null>(null);
+  /** The recorder's pointer (frame px); `clickAt` restarts the click ring. */
+  const [pointer, setPointer] = useState<{ x: number; y: number; clickAt: number } | null>(null);
   const [steps, setSteps] = useState<StepRow[]>([]);
   const [log, setLog] = useState<LogLine[]>([]);
   const [raw, setRaw] = useState<string[]>([]);
@@ -151,6 +153,7 @@ export function LiveShell() {
           setLog([]);
           setRaw([]);
           setAction(null);
+          setPointer(null);
           setFrame(null);
           setFrames(0);
           setStopping(false);
@@ -167,6 +170,9 @@ export function LiveShell() {
         setFrames((n) => n + 1);
       }),
       client.on('live.action', setAction),
+      client.on('live.pointer', (p) =>
+        setPointer((cur) => ({ x: p.x, y: p.y, clickAt: p.click ? Date.now() : (cur?.clickAt ?? 0) })),
+      ),
       client.on('recorder.event', (e) => {
         if (e.kind === 'step-start') setSteps((s) => [...s, { id: e.stepId, title: e.title, done: false }]);
         if (e.kind === 'step-end')
@@ -483,6 +489,45 @@ export function LiveShell() {
                     {action.label}
                   </span>
                 </>
+              )}
+              {running && pointer && session?.frame && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    left: `${(pointer.x / fw) * 100}%`,
+                    top: `${(pointer.y / fh) * 100}%`,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {/* Keyed by the click: the ring animates once, then stays transparent. */}
+                  {pointer.clickAt > 0 && (
+                    <span
+                      key={pointer.clickAt}
+                      className="live-click-ring"
+                      style={{ position: 'absolute', left: -14, top: -14, width: 28, height: 28 }}
+                    />
+                  )}
+                  <svg
+                    width={20}
+                    height={23}
+                    viewBox="0 0 24 28"
+                    style={{
+                      position: 'absolute',
+                      left: -2,
+                      top: -2,
+                      filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.35))',
+                    }}
+                  >
+                    <path
+                      d="M2 2l18 11-8 2-3 9z"
+                      fill="var(--ui-white)"
+                      stroke="var(--ui-ink)"
+                      strokeWidth={1.6}
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
               )}
             </div>
           ) : (

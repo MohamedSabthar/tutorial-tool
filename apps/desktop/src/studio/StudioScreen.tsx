@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Segment, TimelinePatch } from '@studio/core';
+import { buildTimeMap, pointerOverlayInstances, type Segment, type TimelinePatch } from '@studio/core';
 import { resolveProps } from '@studio/overlays-core';
 import { usePlayer } from '@studio/stage';
 import {
@@ -200,6 +200,12 @@ export function StudioScreen({ slug }: { slug: string }) {
   }
   const src = take ? media(take.video) : null;
   const needsRebuild = tl.timeline && tl.timeline.takes.length > 0 && tl.timeline.scenes.length === 0;
+  // Takes recorded before the pointer overlays were added automatically have no cursor.
+  const needsPointer =
+    !needsRebuild &&
+    tl.timeline &&
+    tl.timeline.takes.length > 0 &&
+    !tl.timeline.overlays.some((o) => o.component === 'core:Cursor');
 
   return (
     <div
@@ -260,6 +266,29 @@ export function StudioScreen({ slug }: { slug: string }) {
               }
             >
               Build from take
+            </Button>
+          }
+        />
+      )}
+      {needsPointer && tl.timeline && (
+        <GateBanner
+          title="The recorded mouse pointer isn't on the timeline"
+          text="The video itself has no cursor; it is drawn from the take's mouse events. Add the Cursor and click ripples (you can remove or restyle them like any overlay)."
+          actions={
+            <Button
+              variant="primary"
+              onClick={() =>
+                void tl.patch(
+                  pointerOverlayInstances(buildTimeMap(tl.timeline!).duration).map((value) => ({
+                    op: 'add' as const,
+                    path: '/overlays/-',
+                    value,
+                  })),
+                  { label: 'Add the recorded cursor' },
+                )
+              }
+            >
+              Add the cursor
             </Button>
           }
         />

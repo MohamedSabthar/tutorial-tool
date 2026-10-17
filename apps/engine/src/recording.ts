@@ -18,6 +18,7 @@ export interface RecordCallbacks {
   onStage?: (stage: RunStage) => void;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
+  onPointer?: (p: { x: number; y: number; click: boolean }) => void;
   onFrame?: (f: ScreencastFrame) => void;
   onProgress?: (message: string) => void;
 }
