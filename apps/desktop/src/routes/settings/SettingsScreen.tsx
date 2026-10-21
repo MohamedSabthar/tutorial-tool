@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ProductConfig, ProductInfo, RpcResult } from '@studio/core';
+import type { ProductConfig, ProductInfo, Pronunciation, RpcResult } from '@studio/core';
 import { Button, Chip, Field, Input, Panel, Segmented, Select, Switch, Title } from '@studio/ui';
 import { isTauri, useEngine } from '../../engine';
 import { AppFrame } from '../frame';
@@ -22,6 +22,7 @@ export function SettingsScreen() {
           </div>
           <div className="settings-col">
             <WorkspacePanel />
+            <PronunciationsPanel />
             <ProductsPanel />
           </div>
         </div>
@@ -523,6 +524,84 @@ function ProductsPanel() {
           </Button>
         </div>
       )}
+      {note && (
+        <p className={note.tone === 'ok' ? 'settings-ok' : 'settings-error'} role="status">
+          {note.text}
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+/** pronunciations.json: how product terms are spoken. Captions and cues keep the written form. */
+function PronunciationsPanel() {
+  const { client, state } = useEngine();
+  const [rows, setRows] = useState<Pronunciation[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
+  useEffect(() => {
+    if (client && state === 'open') void client.call('pronunciations.get', {}).then(setRows, () => undefined);
+  }, [client, state]);
+
+  const change = (i: number, patch: Partial<Pronunciation>) =>
+    setRows((r) => r && r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const save = async () => {
+    if (!client || !rows) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      setRows(
+        await client.call('pronunciations.save', {
+          pronunciations: rows.filter((r) => r.term.trim() && r.say.trim()),
+        }),
+      );
+      setNote({ text: 'Saved. Voice-overs made from now on use it.', tone: 'ok' });
+    } catch (e) {
+      setNote({ text: message(e), tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel title="Pronunciations">
+      <p className="settings-hint">
+        How the voice says product terms. Only the voice changes: narration, captions and cues keep the
+        written form.
+      </p>
+      {rows?.map((r, i) => (
+        <div key={i} className="settings-inline pron-row">
+          <Input
+            aria-label={`Written term ${i + 1}`}
+            value={r.term}
+            placeholder="WSO2"
+            onChange={(e) => change(i, { term: e.target.value })}
+          />
+          <span aria-hidden="true">→</span>
+          <Input
+            aria-label={`Spoken as ${i + 1}`}
+            value={r.say}
+            placeholder="W S O two"
+            onChange={(e) => change(i, { say: e.target.value })}
+          />
+          <Button size="sm" variant="ghost" onClick={() => setRows((x) => x && x.filter((_, j) => j !== i))}>
+            Remove
+          </Button>
+        </div>
+      ))}
+      <div className="settings-inline">
+        <Button
+          size="sm"
+          onClick={() => setRows((x) => [...(x ?? []), { term: '', say: '' }])}
+          disabled={!rows}
+        >
+          Add term
+        </Button>
+        <span style={{ flex: 1 }} />
+        <Button size="sm" variant="primary" disabled={!rows || busy} onClick={() => void save()}>
+          Save
+        </Button>
+      </div>
       {note && (
         <p className={note.tone === 'ok' ? 'settings-ok' : 'settings-error'} role="status">
           {note.text}

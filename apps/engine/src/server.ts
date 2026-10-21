@@ -11,6 +11,7 @@ import {
   type RpcEvent,
   type RpcEventData,
   type ProductConfig,
+  type Pronunciation,
   type StudioSettings,
   type Brief,
   type PlanEdit,
@@ -58,6 +59,7 @@ import { DocWriter } from './docs';
 import { beforeBrowserLaunch, RenderHost } from '@studio/exporters/node';
 import { ensureChromium } from './runtime';
 import { ProductsRegistry } from './productsFile';
+import { Pronunciations } from './pronunciations';
 import { claudeSignIn, setupStatus } from './setup';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
@@ -143,6 +145,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   // The recorder launches what the workspace's products.json says.
   const products = new ProductsRegistry(opts.workspace);
   await products.load();
+  const pronunciations = new Pronunciations(opts.workspace);
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
   const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
@@ -355,7 +358,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return head;
     },
   });
-  const voiceover = new Voiceover({ store, timelines, tts, after: (slug, o) => timing.fit(slug, o) });
+  const voiceover = new Voiceover({
+    store,
+    timelines,
+    tts,
+    pronunciations: () => pronunciations.list(),
+    after: (slug, o) => timing.fit(slug, o),
+  });
   const pipeline: PipelineManager = new PipelineManager({
     store,
     agents,
@@ -391,7 +400,11 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             ? 'ElevenLabs has no key yet.'
             : null,
       voice: async (slug, plan) => {
-        const r = await voicePace({ store, tts }, slug, plan.steps);
+        const r = await voicePace(
+          { store, tts, pronunciations: () => pronunciations.list() },
+          slug,
+          plan.steps,
+        );
         return `Voiced ${r.lines} line${r.lines === 1 ? '' : 's'} (${r.seconds.toFixed(1)} s) to pace the take`;
       },
       clear: (slug) => clearPace(store.dir(slug)),
@@ -832,6 +845,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return r;
     },
     'setup.status': async () => setupStatus({ store, workspace, tts, products }),
+    'pronunciations.get': async () => pronunciations.list(),
+    'pronunciations.save': async ({ pronunciations: list }: { pronunciations: Pronunciation[] }) => {
+      const r = await pronunciations.save(list);
+      await workspace.commit('settings: pronunciations.json', ['pronunciations.json']).catch(() => null);
+      return r;
+    },
     'agent.signInStatus': async () => {
       const s = await store.readSettings();
       return claudeSignIn({ executable: s.claudeExecutable, configDir: s.claudeConfigDir });

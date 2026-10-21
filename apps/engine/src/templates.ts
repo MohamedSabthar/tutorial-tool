@@ -84,6 +84,11 @@ export const PRODUCTS = {
   ],
 };
 
+/** How product terms are spoken in voice-overs (edited in Settings). */
+export const PRONUNCIATIONS = {
+  pronunciations: [{ term: 'WSO2', say: 'W S O two' }],
+};
+
 export const THEME_TS = `/** WSO2 brand tokens for overlays and explainer scenes (mirrors @studio/ui tokens). */
 export const theme = {
   color: {

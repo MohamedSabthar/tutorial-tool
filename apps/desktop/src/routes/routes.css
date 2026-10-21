@@ -1347,3 +1347,6 @@
   border: 1px solid var(--ui-gray-300);
   border-radius: 10px;
 }
+.pron-row {
+  align-items: center;
+}

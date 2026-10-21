@@ -4,6 +4,7 @@ import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
 import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
 import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
+import { Pronunciation } from './pronounce';
 import { Brief, PlanEdit } from './brief';
 import { Run } from './runs';
 import { ExplainerJob } from './explainers';
@@ -498,6 +499,13 @@ export const rpcMethods = {
   'products.list': { params: z.object({}), result: z.array(ProductInfo) },
   /** Replaces the entries of products.json (built-in products can't be removed) and commits. */
   'products.save': { params: z.object({ products: z.array(ProductConfig) }), result: z.array(ProductInfo) },
+  /** How product terms are spoken in voice-overs (the workspace's pronunciations.json). */
+  'pronunciations.get': { params: z.object({}), result: z.array(Pronunciation) },
+  /** Replaces pronunciations.json and commits it. */
+  'pronunciations.save': {
+    params: z.object({ pronunciations: z.array(Pronunciation) }),
+    result: z.array(Pronunciation),
+  },
   /** The first-run checklist (the Claude sign-in is checked on request: see agent.signInStatus). */
   'setup.status': { params: z.object({}), result: z.array(SetupItem) },
   /** Runs `claude auth status` the way the agent would: only when the user asks. */

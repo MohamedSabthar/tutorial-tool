@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { RpcError } from '@studio/core';
 import {
   PRODUCTS,
+  PRONUNCIATIONS,
   README_KEEP,
   THEME_TS,
   WORKSPACE_CLAUDE_MD,
@@ -58,6 +59,7 @@ export class Workspace {
       ['scenes/README.md', README_KEEP('Shared explainer scenes')],
       ['theme/wso2.ts', THEME_TS],
       ['products.json', JSON.stringify(PRODUCTS, null, 2) + '\n'],
+      ['pronunciations.json', JSON.stringify(PRONUNCIATIONS, null, 2) + '\n'],
       ['projects/README.md', README_KEEP('Tutorial projects')],
       ['.gitignore', WORKSPACE_GITIGNORE],
     ];

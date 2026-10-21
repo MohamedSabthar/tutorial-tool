@@ -3,6 +3,8 @@ import {
   applyPatch,
   buildTimeMap,
   findCue,
+  speakable,
+  writtenWords,
   lineDelay,
   invertPatch,
   parseTimeline,
@@ -505,5 +507,38 @@ describe('voice-first cues', () => {
     const pace = { leadIn: 0.25, clickGap: 0.6 };
     expect(lineDelay(pace, Infinity)).toBe(0.25);
     expect(lineDelay(pace, 0.2)).toBeCloseTo(0.4, 6);
+  });
+});
+
+describe('pronunciations', () => {
+  const rules = [
+    { term: 'WSO2', say: 'W S O two' },
+    { term: '/greeting', say: 'slash greeting' },
+    { term: 'WSO2 Integrator', say: 'W S O two Integrator' },
+  ];
+
+  it('speaks terms as set, keeping punctuation, and leaves other text exactly as written', () => {
+    const s = speakable('Open WSO2 Integrator, then call /greeting.', rules);
+    expect(s.spoken).toBe('Open W S O two Integrator, then call slash greeting.');
+    expect(speakable('Nothing  to   change.', rules).spoken).toBe('Nothing  to   change.');
+    expect(speakable('Use wso2 here', rules).spoken).toBe('Use W S O two here');
+  });
+
+  it('maps the spoken word timings back onto the written words', () => {
+    const s = speakable('Open WSO2 now', rules);
+    const spoken = ['Open', 'W', 'S', 'O', 'two', 'now'].map((w, i) => ({ w, start: i, end: i + 0.5 }));
+    expect(writtenWords(s, spoken)).toEqual([
+      { w: 'Open', start: 0, end: 0.5 },
+      { w: 'WSO2', start: 1, end: 4.5 },
+      { w: 'now', start: 5, end: 5.5 },
+    ]);
+    // A multi-word term: both written words share the phrase's time.
+    const m = speakable('WSO2 Integrator opens', rules);
+    const sw = ['W', 'S', 'O', 'two', 'Integrator', 'opens'].map((w, i) => ({ w, start: i, end: i + 0.5 }));
+    expect(writtenWords(m, sw).map((w) => [w.w, w.start, w.end])).toEqual([
+      ['WSO2', 0, 4.5],
+      ['Integrator', 0, 4.5],
+      ['opens', 5, 5.5],
+    ]);
   });
 });

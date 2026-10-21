@@ -6,13 +6,15 @@ import {
   SCENE_LEAD_IN,
   SCENE_LINE_GAP,
   VoiceLine,
-  wordsFromAlignment,
+  type Pronunciation,
+  type TimedWord,
   type ExplainerScene,
   type Step,
 } from '@studio/core';
 import type { ProjectStore } from './projects';
 import type { Author, TimelineStore } from './timeline';
 import type { TtsService } from './tts';
+import { voiceLine } from './pronunciations';
 
 /** Seconds of the step shown before its line starts. */
 export const LEAD_IN = 0.25;
@@ -45,6 +47,8 @@ export class Voiceover {
       store: ProjectStore;
       timelines: TimelineStore;
       tts: Pick<TtsService, 'synthesize'>;
+      /** How product terms are spoken (the workspace's pronunciations.json). */
+      pronunciations?: () => Promise<Pronunciation[]>;
       after?: AfterVoice;
     },
   ) {}
@@ -68,6 +72,7 @@ export class Voiceover {
       throw new RpcError(`No step or scene ${unknown.join(', ')} in the timeline.`, 'not_found');
 
     const narrated = timeline.steps.filter((s) => s.narration.trim());
+    const rules = (await this.deps.pronunciations?.().catch(() => [])) ?? [];
     const result: VoiceoverResult = { lines: [], skipped: [], seconds: 0 };
     const fresh = new Map<string, VoiceLine>();
     const freshScenes = new Map<string, VoiceLine[]>();
@@ -80,13 +85,9 @@ export class Voiceover {
       const i = narrated.indexOf(step);
       const prev = narrated[i - 1]?.narration;
       const next = narrated[i + 1]?.narration;
-      const r = await this.deps.tts.synthesize(slug, {
-        text: step.narration.trim(),
-        voiceId,
-        ...(prev ? { previousText: prev } : {}),
-        ...(next ? { nextText: next } : {}),
-      });
-      fresh.set(step.id, lineFor(step, r));
+      const { words, ...req } = voiceLine(step.narration.trim(), rules, { prev, next });
+      const r = await this.deps.tts.synthesize(slug, { ...req, voiceId });
+      fresh.set(step.id, lineFor(step, r, words(r.alignment)));
       result.lines.push({ stepId: step.id, duration: r.duration, cached: r.cached });
     }
 
@@ -101,12 +102,8 @@ export class Voiceover {
       const lines: VoiceLine[] = [];
       let at = SCENE_LEAD_IN;
       for (const [i, text] of texts.entries()) {
-        const r = await this.deps.tts.synthesize(slug, {
-          text,
-          voiceId,
-          ...(texts[i - 1] ? { previousText: texts[i - 1] } : {}),
-          ...(texts[i + 1] ? { nextText: texts[i + 1] } : {}),
-        });
+        const { words, ...req } = voiceLine(text, rules, { prev: texts[i - 1], next: texts[i + 1] });
+        const r = await this.deps.tts.synthesize(slug, { ...req, voiceId });
         lines.push(
           VoiceLine.parse({
             id: `vo-${scene.id}-${i}`,
@@ -115,7 +112,7 @@ export class Voiceover {
             audio: r.audio,
             start: Math.round(at * 1000) / 1000,
             duration: Math.round(r.duration * 1000) / 1000,
-            words: wordsFromAlignment(r.alignment),
+            words: words(r.alignment),
           }),
         );
         result.lines.push({ stepId: scene.id, duration: r.duration, cached: r.cached });
@@ -181,10 +178,7 @@ export class Voiceover {
 
 const isStepLine = (v: VoiceLine, steps: Step[]) => steps.some((s) => s.id === v.owner);
 
-function lineFor(
-  step: Step,
-  r: { audio: string; duration: number; alignment: { chars: string[]; starts: number[]; ends: number[] } },
-): VoiceLine {
+function lineFor(step: Step, r: { audio: string; duration: number }, words: TimedWord[]): VoiceLine {
   return VoiceLine.parse({
     id: `vo-${step.id}`,
     owner: step.id,
@@ -192,8 +186,8 @@ function lineFor(
     audio: r.audio,
     start: LEAD_IN,
     duration: Math.round(r.duration * 1000) / 1000,
-    // Word times are relative to the line's own start, like the audio.
-    words: wordsFromAlignment(r.alignment),
+    // Word times are relative to the line's own start, like the audio (written words).
+    words,
   });
 }
 

@@ -56,6 +56,26 @@ describe('voice-first pace', () => {
     expect(await readPace(store.dir(slug))).toBeNull();
   });
 
+  it('speaks terms from the pronunciations but keeps the written words for cues', async () => {
+    const requests: { text: string; nextText?: string }[] = [];
+    await voicePace(
+      {
+        store,
+        tts: tts(requests) as never,
+        pronunciations: async () => [{ term: 'WSO2', say: 'W S O two' }],
+      },
+      slug,
+      [
+        { id: 's1', narration: 'Open WSO2 now.' },
+        { id: 's2', narration: 'Close WSO2.' },
+      ],
+    );
+    expect(requests[0]).toMatchObject({ text: 'Open W S O two now.', nextText: 'Close W S O two.' });
+    const pace = await readPace(store.dir(slug));
+    expect(pace!.steps.s1!.text).toBe('Open WSO2 now.');
+    expect(pace!.steps.s1!.words.map((w) => w.w)).toEqual(['Open', 'WSO2', 'now.']);
+  });
+
   it('reports how far cued actions landed from their words', () => {
     const bbox = { x: 0, y: 0, w: 1, h: 1 };
     const events = RecorderEvent.array().parse([

@@ -1,6 +1,7 @@
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Pace, RpcError, wordsFromAlignment, type RecorderEvent, type StepPace } from '@studio/core';
+import { Pace, RpcError, type Pronunciation, type RecorderEvent, type StepPace } from '@studio/core';
+import { voiceLine } from './pronunciations';
 import type { ProjectStore } from './projects';
 import type { TtsService } from './tts';
 import { CLICK_GAP, TAIL } from './timing';
@@ -29,13 +30,18 @@ export async function clearPace(projectDir: string): Promise<void> {
  * those come from the cache and the recorded pace is the audio that ends up on the timeline.
  */
 export async function voicePace(
-  deps: { store: ProjectStore; tts: Pick<TtsService, 'synthesize'> },
+  deps: {
+    store: ProjectStore;
+    tts: Pick<TtsService, 'synthesize'>;
+    pronunciations?: () => Promise<Pronunciation[]>;
+  },
   slug: string,
   steps: { id: string; narration: string }[],
 ): Promise<{ pace: Pace; lines: number; seconds: number }> {
   const voiceId = await deps.store.voiceFor(slug);
   if (!voiceId) throw new RpcError('Choose a voice in the brief first.', 'bad_request');
   const narrated = steps.filter((s) => s.narration.trim());
+  const rules = (await deps.pronunciations?.().catch(() => [])) ?? [];
   const out: Record<string, StepPace> = {};
   let seconds = 0;
   for (const [i, step] of narrated.entries()) {
@@ -43,17 +49,9 @@ export async function voicePace(
     // Trimmed, as the steps get it (see the pipeline's voiceover), so the requests are the same.
     const prev = narrated[i - 1]?.narration.trim();
     const next = narrated[i + 1]?.narration.trim();
-    const r = await deps.tts.synthesize(slug, {
-      text,
-      voiceId,
-      ...(prev ? { previousText: prev } : {}),
-      ...(next ? { nextText: next } : {}),
-    });
-    out[step.id] = {
-      text,
-      duration: Math.round(r.duration * 1000) / 1000,
-      words: wordsFromAlignment(r.alignment),
-    };
+    const { words, ...req } = voiceLine(text, rules, { prev, next });
+    const r = await deps.tts.synthesize(slug, { ...req, voiceId });
+    out[step.id] = { text, duration: Math.round(r.duration * 1000) / 1000, words: words(r.alignment) };
     seconds += r.duration;
   }
   const pace = Pace.parse({ leadIn: LEAD_IN, clickGap: CLICK_GAP, tail: TAIL, steps: out });

@@ -15,6 +15,7 @@ export * from './brief';
 export * from './voice';
 export * from './pace';
 export * from './settings';
+export * from './pronounce';
 export * from './captions';
 export * from './runs';
 export * from './scenes';
