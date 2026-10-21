@@ -15,7 +15,9 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "engine": "pnpm --filter @studio/engine dev",
-    "rec": "pnpm --filter @studio/engine exec tsx src/cli/rec.ts"
+    "rec": "pnpm --filter @studio/engine exec tsx src/cli/rec.ts",
+    "test:parity": "pnpm --filter @studio/desktop build && STUDIO_PARITY=1 vitest run parity",
+    "test:recorder": "STUDIO_E2E=1 vitest run e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

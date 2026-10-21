@@ -10,3 +10,4 @@ apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 workspace/
 dist-types/
+test-results/

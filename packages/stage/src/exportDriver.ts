@@ -22,18 +22,40 @@ export function trackPending<T>(p: Promise<T>): Promise<T> {
   return p;
 }
 
-/** The mounted canvases by mount id: how many times each committed, and the stage time it last committed. */
-const commits = new Map<number, { n: number; t: number | null }>();
+/** A canvas the driver waits for: how many times its root committed, and at which stage time. */
+export interface CanvasEntry {
+  id: number;
+  n: number;
+  t: number | null;
+  /** Call after each commit of the canvas's React root. */
+  commit(t: number): void;
+  /** Start waiting for it (from the main tree, before its root even exists). */
+  attach(): void;
+  dispose(): void;
+}
+
+/** The mounted canvases by id. */
+const commits = new Map<number, CanvasEntry>();
 let nextCanvas = 1;
 
-/** A mounted canvas: call `commit(t)` after each of its commits, `dispose()` on unmount. */
-export function registerCanvas(): { commit(t: number): void; dispose(): void } {
-  const id = nextCanvas++;
-  commits.set(id, { n: 0, t: null });
-  return {
-    commit: (t) => void commits.set(id, { n: (commits.get(id)?.n ?? 0) + 1, t }),
-    dispose: () => void commits.delete(id),
+/**
+ * A canvas entry. Scene3D attaches it from its own effect in the main tree: the canvas's root is
+ * created only after the canvas has been measured, and until it commits there is nothing to
+ * draw, so the driver must already know to wait for it.
+ */
+export function createCanvasEntry(): CanvasEntry {
+  const entry: CanvasEntry = {
+    id: nextCanvas++,
+    n: 0,
+    t: null,
+    commit: (t) => {
+      entry.n++;
+      entry.t = t;
+    },
+    attach: () => void commits.set(entry.id, entry),
+    dispose: () => void commits.delete(entry.id),
   };
+  return entry;
 }
 
 /** The canvases' commit counts now (call before asking React to render the next frame). */

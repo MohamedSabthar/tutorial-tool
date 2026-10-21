@@ -11,7 +11,7 @@ import {
 } from 'three';
 import type { Rect } from '@studio/core';
 import { FRAME, fitSource, restCamera, sourceToStage, type CameraState, type Fit } from './camera';
-import { frameProvider, registerCanvas, trackPending } from './exportDriver';
+import { createCanvasEntry, frameProvider, trackPending, type CanvasEntry } from './exportDriver';
 import { useStageTime } from './Stage';
 import { TunnelOut } from './tunnel';
 
@@ -86,16 +86,19 @@ function TimeInvalidator() {
 }
 
 /** Tells the export driver each time the canvas's React root commits. */
-function CommitMarker() {
+function CommitMarker({ entry }: { entry: CanvasEntry }) {
   const { t } = useStageTime();
-  const [reg] = useState(registerCanvas);
-  useEffect(() => () => reg.dispose(), [reg]);
-  useEffect(() => reg.commit(t));
+  useEffect(() => entry.commit(t));
   return null;
 }
 
 export function Scene3D({ children }: { children?: ReactNode }) {
   const { width, height, mode } = useStageTime();
+  const [entry] = useState(createCanvasEntry);
+  useEffect(() => {
+    entry.attach();
+    return () => entry.dispose();
+  }, [entry]);
   return (
     <Canvas
       orthographic
@@ -122,7 +125,7 @@ export function Scene3D({ children }: { children?: ReactNode }) {
       {/* 3D content that overlays send in with <ThreeLayer>. */}
       <TunnelOut />
       {/* Last, so its effect runs after the video plane's (which starts the frame's decode). */}
-      <CommitMarker />
+      <CommitMarker entry={entry} />
     </Canvas>
   );
 }

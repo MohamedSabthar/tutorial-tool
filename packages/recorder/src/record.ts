@@ -158,6 +158,12 @@ export async function encodeTake(opts: EncodeOptions): Promise<Take> {
       'veryfast',
       '-crf',
       '18',
+      // Say what the frames are (BT.601, full range from the PNG screenshots): untagged video is
+      // decoded with different matrices by WebKit (preview) and Chromium (export).
+      '-colorspace',
+      'bt470bg',
+      '-color_range',
+      'pc',
       '-g',
       String(Math.round(fps / 2)),
       '-keyint_min',
