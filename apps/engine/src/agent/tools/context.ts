@@ -1,3 +1,4 @@
+import type { VideoCheckResult } from '../../videoCheck';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ProjectStore } from '../../projects';
 import type { TimelineStore } from '../../timeline';
@@ -21,6 +22,8 @@ export interface ToolContext {
   voiceover: Pick<Voiceover, 'generate'>;
   checkOverlay(file: string, opts: { times?: number[]; instanceId?: string }): Promise<CheckResult>;
   checkScene(sceneId: string): Promise<SceneCheckResult>;
+  /** Final QA of the rendered video (see videoCheck.ts). */
+  checkVideo(): Promise<VideoCheckResult>;
   explainers: Explainers;
   docs: Pick<DocWriter, 'save'>;
   /** Called after a run registered a new take (reload the timeline everywhere). */

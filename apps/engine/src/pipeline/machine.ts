@@ -23,6 +23,7 @@ import {
   nudge,
   planInstruction,
   postInstruction,
+  qaInstruction,
   repairInstruction,
   reviseNarrationInstruction,
   syncCuesInstruction,
@@ -733,6 +734,11 @@ export class PipelineManager {
             await this.agentStageWithHelp(slug, live, 'post', postInstruction(plan));
             await voice();
           }
+          stage = 'qa';
+          break;
+        }
+        case 'qa': {
+          await this.agentStageWithHelp(slug, live, 'qa', qaInstruction());
           stage = 'retro';
           break;
         }

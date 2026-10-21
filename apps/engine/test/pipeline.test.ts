@@ -172,11 +172,17 @@ describe('PipelineManager', () => {
     runs: boolean[],
     git?: unknown,
     extra: Partial<PipelineDeps> = {},
+    handlesQa = false,
   ) {
     const queue = [...runs];
     const modes: string[] = [];
     const ref: { p?: PipelineManager } = {};
-    const { agents, sent } = fakeAgents((stage, text) => react(ref.p!, stage, text));
+    // Final QA: the fake agent finds nothing (tests of it answer it themselves).
+    const { agents, sent } = fakeAgents((stage, text) =>
+      stage === 'qa' && !handlesQa
+        ? void ref.p!.stageDone(slug, 'qa', true, 'qa done')
+        : react(ref.p!, stage, text),
+    );
     const p = (ref.p = new PipelineManager({
       store,
       agents,
@@ -226,6 +232,7 @@ describe('PipelineManager', () => {
       ['dry_run', true],
       ['record', true],
       ['post', true],
+      ['qa', true],
       ['retro', true],
     ]);
     expect(sent.find((t) => t.includes('repair, attempt 1 of 3'))).toContain('Resource Path was not visible');
@@ -280,6 +287,7 @@ describe('PipelineManager', () => {
       'dry_run',
       'record',
       'post',
+      'qa',
       'retro',
     ]);
     expect(last().history[5]!.summary).toBe('2 steps passed, cues checked');

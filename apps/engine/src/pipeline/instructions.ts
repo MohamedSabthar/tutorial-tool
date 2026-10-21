@@ -150,6 +150,25 @@ export function postInstruction(plan: Plan | null = null, opts: { narrated?: boo
     .join('\n\n');
 }
 
+/** Final QA: the agent checks the video as it will be exported and fixes what it can. */
+export function qaInstruction(): string {
+  return [
+    '[Pipeline · qa]',
+    'Check the tutorial as it will be exported, before the user watches it. Run check_video and look at every frame in its contact sheets, as a viewer would.',
+    [
+      'Fix what you can with timeline patches (apply_timeline_patch), then run check_video again:',
+      '- an overlay covering what is being clicked or described: move, resize or shorten it',
+      '- captions over the important part of the screen: edit them, or hide captions if they get in the way throughout',
+      '- secrets, emails or machine paths on screen: add a core:Blur over them for as long as they show',
+      '- a zoom that cuts off its target or moves too often: adjust or remove it',
+      '- voice running into the next step: run generate_voiceover again (unchanged lines come from the cache, and it re-runs the timing fit)',
+      "Things you can't fix from the timeline (an error dialog in the recording, a click off its word, a wrong screen) need a new take or a script change: don't record, list them in your summary for the user.",
+    ].join('\n'),
+    'When check_video reports nothing you can fix, finish. Your summary is the QA report: what you checked, what you fixed, and what is left for the user.',
+    done('qa'),
+  ].join('\n\n');
+}
+
 export function retroInstruction(input: {
   history: { stage: string; ok: boolean | null; summary: string }[];
   claudeMdBytes: number;

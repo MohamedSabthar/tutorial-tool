@@ -98,6 +98,7 @@ beforeAll(async () => {
     voiceover: null as never,
     checkOverlay: null as never,
     checkScene: null as never,
+    checkVideo: null as never,
     explainers: null as never,
     onTake: () => {},
   };

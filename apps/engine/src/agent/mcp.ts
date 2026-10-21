@@ -8,6 +8,7 @@ import { inspectTools } from './tools/inspectUi';
 import { pipelineTools } from './tools/pipeline';
 import { voTools } from './tools/vo';
 import { checkOverlayTools } from './tools/checkOverlay';
+import { checkVideoTools } from './tools/checkVideo';
 import { explainerTools } from './tools/insertExplainer';
 import { docTools } from './tools/doc';
 
@@ -30,6 +31,7 @@ export function studioServer(ctx: ToolContext): Record<string, McpServerConfig> 
       ...pipelineTools(ctx),
       ...voTools(ctx),
       ...checkOverlayTools(ctx),
+      ...checkVideoTools(ctx),
       ...explainerTools(ctx),
       ...docTools(ctx),
     ],

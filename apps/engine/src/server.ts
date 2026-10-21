@@ -59,6 +59,7 @@ import { DocWriter } from './docs';
 import { beforeBrowserLaunch, RenderHost } from '@studio/exporters/node';
 import { ensureChromium } from './runtime';
 import { ProductsRegistry } from './productsFile';
+import { checkVideo } from './videoCheck';
 import { Pronunciations } from './pronunciations';
 import { claudeSignIn, setupStatus } from './setup';
 import { checkOverlay } from './overlayCheck';
@@ -186,6 +187,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             overlays: await overlays(),
             stage: headless,
           }),
+        checkVideo: async () => {
+          const { timeline } = await timelines.get(slug);
+          const take = timeline.takes.at(-1);
+          const events = take ? await readEvents(store.dir(slug), take.events).catch(() => []) : [];
+          return checkVideo({ slug, timeline, events, stage: headless });
+        },
         checkOverlay: async (file, o) =>
           checkOverlay({
             workspace: opts.workspace,

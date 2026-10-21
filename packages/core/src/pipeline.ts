@@ -16,6 +16,7 @@ export const PipelineStage = z.enum([
   'align',
   'record',
   'post',
+  'qa',
   'retro',
 ]);
 export type PipelineStage = z.infer<typeof PipelineStage>;
@@ -31,6 +32,7 @@ export const PIPELINE_STAGES: { stage: PipelineStage; label: string }[] = [
   { stage: 'align', label: 'Align to the voice' },
   { stage: 'record', label: 'Record the take' },
   { stage: 'post', label: 'Post-production' },
+  { stage: 'qa', label: 'Final QA' },
   { stage: 'retro', label: 'Retrospective' },
 ];
 
