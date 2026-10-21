@@ -82,7 +82,14 @@ export function normalize(m: SDKMessage, resumed: boolean): AgentEventInput[] {
             input: b.input,
           });
       }
-      if (m.error) out.push({ kind: 'error', text: `Assistant error: ${m.error}` });
+      if (m.error)
+        out.push({
+          kind: 'error',
+          text:
+            m.error === 'authentication_failed'
+              ? 'Assistant error: authentication_failed. The agent could not sign in to Claude. It uses the Claude Code login of the shell that starts the app (its CLAUDE_CONFIG_DIR, default ~/.claude): check it with `claude auth status` there, sign in with `claude auth login` (or export ANTHROPIC_API_KEY), then restart the app.'
+              : `Assistant error: ${m.error}`,
+        });
       return out;
     }
     case 'user': {
