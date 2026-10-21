@@ -3,7 +3,7 @@ import {
   type AnchorHTMLAttributes,
   type CSSProperties,
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { IconProjects, IconStudio, IconLibrary, IconSettings } from './icons';
+import { IconProjects, IconStudio, IconLive, IconLibrary, IconSettings } from './icons';
 import markUrl from '../assets/mark-wso2-orange.png';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -56,11 +56,12 @@ export const Logo = ({ size = 22 }: { size?: number }) => (
 // Header and navigation
 // ---------------------------------------------------------------------------
 
-export type NavKey = 'projects' | 'studio' | 'library' | 'settings';
+export type NavKey = 'projects' | 'studio' | 'live' | 'library' | 'settings';
 
 const navItems: { key: NavKey; label: string; Icon: typeof IconProjects }[] = [
   { key: 'projects', label: 'Projects', Icon: IconProjects },
   { key: 'studio', label: 'Studio', Icon: IconStudio },
+  { key: 'live', label: 'Live', Icon: IconLive },
   { key: 'library', label: 'Library', Icon: IconLibrary },
   { key: 'settings', label: 'Settings', Icon: IconSettings },
 ];
@@ -89,7 +90,8 @@ export function AppHeader({
       {(hrefs || onNavigate) && (
         <nav aria-label="Main" className="ui-nav">
           {navItems.map(({ key, label, Icon }) =>
-            hrefs?.[key] ? (
+            // With links, only the screens that have one: a button that does nothing is a dead end.
+            hrefs && !onNavigate && !hrefs[key] ? null : hrefs?.[key] ? (
               <a
                 key={key}
                 href={hrefs[key]}
@@ -331,12 +333,15 @@ export function GateBanner({ title, text, actions }: { title: ReactNode; text?: 
       <span className="ui-gate-icon" aria-hidden="true">
         ◆
       </span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div className="ui-gate-body">
         <span className="ui-gate-title">{title}</span>
-        {text && <span className="ui-gate-text">{text}</span>}
+        {text && (
+          <span className="ui-gate-text" title={typeof text === 'string' ? text : undefined}>
+            {text}
+          </span>
+        )}
       </div>
-      <span style={{ flex: '1 1 20px' }} />
-      {actions}
+      {actions && <div className="ui-gate-actions">{actions}</div>}
     </div>
   );
 }

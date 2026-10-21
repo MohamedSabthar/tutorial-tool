@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { RpcResult } from '@studio/core';
 import { Button, Chip, MonoBox, Panel, Stepper } from '@studio/ui';
-import { openLiveWindow, useEngine } from '../engine';
+import { openLive, useEngine } from '../engine';
 import { Page } from '../shell';
 
 type Run = RpcResult<'project.record'>;
@@ -64,7 +64,7 @@ export function ReferencePage() {
   return (
     <Page
       title="Step 1.5 · Reference tutorial"
-      intro="A hand-written tutorial, “Create an HTTP service”, recorded end to end against WSO2 Integrator. It uses the seed wso2-integrator skill’s page objects (workspace/.claude/skills/wso2-integrator/pages) and is the template for agent-written scripts. Open the Live window to watch it run. The same run is available from a terminal: pnpm rec demo-http"
+      intro="A hand-written tutorial, “Create an HTTP service”, recorded end to end against WSO2 Integrator. It uses the seed wso2-integrator skill’s page objects (workspace/.claude/skills/wso2-integrator/pages) and is the template for agent-written scripts. Watch it run on the Live screen. The same run is available from a terminal: pnpm rec demo-http"
     >
       <Panel
         title="Run workspace/projects/demo-http"
@@ -79,7 +79,7 @@ export function ReferencePage() {
         }
       >
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Button onClick={() => openLiveWindow()}>Open Live window</Button>
+          <Button onClick={() => openLive('demo-http')}>Watch live</Button>
           <Button onClick={() => start('dry')} disabled={!!running || state !== 'open'}>
             {running === 'dry' ? 'Dry run…' : 'Dry run'}
           </Button>

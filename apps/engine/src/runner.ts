@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { RecorderEvent } from '@studio/core';
-import { RpcError, type RpcEvent, type RpcEventData } from '@studio/core';
+import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
 import { loadScript, openInspector, type Inspector, type ScriptFixture } from '@studio/recorder/node';
 import type { ProjectStore } from './projects';
 import { runProjectScript, type ProjectRunResult } from './recording';
@@ -42,16 +42,17 @@ export class Runner {
     title: string,
     mode: 'dry' | 'record',
     fn: (cb: ReturnType<Runner['liveCallbacks']>) => Promise<T>,
+    slug: string | null = null,
   ): Promise<T> {
     if (this.busyWith) throw new RpcError(`the recorder is busy (${this.busyWith})`, 'bad_request');
     await this.closeInspector();
     this.busyWith = title;
     try {
-      return await fn(this.liveCallbacks(title, mode));
+      return await fn(this.liveCallbacks(title, mode, slug));
     } finally {
       this.busyWith = null;
       this.abort = null;
-      this.broadcast('live.session', { state: 'stopped', title, mode, frame: null });
+      this.emitSession({ state: 'stopped', title, mode, frame: null, slug });
     }
   }
 
@@ -73,11 +74,19 @@ export class Runner {
     return true;
   }
 
-  /** Callbacks that stream a run to the Live window. */
-  liveCallbacks(title: string, mode: 'dry' | 'record') {
+  /** The run streaming to Live now, or null. */
+  session: LiveSession | null = null;
+
+  private emitSession(s: LiveSession) {
+    this.session = s.state === 'started' ? s : null;
+    this.broadcast('live.session', s);
+  }
+
+  /** Callbacks that stream a run to Live. */
+  liveCallbacks(title: string, mode: 'dry' | 'record', slug: string | null = null) {
     this.abort = new AbortController();
     const broadcast = this.broadcast;
-    broadcast('live.session', { state: 'started', title, mode, frame: null });
+    this.emitSession({ state: 'started', title, mode, frame: null, slug });
     return {
       signal: this.abort.signal,
       onEvent: (e: RecorderEvent) => {
@@ -87,11 +96,12 @@ export class Runner {
             ? (e.data?.viewport as { width: number; height: number; scale: number } | undefined)
             : undefined;
         if (vp)
-          broadcast('live.session', {
+          this.emitSession({
             state: 'started',
             title,
             mode,
             frame: { width: vp.width * vp.scale, height: vp.height * vp.scale },
+            slug,
           });
       },
       onAction: (a: RpcEventData<'live.action'>) => broadcast('live.action', a),
@@ -106,7 +116,12 @@ export class Runner {
   /** Runs a project's script.spec.ts (dry run, or record a new take). */
   async runProject(slug: string, mode: 'dry' | 'record'): Promise<ProjectRunResult> {
     const title = (await this.store.open(slug).catch(() => null))?.project.title ?? slug;
-    return this.exclusive(title, mode, (cb) => runProjectScript(this.store, this.workspace, slug, mode, cb));
+    return this.exclusive(
+      title,
+      mode,
+      (cb) => runProjectScript(this.store, this.workspace, slug, mode, cb),
+      slug,
+    );
   }
 
   /**
@@ -130,7 +145,7 @@ export class Runner {
       throw new RpcError('this project has no loadable script.spec.ts to replay', 'bad_request');
     const title = `Inspecting ${(await this.store.open(slug)).project.title}`;
     this.busyWith = title;
-    const cb = this.liveCallbacks(title, 'dry');
+    const cb = this.liveCallbacks(title, 'dry', slug);
     try {
       cb.onStage('launch');
       const inspector = await openInspector(mod ?? { fixture: DEFAULT_FIXTURE }, {
@@ -147,7 +162,7 @@ export class Runner {
       return { inspector, fresh: true };
     } catch (e) {
       cb.onStage('failed');
-      this.broadcast('live.session', { state: 'stopped', title, mode: 'dry', frame: null });
+      this.emitSession({ state: 'stopped', title, mode: 'dry', frame: null, slug: null });
       throw e;
     } finally {
       // The inspector keeps the window, but runs may take it over (they close it first).
@@ -169,7 +184,7 @@ export class Runner {
     clearTimeout(open.timer);
     await open.inspector.close();
     this.broadcast('live.stage', { stage: 'done', at: Date.now() });
-    this.broadcast('live.session', { state: 'stopped', title: 'Inspector', mode: 'dry', frame: null });
+    this.emitSession({ state: 'stopped', title: 'Inspector', mode: 'dry', frame: null, slug: null });
     return true;
   }
 

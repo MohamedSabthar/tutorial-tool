@@ -494,8 +494,10 @@ export function TimelinePanel({
       aria-label="Timeline"
       style={{
         background: 'var(--ui-white)',
-        borderTop: '1px solid var(--ui-gray-300)',
-        padding: '10px 16px 12px 22px',
+        padding: '10px 16px 8px 22px',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
       }}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -526,8 +528,13 @@ export function TimelinePanel({
         </Button>
         {actions}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
-          Space play · J/L ±1 s · ←/→ frame · S split · ⌫ delete
+        <span
+          tabIndex={0}
+          className="timeline-keys"
+          title="Space play · J/L ±1 s · ←/→ frame · S split · ⌫ delete"
+          aria-label="Keyboard shortcuts: Space play, J and L one second, arrows one frame, S split, Delete removes"
+        >
+          Shortcuts
         </span>
         <label
           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ui-gray-600)' }}
@@ -546,7 +553,8 @@ export function TimelinePanel({
         {selected && <Chip tone="active">{`selected: ${selected}`}</Chip>}
       </div>
 
-      <div ref={scroller} style={{ overflowX: 'auto', position: 'relative' }}>
+      {/* Lanes scroll inside the docked panel, both ways. */}
+      <div ref={scroller} style={{ overflow: 'auto', position: 'relative', flex: '1 1 auto', minHeight: 0 }}>
         <div style={{ position: 'relative', width: LABEL_W + trackW + 16 }}>
           {/* ruler: click or drag to seek */}
           <div

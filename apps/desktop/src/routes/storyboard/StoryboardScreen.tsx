@@ -9,7 +9,7 @@ import {
   type Project,
 } from '@studio/core';
 import { Button, Chip, GateBanner, LinkButton, Panel, Stepper, TextArea } from '@studio/ui';
-import { openLiveWindow, useEngine } from '../../engine';
+import { openLive, useEngine } from '../../engine';
 import { pipelineSteps, usePipeline } from '../../pipeline';
 import { AppFrame, formatDuration } from '../frame';
 import { PermissionRequests } from '../../studio/PermissionRequests';
@@ -17,6 +17,8 @@ import { PermissionRequests } from '../../studio/PermissionRequests';
 /** Rough length of an explainer until scenes exist (Phase 6). */
 const EXPLAINER_SECONDS = 20;
 const MIN_STEP_SECONDS = 5;
+/** Rows that show the whole text in the storyboard's card width (about 110 characters a line). */
+const rowsFor = (text: string) => Math.max(2, Math.ceil(text.length / 110) + 1);
 
 type Card =
   | { kind: 'step'; n: number; step: Plan['steps'][number]; seconds: number }
@@ -127,7 +129,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
               onClick={() =>
                 void act(async () => {
                   await pipe.approve();
-                  await openLiveWindow();
+                  openLive(slug);
                 })
               }
             >
@@ -143,8 +145,8 @@ export function StoryboardScreen({ slug }: { slug: string }) {
           text={st.gate.text}
           actions={
             <>
-              <Button onClick={() => void openLiveWindow()}>Open Live</Button>
-              <LinkButton variant="primary" href={`#/studio/${slug}`}>
+              <Button onClick={() => openLive(slug)}>Watch live</Button>
+              <LinkButton variant="primary" href={`#/studio/${slug}?side=Pipeline`}>
                 Review in the Studio
               </LinkButton>
             </>
@@ -163,13 +165,11 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                   : 'The agent is planning the steps…'
                 : `Approved. ${stageLabel}…`}
             </strong>{' '}
-            {st.stage === 'plan'
-              ? 'The storyboard appears here for your review.'
-              : 'Watch it in the Live window.'}
+            {st.stage === 'plan' ? 'The storyboard appears here for your review.' : 'You can watch it live.'}
           </span>
           <span style={{ flex: 1 }} />
-          <Button size="sm" onClick={() => void openLiveWindow()}>
-            Open Live
+          <Button size="sm" onClick={() => openLive(slug)}>
+            Watch live
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void pipe.stop()}>
             Stop
@@ -262,7 +262,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                 <label className="sb-label">
                   Narration
                   <TextArea
-                    rows={2}
+                    rows={rowsFor(drafts[`${c.step.id}:narration`] ?? c.step.narration)}
                     readOnly={!reviewing}
                     value={drafts[`${c.step.id}:narration`] ?? c.step.narration}
                     onChange={(e) =>
@@ -296,7 +296,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                 <label className="sb-label">
                   Idea
                   <TextArea
-                    rows={2}
+                    rows={rowsFor(drafts[`e${c.index}`] ?? c.idea)}
                     readOnly={!reviewing}
                     value={drafts[`e${c.index}`] ?? c.idea}
                     onChange={(e) =>

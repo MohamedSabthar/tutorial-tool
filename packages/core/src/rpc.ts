@@ -90,6 +90,17 @@ const TimelineState = z.object({
   canRedo: z.boolean(),
 });
 
+/** A run or inspector streaming to Live. */
+export const LiveSession = z.object({
+  state: z.enum(['started', 'stopped']),
+  title: z.string(),
+  mode: z.enum(['dry', 'record']),
+  frame: z.object({ width: z.number(), height: z.number() }).nullable(),
+  /** The project it belongs to, when there is one. */
+  slug: z.string().nullable().default(null),
+});
+export type LiveSession = z.infer<typeof LiveSession>;
+
 export const SignInStatus = z.object({
   product: z.string(),
   /** A profile is saved (the sign-in window has been opened at least once). */
@@ -468,6 +479,8 @@ export const rpcMethods = {
   'export.cancel': { params: z.object({ slug: z.string() }), result: z.object({ cancelled: z.boolean() }) },
   /** The project's current or last export this session. */
   'export.status': { params: z.object({ slug: z.string() }), result: ExportState.nullable() },
+  /** The run streaming to Live right now, if any (screens show a Live chip). */
+  'live.status': { params: z.object({}), result: z.object({ session: LiveSession.nullable() }) },
   /** The product's saved sign-in profile (recordings start signed in from a copy of it). */
   'product.signInStatus': { params: z.object({ product: z.string() }), result: SignInStatus },
   /** Opens the product on its sign-in profile so the user can sign in, then quit it. */
@@ -538,12 +551,7 @@ export const rpcEvents = {
   /** The newest rendered frame of a running export (a small JPEG, a few per second). */
   'export.frame': z.object({ slug: z.string(), index: z.number(), data: z.string() }),
   'pipeline.changed': PipelineState,
-  'live.session': z.object({
-    state: z.enum(['started', 'stopped']),
-    title: z.string(),
-    mode: z.enum(['dry', 'record']),
-    frame: z.object({ width: z.number(), height: z.number() }).nullable(),
-  }),
+  'live.session': LiveSession,
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;
 export type RpcEventData<E extends RpcEvent> = z.output<(typeof rpcEvents)[E]>;

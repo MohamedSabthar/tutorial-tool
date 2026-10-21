@@ -749,6 +749,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       const { png, ...size } = r.screenshot;
       return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
     },
+    'live.status': async () => ({ session: runner.session }),
     'project.record': async ({ slug, mode }: { slug: string; mode: 'dry' | 'record' }) => {
       const r = await runner.runProject(slug, mode);
       if (r.take) {

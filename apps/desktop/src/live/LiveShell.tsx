@@ -16,7 +16,8 @@ import {
   type ChipTone,
   type StepState,
 } from '@studio/ui';
-import { EngineChip, useEngine } from '../engine';
+import { useEngine } from '../engine';
+import { appHrefs, HeaderStatus } from '../routes/frame';
 import { elapsed as runElapsed, pipelineSteps as agentPipelineSteps, usePipeline } from '../pipeline';
 
 type Session = RpcEventData<'live.session'>;
@@ -115,8 +116,8 @@ function agentLine(e: AgentEvent): LogLine | null {
   }
 }
 
-/** The Live window: what the agent sees while it records, streamed from the engine. */
-export function LiveShell() {
+/** Live: what the agent sees while it records, streamed from the engine. */
+export function LiveShell({ slug = null }: { slug?: string | null }) {
   const { client, state } = useEngine();
   const [session, setSession] = useState<Session | null>(null);
   const [stage, setStage] = useState<Stage | null>(null);
@@ -138,6 +139,19 @@ export function LiveShell() {
   const [now, setNow] = useState(() => Date.now());
   const pipe = usePipeline(null);
   const startedAt = useRef<number | null>(null);
+
+  // A run that started before this screen opened: pick it up (its frames arrive as events).
+  useEffect(() => {
+    if (!client || state !== 'open') return;
+    void client.call('live.status', {}).then(
+      (r) => {
+        if (!r.session) return;
+        setSession(r.session);
+        startedAt.current ??= Date.now();
+      },
+      () => undefined,
+    );
+  }, [client, state]);
 
   useEffect(() => {
     if (!client) return;
@@ -276,10 +290,11 @@ export function LiveShell() {
     });
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="app-frame">
       <EdgeAccent />
       <AppHeader
-        title="Tutorial Studio · Live"
+        current="live"
+        hrefs={appHrefs(slug ?? session?.slug)}
         center={
           session ? (
             <Pill
@@ -307,7 +322,7 @@ export function LiveShell() {
         }
         actions={
           <>
-            <EngineChip />
+            <HeaderStatus live={false} path={false} />
             <Button
               disabled={!agentWorking || agent?.state === 'interrupting'}
               onClick={pauseAgent}
@@ -325,6 +340,8 @@ export function LiveShell() {
       <main
         style={{
           flex: 1,
+          minHeight: 0,
+          overflow: 'auto',
           background: 'var(--ui-gray-50)',
           padding: '12px 12px 12px 18px',
           display: 'flex',
@@ -547,7 +564,7 @@ export function LiveShell() {
               <p style={{ margin: 0, color: 'var(--ui-gray-600)', maxWidth: 460, lineHeight: 1.5 }}>
                 {running
                   ? 'The live view appears as soon as the window is up.'
-                  : 'Start one from the Studio window (1.5 · Reference tutorial → Record take). The agent’s view of WSO2 Integrator streams here.'}
+                  : 'Dry runs and recordings stream here: start the pipeline from a brief, or Re-record in the Studio.'}
               </p>
             </div>
           )}

@@ -339,3 +339,160 @@
   font-size: 11px;
   color: var(--ui-gray-600);
 }
+
+/* ---------------------------------------------------------------------------
+ * Studio: one window-high screen. Sidebar | preview | inspector on top, the
+ * timeline docked underneath at --studio-timeline-h (resizable).
+ * ------------------------------------------------------------------------- */
+.studio {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--ui-gray-50);
+}
+.studio-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 288px minmax(0, 1fr) 300px;
+  grid-template-rows: minmax(0, 1fr) var(--studio-timeline-h, 300px);
+}
+.studio-side {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 6px 12px 18px;
+}
+.studio-side-right {
+  overflow: auto;
+  padding: 12px 12px 12px 6px;
+}
+.studio-side-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.studio-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.studio-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ui-orange);
+}
+.studio-center {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 6px;
+}
+.studio-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The stage is as large as the panel allows while keeping its aspect ratio. */
+.studio-stage-fit {
+  flex: 1 1 auto;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+.studio-stage-box {
+  position: relative;
+  width: min(100cqw, 100cqh * 16 / 9);
+}
+.studio-stage-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--ui-gray-300);
+  border-radius: 10px;
+  color: var(--ui-gray-600);
+  text-align: center;
+  padding: 16px;
+}
+.studio-review {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.studio-dock {
+  grid-column: 1 / -1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--ui-white);
+  border-top: 1px solid var(--ui-gray-300);
+}
+.studio-dock > section {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.studio-dock-handle {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: row-resize;
+  z-index: 2;
+}
+.studio-dock-handle:hover,
+.studio-dock-handle:focus-visible {
+  outline: none;
+  background: linear-gradient(transparent 3px, var(--ui-steel) 3px, var(--ui-steel) 5px, transparent 5px);
+}
+.studio-title {
+  display: inline-block;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+.timeline-keys {
+  font-size: 11px;
+  color: var(--ui-gray-600);
+  border-bottom: 1px dotted var(--ui-gray-600);
+  cursor: help;
+}
+.studio-tabs .ui-seg-item {
+  padding-inline: 6px;
+  white-space: nowrap;
+}
+/* The Studio header stays one row: the title gives way first. */
+.studio .ui-header {
+  flex-wrap: nowrap;
+}
+.studio .ui-header-center {
+  min-width: 0;
+  overflow: hidden;
+}
+.studio-tabs .ui-seg-item {
+  padding-inline: 6px;
+  white-space: nowrap;
+}
+/* The Studio header stays one row: the title gives way first. */
+.studio .ui-header {
+  flex-wrap: nowrap;
+}
+.studio .ui-header-center {
+  min-width: 0;
+  overflow: hidden;
+}

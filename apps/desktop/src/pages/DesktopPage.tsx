@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { currentWindowLabel, openLiveWindow, useEngine } from '../engine';
+import { currentWindowLabel, openLive, useEngine } from '../engine';
 import { Page } from '../shell';
 
 export function DesktopPage() {
@@ -26,7 +26,7 @@ export function DesktopPage() {
   return (
     <Page
       title="Step 0.4 · Desktop shell"
-      intro="The Tauri shell now starts the engine sidecar itself, passes its port and token to each window, and stops it when the app quits. Open the Live window to check that a second window connects on its own."
+      intro="The Tauri shell now starts the engine sidecar itself, passes its port and token to each window, and stops it when the app quits. Live is a screen of the same window."
     >
       <section className="panel panel-pad" aria-label="Engine status">
         <h2 className="panel-title">Engine</h2>
@@ -50,15 +50,17 @@ export function DesktopPage() {
       <section className="panel panel-pad" aria-label="Windows">
         <h2 className="panel-title">Windows</h2>
         <p style={{ margin: '0 0 12px', color: 'var(--gray-600)' }}>
-          Live opens as its own window (or focuses it if it is already open). It shows its own engine
-          connection.
+          Live is a screen of this window (it used to open as a second window).
         </p>
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => openLiveWindow().catch((e: unknown) => setOpenError(String(e)))}
+          onClick={() => {
+            setOpenError(null);
+            openLive();
+          }}
         >
-          Open Live window
+          Show Live
         </button>
         {openError && (
           <p role="alert" className="chip chip-err" style={{ marginTop: 12 }}>

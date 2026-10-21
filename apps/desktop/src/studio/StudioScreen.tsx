@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import type { OverlayModule } from '@studio/overlay-sdk';
 import {
   buildTimeMap,
@@ -26,7 +32,9 @@ import {
   Segmented,
   Select,
 } from '@studio/ui';
-import { EngineChip, useEngine } from '../engine';
+import { openLive, useEngine } from '../engine';
+import { usePipeline } from '../pipeline';
+import { appHrefs, HeaderStatus, useLiveSession } from '../routes/frame';
 import { useLatestTake } from '../useTake';
 import { resolveTimeline, stepAt } from './resolve';
 import { StageHost } from './StageHost';
@@ -70,7 +78,33 @@ const ANCHORED = new Set([
 ]);
 type View = 'Final' | 'With annotations' | 'Raw take';
 
-/** The Studio window: preview, transport and the multi-lane timeline for one project. */
+const SIDES = ['Steps', 'Pipeline', 'Agent', 'Knowledge'] as const;
+type Side = (typeof SIDES)[number];
+const TIMELINE_MIN = 160;
+const TIMELINE_MAX = 640;
+const clampTimeline = (h: number) => Math.round(Math.min(TIMELINE_MAX, Math.max(TIMELINE_MIN, h)));
+
+/** Per-viewer layout preferences (may be unavailable, e.g. in private mode). */
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Not saved: the layout still works for this visit.
+  }
+}
+
+/**
+ * The Studio: one window-high screen with the project sidebar, the preview and the inspector
+ * side by side, and the timeline docked underneath (resizable), so the preview and the
+ * timeline are always in view together.
+ */
 export function StudioScreen({ slug }: { slug: string }) {
   const { client } = useEngine();
   const tl = useTimeline(slug);
@@ -95,8 +129,60 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [note, setNote] = useState<string | null>(null);
   /** A note created by the last click: closing it empty discards it. */
   const [fresh, setFresh] = useState<string | null>(null);
-  const [adding, setAdding] = useState('core:Callout');
   const [dragRect, setDragRect] = useState<Rect | null>(null);
+  const live = useLiveSession();
+  const [title, setTitle] = useState<string | null>(null);
+  useEffect(() => {
+    if (!client) return;
+    void client.call('project.open', { slug }).then(
+      (r) => setTitle(r.project.title),
+      () => undefined,
+    );
+  }, [client, slug]);
+  const pipe = usePipeline(slug);
+  const [confirmRecord, setConfirmRecord] = useState(false);
+  const [side, setSide] = useState<Side>(() => {
+    // A link may open a tab (`#/studio/<slug>?side=Pipeline`); otherwise the last one used.
+    const v =
+      new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('side') ?? readPref('studio.side');
+    return SIDES.includes(v as Side) ? (v as Side) : 'Steps';
+  });
+  const chooseSide = (v: Side) => {
+    setSide(v);
+    writePref('studio.side', v);
+  };
+  const [centre, setCentre] = useState<'Preview' | 'Review'>('Preview');
+  // About a third of the window unless the user has resized it.
+  const [timelineH, setTimelineH] = useState(() =>
+    clampTimeline(Number(readPref('studio.timelineH')) || window.innerHeight * 0.32),
+  );
+  const resizeTimeline = (h: number) => {
+    const v = clampTimeline(h);
+    setTimelineH(v);
+    writePref('studio.timelineH', String(v));
+  };
+  const startResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const y0 = e.clientY;
+    const h0 = timelineH;
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => resizeTimeline(h0 + (y0 - ev.clientY));
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  };
+  const reRecord = () => {
+    setConfirmRecord(false);
+    if (!client) return;
+    // Long-running: Live shows its progress; a failure is reported there and on the next visit.
+    void client
+      .call('project.record', { slug, mode: 'record' })
+      .catch((e: unknown) => setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }));
+    openLive(slug);
+  };
 
   const t = player.t;
   const spans = useMemo(
@@ -135,9 +221,8 @@ export function StudioScreen({ slug }: { slug: string }) {
     void tl.patch([{ op: 'replace', path: `/scenes/${si}/segments`, value: segments }], { label: 'Split' });
   }
 
-  function addOverlay(component = adding, at = t) {
+  function addOverlay(adding: string, at = t) {
     if (!tl.timeline) return;
-    const adding = component;
     const meta = registry[adding]?.meta;
     const len = meta?.defaultDuration ?? 3;
     const anchored = ANCHORED.has(adding);
@@ -342,30 +427,18 @@ export function StudioScreen({ slug }: { slug: string }) {
     !tl.timeline.overlays.some((o) => o.component === 'core:Cursor');
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        background: 'var(--ui-gray-50)',
-      }}
-    >
+    <div className="studio">
       <EdgeAccent />
       <AppHeader
         current="studio"
-        hrefs={{
-          projects: '#/projects',
-          studio: `#/studio/${slug}`,
-          library: '#/gallery',
-          settings: '#/workspace',
-        }}
+        hrefs={appHrefs(slug)}
         center={
           <Pill
             items={[
-              <strong key="t">{slug}</strong>,
-              take ? `${take.id} · ${take.width}×${take.height}` : 'no take',
-              `v${tl.version}`,
+              <strong key="t" className="studio-title" title={title ?? slug}>
+                {title ?? slug}
+              </strong>,
+              take ? take.id : 'no take',
               tl.error ? (
                 <span key="e" style={{ color: 'var(--ui-red-ink)' }}>
                   error
@@ -380,11 +453,17 @@ export function StudioScreen({ slug }: { slug: string }) {
         }
         actions={
           <>
-            <EngineChip />
+            <HeaderStatus path={false} />
             <LinkButton href={`#/brief/${slug}`} title="Goal, audience, voice and the rest of the brief">
               Brief
             </LinkButton>
-            <LinkButton href="#/reference">Re-record</LinkButton>
+            <Button
+              onClick={() => setConfirmRecord(true)}
+              disabled={!!live}
+              title={live ? `${live.title} is running` : 'Record a new take of this project'}
+            >
+              Re-record
+            </Button>
             <ExportButton slug={slug} />
           </>
         }
@@ -449,318 +528,354 @@ export function StudioScreen({ slug }: { slug: string }) {
         </div>
       )}
 
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 12,
-          padding: '12px 12px 12px 18px',
-          alignItems: 'flex-start',
-        }}
-      >
-        <aside
-          style={{
-            flex: '1 1 260px',
-            maxWidth: 300,
-            minWidth: 240,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
-          <Panel title="Steps">
-            <ol
-              style={{
-                listStyle: 'none',
-                margin: 0,
-                padding: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}
-            >
-              {steps.map((s, i) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => controls.seek(s.start)}
-                    className="ui-btn ui-btn-ghost"
+      {confirmRecord && (
+        <GateBanner
+          title="Record a new take of this project?"
+          text="The script runs again in WSO2 Integrator and Live shows it. The steps are rebuilt from the new take; overlays, annotations and narration are kept."
+          actions={
+            <>
+              <Button onClick={() => setConfirmRecord(false)}>Cancel</Button>
+              <Button variant="primary" onClick={reRecord}>
+                Record
+              </Button>
+            </>
+          }
+        />
+      )}
+
+      <div className="studio-body" style={{ '--studio-timeline-h': `${timelineH}px` } as CSSProperties}>
+        <aside className="studio-side" aria-label="Project">
+          <div className="studio-tabs">
+            <Segmented
+              block
+              label="Sidebar"
+              options={[
+                { value: 'Steps', label: 'Steps' },
+                {
+                  value: 'Pipeline',
+                  label: (
+                    <span className="studio-tab">
+                      Pipeline
+                      {pipe.state?.status === 'waiting' && (
+                        <span className="studio-tab-dot" aria-label="needs you" />
+                      )}
+                    </span>
+                  ),
+                },
+                { value: 'Agent', label: 'Agent' },
+                { value: 'Knowledge', label: 'Skills' },
+              ]}
+              value={side}
+              onChange={chooseSide}
+            />
+          </div>
+          <div className="studio-side-scroll">
+            {side === 'Steps' && (
+              <>
+                <Panel title="Steps">
+                  <ol
                     style={{
-                      width: '100%',
-                      justifyContent: 'flex-start',
-                      height: 'auto',
-                      padding: '8px 10px',
-                      background: current?.id === s.id ? 'var(--ui-orange-100)' : undefined,
-                      color: current?.id === s.id ? 'var(--ui-orange-ink)' : 'var(--ui-ink)',
+                      listStyle: 'none',
+                      margin: 0,
+                      padding: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
                     }}
                   >
-                    <span className="ui-mono" style={{ fontSize: 11, width: 46, textAlign: 'left' }}>
-                      {fmt(s.start).replace(/\.\d\d$/, '')}
-                    </span>
-                    <span
-                      style={{
-                        fontWeight: 500,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {i + 1} · {s.title}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </Panel>
-          {tl.timeline && (
-            <AnnotationsPanel
-              annotations={tl.timeline.annotations}
-              stepLabel={stepLabel}
-              selected={note}
-              onOpen={(a) => {
-                controls.pause();
-                controls.seek(a.t);
-                if (note && note !== a.id) closeNote();
-                setNote(a.id);
-                setView('With annotations');
-              }}
-              actions={
-                <>
-                  {tl.timeline.annotations.some((a) => a.status === 'open') && (
-                    <Button variant="steel" onClick={() => void sendNotes()}>
-                      Send open annotations (
-                      {tl.timeline.annotations.filter((a) => a.status === 'open').length})
-                    </Button>
-                  )}
-                  {sending && <Chip tone={sending.tone}>{sending.text}</Chip>}
-                  {runs.length > 0 && (
-                    <LinkButton variant="ghost" href={`#/agentfix/${slug}`}>
-                      Review agent changes ({runs.length})
-                    </LinkButton>
-                  )}
-                </>
-              }
-            />
-          )}
-          <Panel title="Add overlay">
-            <Select aria-label="Overlay type" value={adding} onChange={(e) => setAdding(e.target.value)}>
-              {Object.keys(registry).map((id) => (
-                <option key={id} value={id}>
-                  {registry[id]!.meta?.name ?? id} {id.startsWith('core:') ? '' : `(${id.split(':')[0]})`}
-                </option>
-              ))}
-            </Select>
-            <Button variant="primary" onClick={() => addOverlay()} disabled={!tl.timeline}>
-              Add at playhead
-            </Button>
-            <span style={{ fontSize: 11, color: 'var(--ui-gray-600)' }}>
-              Anchored types attach to the current step’s target.
-            </span>
-          </Panel>
-          <PipelinePanel slug={slug} />
-          <AgentPanel slug={slug} />
-          <KnowledgePanel />
-        </aside>
-
-        <main style={{ flex: '999 1 560px', minWidth: 0 }}>
-          <Panel>
-            {take && src && resolved ? (
-              <div
-                style={{
-                  position: 'relative',
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                  border: '1px solid var(--ui-gray-300)',
-                }}
-              >
-                <StageHost
-                  take={take}
-                  src={src}
-                  events={events}
-                  instances={instances}
-                  t={t}
-                  playing={player.playing}
-                  sourceTime={resolved.sourceTime}
-                  videoPlaying={player.playing && resolved.videoRuns(t)}
-                  showOverlays={view !== 'Raw take'}
-                  registry={registry}
-                  onOverlayError={reportError}
-                  captions={tl.timeline?.captions ?? []}
-                  layers={resolved.layersAt(t)}
-                >
-                  {showHandles && selectedInstance?.anchor && (
-                    <Manipulator
-                      rect={selectedInstance.anchor}
-                      targets={snapTargets}
-                      onDrag={setDragRect}
-                      onCommit={commitManipulation}
-                    />
-                  )}
-                </StageHost>
+                    {steps.map((s, i) => (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          onClick={() => controls.seek(s.start)}
+                          className="ui-btn ui-btn-ghost"
+                          style={{
+                            width: '100%',
+                            justifyContent: 'flex-start',
+                            height: 'auto',
+                            padding: '8px 10px',
+                            background: current?.id === s.id ? 'var(--ui-orange-100)' : undefined,
+                            color: current?.id === s.id ? 'var(--ui-orange-ink)' : 'var(--ui-ink)',
+                          }}
+                        >
+                          <span className="ui-mono" style={{ fontSize: 11, width: 46, textAlign: 'left' }}>
+                            {fmt(s.start).replace(/\.\d\d$/, '')}
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: 500,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {i + 1} · {s.title}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </Panel>
                 {tl.timeline && (
-                  <AnnotationLayer
+                  <AnnotationsPanel
                     annotations={tl.timeline.annotations}
-                    t={t}
-                    tool={tool}
-                    show={view === 'With annotations'}
+                    stepLabel={stepLabel}
                     selected={note}
-                    onSelect={(id) => {
-                      if (note && note !== id) closeNote();
-                      setNote(id);
+                    onOpen={(a) => {
+                      controls.pause();
+                      controls.seek(a.t);
+                      if (note && note !== a.id) closeNote();
+                      setNote(a.id);
+                      setView('With annotations');
                     }}
-                    onCreate={createNote}
-                    onArea={addFromArea}
-                    popover={(a, style) => (
-                      <AnnotationPopover
-                        key={a.id}
-                        annotation={a}
-                        n={noteIndex(a.id) + 1}
-                        stepLabel={stepLabel(a.t)}
-                        style={style}
-                        onSave={(text) => {
-                          patchNote(a.id, 'comment', text, 'Edit annotation');
-                          setFresh(null);
-                          setNote(null);
-                        }}
-                        onSend={(text) => {
-                          // Save the text first, then send this one annotation.
-                          const i = noteIndex(a.id);
-                          if (i < 0 || !tl.timeline) return;
-                          void tl
-                            .patch([{ op: 'replace', path: `/annotations/${i}/comment`, value: text }], {
-                              label: 'Edit annotation',
-                            })
-                            .then(() => sendNotes([a.id]));
-                          setFresh(null);
-                          setNote(null);
-                        }}
-                        onResolve={(done) =>
-                          patchNote(
-                            a.id,
-                            'status',
-                            done ? 'resolved' : 'open',
-                            done ? 'Resolve annotation' : 'Reopen annotation',
-                          )
-                        }
-                        onDelete={() => removeNote(a.id)}
-                        onClose={closeNote}
-                      />
-                    )}
+                    actions={
+                      <>
+                        {tl.timeline.annotations.some((a) => a.status === 'open') && (
+                          <Button variant="steel" onClick={() => void sendNotes()}>
+                            Send open annotations (
+                            {tl.timeline.annotations.filter((a) => a.status === 'open').length})
+                          </Button>
+                        )}
+                        {sending && <Chip tone={sending.tone}>{sending.text}</Chip>}
+                        {runs.length > 0 && (
+                          <LinkButton variant="ghost" href={`#/agentfix/${slug}`}>
+                            Review agent changes ({runs.length})
+                          </LinkButton>
+                        )}
+                      </>
+                    }
                   />
                 )}
-                <ToolRail tool={tool} onTool={chooseTool} />
-              </div>
-            ) : (
-              <div
-                style={{
-                  aspectRatio: '16 / 9',
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: 'var(--ui-gray-600)',
-                }}
-              >
-                {tl.timeline ? 'Record a take on page 1.5 first.' : 'Loading…'}
-              </div>
+              </>
             )}
-            {/* progress with step ticks */}
-            <div
-              style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--ui-gray-100)' }}
-            >
-              <span
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: `${(t / duration) * 100}%`,
-                  background: 'var(--ui-orange)',
-                  borderRadius: 2,
-                }}
-              />
-              {steps.map((s) => (
-                <span
-                  key={s.id}
-                  style={{
-                    position: 'absolute',
-                    top: -3,
-                    width: 2,
-                    height: 10,
-                    left: `${(s.start / duration) * 100}%`,
-                    background: 'var(--ui-navy)',
+            {side === 'Pipeline' && <PipelinePanel slug={slug} />}
+            {side === 'Agent' && <AgentPanel slug={slug} />}
+            {side === 'Knowledge' && <KnowledgePanel />}
+          </div>
+        </aside>
+
+        <main className="studio-center" aria-label="Preview">
+          {jobs.length > 0 && (
+            <Segmented
+              label="Centre view"
+              options={[
+                { value: 'Preview', label: 'Preview' },
+                {
+                  value: 'Review',
+                  label: (
+                    <span className="studio-tab">
+                      Explainer review ({jobs.length})
+                      <span className="studio-tab-dot" aria-label="needs you" />
+                    </span>
+                  ),
+                },
+              ]}
+              value={centre}
+              onChange={setCentre}
+            />
+          )}
+          {centre === 'Review' && jobs.length > 0 ? (
+            <div className="studio-review">
+              {jobs.map((job) => (
+                <ExplainerStoryboard
+                  key={job.sceneId}
+                  slug={slug}
+                  job={job}
+                  onSeek={() => {
+                    const span = resolved?.tm.scenes.find((x) => x.sceneId === job.sceneId);
+                    if (span) controls.seek(span.start + 0.5);
+                    setSelectedScene(job.sceneId);
+                    setCentre('Preview');
                   }}
                 />
               ))}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-              <IconButton label="Previous step" onClick={() => seekStep(-1)}>
-                <IconPrev size={14} />
-              </IconButton>
-              <IconButton
-                label={player.playing ? 'Pause' : 'Play'}
-                variant="primary"
-                onClick={() => controls.toggle()}
-              >
-                {player.playing ? <IconPause size={14} /> : <IconPlay size={14} />}
-              </IconButton>
-              <IconButton label="Next step" onClick={() => seekStep(1)}>
-                <IconNext size={14} />
-              </IconButton>
-              <span className="ui-mono" style={{ color: 'var(--ui-navy)' }}>
-                {fmt(t)} <span style={{ color: 'var(--ui-gray-600)' }}>/ {fmt(duration)}</span>
-              </span>
-              <span style={{ flex: 1 }} />
-              {tl.timeline && (
-                <Button
-                  size="sm"
-                  aria-pressed={tl.timeline.showCaptions}
-                  title={
-                    tl.timeline.showCaptions
-                      ? 'Captions are drawn on the video (and burned into the export). Click to hide them; the SRT/VTT files are still exported.'
-                      : 'Captions are hidden from the video. Click to show them.'
-                  }
-                  onClick={() =>
-                    void tl.patch([{ op: 'add', path: '/showCaptions', value: !tl.timeline!.showCaptions }], {
-                      label: tl.timeline!.showCaptions ? 'Hide captions' : 'Show captions',
-                    })
-                  }
+          ) : (
+            <Panel className="studio-preview">
+              {/* The stage keeps its aspect and fits the space left by the timeline. */}
+              <div className="studio-stage-fit">
+                <div
+                  className="studio-stage-box"
+                  style={{ aspectRatio: `${tl.timeline?.size.w ?? 16} / ${tl.timeline?.size.h ?? 9}` }}
                 >
-                  {tl.timeline.showCaptions ? 'Captions on' : 'Captions off'}
-                </Button>
-              )}
-              <Segmented
-                label="View"
-                options={['Final', 'With annotations', 'Raw take'] as const}
-                value={view}
-                onChange={setView}
-              />
-            </div>
-          </Panel>
-          {jobs.map((job) => (
-            <div key={job.sceneId} style={{ marginTop: 12 }}>
-              <ExplainerStoryboard
-                slug={slug}
-                job={job}
-                onSeek={() => {
-                  const span = resolved?.tm.scenes.find((x) => x.sceneId === job.sceneId);
-                  if (span) controls.seek(span.start + 0.5);
-                  setSelectedScene(job.sceneId);
-                }}
-              />
-            </div>
-          ))}
+                  {take && src && resolved ? (
+                    <div
+                      style={{
+                        position: 'relative',
+                        borderRadius: 10,
+                        overflow: 'hidden',
+                        border: '1px solid var(--ui-gray-300)',
+                      }}
+                    >
+                      <StageHost
+                        take={take}
+                        src={src}
+                        events={events}
+                        instances={instances}
+                        t={t}
+                        playing={player.playing}
+                        sourceTime={resolved.sourceTime}
+                        videoPlaying={player.playing && resolved.videoRuns(t)}
+                        showOverlays={view !== 'Raw take'}
+                        registry={registry}
+                        onOverlayError={reportError}
+                        captions={tl.timeline?.captions ?? []}
+                        layers={resolved.layersAt(t)}
+                      >
+                        {showHandles && selectedInstance?.anchor && (
+                          <Manipulator
+                            rect={selectedInstance.anchor}
+                            targets={snapTargets}
+                            onDrag={setDragRect}
+                            onCommit={commitManipulation}
+                          />
+                        )}
+                      </StageHost>
+                      {tl.timeline && (
+                        <AnnotationLayer
+                          annotations={tl.timeline.annotations}
+                          t={t}
+                          tool={tool}
+                          show={view === 'With annotations'}
+                          selected={note}
+                          onSelect={(id) => {
+                            if (note && note !== id) closeNote();
+                            setNote(id);
+                          }}
+                          onCreate={createNote}
+                          onArea={addFromArea}
+                          popover={(a, style) => (
+                            <AnnotationPopover
+                              key={a.id}
+                              annotation={a}
+                              n={noteIndex(a.id) + 1}
+                              stepLabel={stepLabel(a.t)}
+                              style={style}
+                              onSave={(text) => {
+                                patchNote(a.id, 'comment', text, 'Edit annotation');
+                                setFresh(null);
+                                setNote(null);
+                              }}
+                              onSend={(text) => {
+                                // Save the text first, then send this one annotation.
+                                const i = noteIndex(a.id);
+                                if (i < 0 || !tl.timeline) return;
+                                void tl
+                                  .patch(
+                                    [{ op: 'replace', path: `/annotations/${i}/comment`, value: text }],
+                                    {
+                                      label: 'Edit annotation',
+                                    },
+                                  )
+                                  .then(() => sendNotes([a.id]));
+                                setFresh(null);
+                                setNote(null);
+                              }}
+                              onResolve={(done) =>
+                                patchNote(
+                                  a.id,
+                                  'status',
+                                  done ? 'resolved' : 'open',
+                                  done ? 'Resolve annotation' : 'Reopen annotation',
+                                )
+                              }
+                              onDelete={() => removeNote(a.id)}
+                              onClose={closeNote}
+                            />
+                          )}
+                        />
+                      )}
+                      <ToolRail tool={tool} onTool={chooseTool} />
+                    </div>
+                  ) : (
+                    <div className="studio-stage-empty">
+                      {tl.timeline
+                        ? 'No take yet. Start the pipeline from the brief, or Re-record.'
+                        : 'Loading…'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* progress with step ticks */}
+              <div
+                style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--ui-gray-100)' }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: `${(t / duration) * 100}%`,
+                    background: 'var(--ui-orange)',
+                    borderRadius: 2,
+                  }}
+                />
+                {steps.map((s) => (
+                  <span
+                    key={s.id}
+                    style={{
+                      position: 'absolute',
+                      top: -3,
+                      width: 2,
+                      height: 10,
+                      left: `${(s.start / duration) * 100}%`,
+                      background: 'var(--ui-navy)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+                <IconButton label="Previous step" onClick={() => seekStep(-1)}>
+                  <IconPrev size={14} />
+                </IconButton>
+                <IconButton
+                  label={player.playing ? 'Pause' : 'Play'}
+                  variant="primary"
+                  onClick={() => controls.toggle()}
+                >
+                  {player.playing ? <IconPause size={14} /> : <IconPlay size={14} />}
+                </IconButton>
+                <IconButton label="Next step" onClick={() => seekStep(1)}>
+                  <IconNext size={14} />
+                </IconButton>
+                <span className="ui-mono" style={{ color: 'var(--ui-navy)' }}>
+                  {fmt(t)} <span style={{ color: 'var(--ui-gray-600)' }}>/ {fmt(duration)}</span>
+                </span>
+                <span style={{ flex: 1 }} />
+                {tl.timeline && (
+                  <Button
+                    size="sm"
+                    aria-pressed={tl.timeline.showCaptions}
+                    title={
+                      tl.timeline.showCaptions
+                        ? 'Captions are drawn on the video (and burned into the export). Click to hide them; the SRT/VTT files are still exported.'
+                        : 'Captions are hidden from the video. Click to show them.'
+                    }
+                    onClick={() =>
+                      void tl.patch(
+                        [{ op: 'add', path: '/showCaptions', value: !tl.timeline!.showCaptions }],
+                        {
+                          label: tl.timeline!.showCaptions ? 'Hide captions' : 'Show captions',
+                        },
+                      )
+                    }
+                  >
+                    {tl.timeline.showCaptions ? 'Captions on' : 'Captions off'}
+                  </Button>
+                )}
+                <Segmented
+                  label="View"
+                  options={['Final', 'With annotations', 'Raw take'] as const}
+                  value={view}
+                  onChange={setView}
+                />
+              </div>
+            </Panel>
+          )}
         </main>
 
-        <aside
-          style={{
-            flex: '1 1 260px',
-            maxWidth: 320,
-            minWidth: 250,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
+        <aside className="studio-side studio-side-right" aria-label="Inspector and library">
           {tl.timeline &&
             (() => {
               const i = tl.timeline.scenes.findIndex((x) => x.id === selectedScene);
@@ -806,6 +921,105 @@ export function StudioScreen({ slug }: { slug: string }) {
             }}
           />
         </aside>
+
+        <div className="studio-dock">
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Timeline height"
+            aria-valuenow={timelineH}
+            aria-valuemin={TIMELINE_MIN}
+            aria-valuemax={TIMELINE_MAX}
+            tabIndex={0}
+            className="studio-dock-handle"
+            onPointerDown={startResize}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp') resizeTimeline(timelineH + 24);
+              else if (e.key === 'ArrowDown') resizeTimeline(timelineH - 24);
+              else return;
+              e.preventDefault();
+            }}
+          />
+          {tl.timeline && resolved && (
+            <TimelinePanel
+              slug={slug}
+              timeline={tl.timeline}
+              resolved={resolved}
+              t={t}
+              onSeek={(x) => controls.seek(x)}
+              selected={selected}
+              onSelect={(id) => {
+                setSelected(id);
+                // Selecting something off-screen brings it into view so it can be edited.
+                const o = id ? tl.timeline?.overlays.find((x) => x.id === id) : null;
+                if (o && (t < o.start || t > o.end)) controls.seek(Math.min(o.start + 0.6, o.end));
+              }}
+              patch={tl.patch}
+              onSplit={split}
+              onDropOverlay={(id, at) => addOverlay(id, at)}
+              canUndo={tl.canUndo}
+              canRedo={tl.canRedo}
+              onUndo={() => void tl.undo()}
+              onRedo={() => void tl.redo()}
+              actions={
+                <>
+                  <RegenerateVo slug={slug} />
+                  <InsertExplainer
+                    registry={registry}
+                    value={sceneComponent}
+                    onChange={setSceneComponent}
+                    onInsert={insertExplainer}
+                    onAsk={(brief) => {
+                      controls.pause();
+                      return client!
+                        .call('explainers.start', { slug, at: Math.round(t * 100) / 100, brief })
+                        .then(() => undefined);
+                    }}
+                  />
+                </>
+              }
+              onSelectScene={(id) => {
+                setSelectedScene(id);
+                const span = resolved.tm.scenes.find((x) => x.sceneId === id);
+                if (span && (t < span.start || t >= span.end)) controls.seek(span.start + 0.01);
+              }}
+              onTransition={(between, value) => {
+                if (!tl.timeline) return;
+                const rest = tl.timeline.transitions.filter(
+                  (x) => !(x.between[0] === between[0] && x.between[1] === between[1]),
+                );
+                const next = value
+                  ? [
+                      ...rest,
+                      {
+                        id: `tr-${between[0]}-${between[1]}`,
+                        between,
+                        component: value.component,
+                        duration: value.duration,
+                      },
+                    ]
+                  : rest;
+                void tl.patch([{ op: 'replace', path: '/transitions', value: next }], {
+                  label: value ? 'Set transition' : 'Remove transition',
+                });
+              }}
+              onRemoveScene={(id) =>
+                client &&
+                void client
+                  .call('scenes.remove', { slug, sceneId: id })
+                  .catch((e: unknown) => setSending({ text: String(e), tone: 'error' }))
+              }
+              onAnnotation={(id) => {
+                const a = tl.timeline?.annotations.find((x) => x.id === id);
+                if (!a) return;
+                controls.pause();
+                controls.seek(a.t);
+                setNote(id);
+                setView('With annotations');
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <VoicePlayer
@@ -816,85 +1030,6 @@ export function StudioScreen({ slug }: { slug: string }) {
         media={media}
         onSync={(at) => controls.seek(at)}
       />
-      {tl.timeline && resolved && (
-        <TimelinePanel
-          slug={slug}
-          timeline={tl.timeline}
-          resolved={resolved}
-          t={t}
-          onSeek={(x) => controls.seek(x)}
-          selected={selected}
-          onSelect={(id) => {
-            setSelected(id);
-            // Selecting something off-screen brings it into view so it can be edited.
-            const o = id ? tl.timeline?.overlays.find((x) => x.id === id) : null;
-            if (o && (t < o.start || t > o.end)) controls.seek(Math.min(o.start + 0.6, o.end));
-          }}
-          patch={tl.patch}
-          onSplit={split}
-          onDropOverlay={(id, at) => addOverlay(id, at)}
-          canUndo={tl.canUndo}
-          canRedo={tl.canRedo}
-          onUndo={() => void tl.undo()}
-          onRedo={() => void tl.redo()}
-          actions={
-            <>
-              <RegenerateVo slug={slug} />
-              <InsertExplainer
-                registry={registry}
-                value={sceneComponent}
-                onChange={setSceneComponent}
-                onInsert={insertExplainer}
-                onAsk={(brief) => {
-                  controls.pause();
-                  return client!
-                    .call('explainers.start', { slug, at: Math.round(t * 100) / 100, brief })
-                    .then(() => undefined);
-                }}
-              />
-            </>
-          }
-          onSelectScene={(id) => {
-            setSelectedScene(id);
-            const span = resolved.tm.scenes.find((x) => x.sceneId === id);
-            if (span && (t < span.start || t >= span.end)) controls.seek(span.start + 0.01);
-          }}
-          onTransition={(between, value) => {
-            if (!tl.timeline) return;
-            const rest = tl.timeline.transitions.filter(
-              (x) => !(x.between[0] === between[0] && x.between[1] === between[1]),
-            );
-            const next = value
-              ? [
-                  ...rest,
-                  {
-                    id: `tr-${between[0]}-${between[1]}`,
-                    between,
-                    component: value.component,
-                    duration: value.duration,
-                  },
-                ]
-              : rest;
-            void tl.patch([{ op: 'replace', path: '/transitions', value: next }], {
-              label: value ? 'Set transition' : 'Remove transition',
-            });
-          }}
-          onRemoveScene={(id) =>
-            client &&
-            void client
-              .call('scenes.remove', { slug, sceneId: id })
-              .catch((e: unknown) => setSending({ text: String(e), tone: 'error' }))
-          }
-          onAnnotation={(id) => {
-            const a = tl.timeline?.annotations.find((x) => x.id === id);
-            if (!a) return;
-            controls.pause();
-            controls.seek(a.t);
-            setNote(id);
-            setView('With annotations');
-          }}
-        />
-      )}
     </div>
   );
 }

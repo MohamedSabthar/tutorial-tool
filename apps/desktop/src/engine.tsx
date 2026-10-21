@@ -28,13 +28,9 @@ export async function resolveEngine(): Promise<EngineInfo> {
   return { ...info, source: 'tauri' };
 }
 
-export async function openLiveWindow(): Promise<void> {
-  if (!isTauri()) {
-    window.open(`${window.location.pathname}#/live`, '_blank');
-    return;
-  }
-  const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('open_live_window');
+/** Shows Live in this window: the project's run, or whatever is running. */
+export function openLive(slug?: string | null): void {
+  window.location.hash = slug ? `/live/${slug}` : '/live';
 }
 
 /** Opens another Studio window on a route (a browser tab outside Tauri). */
@@ -123,9 +119,10 @@ export const useEngine = () => useContext(EngineContext);
 
 export function EngineChip() {
   const { state, latencyMs, error, info } = useEngine();
+  // Connected is the normal state: keep it short (the ping is in the tooltip).
   const text =
     state === 'open'
-      ? `Engine connected · ping ${latencyMs === null ? '…' : `${latencyMs.toFixed(0)} ms`}`
+      ? 'Connected'
       : state === 'connecting'
         ? 'Connecting to engine…'
         : info?.source === 'dev'
@@ -135,7 +132,13 @@ export function EngineChip() {
     <Chip
       tone={state === 'open' ? 'ok' : state === 'connecting' ? 'neutral' : 'error'}
       mono
-      title={error ?? undefined}
+      dot={state === 'open'}
+      title={
+        error ??
+        (state === 'open'
+          ? `Engine connected · ping ${latencyMs === null ? '…' : `${latencyMs.toFixed(0)} ms`}`
+          : undefined)
+      }
     >
       {text}
     </Chip>

@@ -76,10 +76,10 @@ function StudioLink() {
 const SLUG = '([a-z0-9][a-z0-9-]*)';
 const match = (path: string, prefix: string) => new RegExp(`^/${prefix}/${SLUG}`).exec(path)?.[1];
 
-/** Hash routes: the app screens, the Live window, and the developer pages (anything else). */
+/** Hash routes: the app screens (Live included) and the developer pages (anything else). */
 function App() {
   const path = useHashPath();
-  if (path.startsWith('/live')) return <LiveShell />;
+  if (path.startsWith('/live')) return <LiveShell slug={match(path, 'live') ?? null} />;
   if (path === '/' || path === '/projects') return <ProjectsScreen />;
   const studio = match(path, 'studio');
   if (studio) return <StudioScreen key={studio} slug={studio} />;

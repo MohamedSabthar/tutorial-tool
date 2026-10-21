@@ -484,6 +484,26 @@ select {
 .ui-gate-text {
   font-size: 12px;
   color: var(--ui-steel-ink);
+  /* Long agent summaries: three lines here, the rest in the tooltip. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+/* Text takes the row; the actions stay to its right until there's no room. */
+.ui-gate-body {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ui-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 
 /* Form fields */

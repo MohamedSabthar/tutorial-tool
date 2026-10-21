@@ -15,23 +15,6 @@ async fn get_engine(state: tauri::State<'_, EngineState>) -> Result<EngineInfo, 
         .map_err(|e| e.to_string())?
 }
 
-/// Opens the Live window, or focuses it if it is already open.
-#[tauri::command]
-fn open_live_window(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window("live") {
-        w.show().map_err(|e| e.to_string())?;
-        w.set_focus().map_err(|e| e.to_string())?;
-        return Ok(());
-    }
-    WebviewWindowBuilder::new(&app, "live", WebviewUrl::App("index.html#/live".into()))
-        .title("Tutorial Studio · Live")
-        .inner_size(1440.0, 900.0)
-        .min_inner_size(1000.0, 680.0)
-        .build()
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 /// Opens (or focuses) another Studio window on a route, e.g. to test multi-window sync.
 #[tauri::command]
 fn open_studio_window(app: tauri::AppHandle, label: String, route: String) -> Result<(), String> {
@@ -60,7 +43,7 @@ pub fn run() {
             app.state::<EngineState>().spawn(resources, None);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_engine, open_live_window, open_studio_window])
+        .invoke_handler(tauri::generate_handler![get_engine, open_studio_window])
         .build(tauri::generate_context!())
         .expect("error while building Tutorial Studio");
 

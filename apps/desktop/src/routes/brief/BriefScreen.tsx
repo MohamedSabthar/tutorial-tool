@@ -10,7 +10,7 @@ import {
   type SkillCoverage,
 } from '@studio/core';
 import { Button, Chip, Field, Input, Panel, Segmented, Select, Switch, TextArea, Title } from '@studio/ui';
-import { isTauri, openLiveWindow, useEngine } from '../../engine';
+import { isTauri, useEngine } from '../../engine';
 import { AppFrame, navigate } from '../frame';
 import { ProductSignIn } from './ProductSignIn';
 
@@ -183,7 +183,7 @@ export function BriefScreen({ slug }: { slug: string }) {
       if (!brief.goal.trim()) throw new Error('Say what the viewer should learn first.');
       const b = await persist();
       await client.call('pipeline.start', { slug, gates: { storyboard: b?.gates.storyboard ?? true } });
-      await openLiveWindow();
+      // Planning comes first: its storyboard is where the user reviews it.
       navigate(`/storyboard/${slug}`);
     });
 
@@ -523,12 +523,12 @@ export function BriefScreen({ slug }: { slug: string }) {
             <ol className="brief-next">
               <li>Plan the steps{brief?.explainers ? ' and propose explainers' : ''}</li>
               {brief?.gates.storyboard && <li>Storyboard review (your gate)</li>}
-              <li>Write the script, dry run, record</li>
-              <li>Narration, then a retrospective that updates the skills</li>
+              <li>Write the script and dry-run it</li>
+              <li>Final narration and voice-over</li>
+              <li>Record, paced to the voice-over</li>
+              <li>Post-production, then a retrospective that updates the skills</li>
             </ol>
-            <span className="ui-mono brief-next-meta">
-              The Live window opens so you can watch the agent work.
-            </span>
+            <span className="ui-mono brief-next-meta">Watch any run from the Live icon in the header.</span>
           </Panel>
         </aside>
       </div>
