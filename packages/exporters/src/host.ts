@@ -7,6 +7,13 @@ import { StageCapture } from './capture';
  * frame is drawn by the same stage code as the preview. The UI comes from Vite in development
  * (STUDIO_UI_URL, default http://localhost:1420) or from the built app served by the engine.
  */
+let beforeLaunch: () => Promise<void> = async () => {};
+
+/** Runs before a render host first launches Chromium, e.g. to download it on first use. */
+export function beforeBrowserLaunch(fn: () => Promise<void>): void {
+  beforeLaunch = fn;
+}
+
 export const GPU_ARGS = [
   '--use-angle=metal',
   '--enable-gpu',
@@ -79,7 +86,7 @@ export class RenderHost {
   }
 
   private launch(): Promise<Browser> {
-    this.browser ??= chromium.launch({ args: GPU_ARGS });
+    this.browser ??= beforeLaunch().then(() => chromium.launch({ args: GPU_ARGS }));
     return this.browser;
   }
 

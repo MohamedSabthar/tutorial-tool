@@ -1086,3 +1086,24 @@
   height: 44px;
   justify-content: center;
 }
+
+/* Product sign-in (Brief): the saved profile recordings start from. */
+.signin {
+  margin-top: 10px;
+}
+.signin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.signin-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ui-gray-600);
+}
+.signin-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ui-red-ink);
+}

@@ -2,9 +2,13 @@
 //!
 //! The engine prints `READY <port> <token>` on stdout once it is listening. It also exits
 //! when its stdin closes, so it never outlives the app.
+//!
+//! Dev builds run the engine from the repo with `tsx watch`. Release builds run the packaged
+//! engine (`pnpm package:engine`) from the app's resources, with its own Node runtime, and keep
+//! the workspace, downloads and logs in `~/.tutorial-studio`.
 
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -21,52 +25,46 @@ pub struct EngineState {
     child: Mutex<Option<Child>>,
 }
 
-/// apps/engine, found relative to this crate at build time. Packaging (step 8.2) replaces
-/// this with a bundled sidecar binary.
+/// apps/engine, found relative to this crate at build time (dev builds).
 fn engine_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../engine")
 }
 
+/// `~/.tutorial-studio`: the packaged app's workspace, downloads and logs.
+pub fn studio_home() -> PathBuf {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/tmp"));
+    home.join(".tutorial-studio")
+}
+
+/// Directories a Finder-launched app lacks on its PATH: Homebrew's (ffmpeg, git).
+const EXTRA_PATH: &str = "/opt/homebrew/bin:/usr/local/bin";
+
 impl EngineState {
-    pub fn spawn(&self) {
-        let dir = engine_dir();
-        let workspace = dir.join("../../workspace");
+    /// Starts the engine: the packaged one in `resources/engine` for release builds, the repo's
+    /// otherwise. `workspace` overrides the default workspace folder.
+    pub fn spawn(&self, resources: Option<PathBuf>, workspace: Option<PathBuf>) {
         // Fixed port and token for the app's lifetime, so a dev restart of the engine (tsx
         // watch reloads it when its code changes) keeps the same address and the windows
         // simply reconnect.
         let port = free_port().unwrap_or(4317);
         let token = random_token();
-        let result = Command::new("node")
-            // Workspace scripts and skills are imported at run time; editing them (the agent
-            // does) must not restart the engine.
-            .args([
-                "node_modules/tsx/dist/cli.mjs",
-                "watch",
-                "--clear-screen=false",
-                "--exclude",
-                "../../workspace/**",
-                "--exclude",
-                "**/workspace/**",
-                "src/main.ts",
-            ])
-            .arg("--workspace")
-            .arg(&workspace)
-            .args(["--port", &port.to_string(), "--token", &token])
-            .env("STUDIO_PARENT_PID", std::process::id().to_string())
-            .env("STUDIO_EXIT_ON_STDIN_END", "0")
-            .current_dir(&dir)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn();
+        let packaged = resources.map(|r| r.join("engine")).filter(|r| !cfg!(debug_assertions) && r.join("node").exists());
+        let result = match &packaged {
+            Some(dir) => packaged_command(dir, workspace, port, &token),
+            None => dev_command(workspace, port, &token),
+        }
+        .and_then(|mut cmd| {
+            cmd.env("STUDIO_PARENT_PID", std::process::id().to_string())
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("could not start the engine: {e}"))
+        });
 
         let mut child = match result {
             Ok(c) => c,
             Err(e) => {
-                *self.ready.lock().unwrap() = Some(Err(format!(
-                    "could not start the engine with `node` in {}: {e}",
-                    dir.display()
-                )));
+                *self.ready.lock().unwrap() = Some(Err(e));
                 return;
             }
         };
@@ -86,8 +84,9 @@ impl EngineState {
                 println!("[engine] {line}");
             }
             if !announced {
-                *ready.lock().unwrap() =
-                    Some(Err("the engine exited before it was ready (see the terminal output)".into()));
+                *ready.lock().unwrap() = Some(Err(
+                    "the engine exited before it was ready (see the terminal, or ~/.tutorial-studio/logs/engine.log)".into(),
+                ));
             }
         });
 
@@ -123,6 +122,56 @@ impl ReadyHandle {
             std::thread::sleep(Duration::from_millis(50));
         }
     }
+}
+
+/// The repo's engine under `tsx watch`, with `node` from the PATH.
+fn dev_command(workspace: Option<PathBuf>, port: u16, token: &str) -> Result<Command, String> {
+    let dir = engine_dir();
+    let workspace = workspace.unwrap_or_else(|| dir.join("../../workspace"));
+    let mut cmd = Command::new("node");
+    // Workspace scripts and skills are imported at run time; editing them (the agent does)
+    // must not restart the engine.
+    cmd.args([
+        "node_modules/tsx/dist/cli.mjs",
+        "watch",
+        "--clear-screen=false",
+        "--exclude",
+        "../../workspace/**",
+        "--exclude",
+        "**/workspace/**",
+        "src/main.ts",
+    ])
+    .arg("--workspace")
+    .arg(&workspace)
+    .args(["--port", &port.to_string(), "--token", token])
+    .env("STUDIO_EXIT_ON_STDIN_END", "0")
+    .current_dir(&dir)
+    .stderr(Stdio::inherit());
+    Ok(cmd)
+}
+
+/// The packaged engine on its own Node runtime. Its log goes to `~/.tutorial-studio/logs`.
+fn packaged_command(dir: &Path, workspace: Option<PathBuf>, port: u16, token: &str) -> Result<Command, String> {
+    let home = studio_home();
+    let logs = home.join("logs");
+    std::fs::create_dir_all(&logs).map_err(|e| format!("could not create {}: {e}", logs.display()))?;
+    let log = std::fs::File::create(logs.join("engine.log"))
+        .map_err(|e| format!("could not open the engine log: {e}"))?;
+    let path = match std::env::var("PATH") {
+        Ok(p) if !p.is_empty() => format!("{EXTRA_PATH}:{p}"),
+        _ => format!("{EXTRA_PATH}:/usr/bin:/bin:/usr/sbin:/sbin"),
+    };
+    let mut cmd = Command::new(dir.join("node"));
+    cmd.arg(dir.join("apps/engine/dist/main.mjs"))
+        .arg("--workspace")
+        .arg(workspace.unwrap_or_else(|| home.join("workspace")))
+        .args(["--port", &port.to_string(), "--token", token])
+        .env("PATH", path)
+        .env("STUDIO_CACHE", &home)
+        .env("PLAYWRIGHT_BROWSERS_PATH", home.join("ms-playwright"))
+        .current_dir(dir)
+        .stderr(Stdio::from(log));
+    Ok(cmd)
 }
 
 /// A free localhost port, chosen by binding to port 0.

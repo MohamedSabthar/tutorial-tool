@@ -12,6 +12,7 @@ import {
 import { Button, Chip, Field, Input, Panel, Segmented, Select, Switch, TextArea, Title } from '@studio/ui';
 import { isTauri, openLiveWindow, useEngine } from '../../engine';
 import { AppFrame, navigate } from '../frame';
+import { ProductSignIn } from './ProductSignIn';
 
 type Source = RpcParams<'brief.addReference'>['source'];
 
@@ -254,13 +255,16 @@ export function BriefScreen({ slug }: { slug: string }) {
               )}
             </Field>
             <div className="brief-grid">
-              <Field label="Product" hint="Chosen when the tutorial was created.">
-                {(id) => (
-                  <Select id={id} value={project?.product ?? ''} disabled>
-                    <option value={project?.product ?? ''}>{productName}</option>
-                  </Select>
-                )}
-              </Field>
+              <div>
+                <Field label="Product" hint="Chosen when the tutorial was created.">
+                  {(id) => (
+                    <Select id={id} value={project?.product ?? ''} disabled>
+                      <option value={project?.product ?? ''}>{productName}</option>
+                    </Select>
+                  )}
+                </Field>
+                {project?.product ? <ProductSignIn product={project.product} name={productName} /> : null}
+              </div>
               <Field label="Starting workspace">
                 {(id) => (
                   <Select

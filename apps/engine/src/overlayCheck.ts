@@ -45,7 +45,10 @@ const run = (cmd: string, args: string[], cwd?: string) =>
 
 /** `tsc --noEmit` on one overlay file, resolving packages the way the app does. */
 export async function typecheckOverlay(file: string): Promise<Problem[]> {
-  const dir = path.join(repo, 'node_modules', '.cache', 'studio-check');
+  // The packaged app's code is read-only: its checks write to STUDIO_CACHE.
+  const dir = process.env.STUDIO_CACHE
+    ? path.join(process.env.STUDIO_CACHE, 'studio-check')
+    : path.join(repo, 'node_modules', '.cache', 'studio-check');
   await mkdir(dir, { recursive: true });
   const config = path.join(
     dir,
@@ -67,7 +70,13 @@ export async function typecheckOverlay(file: string): Promise<Problem[]> {
         baseUrl: repo,
         paths: {
           '@studio/*': ['packages/*/src/index.ts'],
-          '*': ['apps/desktop/node_modules/@types/*', 'apps/desktop/node_modules/*'],
+          // The repo's app packages, or the packaged app's flat node_modules.
+          '*': [
+            'apps/desktop/node_modules/@types/*',
+            'apps/desktop/node_modules/*',
+            'node_modules/@types/*',
+            'node_modules/*',
+          ],
         },
       },
       files: [file],

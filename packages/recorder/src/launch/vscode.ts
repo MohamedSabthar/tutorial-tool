@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -51,6 +51,8 @@ export interface VSCodeLaunchOptions {
   display?: DisplayMode;
   /** Extra user settings merged over the seeded defaults. */
   settings?: Record<string, unknown>;
+  /** A signed-in profile (see signin.ts) to start from instead of an empty one. */
+  profile?: string;
   /** Record a video of the window into this directory (frame size: `videoSize`). */
   recordVideoDir?: string;
   videoSize?: { width: number; height: number };
@@ -162,6 +164,8 @@ export async function launchVSCode(opts: VSCodeLaunchOptions): Promise<VSCodeSes
   await mkdir(path.join(cacheDir, 'profiles'), { recursive: true });
   await sweepStaleProfiles(path.join(cacheDir, 'profiles'));
   const userDataDir = await mkdtemp(path.join(cacheDir, 'profiles', 'p-'));
+  // A copy of the signed-in profile keeps the login; the settings below still replace its own.
+  if (opts.profile) await copyProfile(opts.profile, userDataDir);
   await mkdir(path.join(userDataDir, 'User'), { recursive: true });
   await writeFile(
     path.join(userDataDir, 'User', 'settings.json'),
@@ -290,7 +294,7 @@ async function waitForStableSize(app: ElectronApplication, display: DisplayMode)
  * Environment for child VS Code processes. Variables set when the engine itself runs inside
  * VS Code (or Electron) would otherwise route the launch to the running instance.
  */
-function cleanEnv(): Record<string, string> {
+export function cleanEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v === undefined) continue;
@@ -299,4 +303,33 @@ function cleanEnv(): Record<string, string> {
     env[k] = v;
   }
   return env;
+}
+
+/** Caches, logs and per-folder state: not needed to stay signed in, and rebuilt on launch. */
+const SKIP = new Set([
+  'Cache',
+  'CachedData',
+  'CachedExtensionVSIXs',
+  'CachedProfilesData',
+  'Code Cache',
+  'GPUCache',
+  'DawnCache',
+  'DawnGraphiteCache',
+  'DawnWebGPUCache',
+  'Crashpad',
+  'logs',
+  'Backups',
+  path.join('User', 'workspaceStorage'),
+  path.join('User', 'History'),
+]);
+
+/** Copies a signed-in profile into a new launch's profile folder. */
+export async function copyProfile(from: string, to: string): Promise<void> {
+  await cp(from, to, {
+    recursive: true,
+    filter: (src) => {
+      const rel = path.relative(from, src);
+      return !SKIP.has(rel) && !/(^|\/)(Singleton\w*|.*\.lock|LOCK)$/.test(rel);
+    },
+  });
 }

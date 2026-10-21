@@ -11,3 +11,4 @@ apps/desktop/src-tauri/gen/
 /workspace/
 dist-types/
 test-results/
+/apps/desktop/src-tauri/resources/

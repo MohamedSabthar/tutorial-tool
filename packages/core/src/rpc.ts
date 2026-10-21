@@ -90,6 +90,16 @@ const TimelineState = z.object({
   canRedo: z.boolean(),
 });
 
+export const SignInStatus = z.object({
+  product: z.string(),
+  /** A profile is saved (the sign-in window has been opened at least once). */
+  saved: z.boolean(),
+  updatedAt: z.number().nullable(),
+  /** The sign-in window is open (launches wait for it to close). */
+  open: z.boolean(),
+});
+export type SignInStatus = z.infer<typeof SignInStatus>;
+
 export const rpcMethods = {
   ping: {
     params: z.object({ sentAt: z.number() }),
@@ -458,6 +468,12 @@ export const rpcMethods = {
   'export.cancel': { params: z.object({ slug: z.string() }), result: z.object({ cancelled: z.boolean() }) },
   /** The project's current or last export this session. */
   'export.status': { params: z.object({ slug: z.string() }), result: ExportState.nullable() },
+  /** The product's saved sign-in profile (recordings start signed in from a copy of it). */
+  'product.signInStatus': { params: z.object({ product: z.string() }), result: SignInStatus },
+  /** Opens the product on its sign-in profile so the user can sign in, then quit it. */
+  'product.signIn': { params: z.object({ product: z.string() }), result: SignInStatus },
+  /** Forgets the sign-in profile: launches start signed out again. */
+  'product.signOut': { params: z.object({ product: z.string() }), result: SignInStatus },
   /** Shows a file of the project in Finder. */
   'project.reveal': {
     params: z.object({ slug: z.string(), path: z.string() }),
@@ -481,6 +497,8 @@ export type RpcResult<M extends RpcMethod> = z.output<(typeof rpcMethods)[M]['re
 
 export const rpcEvents = {
   'project.changed': z.object({ slug: z.string() }),
+  /** A sign-in window opened or closed. */
+  'product.signInChanged': SignInStatus,
   'workspace.changed': z.object({ head: z.string().nullable() }),
   'recorder.progress': z.object({ message: z.string(), at: z.number() }),
   'recorder.event': RecorderEvent,

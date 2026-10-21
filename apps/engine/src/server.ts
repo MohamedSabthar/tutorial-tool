@@ -53,7 +53,8 @@ import { annotationMessage } from './agent/annotationContext';
 import { HeadlessStage } from './render';
 import { Exporter } from './export';
 import { DocWriter } from './docs';
-import { RenderHost } from '@studio/exporters/node';
+import { beforeBrowserLaunch, RenderHost } from '@studio/exporters/node';
+import { ensureChromium } from './runtime';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
 import { Library } from './library';
@@ -68,7 +69,15 @@ import {
   readFile as readFileP,
   writeFile as writeFileP,
 } from 'node:fs/promises';
-import { launchCheck, probe, runSample } from '@studio/recorder/node';
+import {
+  getProduct,
+  launchCheck,
+  openSignIn,
+  probe,
+  runSample,
+  signInStatus,
+  signOut,
+} from '@studio/recorder/node';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -163,6 +172,11 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   });
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
+  // The packaged app downloads Chromium on first run (in the background, and before a render
+  // host needs it).
+  const chromiumLog = (line: string) => process.stderr.write(`[chromium] ${line}\n`);
+  beforeBrowserLaunch(() => ensureChromium(chromiumLog));
+  if (process.env.PLAYWRIGHT_BROWSERS_PATH) void ensureChromium(chromiumLog).catch(() => {});
   const timing = new TimingFit({ store, timelines });
   const runs = new RunManager({
     workspace: opts.workspace,
@@ -588,6 +602,29 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       exporter.plan(slug, settings),
     'export.cancel': async ({ slug }: { slug: string }) => ({ cancelled: await exporter.cancel(slug) }),
     'export.status': async ({ slug }: { slug: string }) => exporter.status(slug),
+    'product.signInStatus': async ({ product }: { product: string }) => signInStatus(getProduct(product).id),
+    'product.signIn': async ({ product }: { product: string }) => {
+      const id = getProduct(product).id;
+      if (runner.busy) throw new RpcError('Wait for the current run to finish first.', 'bad_request');
+      const { closed } = await openSignIn(id, {
+        onProgress: (message) => broadcast('recorder.progress', { message, at: Date.now() }),
+      }).catch((e: unknown) => {
+        throw new RpcError(e instanceof Error ? e.message : String(e), 'bad_request');
+      });
+      void closed.then(async () => broadcast('product.signInChanged', await signInStatus(id)));
+      const st = await signInStatus(id);
+      broadcast('product.signInChanged', st);
+      return st;
+    },
+    'product.signOut': async ({ product }: { product: string }) => {
+      const id = getProduct(product).id;
+      await signOut(id).catch((e: unknown) => {
+        throw new RpcError(e instanceof Error ? e.message : String(e), 'bad_request');
+      });
+      const st = await signInStatus(id);
+      broadcast('product.signInChanged', st);
+      return st;
+    },
     'project.reveal': async ({ slug, path: rel }: { slug: string; path: string }) => {
       const dir = store.dir(slug);
       const file = path.resolve(dir, rel);

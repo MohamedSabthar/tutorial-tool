@@ -56,7 +56,8 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(EngineState::default())
         .setup(|app| {
-            app.state::<EngineState>().spawn();
+            let resources = app.path().resource_dir().ok();
+            app.state::<EngineState>().spawn(resources, None);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![get_engine, open_live_window, open_studio_window])

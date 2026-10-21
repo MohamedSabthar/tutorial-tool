@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { FrameLocator, Page } from 'playwright';
 import type { Pace, RecorderEvent, Take } from '@studio/core';
 import { createBIProject, type BIIntegration } from './fixtures/biProject';
+import { signedInProfile } from './launch/signin';
 import { launchVSCode, type Progress, type Viewport } from './launch/vscode';
 import { getProduct, readAppBundle } from './products';
 import { encodeTake, ScreenRecorder } from './record';
@@ -81,8 +82,11 @@ export async function loadScript(file: string): Promise<ScriptModule> {
         : String(e),
     );
   });
-  // Inside this package so package imports in the bundle resolve (playwright, @studio/*).
-  const cache = fileURLToPath(new URL('../node_modules/.cache/', import.meta.url));
+  // Inside this package so package imports in the bundle resolve (playwright, @studio/*). The
+  // packaged app's code is read-only, so it uses STUDIO_CACHE (scripts only import types).
+  const cache = process.env.STUDIO_CACHE
+    ? path.join(process.env.STUDIO_CACHE, 'scripts')
+    : fileURLToPath(new URL('../node_modules/.cache/', import.meta.url));
   await mkdir(cache, { recursive: true });
   const dir = await mkdtemp(path.join(cache, 'script-'));
   const bundled = path.join(dir, 'script.mjs');
@@ -137,7 +141,10 @@ export interface RunResult {
   durationMs: number;
 }
 
-/** Creates a fresh copy of the fixture in a temp folder and opens the product on it. */
+/**
+ * Creates a fresh copy of the fixture in a temp folder and opens the product on it, signed in
+ * when the user has saved a sign-in profile for the product.
+ */
 export async function launchFixture(
   fixture: ScriptFixture,
   productId: string,
@@ -145,6 +152,7 @@ export async function launchFixture(
   onLaunch: () => void = () => {},
 ) {
   const product = getProduct(productId);
+  const profile = signedInProfile(product.id);
   const base = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
   const fixtureDir = path.join(base, fixture.folder);
   progress(`Creating the ${fixture.title} fixture…`);
@@ -158,8 +166,14 @@ export async function launchFixture(
             extensions: [],
             executable: readAppBundle(product.appPath).executable,
             onProgress: progress,
+            ...(profile ? { profile } : {}),
           })
-        : await launchVSCode({ fixture: fixtureDir, extensions: product.extensions, onProgress: progress });
+        : await launchVSCode({
+            fixture: fixtureDir,
+            extensions: product.extensions,
+            onProgress: progress,
+            ...(profile ? { profile } : {}),
+          });
     return { base, session };
   } catch (e) {
     await rm(base, { recursive: true, force: true });
