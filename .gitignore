@@ -8,6 +8,6 @@ coverage/
 .DS_Store
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
-workspace/
+/workspace/
 dist-types/
 test-results/

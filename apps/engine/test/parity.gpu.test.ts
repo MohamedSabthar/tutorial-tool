@@ -83,11 +83,7 @@ describe.runIf(process.env.STUDIO_PARITY)('preview/export parity', () => {
     let browser: Browser | null = null;
     const results: { t: number; what: string; diff: FrameDiff }[] = [];
     try {
-const twice = await host.render(slug, [times[0]!.t, times[0]!.t]);
-      console.log('DEBUG cold vs warm', JSON.stringify(await diffFrames(twice[0]!.png, twice[1]!.png)));
-      await writeFile(path.join(artifacts, 'debug-cold.png'), twice[0]!.png);
-      await writeFile(path.join(artifacts, 'debug-warm.png'), twice[1]!.png);
-            const exported = await host.render(
+      const exported = await host.render(
         slug,
         times.map((x) => x.t),
       );

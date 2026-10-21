@@ -58,6 +58,9 @@ export function createCanvasEntry(): CanvasEntry {
   return entry;
 }
 
+/** Whether every attached canvas has committed at least once (its root exists and has drawn). */
+export const canvasesMounted = (): boolean => [...commits.values()].every((c) => c.n > 0);
+
 /** The canvases' commit counts now (call before asking React to render the next frame). */
 export const canvasCommits = (): Map<number, number> => new Map([...commits].map(([id, c]) => [id, c.n]));
 

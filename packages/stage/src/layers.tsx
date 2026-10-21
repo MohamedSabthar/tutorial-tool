@@ -11,7 +11,13 @@ import {
 } from 'three';
 import type { Rect } from '@studio/core';
 import { FRAME, fitSource, restCamera, sourceToStage, type CameraState, type Fit } from './camera';
-import { createCanvasEntry, frameProvider, trackPending, type CanvasEntry } from './exportDriver';
+import {
+  canvasesMounted,
+  createCanvasEntry,
+  frameProvider,
+  trackPending,
+  type CanvasEntry,
+} from './exportDriver';
 import { useStageTime } from './Stage';
 import { TunnelOut } from './tunnel';
 
@@ -176,12 +182,26 @@ export function VideoPlane({
 
   useEffect(() => {
     if (exporting) return;
+    // In the page (invisible): WebKit doesn't reliably update a detached video's frame for
+    // WebGL uploads after a seek, so the texture could keep showing the first frame.
+    Object.assign(video.style, {
+      position: 'fixed',
+      left: '0',
+      top: '0',
+      width: '1px',
+      height: '1px',
+      opacity: '0',
+      pointerEvents: 'none',
+    });
+    video.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(video);
     video.src = src;
     video.load();
     return () => {
       video.pause();
       video.removeAttribute('src');
       video.load();
+      video.remove();
     };
   }, [video, src, exporting]);
 
@@ -206,19 +226,35 @@ export function VideoPlane({
       id = video.requestVideoFrameCallback(onFrame);
     };
     if ('requestVideoFrameCallback' in video) id = video.requestVideoFrameCallback(onFrame);
-    const onSeeked = () => invalidate();
+    // VideoTexture only uploads from requestVideoFrameCallback, which WebKit doesn't reliably
+    // fire for a paused video's seeks: without this, a missed first frame stays missing.
+    const onSeeked = () => {
+      if (texture instanceof VideoTexture) texture.needsUpdate = true;
+      invalidate();
+    };
+    // WebKit keeps a seek asked for before the metadata loaded as currentTime but may show the
+    // first frame: seek again (to the same time, which still seeks).
+    const onMetadata = () => {
+      const want = seekTargets.get(video);
+      if (want !== undefined && video.paused) video.currentTime = want;
+    };
     video.addEventListener('seeked', onSeeked);
+    video.addEventListener('loadeddata', onSeeked);
+    video.addEventListener('loadedmetadata', onMetadata);
     return () => {
       if ('cancelVideoFrameCallback' in video) video.cancelVideoFrameCallback(id);
       video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('loadeddata', onSeeked);
+      video.removeEventListener('loadedmetadata', onMetadata);
     };
-  }, [video, invalidate]);
+  }, [video, texture, invalidate]);
 
   // Follow stage time: native playback while playing (correcting drift), exact seeks otherwise.
   useEffect(() => {
     if (exporting) return;
     const frame = 1 / 30;
     if (playing) {
+      seekTargets.delete(video);
       if (video.paused) void video.play().catch(() => {});
       if (Math.abs(video.currentTime - sourceTime) > frame * 3) video.currentTime = sourceTime;
     } else {
@@ -227,6 +263,7 @@ export function VideoPlane({
         video.currentTime = sourceTime;
         lastSet.current = sourceTime;
       }
+      seekTargets.set(video, sourceTime);
     }
   }, [video, sourceTime, playing, exporting]);
 
@@ -301,6 +338,13 @@ export function FrameShadow() {
 
 /** Video elements of mounted VideoPlanes (and recorded-frame helpers). */
 const liveVideos = new Set<HTMLVideoElement>();
+/** The source time each paused video should show. */
+const seekTargets = new WeakMap<HTMLVideoElement, number>();
+/** Whether a video shows the time it was asked for (any time, if none). */
+const atTarget = (v: HTMLVideoElement) => {
+  const want = seekTargets.get(v);
+  return want === undefined || Math.abs(v.currentTime - want) < 0.5 / 30;
+};
 
 /** Makes videosSettled() wait for this video's seeks too; returns the untrack function. */
 export function trackVideo(video: HTMLVideoElement): () => void {
@@ -309,15 +353,18 @@ export function trackVideo(video: HTMLVideoElement): () => void {
 }
 
 /**
- * Resolves once every mounted video has finished seeking and has a frame, and the canvas has
+ * Resolves once every mounted video shows the time it was asked for, and the canvas has
  * drawn it (two animation frames later). The headless renderer waits on this before a capture.
  */
 export async function videosSettled(timeoutMs = 10_000): Promise<void> {
   const until = performance.now() + timeoutMs;
-  // The canvas commits its children in its own React root: give its effects (the video's src
-  // and seek) a frame to run, and count a video without a src yet as not ready.
+  // The canvas commits its children in its own React root, created only once it has been
+  // measured: wait for that root (until then no video is registered), give its effects (the
+  // video's src and seek) a frame to run, and count a video without a src yet as not ready.
   for (let i = 0; i < 2; i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
-  const ready = () => [...liveVideos].every((v) => !!v.src && !v.seeking && v.readyState >= 2);
+  const ready = () =>
+    canvasesMounted() &&
+    [...liveVideos].every((v) => !!v.src && !v.seeking && v.readyState >= 2 && atTarget(v));
   while (!ready() && performance.now() < until) await new Promise((r) => setTimeout(r, 16));
   for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
 }
