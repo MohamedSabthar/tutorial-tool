@@ -10,7 +10,11 @@ export const VoiceSettings = z.object({
 });
 export type VoiceSettings = z.infer<typeof VoiceSettings>;
 
-export const DEFAULT_MODEL = 'eleven_multilingual_v2';
+/** Eleven v4: the most natural delivery, with character timings and neighbouring-line context. */
+export const DEFAULT_MODEL = 'eleven_v4';
+
+/** Models that take only stability and similarity (v4 has no style or speed controls). */
+export const basicSettingsOnly = (modelId: string) => /^eleven_v4/.test(modelId);
 export const DEFAULT_FORMAT = 'mp3_44100_128';
 
 export const SynthesisRequest = z.object({

@@ -1,5 +1,6 @@
 import {
   Alignment,
+  basicSettingsOnly,
   DEFAULT_FORMAT,
   SynthesisRequest,
   TimestampsResponse,
@@ -110,13 +111,15 @@ export function createElevenLabs(opts: ElevenLabsOptions) {
           body: JSON.stringify({
             text: req.text,
             model_id: req.modelId,
-            voice_settings: {
-              stability: req.settings.stability,
-              similarity_boost: req.settings.similarityBoost,
-              style: req.settings.style,
-              use_speaker_boost: req.settings.speakerBoost,
-              speed: req.settings.speed,
-            },
+            voice_settings: basicSettingsOnly(req.modelId)
+              ? { stability: req.settings.stability, similarity_boost: req.settings.similarityBoost }
+              : {
+                  stability: req.settings.stability,
+                  similarity_boost: req.settings.similarityBoost,
+                  style: req.settings.style,
+                  use_speaker_boost: req.settings.speakerBoost,
+                  speed: req.settings.speed,
+                },
             ...(req.previousText ? { previous_text: req.previousText } : {}),
             ...(req.nextText ? { next_text: req.nextText } : {}),
           }),

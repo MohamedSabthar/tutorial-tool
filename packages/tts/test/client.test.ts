@@ -44,9 +44,23 @@ describe('ElevenLabs client', () => {
     expect((f.calls[0]!.init.headers as Record<string, string>)['xi-api-key']).toBe('k');
     expect(JSON.parse(String(f.calls[0]!.init.body))).toMatchObject({
       text: 'Hi.',
-      model_id: 'eleven_multilingual_v2',
+      model_id: 'eleven_v4',
       previous_text: 'Before.',
-      voice_settings: { stability: 0.5, similarity_boost: 0.75, use_speaker_boost: true, speed: 1 },
+      voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+    });
+    expect(JSON.parse(String(f.calls[0]!.init.body)).voice_settings).not.toHaveProperty('style');
+  });
+
+  it('sends the full voice settings to models that take them', async () => {
+    const f = fakeFetch([json(okBody)]);
+    const el = createElevenLabs({ apiKey: 'k', fetch: f.fn, sleep });
+    await el.synthesize({ text: 'Hi.', voiceId: 'v1', modelId: 'eleven_multilingual_v2' });
+    expect(JSON.parse(String(f.calls[0]!.init.body)).voice_settings).toEqual({
+      stability: 0.5,
+      similarity_boost: 0.75,
+      style: 0,
+      use_speaker_boost: true,
+      speed: 1,
     });
   });
 
