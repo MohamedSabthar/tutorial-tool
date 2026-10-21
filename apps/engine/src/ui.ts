@@ -51,12 +51,16 @@ export function registerUi(app: FastifyInstance): void {
  */
 export async function resolveUiUrl(engineUrl: string): Promise<string> {
   if (process.env.STUDIO_UI_URL) return process.env.STUDIO_UI_URL;
-  const dev = 'http://localhost:1420';
-  try {
-    const res = await fetch(dev, { signal: AbortSignal.timeout(800) });
-    if (res.ok) return dev;
-  } catch {
-    // Not running.
+  // The dev server, when it's ours: another app can hold the port (and the packaged app never
+  // uses it).
+  if (process.env.STUDIO_PACKAGED !== '1') {
+    const dev = 'http://localhost:1420';
+    try {
+      const res = await fetch(dev, { signal: AbortSignal.timeout(800) });
+      if (res.ok && (await res.text()).includes('<title>Tutorial Studio')) return dev;
+    } catch {
+      // Not running.
+    }
   }
   if (existsSync(path.join(UI_DIST, 'index.html'))) return engineUrl;
   throw new Error(
