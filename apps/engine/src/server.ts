@@ -46,6 +46,7 @@ import { secretStore } from './secrets';
 import { TtsService } from './tts';
 import { Voiceover } from './vo';
 import { readEvents, TimingFit } from './timing';
+import { clearPace, voicePace } from './pace';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
 import { annotationMessage } from './agent/annotationContext';
@@ -314,11 +315,35 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       broadcast('project.changed', { slug });
     },
     emit: (s) => broadcast('pipeline.changed', s),
-    voiceover: async (slug, group) => {
+    voiceover: async (slug, group, narration) => {
       if (!(await store.voiceFor(slug))) return 'No voice chosen in the brief, so no voice-over yet.';
       if (!(await tts.status()).configured) return 'ElevenLabs has no key yet, so no voice-over.';
+      if (narration) {
+        // A paced take: its steps get the narration it was recorded against.
+        const { timeline } = await timelines.get(slug);
+        const ops = timeline.steps.flatMap((s, i) => {
+          const text = narration.steps.find((p) => p.id === s.id)?.narration.trim();
+          return text !== undefined && text !== s.narration
+            ? [{ op: 'replace' as const, path: `/steps/${i}/narration`, value: text }]
+            : [];
+        });
+        if (ops.length) await timelines.patch(slug, ops, { author: 'auto', group, label: 'Final narration' });
+      }
       const r = await voiceover.generate(slug, { author: 'auto', group });
       return `Voice-over: ${r.lines.length} lines, ${r.seconds.toFixed(1)} s.`;
+    },
+    pace: {
+      blocker: async (slug) =>
+        !(await store.voiceFor(slug))
+          ? 'No voice chosen in the brief.'
+          : !(await tts.status()).configured
+            ? 'ElevenLabs has no key yet.'
+            : null,
+      voice: async (slug, plan) => {
+        const r = await voicePace({ store, tts }, slug, plan.steps);
+        return `Voiced ${r.lines} line${r.lines === 1 ? '' : 's'} (${r.seconds.toFixed(1)} s) to pace the take`;
+      },
+      clear: (slug) => clearPace(store.dir(slug)),
     },
     git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),

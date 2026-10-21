@@ -58,12 +58,34 @@ export function repairInstruction(input: {
     .join('\n\n');
 }
 
-export function postInstruction(plan: Plan | null = null): string {
+/**
+ * Voice-first recording: after a passing dry run the agent writes the final narration and ties
+ * the script's actions to its words; the pipeline then voices it and records paced to it.
+ */
+export function narrateInstruction(plan: Plan): string {
+  return [
+    '[Pipeline · narrate]',
+    'The dry run passed, so you know what the script does on screen. Write the final narration and tie the actions to it: the pipeline voices this narration before recording, and the recorder paces the take to the voice-over.',
+    [
+      "1. Write each step's final narration, following the narration style in the tutorial-authoring skill. Start from the plan's narration below: the user reviewed it, so keep their wording unless it no longer matches what happens on screen. Describe the actions in the order the script does them, about 2.5 words per second of action. Save it with save_plan, keeping the step ids, titles and actions.",
+      "2. In script.spec.ts, give each action the viewer should see happen on a word a cue: `tut.cue('Create')` right before the call (this works before a page-object call too: its first click or key press takes the cue), or the `cue` option of tut.click, tut.type and tut.press. A cue is a word or short phrase copied from that step's narration, usually the control's name as spoken. Cues in a step follow the narration's order. Actions without a cue run at their own pace, and every step lasts at least its line.",
+      "3. Don't change what the script does. Don't record: the pipeline voices the narration, then dry-runs the script to check every cue.",
+    ].join('\n'),
+    plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n'),
+    done('narrate'),
+  ].join('\n\n');
+}
+
+export function postInstruction(plan: Plan | null = null, opts: { narrated?: boolean } = {}): string {
   return [
     '[Pipeline · post-production]',
-    "The take is recorded. Write the narration for each recorded step: read them with list_steps, then set each step's narration with apply_timeline_patch (replace /steps/<index>/narration).",
-    "Follow the narration style in the tutorial-authoring skill, start from the plan's draft narration, and fit each step's length at about 2.5 words per second.",
-    plan
+    opts.narrated
+      ? "The take is recorded against the final narration, which is already on the steps and voiced. Don't change it."
+      : "The take is recorded. Write the narration for each recorded step: read them with list_steps, then set each step's narration with apply_timeline_patch (replace /steps/<index>/narration).",
+    opts.narrated
+      ? ''
+      : "Follow the narration style in the tutorial-authoring skill, start from the plan's draft narration, and fit each step's length at about 2.5 words per second.",
+    plan && !opts.narrated
       ? "The user reviewed this narration in the storyboard and may have edited it; keep their wording unless it doesn't fit the step's length:\n\n" +
         plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n')
       : '',

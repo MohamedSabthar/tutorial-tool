@@ -104,9 +104,11 @@ function sinceLastAction(events: RecorderEvent[], t: number): number {
  * action gets a freeze at its end; a step whose action runs longer gets its idle stretches sped
  * up (at most 1.5×). Lines start at least CLICK_GAP after the previous click. Cuts the user made
  * (the source ranges the scene shows) are kept; earlier holds and speed changes are recomputed.
+ * A paced take (voice-first recording) is never sped up: its clicks already land on their words.
  */
 export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
   const before = buildTimeMap(tl).duration;
+  const paced = events.some((e) => e.kind === 'marker' && e.name === 'start' && e.data?.paced === true);
   const lineOf = new Map<string, VoiceLine>();
   for (const v of tl.voice) lineOf.set(v.owner, v);
   const busy = busyIntervals(events);
@@ -156,7 +158,7 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
       const idle = own.flatMap((r) => subtract(r, busy)).filter(([a, b]) => b - a >= MIN_IDLE);
       const idleTotal = idle.reduce((n, [a, b]) => n + (b - a), 0);
       const excess = line ? action - needed : 0;
-      if (excess > 0.5 && idleTotal > 0) {
+      if (!paced && excess > 0.5 && idleTotal > 0) {
         const saved = Math.min(excess, idleTotal * (1 - 1 / MAX_SPEED));
         speed = Math.round((idleTotal / (idleTotal - saved)) * 100) / 100;
       }

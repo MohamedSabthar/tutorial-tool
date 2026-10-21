@@ -13,9 +13,11 @@ import {
 } from '@studio/core';
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
+import { cueDrift, driftLine } from '../pace';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
+  narrateInstruction,
   nudge,
   planInstruction,
   postInstruction,
@@ -34,9 +36,20 @@ export interface PipelineDeps {
   emit(state: PipelineState): void;
   /**
    * Voices the narration after post-production; returns a line for the stage summary, or null
-   * when there is no voice or key yet (optional in tests).
+   * when there is no voice or key yet (optional in tests). With `narration` (a paced take), the
+   * plan's final narration is put on the steps first.
    */
-  voiceover?(slug: string, group: string): Promise<string | null>;
+  voiceover?(slug: string, group: string, narration?: Plan): Promise<string | null>;
+  /**
+   * Voice-first recording (optional in tests). `paceBlocker` says why a project can't be voiced
+   * before recording (no voice or key), or null; `voicePace` voices the plan's narration into
+   * pace.json and returns a line for the stage summary; `clearPace` removes it.
+   */
+  pace?: {
+    blocker(slug: string): Promise<string | null>;
+    voice(slug: string, plan: Plan): Promise<string>;
+    clear(slug: string): Promise<void>;
+  };
   /** Knowledge commits after repairs (optional in tests). */
   git?: WorkspaceGit;
   onCommit?(): void;
@@ -68,7 +81,9 @@ const STAGE_STATUS: Partial<Record<PipelineStage, Project['status']>> = {
 
 /**
  * Runs each project's production pipeline: plan → storyboard gate → script → dry run
- * (→ repair, capped) → record → post → retro. Agent stages send an instruction into the
+ * (→ repair, capped) → narrate → voice → dry run → record → post → retro. Narrate and voice are
+ * voice-first recording: the final narration is voiced before the take and the recorder paces
+ * the script to it; without a voice or key they are skipped. Agent stages send an instruction into the
  * project's session and wait for `stage_done`; the engine runs dry runs and recordings itself,
  * so their result never depends on the agent's word. State is saved in `.studio/pipeline.json`.
  */
@@ -421,6 +436,15 @@ export class PipelineManager {
     }
   }
 
+  /** After a passing dry run: record, or first narrate and voice for a paced take. */
+  private async afterDryRun(slug: string): Promise<PipelineStage> {
+    if ((await this.get(slug)).paced || !this.deps.pace) return 'record';
+    const blocker = await this.deps.pace.blocker(slug);
+    if (!blocker) return 'narrate';
+    await this.annotate(slug, `${blocker} Recording without voice-first pacing.`);
+    return 'record';
+  }
+
   private async run(slug: string, live: Live, from: PipelineStage, decision?: Decision): Promise<void> {
     let stage: PipelineStage | 'done' = from;
     let pending = decision;
@@ -485,6 +509,8 @@ export class PipelineManager {
         case 'script': {
           const plan = (await this.get(slug)).plan;
           if (!plan) throw new Error('there is no plan to script');
+          await this.set(slug, { paced: false });
+          await this.deps.pace?.clear(slug);
           await this.agentStageWithHelp(slug, live, 'script', scriptInstruction(plan));
           stage = 'dry_run';
           break;
@@ -511,15 +537,16 @@ export class PipelineManager {
           else {
             failure = null;
             const steps = r.events.filter((e) => e.kind === 'step-end').length;
+            const paced = (await this.get(slug)).paced;
             await this.end(
               slug,
               true,
               mode === 'dry'
-                ? `${steps} steps passed`
-                : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}`,
+                ? `${steps} steps passed${paced ? ', cues checked' : ''}`
+                : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}`,
             );
             if (mode === 'dry') await this.set(slug, { repairAttempts: 0 });
-            stage = mode === 'dry' ? 'record' : 'post';
+            stage = mode === 'dry' ? await this.afterDryRun(slug) : 'post';
             break;
           }
           await this.end(slug, false, `${failure.stepId ? `${failure.stepId}: ` : ''}${failure.error}`);
@@ -558,13 +585,56 @@ export class PipelineManager {
           stage = 'dry_run';
           break;
         }
+        case 'narrate': {
+          const plan = (await this.get(slug)).plan;
+          if (!plan) throw new Error('there is no plan to narrate');
+          await this.agentStageWithHelp(slug, live, 'narrate', narrateInstruction(plan));
+          stage = 'voice';
+          break;
+        }
+        case 'voice': {
+          const plan = (await this.get(slug)).plan;
+          if (!plan) throw new Error('there is no plan to voice');
+          await this.begin(slug, 'voice');
+          try {
+            const line = await this.deps.pace!.voice(slug, plan);
+            await this.end(slug, true, line);
+            await this.set(slug, { paced: true });
+            // Check the cues against the voiced narration before recording.
+            stage = 'dry_run';
+          } catch (e) {
+            await this.deps.pace!.clear(slug).catch(() => {});
+            await this.end(
+              slug,
+              false,
+              `${e instanceof Error ? e.message : String(e)} · recording without pacing`,
+            );
+            stage = 'record';
+          }
+          break;
+        }
         case 'post': {
-          await this.agentStageWithHelp(slug, live, 'post', postInstruction((await this.get(slug)).plan));
-          if (this.deps.voiceover) {
+          const { plan, paced, runId } = await this.get(slug);
+          const voice = async () => {
+            if (!this.deps.voiceover) return;
             const note = await this.deps
-              .voiceover(slug, (await this.get(slug)).runId ?? 'pipeline')
+              .voiceover(slug, runId ?? 'pipeline', paced && plan ? plan : undefined)
               .catch((e: unknown) => `Voice-over failed: ${e instanceof Error ? e.message : String(e)}`);
             if (note) await this.annotate(slug, note);
+          };
+          if (paced) {
+            // The narration is final and already voiced: it goes on the timeline right away, and
+            // the agent only has explainers to add (voiced once they are in).
+            await this.begin(slug, 'post');
+            await this.end(slug, true, 'Final narration on the steps');
+            await voice();
+            if (plan?.explainers.length) {
+              await this.agentStageWithHelp(slug, live, 'post', postInstruction(plan, { narrated: true }));
+              await voice();
+            }
+          } else {
+            await this.agentStageWithHelp(slug, live, 'post', postInstruction(plan));
+            await voice();
           }
           stage = 'retro';
           break;

@@ -11,6 +11,8 @@ export const PipelineStage = z.enum([
   'script',
   'dry_run',
   'repair',
+  'narrate',
+  'voice',
   'record',
   'post',
   'retro',
@@ -23,6 +25,8 @@ export const PIPELINE_STAGES: { stage: PipelineStage; label: string }[] = [
   { stage: 'script', label: 'Write the script' },
   { stage: 'dry_run', label: 'Dry run' },
   { stage: 'repair', label: 'Repair' },
+  { stage: 'narrate', label: 'Final narration and cues' },
+  { stage: 'voice', label: 'Voice-over' },
   { stage: 'record', label: 'Record the take' },
   { stage: 'post', label: 'Post-production' },
   { stage: 'retro', label: 'Retrospective' },
@@ -91,6 +95,8 @@ export const PipelineState = z.object({
   plan: Plan.nullable(),
   history: z.array(StageRecord).default([]),
   repairAttempts: z.number().int().default(0),
+  /** The script has its final narration and cues, and pace.json is voiced: record paced to it. */
+  paced: z.boolean().default(false),
   maxRepairs: z.number().int().default(3),
   /** Agent cost when this run started, so the UI can show the run's own cost. */
   costAtStart: z.number().default(0),

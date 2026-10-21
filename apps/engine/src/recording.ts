@@ -11,6 +11,7 @@ import {
   type RunStage,
   type ScreencastFrame,
 } from '@studio/recorder/node';
+import { readPace } from './pace';
 import type { ProjectStore } from './projects';
 import type { Workspace } from './workspace';
 
@@ -32,7 +33,8 @@ export interface ProjectRunResult extends RunResult {
 
 /**
  * Runs a project's script.spec.ts. Record mode saves recordings/take-N (video.mp4,
- * events.jsonl, poster.jpg), registers the take in tutorial.json and commits.
+ * events.jsonl, poster.jpg), registers the take in tutorial.json and commits. With a pace.json
+ * (voice-first recording), the take is paced to it and dry runs check the script's cues.
  */
 export async function runProjectScript(
   store: ProjectStore,
@@ -53,8 +55,10 @@ export async function runProjectScript(
 
   const takeId = mode === 'record' ? await store.nextTakeId(slug) : null;
   const takePath = takeId ? `recordings/${takeId}` : null;
+  const pace = await readPace(dir);
   const result = await runTutorial(mod, {
     mode,
+    ...(pace ? { pace } : {}),
     ...(takePath ? { takeDir: path.join(dir, takePath), takeId: takeId! } : {}),
     captureTargets: false,
     ...cb,

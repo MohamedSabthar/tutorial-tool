@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyPatch,
   buildTimeMap,
+  findCue,
+  lineDelay,
   invertPatch,
   parseTimeline,
   PatchError,
@@ -480,5 +482,28 @@ describe('explainer insert snapping', () => {
     const first = timeline.scenes[0]!;
     expect(first.kind === 'recording' && first.segments.at(-1)).toMatchObject({ kind: 'speed', to: 12.939 });
     expect(tmFor(timeline).toOutput('take-1', 12.939)[0]).toBeCloseTo(8.626 + 5, 2);
+  });
+});
+
+describe('voice-first cues', () => {
+  const words = ['Click', 'Add', 'Resource,', 'then', 'type', '/greeting.', 'Click', 'Save.'].map((w) => ({
+    w,
+  }));
+
+  it('matches words and phrases ignoring case and punctuation, from a position', () => {
+    expect(findCue(words, 'add resource')).toBe(1);
+    expect(findCue(words, '/greeting')).toBe(5);
+    expect(findCue(words, 'Click')).toBe(0);
+    expect(findCue(words, 'Click', 1)).toBe(6);
+    expect(findCue(words, 'Save')).toBe(7);
+    expect(findCue(words, 'Create')).toBe(-1);
+    expect(findCue(words, 'add', 2)).toBe(-1);
+    expect(findCue(words, '  ')).toBe(-1);
+  });
+
+  it('starts a line after the lead-in, or later right after an action', () => {
+    const pace = { leadIn: 0.25, clickGap: 0.6 };
+    expect(lineDelay(pace, Infinity)).toBe(0.25);
+    expect(lineDelay(pace, 0.2)).toBeCloseTo(0.4, 6);
   });
 });

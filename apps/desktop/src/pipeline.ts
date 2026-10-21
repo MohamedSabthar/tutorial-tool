@@ -55,29 +55,39 @@ export function usePipeline(slug: string | null) {
   };
 }
 
-/** Stepper rows for the pipeline. Repair only appears once it has run. */
+/** Whether a stage has run in this pipeline. */
+const ran = (history: PipelineState['history'], stage: string) => history.some((h) => h.stage === stage);
+
+/**
+ * Stepper rows for the pipeline. Repair shows once it has run; narrate and voice (voice-first
+ * pacing) are hidden in a finished run that skipped them.
+ */
 export function pipelineSteps(
   state: PipelineState | null,
 ): { label: string; sub?: string; state: StepState }[] {
   const history = state?.history ?? [];
-  return PIPELINE_STAGES.filter((s) => s.stage !== 'repair' || history.some((h) => h.stage === 'repair')).map(
-    ({ stage, label }) => {
-      const runs = history.filter((h) => h.stage === stage);
-      const last = runs.at(-1);
-      const current = state?.stage === stage;
-      let st: StepState = 'todo';
-      if (current && state?.status === 'waiting') st = 'gate';
-      else if (current && state?.status === 'running') st = 'active';
-      else if (last?.ok === false && !current) st = 'failed';
-      else if (last?.ok) st = 'done';
-      if (current && (state?.status === 'failed' || state?.status === 'stopped')) st = 'failed';
-      const sub =
-        stage === 'repair' && runs.length
-          ? `${runs.length} attempt${runs.length === 1 ? '' : 's'}${last?.summary ? ` · ${last.summary}` : ''}`
-          : last?.summary || undefined;
-      return { label, ...(sub ? { sub } : {}), state: st };
-    },
-  );
+  return PIPELINE_STAGES.filter((s) =>
+    s.stage === 'repair'
+      ? ran(history, 'repair')
+      : s.stage === 'narrate' || s.stage === 'voice'
+        ? ran(history, s.stage) || state?.status !== 'done'
+        : true,
+  ).map(({ stage, label }) => {
+    const runs = history.filter((h) => h.stage === stage);
+    const last = runs.at(-1);
+    const current = state?.stage === stage;
+    let st: StepState = 'todo';
+    if (current && state?.status === 'waiting') st = 'gate';
+    else if (current && state?.status === 'running') st = 'active';
+    else if (last?.ok === false && !current) st = 'failed';
+    else if (last?.ok) st = 'done';
+    if (current && (state?.status === 'failed' || state?.status === 'stopped')) st = 'failed';
+    const sub =
+      stage === 'repair' && runs.length
+        ? `${runs.length} attempt${runs.length === 1 ? '' : 's'}${last?.summary ? ` · ${last.summary}` : ''}`
+        : last?.summary || undefined;
+    return { label, ...(sub ? { sub } : {}), state: st };
+  });
 }
 
 export const elapsed = (state: PipelineState | null, now: number) => {

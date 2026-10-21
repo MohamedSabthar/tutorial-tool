@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AgentEvent, PipelineStage, PipelineState } from '@studio/core';
 import { ProjectStore } from '../src/projects';
-import { PipelineManager } from '../src/pipeline/machine';
+import { PipelineManager, type PipelineDeps } from '../src/pipeline/machine';
 import type { ProjectRunResult } from '../src/recording';
 
 const PLAN = {
@@ -168,6 +168,7 @@ describe('PipelineManager', () => {
     react: (p: PipelineManager, stage: string, text: string) => Promise<void> | void,
     runs: boolean[],
     git?: unknown,
+    extra: Partial<PipelineDeps> = {},
   ) {
     const queue = [...runs];
     const modes: string[] = [];
@@ -184,6 +185,7 @@ describe('PipelineManager', () => {
       onTake: () => {},
       emit: (s) => states.push(s),
       ...(git ? { git: git as never } : {}),
+      ...extra,
     }));
     return { p, sent, modes };
   }
@@ -225,6 +227,131 @@ describe('PipelineManager', () => {
     ]);
     expect(sent.find((t) => t.includes('repair, attempt 1 of 3'))).toContain('Resource Path was not visible');
     expect((await store.open(slug)).project.status).toBe('edit');
+  });
+
+  it('narrates, voices and checks the cues before a paced recording, then skips the post agent', async () => {
+    const calls: string[] = [];
+    let narration: unknown;
+    const { p, sent, modes } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'narrate') {
+          await p.savePlan(slug, {
+            ...PLAN,
+            steps: PLAN.steps.map((s) => ({ ...s, narration: `Final ${s.id}.` })),
+          });
+          done(p, 'narrate');
+        } else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true, true],
+      undefined,
+      {
+        pace: {
+          blocker: async () => null,
+          voice: async (_slug, plan) => {
+            calls.push(`voice ${plan.steps.map((s) => s.narration).join(' ')}`);
+            return 'Voiced 2 lines (3.0 s) to pace the take';
+          },
+          clear: async () => void calls.push('clear'),
+        },
+        voiceover: async (_slug, _group, n) => {
+          narration = n;
+          return 'Voice-over: 2 lines, 3.0 s.';
+        },
+      },
+    );
+    await p.start(slug, { storyboard: false });
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'dry', 'record']);
+    expect(calls).toEqual(['clear', 'voice Final s1. Final s2.']);
+    expect(last().history.map((h) => h.stage)).toEqual([
+      'plan',
+      'script',
+      'dry_run',
+      'narrate',
+      'voice',
+      'dry_run',
+      'record',
+      'post',
+      'retro',
+    ]);
+    expect(last().history[5]!.summary).toBe('2 steps passed, cues checked');
+    expect(last().history[6]!.summary).toContain('no cues');
+    expect(sent.some((t) => t.startsWith('[Pipeline · post-production]'))).toBe(false);
+    expect(narration).toMatchObject({ steps: [{ narration: 'Final s1.' }, { narration: 'Final s2.' }] });
+    expect(last().paced).toBe(true);
+  });
+
+  it('voices a paced take before the agent adds explainers, then voices the explainers', async () => {
+    const order: string[] = [];
+    const { p } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, { ...PLAN, explainers: [{ after: 's1', idea: 'How routing works' }] });
+          done(p, 'plan');
+        } else if (stage === 'script' || stage === 'narrate') done(p, stage);
+        else if (stage === 'post-production') {
+          order.push('agent');
+          done(p, 'post');
+        } else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true, true],
+      undefined,
+      {
+        pace: { blocker: async () => null, voice: async () => 'Voiced', clear: async () => {} },
+        voiceover: async () => {
+          order.push('voice');
+          return null;
+        },
+      },
+    );
+    await p.start(slug, { storyboard: false });
+    await until(() => last().status === 'done');
+    expect(order).toEqual(['voice', 'agent', 'voice']);
+  });
+
+  it('records without pacing when the project has no voice, or voicing fails', async () => {
+    for (const failVoice of [false, true]) {
+      states = [];
+      const { p, sent, modes } = make(
+        async (p, stage) => {
+          if (stage === 'plan') {
+            await p.savePlan(slug, PLAN);
+            done(p, 'plan');
+          } else if (stage === 'script' || stage === 'narrate') done(p, stage);
+          else if (stage === 'post-production') done(p, 'post');
+          else if (stage === 'retro') done(p, 'retro');
+        },
+        [true, true],
+        undefined,
+        {
+          pace: {
+            blocker: async () => (failVoice ? null : 'No voice chosen in the brief.'),
+            voice: async () => {
+              throw new Error('ElevenLabs returned 401');
+            },
+            clear: async () => {},
+          },
+        },
+      );
+      await p.start(slug, { storyboard: false });
+      await until(() => last().status === 'done');
+      expect(modes).toEqual(['dry', 'record']);
+      const history = last().history;
+      if (failVoice)
+        expect(history.find((h) => h.stage === 'voice')).toMatchObject({
+          ok: false,
+          summary: 'ElevenLabs returned 401 · recording without pacing',
+        });
+      else
+        expect(history.find((h) => h.stage === 'dry_run')!.summary).toContain('without voice-first pacing');
+      expect(last().paced).toBe(false);
+      expect(sent.some((t) => t.startsWith('[Pipeline · post-production]'))).toBe(true);
+    }
   });
 
   it('sends revisions back to the agent and reopens the gate', async () => {

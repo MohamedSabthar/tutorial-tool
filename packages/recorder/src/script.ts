@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { FrameLocator, Page } from 'playwright';
-import type { RecorderEvent, Take } from '@studio/core';
+import type { Pace, RecorderEvent, Take } from '@studio/core';
 import { createBIProject, type BIIntegration } from './fixtures/biProject';
 import { launchVSCode, type Progress, type Viewport } from './launch/vscode';
 import { getProduct, readAppBundle } from './products';
@@ -113,6 +113,8 @@ export interface RunOptions {
   /** Dry runs: where to write events.jsonl (optional). */
   eventsFile?: string;
   captureTargets?: boolean;
+  /** Voice-first recording: pace steps and cues to this voiced narration (dry runs check the cues). */
+  pace?: Pace;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
@@ -223,12 +225,14 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       ...(opts.onPointer ? { onPointer: opts.onPointer } : {}),
       timeout: opts.mode === 'dry' ? 10_000 : 20_000,
       captureTargets: opts.captureTargets ?? false,
+      ...(opts.pace ? { pace: opts.pace } : {}),
     });
     await tut.start({
       product: product.id,
       version: session.version,
       viewport: session.viewport,
       fixture: mod.fixture.folder,
+      ...(opts.pace ? { paced: true } : {}),
     });
     stage('run');
     progress(`Running the script (${opts.mode})…`);

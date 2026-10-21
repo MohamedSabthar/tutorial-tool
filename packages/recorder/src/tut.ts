@@ -1,8 +1,8 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FrameLocator, Locator, Page } from 'playwright';
-import type { Rect, RecorderEvent } from '@studio/core';
-import { clickPoint, mousePath, rng, typingDelays, type Pt } from './human';
+import { findCue, lineDelay, type Pace, type Rect, type RecorderEvent, type StepPace } from '@studio/core';
+import { clickPoint, mousePath, moveDuration, rng, typingDelays, type Pt } from './human';
 
 /**
  * The API generated tutorial scripts call. Every helper performs the action on screen at a
@@ -11,6 +11,10 @@ import { clickPoint, mousePath, rng, typingDelays, type Pt } from './human';
  * events, never injected into the product.
  *
  * Dry mode runs the same script fast, with no pauses, to validate it before recording.
+ *
+ * With a `pace` (voice-first recording), each step lasts at least its voice line, and an action
+ * with a cue (`tut.cue(word)`, or the `cue` option) waits so that it lands as the word is spoken.
+ * Dry runs only check that every cue is in its step's narration.
  */
 export type TutMode = 'dry' | 'record';
 
@@ -35,6 +39,8 @@ export interface TutOptions {
   onAction?: (a: LiveAction) => void;
   /** Called as the pointer moves and clicks, in frame pixels (live cursor). */
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
+  /** The voiced narration to pace steps and cues to. */
+  pace?: Pace;
 }
 
 export interface LiveAction {
@@ -89,6 +95,12 @@ export class Tut {
   private writing: Promise<void> = Promise.resolve();
   /** Text being typed while type() runs its click, so the live label says "type". */
   private typing: string | null = null;
+  /** The current step's voice line (paced runs): when it starts, and the next word a cue may match. */
+  private line: { pace: StepPace; start: number; next: number } | null = null;
+  /** Set by cue(): the next click or key press waits for it. */
+  private pendingCue: string | null = null;
+  /** Event time of the latest click, typing or key press. */
+  private lastAction = -Infinity;
 
   constructor(private readonly opts: TutOptions) {
     this.random = rng(opts.seed ?? 7);
@@ -130,9 +142,17 @@ export class Tut {
   /** A named tutorial step. Failures are reported with a screenshot and ARIA snapshot. */
   async step(id: string, title: string, fn: () => Promise<void>): Promise<void> {
     this.current = { id, title };
-    await this.emit({ kind: 'step-start', t: this.now(), stepId: id, title });
+    const t0 = this.now();
+    const pace = this.opts.pace;
+    const line = pace?.steps[id];
+    this.line =
+      pace && line ? { pace: line, start: t0 + lineDelay(pace, t0 - this.lastAction), next: 0 } : null;
+    this.pendingCue = null;
+    await this.emit({ kind: 'step-start', t: t0, stepId: id, title });
     try {
       await fn();
+      // The step lasts until its line has been spoken, plus a short tail.
+      if (pace && this.line) await this.until(this.line.start + this.line.pace.duration + pace.tail);
     } catch (e) {
       if (e instanceof StepFailedError) throw e;
       const page = this.opts.page;
@@ -157,11 +177,24 @@ export class Tut {
     }
     await this.emit({ kind: 'step-end', t: this.now(), stepId: id });
     this.current = null;
+    this.line = null;
   }
 
-  /** Moves to the target along a human path and clicks it. */
-  async click(target: Target, opts: { description?: string } = {}): Promise<void> {
+  /**
+   * Makes the next click, typing or key press land on `word` (a word or short phrase of the
+   * step's narration), e.g. before a page object call. Cues within a step follow the narration's
+   * order. Without a pace it does nothing.
+   */
+  cue(word: string): void {
+    this.stepId();
+    this.planCue(word);
+    this.pendingCue = word;
+  }
+
+  /** Moves to the target along a human path and clicks it. `cue` lands the click on that narration word. */
+  async click(target: Target, opts: { description?: string; cue?: string } = {}): Promise<void> {
     const stepId = this.stepId();
+    const cue = this.takeCue(opts.cue);
     const box = await this.boxOf(target, opts.description);
     this.opts.onAction?.({
       stepId,
@@ -180,7 +213,14 @@ export class Tut {
         png: await this.opts.page.screenshot(),
       });
     const p = clickPoint(box, this.random);
-    await this.moveTo(p);
+    // A cued click moves faster when its word comes soon, then waits on the target for it.
+    let ms: number | undefined;
+    if (cue) {
+      ms = Math.max(MIN_MOVE_MS, Math.min(moveDuration(this.pointer, p), (cue.at - this.now()) * 1000));
+      await this.until(cue.at - ms / 1000);
+    }
+    await this.moveTo(p, ms);
+    if (cue) await this.until(cue.at);
     await this.opts.page.mouse.click(p.x, p.y);
     this.opts.onPointer?.({ x: this.px(p.x), y: this.px(p.y), click: true });
     await this.emit({
@@ -191,6 +231,7 @@ export class Tut {
       y: this.px(p.y),
       target: opts.description ?? describe(target),
       bbox: this.rect(box),
+      ...(cue ? { cue } : {}),
     });
     await this.pause(350);
   }
@@ -203,7 +244,7 @@ export class Tut {
   async type(
     target: Target,
     text: string,
-    opts: { description?: string; clear?: boolean; insert?: boolean } = {},
+    opts: { description?: string; clear?: boolean; insert?: boolean; cue?: string } = {},
   ): Promise<void> {
     const stepId = this.stepId();
     this.typing = text;
@@ -237,10 +278,13 @@ export class Tut {
     await this.pause(300);
   }
 
-  /** Presses a key or chord, e.g. "Enter" or "Meta+Shift+P". */
-  async press(key: string): Promise<void> {
+  /** Presses a key or chord, e.g. "Enter" or "Meta+Shift+P". `cue` lands it on that narration word. */
+  async press(key: string, opts: { cue?: string } = {}): Promise<void> {
+    const stepId = this.stepId();
+    const cue = this.takeCue(opts.cue);
+    if (cue) await this.until(cue.at);
     await this.opts.page.keyboard.press(key);
-    await this.emit({ kind: 'key', t: this.now(), stepId: this.stepId(), key });
+    await this.emit({ kind: 'key', t: this.now(), stepId, key, ...(cue ? { cue } : {}) });
     await this.pause(250);
   }
 
@@ -268,6 +312,36 @@ export class Tut {
     return this.current.id;
   }
 
+  /** The action's cue (its own, or a pending tut.cue), planned in event time; null when unpaced. */
+  private takeCue(own: string | undefined): { word: string; at: number } | null {
+    const word = own ?? this.pendingCue;
+    this.pendingCue = null;
+    if (!word) return null;
+    const planned = this.planCue(word);
+    if (!planned || !this.line) return null;
+    this.line.next = planned.index + 1;
+    return { word, at: Math.round((this.line.start + planned.start) * 1000) / 1000 };
+  }
+
+  /** Finds a cue in the current step's line; throws when it isn't there. */
+  private planCue(word: string): { index: number; start: number } | null {
+    if (!this.line) return null;
+    const { words, text } = this.line.pace;
+    const index = findCue(words, word, this.line.next);
+    if (index < 0)
+      throw new Error(
+        `cue "${word}" is not in the narration of step ${this.current?.id}${this.line.next ? ' after the previous cue' : ''}: "${text}"`,
+      );
+    return { index, start: words[index]!.start };
+  }
+
+  /** Record mode: waits until event time `t` (returns at once if it has passed). */
+  private async until(t: number): Promise<void> {
+    if (this.opts.mode !== 'record') return;
+    const ms = (t - this.now()) * 1000;
+    if (ms > 1) await sleep(ms);
+  }
+
   private async boxOf(target: Target, description?: string) {
     const loc = target.first();
     const timeout = this.opts.timeout ?? 20_000;
@@ -284,7 +358,7 @@ export class Tut {
     return box;
   }
 
-  private async moveTo(p: Pt): Promise<void> {
+  private async moveTo(p: Pt, durationMs?: number): Promise<void> {
     const mouse = this.opts.page.mouse;
     if (this.opts.mode === 'dry') {
       await mouse.move(p.x, p.y);
@@ -292,7 +366,7 @@ export class Tut {
       this.pointer = p;
       return;
     }
-    const path = mousePath(this.pointer, p, this.random);
+    const path = mousePath(this.pointer, p, this.random, durationMs);
     const t0 = this.now();
     const samples: [number, number, number][] = [];
     for (const [i, q] of path.entries()) {
@@ -300,7 +374,8 @@ export class Tut {
       if (i % 2 === 1 || i === path.length - 1)
         this.opts.onPointer?.({ x: this.px(q.x), y: this.px(q.y), click: false });
       samples.push([Math.round((t0 + (i * 16) / 1000) * 1000) / 1000, this.px(q.x), this.px(q.y)]);
-      await sleep(16);
+      // On the clock, so the move takes its planned time however long each mouse.move takes.
+      await this.until(t0 + ((i + 1) * 16) / 1000);
     }
     this.pointer = p;
     await this.emit({ kind: 'mouse', t: t0, points: samples });
@@ -319,6 +394,8 @@ export class Tut {
   }
 
   private async emit(e: RecorderEvent): Promise<void> {
+    if (e.kind === 'click' || e.kind === 'type' || e.kind === 'key')
+      this.lastAction = Math.max(this.lastAction, e.t);
     this.events.push(e);
     this.opts.onEvent?.(e);
     if (this.opts.eventsFile) {
@@ -340,3 +417,6 @@ function describe(target: Target): string {
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Shortest pointer move a cued click hurries to. */
+const MIN_MOVE_MS = 150;

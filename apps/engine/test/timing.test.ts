@@ -96,6 +96,15 @@ describe('fitTiming', () => {
     expect(fitTiming(cut, events).steps[0]!.action).toBeCloseTo(8, 3);
   });
 
+  it('never speeds up a paced take, so its clicks stay on their words', () => {
+    const paced = [{ kind: 'marker' as const, t: 0, name: 'start', data: { paced: true } }, ...events];
+    const r = fitTiming(timeline(), paced);
+    expect(r.steps.map((s) => s.speed)).toEqual([1, 1, 1]);
+    const segs = r.timeline.scenes[0]!.kind === 'recording' ? r.timeline.scenes[0]!.segments : [];
+    expect(segs.some((s) => s.kind === 'speed')).toBe(false);
+    expect(r.steps[0]!.hold).toBeGreaterThan(0);
+  });
+
   it('leaves steps without a voice line alone', () => {
     const tl = { ...timeline(), voice: [] };
     const r = fitTiming(tl, events);

@@ -255,6 +255,9 @@ export type Project = z.infer<typeof Project>;
 // Recorder events (one JSON object per line in events.jsonl)
 // ---------------------------------------------------------------------------
 
+/** A paced action's cue: the narration word it waited for and the take time it was planned at. */
+const ActionCue = z.object({ word: z.string(), at: Seconds });
+
 const ev = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
   z.object({ kind: z.literal(kind), t: Seconds, ...shape });
 
@@ -267,9 +270,16 @@ export const RecorderEvent = z.discriminatedUnion('kind', [
   ev('step-start', { stepId: Id, title: z.string() }),
   ev('step-end', { stepId: Id }),
   ev('mouse', { points: z.array(z.tuple([Seconds, z.number(), z.number()])) }),
-  ev('click', { stepId: Id, x: z.number(), y: z.number(), target: z.string(), bbox: Rect }),
+  ev('click', {
+    stepId: Id,
+    x: z.number(),
+    y: z.number(),
+    target: z.string(),
+    bbox: Rect,
+    cue: ActionCue.optional(),
+  }),
   ev('type', { stepId: Id, text: z.string(), target: z.string(), bbox: Rect }),
-  ev('key', { stepId: Id, key: z.string() }),
+  ev('key', { stepId: Id, key: z.string(), cue: ActionCue.optional() }),
   ev('mask', { label: z.string(), bbox: Rect }),
   ev('hold', { stepId: Id, duration: Seconds }),
 ]);
