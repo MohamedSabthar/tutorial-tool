@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { lstatSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,15 +19,15 @@ export const PINNED_VSCODE = '1.140.0';
 
 /**
  * How the product window is shown while recording.
- * - fullscreen (default): macOS "simple" full screen, no Space switch or animation. The
- *   in-window title bar stays visible, so the product name is on camera.
- * - window: a fixed content size, e.g. 1280×720 at 1.5× for exact 1920×1080 frames.
+ * - window (default): a fixed 16:9 content size, so the take fills the video frame. 1440×810
+ *   at 2× gives 2880×1620 frames: sharp at 1080p and under zooms, and it fits a laptop screen.
+ * - fullscreen: macOS "simple" full screen at the screen's own shape (letterboxed in 16:9).
  * `scale` is the device scale factor: larger UI text reads better on video.
  */
 export type DisplayMode =
   { mode: 'fullscreen'; scale: number } | { mode: 'window'; width: number; height: number; scale: number };
 
-export const DEFAULT_DISPLAY: DisplayMode = { mode: 'fullscreen', scale: 1.5 };
+export const DEFAULT_DISPLAY: DisplayMode = { mode: 'window', width: 1440, height: 810, scale: 2 };
 
 /** The resolved window content size in CSS pixels; frames are width×scale by height×scale. */
 export interface Viewport {
@@ -227,6 +228,10 @@ export async function launchVSCode(opts: VSCodeLaunchOptions): Promise<VSCodeSes
       if (d.mode === 'window') {
         win.setContentSize(d.width, d.height);
         win.center();
+        // A window macOS sees as covered stops painting, and the take would freeze: keep it on
+        // top and rendering at full rate while it records.
+        win.setAlwaysOnTop(true, 'floating');
+        win.webContents.setBackgroundThrottling(false);
       } else {
         win.setSimpleFullScreen(true);
       }
@@ -329,7 +334,10 @@ export async function copyProfile(from: string, to: string): Promise<void> {
     recursive: true,
     filter: (src) => {
       const rel = path.relative(from, src);
-      return !SKIP.has(rel) && !/(^|\/)(Singleton\w*|.*\.lock|LOCK)$/.test(rel);
+      if (SKIP.has(rel) || /(^|\/)(Singleton\w*|.*\.lock|LOCK)$/.test(rel)) return false;
+      // Only folders and files: a running instance leaves IPC sockets (`*.sock`) behind.
+      const st = lstatSync(src, { throwIfNoEntry: false });
+      return !!st && (st.isDirectory() || st.isFile());
     },
   });
 }

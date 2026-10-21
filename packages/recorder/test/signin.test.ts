@@ -1,3 +1,4 @@
+import net from 'node:net';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -40,6 +41,9 @@ describe('signed-in profiles', () => {
       'Local Storage/leveldb/LOCK',
     ])
       await put(rel);
+    // A running instance's IPC socket.
+    const sock = net.createServer().listen(path.join(signInDir('wso2-integrator', cache), '1.12-main.sock'));
+    await new Promise((r) => sock.once('listening', r));
     const to = path.join(cache, 'copy');
     await copyProfile(signInDir('wso2-integrator', cache), to);
     const has = (rel: string) => existsSync(path.join(to, rel));
@@ -53,7 +57,9 @@ describe('signed-in profiles', () => {
       'User/workspaceStorage',
       'SingletonLock',
       'Local Storage/leveldb/LOCK',
+      '1.12-main.sock',
     ])
       expect(has(rel), rel).toBe(false);
+    sock.close();
   });
 });

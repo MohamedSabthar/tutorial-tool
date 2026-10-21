@@ -30,7 +30,7 @@ const FIXTURE = {
 };
 
 /**
- * Launches the product full screen with a valid BI project (an empty folder makes WSO2
+ * Launches the product in its recording window with a valid BI project (an empty folder makes WSO2
  * Integrator show a blocking "couldn't detect the project type" modal), then checks: the
  * activity-bar entry exists, the title bar shows the product name, the project is detected,
  * no dialog appeared, and the frame matches the window size × scale.
