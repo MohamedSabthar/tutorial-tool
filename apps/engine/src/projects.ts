@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile, access, copyFile, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile, access, copyFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
   Brief,
@@ -178,6 +178,12 @@ export class ProjectStore {
   }
 
   /** Removes a reference from the brief (the copied file stays in references/). */
+  /** Deletes a project's folder (the caller commits the removal). */
+  async remove(slug: string): Promise<void> {
+    await this.readProject(slug);
+    await rm(this.dir(slug), { recursive: true, force: true });
+  }
+
   async removeReference(slug: string, index: number): Promise<Brief> {
     const brief = await this.readBrief(slug);
     if (!brief.references[index]) throw new RpcError('no such reference', 'not_found');

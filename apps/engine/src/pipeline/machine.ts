@@ -184,6 +184,11 @@ export class PipelineManager {
     return this.get(slug);
   }
 
+  /** Forgets a deleted project's pipeline (stop it first). */
+  forget(slug: string): void {
+    this.states.delete(slug);
+  }
+
   /** `save_plan` from the agent. */
   async savePlan(slug: string, plan: unknown): Promise<Plan> {
     const parsed = Plan.parse(plan);

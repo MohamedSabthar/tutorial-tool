@@ -738,6 +738,26 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return project;
     },
     'project.open': async ({ slug }: { slug: string }) => store.open(slug),
+    'project.delete': async ({ slug }: { slug: string }) => {
+      await store.open(slug);
+      // Nothing may still be writing into the folder.
+      if (runner.session?.slug === slug)
+        throw new RpcError('A run of this project is streaming to Live. Stop it first.', 'bad_request');
+      if (exporter.status(slug)?.state === 'running')
+        throw new RpcError('This project is exporting. Cancel the export first.', 'bad_request');
+      const pipe = await pipeline.get(slug);
+      if (pipe.status === 'running')
+        throw new RpcError("This project's pipeline is running. Stop it first.", 'bad_request');
+      if (pipe.status === 'waiting') await pipeline.stop(slug);
+      pipeline.forget(slug);
+      await agents.remove(slug);
+      await store.remove(slug);
+      timelines.invalidate(slug);
+      const head = await workspace.commit(`project: delete ${slug}`, [`projects/${slug}`]);
+      broadcast('project.changed', { slug });
+      broadcast('workspace.changed', { head });
+      return { deleted: true, commit: head };
+    },
     'workspace.status': async () => workspace.status(),
     'workspace.init': async () => {
       const status = await workspace.init();

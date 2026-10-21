@@ -298,6 +298,11 @@ export const rpcMethods = {
     params: NewProject,
     result: Project,
   },
+  /** Removes a project's folder and commits the removal (git history keeps a copy). */
+  'project.delete': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({ deleted: z.boolean(), commit: z.string().nullable() }),
+  },
   'project.open': {
     params: z.object({ slug: z.string() }),
     result: z.object({ project: Project, timeline: Timeline }),

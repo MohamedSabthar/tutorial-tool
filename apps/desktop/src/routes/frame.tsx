@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { LiveSession } from '@studio/core';
-import { AppHeader, Chip, EdgeAccent, type NavKey } from '@studio/ui';
+import { AppHeader, Chip, EdgeAccent, IconCode, type NavKey } from '@studio/ui';
 import { EngineChip, useEngine } from '../engine';
 
 /** Changes the main window's screen (hash routes, so a reload keeps the screen). */
@@ -74,8 +74,8 @@ export function HeaderStatus({ live = true, path = true }: { live?: boolean; pat
       {live && <LiveChip />}
       <EngineChip />
       {import.meta.env.DEV && (
-        <a className="app-frame-dev" href="#/packages">
-          Developer pages
+        <a className="app-frame-dev" href="#/packages" aria-label="Developer pages" title="Developer pages">
+          <IconCode size={14} />
         </a>
       )}
     </>

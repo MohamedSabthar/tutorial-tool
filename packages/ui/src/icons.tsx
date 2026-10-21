@@ -36,6 +36,17 @@ export const IconStudio = (p: IconProps) => (
     <path d="M10 9.5v5l4.5-2.5z" />
   </Svg>
 );
+/** Developer tools: angle brackets. */
+export const IconCode = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 8l-4 4 4 4M15 8l4 4-4 4" />
+  </Svg>
+);
+export const IconTrash = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+  </Svg>
+);
 /** Live: a recording dot in a broadcast ring. */
 export const IconLive = (p: IconProps) => (
   <Svg {...p}>

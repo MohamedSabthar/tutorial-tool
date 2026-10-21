@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -57,6 +58,17 @@ describe('engine RPC', () => {
     const opened = await client.call('project.open', { slug: p.slug });
     expect(opened.project.title).toBe('Create an HTTP service!');
     expect(opened.timeline.version).toBe(1);
+  });
+
+  it('deletes a project: its folder goes, the removal is committed, and it leaves the list', async () => {
+    const p = await client.call('project.create', { title: 'To delete', product: 'wso2-integrator' });
+    expect(existsSync(path.join(workspace, 'projects', p.slug))).toBe(true);
+    const r = await client.call('project.delete', { slug: p.slug });
+    expect(r.deleted).toBe(true);
+    expect(r.commit).toMatch(/^[0-9a-f]{7,}$/);
+    expect(existsSync(path.join(workspace, 'projects', p.slug))).toBe(false);
+    expect((await client.call('project.list', {})).some((x) => x.slug === p.slug)).toBe(false);
+    await expect(client.call('project.delete', { slug: p.slug })).rejects.toThrow(RpcError);
   });
 
   it('validates params and reports unknown projects', async () => {

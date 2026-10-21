@@ -522,6 +522,13 @@ export class AgentManager {
     return s;
   }
 
+  /** Ends and forgets a project's session (its project is being deleted). */
+  async remove(slug: string): Promise<void> {
+    const s = this.sessions.get(slug);
+    this.sessions.delete(slug);
+    await s?.close();
+  }
+
   async closeAll(): Promise<void> {
     await Promise.all([...this.sessions.values()].map((s) => s.close()));
   }

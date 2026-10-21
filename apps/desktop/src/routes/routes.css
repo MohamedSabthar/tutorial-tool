@@ -27,9 +27,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Developer pages (dev builds only): a small icon button, out of the way. */
 .app-frame-dev {
-  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
   color: var(--ui-gray-600);
+  opacity: 0.6;
+}
+.app-frame-dev:hover,
+.app-frame-dev:focus-visible {
+  opacity: 1;
+  background: var(--ui-gray-50);
+  color: var(--ui-navy);
 }
 .app-frame-footer {
   flex: none;
@@ -1269,4 +1281,63 @@
 .setup-more {
   font-size: 12px;
   color: var(--ui-navy);
+}
+
+/* Deleting a project from its card */
+.project-card-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.project-card-wrap > .project-card {
+  flex: 1 1 auto;
+}
+.project-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ui-gray-300);
+  border-radius: 8px;
+  background: var(--ui-white);
+  color: var(--ui-navy);
+  cursor: pointer;
+  opacity: 0;
+}
+.project-card-wrap:hover .project-delete,
+.project-delete:focus-visible {
+  opacity: 1;
+}
+.project-delete:hover {
+  color: var(--ui-red-ink);
+  border-color: var(--ui-red-ink);
+}
+.project-confirm {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  background: var(--ui-white);
+  border: 1px solid var(--ui-red-ink);
+  border-radius: var(--ui-radius-lg);
+  font-size: 13px;
+  color: var(--ui-gray-600);
+}
+.project-confirm strong {
+  color: var(--ui-navy);
+  font-size: 15px;
+}
+.project-confirm-error {
+  color: var(--ui-red-ink);
+}
+.project-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { briefTitle, type ProjectSummary, type RpcResult } from '@studio/core';
-import { Chip, IconArrowRight, Rule, Select, type ChipTone } from '@studio/ui';
+import { Button, Chip, IconArrowRight, IconTrash, Rule, Select, type ChipTone } from '@studio/ui';
 import { useEngine } from '../../engine';
 import { GetStarted } from '../settings/SetupChecklist';
 import { AppFrame, formatDuration, navigate } from '../frame';
@@ -54,6 +54,24 @@ export function ProjectsScreen() {
   const [topic, setTopic] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The project whose delete is being confirmed. */
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const remove = async (slug: string) => {
+    if (!client) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await client.call('project.delete', { slug });
+      setConfirming(null);
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -187,31 +205,74 @@ export function ProjectsScreen() {
                 const chip = projectChip(p);
                 const productName = products.find((x) => x.id === p.product)?.name ?? p.product;
                 return (
-                  <a key={p.slug} href={`#${projectRoute(p)}`} className="project-card">
-                    <div className="project-thumb">
-                      {p.poster ? (
-                        <img src={media(p.poster)} alt="" loading="lazy" />
-                      ) : (
-                        <>
-                          <span className="project-thumb-line" style={{ width: '44%', top: 12 }} />
-                          <span
-                            className="project-thumb-line"
-                            style={{ width: '28%', top: 26, opacity: 0.6 }}
-                          />
-                        </>
-                      )}
-                      <span className="project-len ui-mono">{formatDuration(p.duration)}</span>
-                    </div>
-                    <div className="project-body">
-                      <span className="project-title">{p.title}</span>
-                      <div className="project-meta">
-                        <Chip tone={chip.tone}>{chip.label}</Chip>
-                        <span>
-                          {productName} · {shortDate(p.updatedAt)}
-                        </span>
+                  <div key={p.slug} className="project-card-wrap">
+                    <a href={`#${projectRoute(p)}`} className="project-card">
+                      <div className="project-thumb">
+                        {p.poster ? (
+                          <img src={media(p.poster)} alt="" loading="lazy" />
+                        ) : (
+                          <>
+                            <span className="project-thumb-line" style={{ width: '44%', top: 12 }} />
+                            <span
+                              className="project-thumb-line"
+                              style={{ width: '28%', top: 26, opacity: 0.6 }}
+                            />
+                          </>
+                        )}
+                        <span className="project-len ui-mono">{formatDuration(p.duration)}</span>
                       </div>
-                    </div>
-                  </a>
+                      <div className="project-body">
+                        <span className="project-title">{p.title}</span>
+                        <div className="project-meta">
+                          <Chip tone={chip.tone}>{chip.label}</Chip>
+                          <span>
+                            {productName} · {shortDate(p.updatedAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </a>
+                    {confirming === p.slug ? (
+                      <div className="project-confirm" role="alertdialog" aria-label={`Delete ${p.title}?`}>
+                        <strong>Delete “{p.title}”?</strong>
+                        <span>
+                          Its folder, takes and voice-over are removed from the workspace. The workspace's git
+                          history keeps a copy.
+                        </span>
+                        {deleteError && (
+                          <span role="alert" className="project-confirm-error">
+                            {deleteError}
+                          </span>
+                        )}
+                        <div className="project-confirm-actions">
+                          <Button size="sm" onClick={() => setConfirming(null)} disabled={deleting}>
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            autoFocus
+                            disabled={deleting}
+                            onClick={() => void remove(p.slug)}
+                          >
+                            {deleting ? 'Deleting…' : 'Delete'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="project-delete"
+                        aria-label={`Delete ${p.title}`}
+                        title="Delete this tutorial"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setConfirming(p.slug);
+                        }}
+                      >
+                        <IconTrash size={16} />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
