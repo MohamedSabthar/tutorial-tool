@@ -48,7 +48,7 @@ import { secretStore } from './secrets';
 import { TtsService } from './tts';
 import { Voiceover } from './vo';
 import { readEvents, TimingFit } from './timing';
-import { clearPace, voicePace } from './pace';
+import { clearPace, readPace, voicePace } from './pace';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
 import { annotationMessage } from './agent/annotationContext';
@@ -395,6 +395,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         return `Voiced ${r.lines} line${r.lines === 1 ? '' : 's'} (${r.seconds.toFixed(1)} s) to pace the take`;
       },
       clear: (slug) => clearPace(store.dir(slug)),
+      read: (slug) => readPace(store.dir(slug)),
     },
     costLimit: async () => (await store.readSettings()).maxCostPerRun,
     git: knowledge,

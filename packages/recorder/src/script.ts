@@ -119,6 +119,8 @@ export interface RunOptions {
   captureTargets?: boolean;
   /** Voice-first recording: pace steps and cues to this voiced narration (dry runs check the cues). */
   pace?: Pace;
+  /** Keep a JPEG of the window at the end of each step here (`<step id>.jpg`). */
+  stepShotsDir?: string;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
@@ -240,6 +242,19 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       timeout: opts.mode === 'dry' ? 10_000 : 20_000,
       captureTargets: opts.captureTargets ?? false,
       ...(opts.pace ? { pace: opts.pace } : {}),
+      ...(opts.stepShotsDir
+        ? {
+            onStepDone: async (stepId: string) => {
+              // Let the step's last change settle before the still.
+              await page.waitForTimeout(400);
+              await page.screenshot({
+                path: path.join(opts.stepShotsDir!, `${stepId}.jpg`),
+                type: 'jpeg',
+                quality: 75,
+              });
+            },
+          }
+        : {}),
     });
     await tut.start({
       product: product.id,

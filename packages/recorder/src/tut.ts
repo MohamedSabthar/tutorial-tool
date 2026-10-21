@@ -41,6 +41,8 @@ export interface TutOptions {
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
   /** The voiced narration to pace steps and cues to. */
   pace?: Pace;
+  /** Called as each step ends (dry runs keep a screenshot of it for the storyboard). */
+  onStepDone?: (stepId: string) => Promise<void>;
 }
 
 export interface LiveAction {
@@ -153,6 +155,7 @@ export class Tut {
       await fn();
       // The step lasts until its line has been spoken, plus a short tail.
       if (pace && this.line) await this.until(this.line.start + this.line.pace.duration + pace.tail);
+      await this.opts.onStepDone?.(id).catch(() => {});
     } catch (e) {
       if (e instanceof StepFailedError) throw e;
       const page = this.opts.page;

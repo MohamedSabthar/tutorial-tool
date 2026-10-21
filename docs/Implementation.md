@@ -99,6 +99,12 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [ ] 8.2 Sidecar packaging and app bundle
   - [ ] 8.3 Settings, secrets and onboarding
 - [ ] **Phase 9 (later): Web console target**
+- [ ] **Phase 10: Production quality**
+  - [ ] 10.1 Research-first flow, one storyboard review with screens, voice alignment, auto re-take
+  - [ ] 10.2 Pronunciation dictionary
+  - [ ] 10.3 16:9 recording at 2×
+  - [ ] 10.4 Clean product window on every take
+  - [ ] 10.5 Final QA of the rendered video
 
 ---
 
@@ -720,6 +726,50 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
 
 ---
 
+## Phase 10: Production quality
+
+The goal is a video a viewer can't tell from a hand-made one. Every step is grounded in what the product really shows, the voice is right, the picture is sharp, and nothing distracting is on screen.
+
+### 10.1 Research-first flow
+**Goal:** nothing is written or reviewed before it's known. The order is research → script → dry runs → narration and the storyboard review → voice-over → aligning to the voice → record → post → retro.
+- **Plan:** the agent researches what the skill doesn't cover (`inspect_ui`), then plans steps without narration. The old storyboard gate before scripting becomes the optional "plan review", off by default.
+- **Dry runs:** they keep a screenshot of every step (`.studio/shots/<step>.jpg`).
+- **Storyboard review (the narration gate):** each step shows its screenshot, what it does on screen and its narration. You edit, or tune with the agent.
+- **Align:** after the voice-over, the agent gets each line's ElevenLabs word timings and length next to its step. It adjusts the script (cue words, holds, waits) so actions fit their words. A dry run then checks the cues.
+- **Record:** if any cue is more than 150 ms off its word, the take is recorded again, once.
+
+**Done when:** a new project runs research → … → retro with one review gate, the review shows dry-run screens, and the record stage reports every cue on time.
+
+### 10.2 Pronunciation dictionary
+**Goal:** product words are spoken right. `pronunciations.json` in the workspace maps written terms to spoken forms (`WSO2` → `W S O two`), edited in Settings. Only the voice-over requests use the spoken text; ElevenLabs' word timings are mapped back onto the written words, so cues, captions and docs keep the written form.
+
+**Done when:** "WSO2" is voiced as set, and captions and cues still read "WSO2".
+
+### 10.3 16:9 recording at 2×
+**Goal:** the take fills the 16:9 frame and stays sharp under zooms. Record a fixed 1440×810 window at device scale 2 (2880×1620 frames) instead of the screen's own shape.
+
+**Done when:** a new take is 2880×1620, and the Studio shows it without letterboxing.
+
+### 10.4 Clean product window
+**Goal:** nothing on camera varies between takes or distracts. Notification toasts are hidden while recording (`tut.showToasts()` brings them back for a step that's about them), the profile settings are checked, and the take is checked at the end for dialogs or toasts left on screen.
+
+**Done when:** a take with a product notification shows no toast, and the run summary lists anything left on screen.
+
+### 10.5 Final QA of the rendered video
+**Goal:** problems are found before you watch. A `qa` stage after post-production renders frames at each step and cue, and the agent checks them:
+- overlays covering the target
+- captions over UI
+- dialogs or errors in frame
+- unmasked paths
+- voice running into the next step
+- cue drift
+
+It fixes what it can with timeline patches and reports the rest.
+
+**Done when:** the QA report lists each check per step, and a planted problem (an overlay over the click target) is found and fixed.
+
+---
+
 ## Cross-cutting checklists
 
 **Every step:**
@@ -868,5 +918,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-21 | 8.3 | Settings screen (`#/settings`, the header's Settings icon) with four parts. **Accounts:** the ElevenLabs key (checked with ElevenLabs, kept in the Keychain by the engine); the Claude sign-in is checked only on request (`agent.signInStatus` runs the agent SDK's own `claude auth status` with the agent's environment), because it reads the login item. **Defaults for new tutorials:** voice, auto mode, and a cost limit per pipeline run; before each agent stage the pipeline compares the run's agent cost with the limit, waits at a help gate when it's over, and approving lets the run finish. **Workspace:** the packaged app saves the folder in `~/.tutorial-studio/app.json` and restarts. **Product registry:** `products.json` is now what the recorder launches (`configureProducts`); an entry's `app` or `extensions` sets its launch, and entries without them keep the built-in launch, so existing files that list WSO2 Integrator as an extension don't change how it records. Saves keep unknown fields and are committed. A Get started checklist (`setup.status`: Claude sign-in, ElevenLabs key, workspace, ffmpeg, product app, Chromium, first recording, each with its fix) is in Settings, and on Projects while anything is still missing. `STUDIO_NO_KEYCHAIN=1` and `STUDIO_SECRETS_FILE` keep test engines out of the Keychain | Checked in WebKit against an engine with the Keychain switched off |
 | 2026-10-21 | 7.7 | Narration review gate (on by default; "Before voice-over" in the brief's review gates). After the narrate stage the pipeline waits with the final script on the Storyboard screen. The lines can be edited in place (`editPlan` now works at this gate too). Approve, and if lines were edited, the agent first re-matches the script's cues to the new wording (narration unchanged), then the voice-over runs. Feedback sends the agent a revision request (narration and cues), and the gate opens again. A gate restored after a restart doesn't narrate again; on approval it has every step's cues checked, because the edits made before the restart aren't known | Raised: "Before voice over show the script to confirm and allow to modify or tune (with agent)" |
 | 2026-10-21 | 7.7 | Narration is written only after the research. The plan stage first researches, with `inspect_ui`, every part of the task the product skill doesn't cover, and records it in the skill. It then plans steps and on-screen actions with empty narration. The script stage researches any step still not covered before scripting it. The narrate stage (after a passing dry run) writes each step's narration from what it saw, keeping only wording the user typed into the storyboard. Without voice-first pacing, post-production writes it from the take. The storyboard estimates timing from the actions until there is narration, and the seed tutorial-authoring workflow follows the same order | Raised: "The narration should be written only after the agent does the research for all the steps" |
+| 2026-10-21 | 10.1 | The pipeline is now: research and plan → (optional plan review, off by default) → script → dry run ↔ repair → narrate → **storyboard review** (the narration gate, with each step's dry-run still from `.studio/shots`) → voice-over → **align** → dry run (cues) → record → post → retro. Align is an agent stage that gets each line's length and ElevenLabs' word timings (`word@seconds`) and fits the script to them (cue words, holds, waiting for slow screens) without touching the approved narration. A recording whose cues miss their words by more than 150 ms is recorded again, once; both takes' cue reports stay in the stage summary. Existing briefs keep the gates they were saved with | Built from the user's flow: "research → write script → dry runs … → narration (storyboard review) → voice-over → script aligned with the voice → record → post → retro" |
 | 2026-10-21 | fix | Voice-over model: Eleven v4 (`eleven_v4`, released 2026-09-28) instead of Multilingual v2. Checked against the with-timestamps endpoint: character alignment and `previous_text`/`next_text` work. v4 has no style or speed controls, so it gets only stability and similarity | Raised: "voice sounds too robotic" |
 | 2026-10-17 | fix | Captions can be turned off: `Timeline.showCaptions` (default true), toggled from the Studio's play bar ("Captions on/off", undoable). When off, the Captions overlay isn't drawn in the preview or burned into the export; the cues stay, and SRT/VTT are still exported. A timeline flag rather than deleting the overlay, because rebuilding the auto overlays would add it back | Raised: "allow to toggle off captions" |

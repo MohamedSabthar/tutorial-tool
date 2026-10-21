@@ -69,9 +69,11 @@ export function pipelineSteps(
   return PIPELINE_STAGES.filter((s) =>
     s.stage === 'repair'
       ? ran(history, 'repair')
-      : s.stage === 'narrate' || s.stage === 'voice'
+      : s.stage === 'narrate' || s.stage === 'voice' || s.stage === 'align'
         ? ran(history, s.stage) || state?.status !== 'done'
-        : true,
+        : s.stage === 'storyboard_gate'
+          ? ran(history, s.stage) || !!state?.gates.storyboard
+          : true,
   ).map(({ stage, label }) => {
     const runs = history.filter((h) => h.stage === stage);
     const last = runs.at(-1);

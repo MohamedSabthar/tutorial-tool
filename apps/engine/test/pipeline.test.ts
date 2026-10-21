@@ -208,7 +208,7 @@ describe('PipelineManager', () => {
       },
       [false, true, true],
     );
-    await p.start(slug);
+    await p.start(slug, { storyboard: true });
     await until(() => last().status === 'waiting');
     expect(last()).toMatchObject({ stage: 'storyboard_gate', gate: { kind: 'storyboard' } });
     expect(last().plan?.steps).toHaveLength(2);
@@ -287,6 +287,77 @@ describe('PipelineManager', () => {
     expect(sent.some((t) => t.startsWith('[Pipeline · post-production]'))).toBe(false);
     expect(narration).toMatchObject({ steps: [{ narration: 'Final s1.' }, { narration: 'Final s2.' }] });
     expect(last().paced).toBe(true);
+  });
+
+  it('aligns the script to the word timings after the voice-over, and re-records a drifted take once', async () => {
+    const sent: string[] = [];
+    const modes: string[] = [];
+    const bbox = { x: 0, y: 0, w: 1, h: 1 };
+    const click = (t: number, at: number) => ({
+      kind: 'click',
+      t,
+      stepId: 's1',
+      x: 0,
+      y: 0,
+      target: 'a',
+      bbox,
+      cue: { word: 'Open', at },
+    });
+    let records = 0;
+    const { p } = make(
+      async (p, stage, text) => {
+        sent.push(text.split('\n')[0]!);
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (['script', 'narrate', 'align'].includes(stage)) done(p, stage as PipelineStage);
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [],
+      undefined,
+      {
+        pace: {
+          blocker: async () => null,
+          voice: async () => 'Voiced',
+          clear: async () => {},
+          read: async () => ({
+            leadIn: 0.25,
+            clickGap: 0.6,
+            tail: 0.35,
+            steps: {
+              s1: {
+                text: 'Open it.',
+                duration: 1,
+                words: [
+                  { w: 'Open', start: 0, end: 0.4 },
+                  { w: 'it.', start: 0.45, end: 0.9 },
+                ],
+              },
+            },
+          }),
+        },
+        runProject: async (_slug, mode) => {
+          modes.push(mode);
+          // The first take misses its cue by 0.4 s; the second lands on it.
+          const events =
+            mode === 'record'
+              ? [click(++records === 1 ? 1.4 : 1.02, 1), { kind: 'step-end' }]
+              : [{ kind: 'step-end' }];
+          return { passed: true, events, failure: null, take: null } as never;
+        },
+      },
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'dry', 'record', 'record']);
+    const align = sent.find((t) => t.startsWith('[Pipeline · align]'));
+    expect(align).toBeDefined();
+    expect(
+      last()
+        .history.filter((h) => h.stage === 'record')
+        .map((h) => h.summary),
+    ).toEqual([expect.stringContaining('0 of 1 cues on time'), expect.stringContaining('1 cue on time')]);
   });
 
   it('stops for the narration review: edits make the agent re-match cues, feedback revises', async () => {
@@ -439,7 +510,7 @@ describe('PipelineManager', () => {
         done(p, 'plan');
       }
     }, []);
-    await p.start(slug);
+    await p.start(slug, { storyboard: true });
     await until(() => last().status === 'waiting');
     await p.revise(slug, 'Add a step that tests the endpoint');
     await until(() => last().status === 'waiting' && last().gate?.title === 'Review the revised storyboard');
@@ -464,7 +535,7 @@ describe('PipelineManager', () => {
     await expect(
       p.editPlan(slug, [{ op: 'step', id: 's1', field: 'narration', value: 'x' }]),
     ).rejects.toThrow(/storyboard or narration review/);
-    await p.start(slug);
+    await p.start(slug, { storyboard: true });
     await until(() => last().status === 'waiting');
     expect(sent[0]).toContain("Don't propose explainers");
     await p.editPlan(slug, [
@@ -485,7 +556,7 @@ describe('PipelineManager', () => {
 
   it('nudges once when a turn ends without stage_done, then asks the user for help', async () => {
     const { p, sent } = make(() => {}, []);
-    await p.start(slug);
+    await p.start(slug, { storyboard: true });
     await until(() => last().status === 'waiting');
     expect(sent.filter((t) => t.includes('still waiting'))).toHaveLength(1);
     expect(last().gate).toMatchObject({ kind: 'help', stage: 'plan' });
@@ -525,7 +596,7 @@ describe('PipelineManager', () => {
         done(p, 'plan');
       }
     }, []);
-    await p.start(slug);
+    await p.start(slug, { storyboard: true });
     await until(() => last().status === 'waiting');
     await p.stop(slug);
   });

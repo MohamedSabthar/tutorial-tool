@@ -8,6 +8,7 @@ import {
   type AgentEvent,
   type PlanEdit,
   type Gate,
+  type Pace,
   type PipelineStage,
   type Project,
 } from '@studio/core';
@@ -17,6 +18,7 @@ import { cueDrift, driftLine } from '../pace';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
+  alignInstruction,
   narrateInstruction,
   nudge,
   planInstruction,
@@ -51,6 +53,8 @@ export interface PipelineDeps {
     blocker(slug: string): Promise<string | null>;
     voice(slug: string, plan: Plan): Promise<string>;
     clear(slug: string): Promise<void>;
+    /** The voiced lines with their ElevenLabs word timings, for the align stage. */
+    read?(slug: string): Promise<Pace | null>;
   };
   /** The most a run may spend on the agent (US dollars), from Settings; null for no limit. */
   costLimit?(): Promise<number | null>;
@@ -493,6 +497,8 @@ export class PipelineManager {
       errorDetail?: string;
     } | null = null;
     let helpFeedback: string | undefined;
+    /** A paced take with cues off their words is recorded again, once. */
+    let retaken = false;
     while (stage !== 'done') {
       if (live.abort.signal.aborted) throw new Stopped();
       switch (stage) {
@@ -584,6 +590,18 @@ export class PipelineManager {
                 : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}`,
             );
             if (mode === 'dry') await this.set(slug, { repairAttempts: 0 });
+            if (mode === 'record' && paced && !retaken) {
+              const drift = cueDrift(r.events);
+              if (drift.off > 0) {
+                retaken = true;
+                await this.annotate(
+                  slug,
+                  `${drift.off} cue${drift.off === 1 ? '' : 's'} off their words: recording again`,
+                );
+                stage = 'record';
+                break;
+              }
+            }
             stage = mode === 'dry' ? await this.afterDryRun(slug) : 'post';
             break;
           }
@@ -671,8 +689,8 @@ export class PipelineManager {
             const line = await this.deps.pace!.voice(slug, plan);
             await this.end(slug, true, line);
             await this.set(slug, { paced: true });
-            // Check the cues against the voiced narration before recording.
-            stage = 'dry_run';
+            // The agent fits the script to the real lines, then a dry run checks the cues.
+            stage = 'align';
           } catch (e) {
             await this.deps.pace!.clear(slug).catch(() => {});
             await this.end(
@@ -682,6 +700,13 @@ export class PipelineManager {
             );
             stage = 'record';
           }
+          break;
+        }
+        case 'align': {
+          const plan = (await this.get(slug)).plan;
+          const pace = (await this.deps.pace?.read?.(slug).catch(() => null)) ?? null;
+          if (plan && pace) await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace));
+          stage = 'dry_run';
           break;
         }
         case 'post': {

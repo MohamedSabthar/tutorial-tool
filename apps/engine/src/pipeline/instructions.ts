@@ -1,4 +1,4 @@
-import type { Plan } from '@studio/core';
+import type { Pace, Plan } from '@studio/core';
 
 /**
  * The messages the pipeline sends into the agent session, one per agent stage. Each names the
@@ -75,6 +75,34 @@ export function narrateInstruction(plan: Plan): string {
     ].join('\n'),
     plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n'),
     done('narrate'),
+  ].join('\n\n');
+}
+
+/**
+ * After the voice-over: the agent sees each line's real length and ElevenLabs' word timings and
+ * fits the script to them (cues, holds, waits). The approved narration doesn't change.
+ */
+export function alignInstruction(plan: Plan, pace: Pace): string {
+  const steps = plan.steps
+    .map((s) => {
+      const line = pace.steps[s.id];
+      if (!line) return `- ${s.id} ${s.title}: no voice line`;
+      const words = line.words.map((w) => `${w.w}@${w.start.toFixed(1)}`).join(' ');
+      return `- ${s.id} ${s.title} · line ${line.duration.toFixed(1)} s\n  ${words}`;
+    })
+    .join('\n');
+  return [
+    '[Pipeline · align]',
+    `The narration is approved and voiced. Each line below has its length and ElevenLabs' word timings (word@seconds from the start of the line; the line starts ${pace.leadIn} s into its step). The recorder lands a cued action as its word starts, and each step lasts at least its line plus ${pace.tail} s.`,
+    steps,
+    [
+      'Read script.spec.ts and fit it to these timings:',
+      "1. Every cue must be a word of its step's line, in order, placed on the word that names the action.",
+      '2. A pointer move takes 0.2–0.75 s, typing about 14 characters a second, and the product needs time to respond: if an action depends on a screen that is still loading at its word, cue it on a later word or wait for the screen first.',
+      "3. If a line is much longer than its step's actions, add tut.hold after the action the words describe, so the screen the viewer hears about is on screen while it's described. If the actions take much longer than the line, make sure nothing important happens after the line ends without words.",
+      "Don't change the narration (it's approved) or what the script does, and don't record: the pipeline dry-runs the script to check the cues, then records.",
+    ].join('\n'),
+    done('align'),
   ].join('\n\n');
 }
 

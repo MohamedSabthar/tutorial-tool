@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseTimeline, RecorderEvent, RpcError, withTake, type Take } from '@studio/core';
 import { withAutoOverlays } from './autoOverlays';
@@ -56,9 +56,16 @@ export async function runProjectScript(
   const takeId = mode === 'record' ? await store.nextTakeId(slug) : null;
   const takePath = takeId ? `recordings/${takeId}` : null;
   const pace = await readPace(dir);
+  // Dry runs keep a still of each step for the storyboard review.
+  const shots = path.join(dir, '.studio', 'shots');
+  if (mode === 'dry') {
+    await rm(shots, { recursive: true, force: true });
+    await mkdir(shots, { recursive: true });
+  }
   const result = await runTutorial(mod, {
     mode,
     ...(pace ? { pace } : {}),
+    ...(mode === 'dry' ? { stepShotsDir: shots } : {}),
     ...(takePath ? { takeDir: path.join(dir, takePath), takeId: takeId! } : {}),
     captureTargets: false,
     ...cb,

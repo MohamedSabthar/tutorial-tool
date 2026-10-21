@@ -25,8 +25,8 @@ const readBase64 = (file: File) =>
   });
 
 const GATES: { key: keyof Brief['gates']; label: string; ready: boolean }[] = [
-  { key: 'storyboard', label: 'After storyboard', ready: true },
-  { key: 'narration', label: 'Before voice-over', ready: true },
+  { key: 'narration', label: 'Storyboard review', ready: true },
+  { key: 'storyboard', label: 'Plan review first', ready: true },
   { key: 'recording', label: 'After recording', ready: false },
   { key: 'export', label: 'Before export', ready: false },
 ];
@@ -185,7 +185,7 @@ export function BriefScreen({ slug }: { slug: string }) {
       const b = await persist();
       await client.call('pipeline.start', {
         slug,
-        gates: { storyboard: b?.gates.storyboard ?? true, narration: b?.gates.narration ?? true },
+        gates: { storyboard: b?.gates.storyboard ?? false, narration: b?.gates.narration ?? true },
       });
       // Planning comes first: its storyboard is where the user reviews it.
       navigate(`/storyboard/${slug}`);
@@ -528,9 +528,10 @@ export function BriefScreen({ slug }: { slug: string }) {
               <li>
                 Research anything new, then plan the steps{brief?.explainers ? ' and propose explainers' : ''}
               </li>
-              {brief?.gates.storyboard && <li>Storyboard review (your gate)</li>}
-              <li>Write the script and dry-run it</li>
-              <li>Final narration{brief?.gates.narration ? ', your review' : ''}, then the voice-over</li>
+              {brief?.gates.storyboard && <li>Plan review (your gate)</li>}
+              <li>Write the script and dry-run it until every step works</li>
+              <li>Narration{brief?.gates.narration ? ', then the storyboard review (your gate)' : ''}</li>
+              <li>Voice-over, then the script is aligned to it</li>
               <li>Record, paced to the voice-over</li>
               <li>Post-production, then a retrospective that updates the skills</li>
             </ol>

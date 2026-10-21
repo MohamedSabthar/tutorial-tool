@@ -1340,3 +1340,10 @@
   padding-top: 14px;
   border-top: 1px solid var(--ui-gray-300);
 }
+/* The dry run's still of a step, on its storyboard card */
+.sb-shot {
+  width: 100%;
+  max-width: 640px;
+  border: 1px solid var(--ui-gray-300);
+  border-radius: 10px;
+}

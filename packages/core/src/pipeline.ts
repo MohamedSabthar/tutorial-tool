@@ -13,6 +13,7 @@ export const PipelineStage = z.enum([
   'repair',
   'narrate',
   'voice',
+  'align',
   'record',
   'post',
   'retro',
@@ -20,13 +21,14 @@ export const PipelineStage = z.enum([
 export type PipelineStage = z.infer<typeof PipelineStage>;
 
 export const PIPELINE_STAGES: { stage: PipelineStage; label: string }[] = [
-  { stage: 'plan', label: 'Plan the steps' },
-  { stage: 'storyboard_gate', label: 'Storyboard review' },
+  { stage: 'plan', label: 'Research and plan' },
+  { stage: 'storyboard_gate', label: 'Plan review' },
   { stage: 'script', label: 'Write the script' },
   { stage: 'dry_run', label: 'Dry run' },
   { stage: 'repair', label: 'Repair' },
-  { stage: 'narrate', label: 'Final narration and cues' },
+  { stage: 'narrate', label: 'Narration and storyboard review' },
   { stage: 'voice', label: 'Voice-over' },
+  { stage: 'align', label: 'Align to the voice' },
   { stage: 'record', label: 'Record the take' },
   { stage: 'post', label: 'Post-production' },
   { stage: 'retro', label: 'Retrospective' },
@@ -79,8 +81,8 @@ export const Gate = z.object({
 export type Gate = z.infer<typeof Gate>;
 
 export const PipelineGates = z.object({
-  /** Stop after planning so the user can review the steps before anything runs. */
-  storyboard: z.boolean().default(true),
+  /** Stop after planning so the user can review the steps before the script (optional, off by default). */
+  storyboard: z.boolean().default(false),
   /** Stop after the final narration so the user can review and tune it before the voice-over. */
   narration: z.boolean().default(true),
 });
@@ -92,7 +94,7 @@ export const PipelineState = z.object({
   runId: z.string().nullable(),
   startedAt: z.number().nullable(),
   endedAt: z.number().nullable(),
-  gates: PipelineGates.default({ storyboard: true, narration: true }),
+  gates: PipelineGates.default({ storyboard: false, narration: true }),
   gate: Gate.nullable(),
   plan: Plan.nullable(),
   history: z.array(StageRecord).default([]),

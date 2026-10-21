@@ -46,7 +46,9 @@ export function secretStore(
   // STUDIO_NO_KEYCHAIN=1 keeps test engines away from the Keychain (keys go to the file).
   const keychain = opts.keychain ?? (process.platform === 'darwin' && env.STUDIO_NO_KEYCHAIN !== '1');
   const file =
-    opts.file ?? env.STUDIO_SECRETS_FILE ?? path.join(os.homedir(), '.config', 'tutorial-studio', 'secrets.json');
+    opts.file ??
+    env.STUDIO_SECRETS_FILE ??
+    path.join(os.homedir(), '.config', 'tutorial-studio', 'secrets.json');
   const readFileStore = async (): Promise<Record<string, string>> => {
     try {
       return JSON.parse(await readFile(file, 'utf8')) as Record<string, string>;

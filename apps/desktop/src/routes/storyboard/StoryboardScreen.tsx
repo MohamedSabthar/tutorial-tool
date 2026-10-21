@@ -51,7 +51,7 @@ export function storyboardCards(plan: Plan): Card[] {
 }
 
 export function StoryboardScreen({ slug }: { slug: string }) {
-  const { client, state: conn } = useEngine();
+  const { client, state: conn, info } = useEngine();
   const pipe = usePipeline(slug);
   const [project, setProject] = useState<Project | null>(null);
   const [brief, setBrief] = useState<Brief | null>(null);
@@ -76,6 +76,8 @@ export function StoryboardScreen({ slug }: { slug: string }) {
   const plan = st?.plan ?? null;
   /** The narration gate: the final script, reviewed before the voice-over. */
   const narrationGate = st?.status === 'waiting' && st.gate?.kind === 'narration';
+  /** When the last dry run passed: its step stills are on disk (and cache-busted by it). */
+  const shotsAt = st?.history.filter((h) => h.stage === 'dry_run' && h.ok).at(-1)?.endedAt ?? null;
   const reviewing = (st?.status === 'waiting' && st.gate?.kind === 'storyboard') || narrationGate;
   const cards = plan ? storyboardCards(plan) : [];
 
@@ -287,6 +289,14 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                     {formatDuration(c.seconds)}
                   </span>
                 </div>
+                {shotsAt && info && (
+                  <img
+                    className="sb-shot"
+                    alt={`The screen at the end of step ${c.n} in the dry run`}
+                    src={`http://127.0.0.1:${info.port}/media/${slug}/.studio/shots/${c.step.id}.jpg?token=${encodeURIComponent(info.token)}&v=${shotsAt}`}
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                  />
+                )}
                 <label className="sb-label">
                   Narration
                   <TextArea
