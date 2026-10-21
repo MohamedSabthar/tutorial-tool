@@ -12,14 +12,18 @@ click, keystroke and target box to `events.jsonl`, which drives the cursor, zoom
 
 ## Workflow
 
-1. **Plan.** Turn the brief into 3–8 steps. One step is one idea the viewer can follow
-   (e.g. "Create an HTTP service at /greeting"), usually 1–4 actions.
-2. **Read the product skill** (e.g. `wso2-integrator`) and reuse its page objects. Only use a raw
+1. **Read the product skill** (e.g. `wso2-integrator`) and reuse its page objects. Only use a raw
    locator when no page object covers the action, then add it to the skill afterwards.
-3. **Write `script.spec.ts`** from the template below.
-4. **Dry run** with `run_script({ mode: 'dry' })`. Fix and repeat until it passes. If it fails
+2. **Research what the skill doesn't cover** with `inspect_ui` before planning or scripting it,
+   and write what you find into the skill. Never plan, script or narrate a screen you haven't seen.
+3. **Plan.** Turn the brief into 3–8 steps. One step is one idea the viewer can follow
+   (e.g. "Create an HTTP service at /greeting"), usually 1–4 actions. Leave the narration empty:
+   it's written after the dry run, when every step is known.
+4. **Write `script.spec.ts`** from the template below.
+5. **Dry run** with `run_script({ mode: 'dry' })`. Fix and repeat until it passes. If it fails
    because the UI is different from the skill, follow the `skill-maintenance` skill.
-5. **Record** with `run_script({ mode: 'record' })` only after a passing dry run.
+6. **Narrate** each step from what the dry run showed, and cue the actions (see Voice-first pacing).
+7. **Record** with `run_script({ mode: 'record' })` only after a passing dry run.
 
 ## Script template
 

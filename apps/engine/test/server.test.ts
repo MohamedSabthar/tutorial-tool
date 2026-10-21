@@ -71,6 +71,19 @@ describe('engine RPC', () => {
     await expect(client.call('project.delete', { slug: p.slug })).rejects.toThrow(RpcError);
   });
 
+  it('checks the Claude paths in Settings, makes them absolute, and clears them', async () => {
+    await expect(client.call('settings.update', { claudeExecutable: '/no/such/claude' })).rejects.toThrow(
+      /isn't an executable file/,
+    );
+    await expect(client.call('settings.update', { claudeConfigDir: '/no/such/dir' })).rejects.toThrow(
+      /isn't a folder/,
+    );
+    const s = await client.call('settings.update', { claudeExecutable: '/bin/sh', claudeConfigDir: '~' });
+    expect(s).toMatchObject({ claudeExecutable: '/bin/sh', claudeConfigDir: os.homedir() });
+    const cleared = await client.call('settings.update', { claudeExecutable: null, claudeConfigDir: null });
+    expect(cleared).toMatchObject({ claudeExecutable: null, claudeConfigDir: null });
+  });
+
   it('validates params and reports unknown projects', async () => {
     await expect(client.call('project.create', { title: '' } as never)).rejects.toThrow(RpcError);
     await expect(client.call('project.open', { slug: 'missing' })).rejects.toMatchObject({

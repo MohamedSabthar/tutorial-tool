@@ -26,6 +26,7 @@ const readBase64 = (file: File) =>
 
 const GATES: { key: keyof Brief['gates']; label: string; ready: boolean }[] = [
   { key: 'storyboard', label: 'After storyboard', ready: true },
+  { key: 'narration', label: 'Before voice-over', ready: true },
   { key: 'recording', label: 'After recording', ready: false },
   { key: 'export', label: 'Before export', ready: false },
 ];
@@ -182,7 +183,10 @@ export function BriefScreen({ slug }: { slug: string }) {
       if (!client || !brief) return;
       if (!brief.goal.trim()) throw new Error('Say what the viewer should learn first.');
       const b = await persist();
-      await client.call('pipeline.start', { slug, gates: { storyboard: b?.gates.storyboard ?? true } });
+      await client.call('pipeline.start', {
+        slug,
+        gates: { storyboard: b?.gates.storyboard ?? true, narration: b?.gates.narration ?? true },
+      });
       // Planning comes first: its storyboard is where the user reviews it.
       navigate(`/storyboard/${slug}`);
     });
@@ -512,8 +516,8 @@ export function BriefScreen({ slug }: { slug: string }) {
                   {!goal.trim()
                     ? 'Describe the goal to see which notes apply.'
                     : relevant.length
-                      ? `${relevant.length} note${relevant.length === 1 ? ' matches' : 's match'} this goal. Steps outside ${relevant.length === 1 ? 'it' : 'them'} need research during the dry run.`
-                      : 'No notes match this goal yet. Expect research during the dry run.'}
+                      ? `${relevant.length} note${relevant.length === 1 ? ' matches' : 's match'} this goal. Steps outside ${relevant.length === 1 ? 'it' : 'them'} are researched in the product before planning.`
+                      : 'No notes match this goal yet. The agent researches it in the product before planning.'}
                 </span>
               </>
             )}
@@ -521,10 +525,12 @@ export function BriefScreen({ slug }: { slug: string }) {
 
           <Panel title="What happens next" tone="dark">
             <ol className="brief-next">
-              <li>Plan the steps{brief?.explainers ? ' and propose explainers' : ''}</li>
+              <li>
+                Research anything new, then plan the steps{brief?.explainers ? ' and propose explainers' : ''}
+              </li>
               {brief?.gates.storyboard && <li>Storyboard review (your gate)</li>}
               <li>Write the script and dry-run it</li>
-              <li>Final narration and voice-over</li>
+              <li>Final narration{brief?.gates.narration ? ', your review' : ''}, then the voice-over</li>
               <li>Record, paced to the voice-over</li>
               <li>Post-production, then a retrospective that updates the skills</li>
             </ol>

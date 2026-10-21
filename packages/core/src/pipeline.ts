@@ -70,7 +70,7 @@ export type StageRecord = z.infer<typeof StageRecord>;
 export const Gate = z.object({
   /** The stage that is waiting. */
   stage: PipelineStage,
-  kind: z.enum(['storyboard', 'help', 'knowledge']),
+  kind: z.enum(['storyboard', 'narration', 'help', 'knowledge']),
   title: z.string(),
   text: z.string(),
   /** For knowledge gates: the uncommitted changes to CLAUDE.md and skills (unified diff). */
@@ -81,6 +81,8 @@ export type Gate = z.infer<typeof Gate>;
 export const PipelineGates = z.object({
   /** Stop after planning so the user can review the steps before anything runs. */
   storyboard: z.boolean().default(true),
+  /** Stop after the final narration so the user can review and tune it before the voice-over. */
+  narration: z.boolean().default(true),
 });
 
 export const PipelineState = z.object({
@@ -90,7 +92,7 @@ export const PipelineState = z.object({
   runId: z.string().nullable(),
   startedAt: z.number().nullable(),
   endedAt: z.number().nullable(),
-  gates: PipelineGates.default({ storyboard: true }),
+  gates: PipelineGates.default({ storyboard: true, narration: true }),
   gate: Gate.nullable(),
   plan: Plan.nullable(),
   history: z.array(StageRecord).default([]),

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { ClaudeSignIn, SetupItem } from '@studio/core';
-import { agentEnv } from './agent/session';
+import { claudeEnv, type ClaudeChoice } from './agent/session';
 import type { ProjectStore } from './projects';
 import type { ProductsRegistry } from './productsFile';
 import { browserStatus } from './runtime';
@@ -38,9 +38,9 @@ let lastSignIn: ClaudeSignIn | null = null;
  * will use (its CLAUDE_CONFIG_DIR). Reading it may touch the login keychain item, so it only
  * runs when the user asks.
  */
-export async function claudeSignIn(): Promise<ClaudeSignIn> {
-  const env = agentEnv() as NodeJS.ProcessEnv;
-  const { code, out } = await run(claudeBinary(), ['auth', 'status'], env);
+export async function claudeSignIn(choice: ClaudeChoice | null = null): Promise<ClaudeSignIn> {
+  const env = claudeEnv(choice) as NodeJS.ProcessEnv;
+  const { code, out } = await run(choice?.executable ?? claudeBinary(), ['auth', 'status'], env);
   try {
     const s = JSON.parse(out.slice(out.indexOf('{'))) as {
       loggedIn?: boolean;

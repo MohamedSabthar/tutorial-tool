@@ -35,6 +35,31 @@ import { registerSharedModules } from './studio/shared';
 
 registerSharedModules();
 
+/** A focused element that Backspace edits (not a read-only or disabled field). */
+function editable(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLTextAreaElement) return !el.readOnly && !el.disabled;
+  if (el instanceof HTMLInputElement)
+    return (
+      !el.readOnly &&
+      !el.disabled &&
+      ['text', 'search', 'email', 'url', 'password', 'number', 'tel', ''].includes(el.type)
+    );
+  return false;
+}
+
+// The macOS webview goes back in history on Backspace outside a text field, which jumps to the
+// previous screen. Backspace only edits text here, or deletes what the screen has selected
+// (the Studio's own shortcut still sees the key).
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key === 'Backspace' && !editable(e.target)) e.preventDefault();
+  },
+  { capture: true },
+);
+
 const routes: DevRoute[] = [
   { path: '/packages', step: '0.1', label: 'Packages', render: () => <PackagesPage /> },
   { path: '/timeline', step: '0.2', label: 'Timeline core', render: () => <TimelinePlayground /> },

@@ -65,9 +65,10 @@ import { Library } from './library';
 import { Explainers } from './explainers';
 import { checkScene } from './sceneCheck';
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { constants as fsConstants, existsSync } from 'node:fs';
 import {
   access,
+  stat,
   readdir,
   mkdir as mkdirp,
   readFile as readFileP,
@@ -109,6 +110,31 @@ export interface Engine {
 
 type Handlers = { [M in RpcMethod]: (params: never) => Promise<RpcResult<M>> };
 
+/** `~/x` → the home folder. */
+const expandHome = (p: string) => (p === '~' || p.startsWith('~/') ? path.join(os.homedir(), p.slice(1)) : p);
+
+/** Settings → Claude: the executable must run, the config folder must exist (both made absolute). */
+async function checkClaudePaths(patch: Partial<StudioSettings>): Promise<Partial<StudioSettings>> {
+  const out = { ...patch };
+  if (patch.claudeExecutable) {
+    const file = path.resolve(expandHome(patch.claudeExecutable.trim()));
+    try {
+      await access(file, fsConstants.X_OK);
+      if (!(await stat(file)).isFile()) throw new Error('not a file');
+    } catch {
+      throw new RpcError(`${file} isn't an executable file`, 'bad_request');
+    }
+    out.claudeExecutable = file;
+  }
+  if (patch.claudeConfigDir) {
+    const dir = path.resolve(expandHome(patch.claudeConfigDir.trim()));
+    if (!(await stat(dir).catch(() => null))?.isDirectory())
+      throw new RpcError(`${dir} isn't a folder`, 'bad_request');
+    out.claudeConfigDir = dir;
+  }
+  return out;
+}
+
 const dataUrl = (png: Buffer) => `data:image/png;base64,${png.toString('base64')}`;
 
 export async function startEngine(opts: EngineOptions): Promise<Engine> {
@@ -133,6 +159,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const agents: AgentManager = new AgentManager({
     projectDir: (slug) => store.dir(slug),
     permissionMode: async (slug) => ((await store.readBrief(slug)).autoMode ? 'auto' : 'default'),
+    claude: async () => {
+      const s = await store.readSettings();
+      return { executable: s.claudeExecutable, configDir: s.claudeConfigDir };
+    },
     workspaceDir: opts.workspace,
     mcpServers: (slug) =>
       studioServer({
@@ -415,7 +445,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       await store.open(slug);
       return pipeline.get(slug);
     },
-    'pipeline.start': async ({ slug, gates }: { slug: string; gates?: { storyboard?: boolean } }) => {
+    'pipeline.start': async ({
+      slug,
+      gates,
+    }: {
+      slug: string;
+      gates?: { storyboard?: boolean; narration?: boolean };
+    }) => {
       await workspace.ensure();
       return pipeline.start(slug, gates ?? {});
     },
@@ -784,7 +820,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       packaged: process.env.STUDIO_PACKAGED === '1',
     }),
     'settings.update': async (patch: Partial<StudioSettings>) => ({
-      ...(await store.updateSettings(patch)),
+      ...(await store.updateSettings(await checkClaudePaths(patch))),
       workspace: opts.workspace,
       packaged: process.env.STUDIO_PACKAGED === '1',
     }),
@@ -795,7 +831,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return r;
     },
     'setup.status': async () => setupStatus({ store, workspace, tts, products }),
-    'agent.signInStatus': async () => claudeSignIn(),
+    'agent.signInStatus': async () => {
+      const s = await store.readSettings();
+      return claudeSignIn({ executable: s.claudeExecutable, configDir: s.claudeConfigDir });
+    },
     'project.record': async ({ slug, mode }: { slug: string; mode: 'dry' | 'record' }) => {
       const r = await runner.runProject(slug, mode);
       if (r.take) {

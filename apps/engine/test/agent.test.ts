@@ -256,6 +256,29 @@ describe('AgentSession', () => {
     await b.close();
   });
 
+  it('runs the Claude Code and config folder chosen in Settings', async () => {
+    const calls: Options[] = [];
+    const a = new AgentSession('demo', {
+      ...host(fakeQuery([[init('s-8'), result(0)]], calls)),
+      claude: async () => ({ executable: '/opt/claude/bin/claude', configDir: '/Users/me/.claude-work' }),
+    });
+    await a.send('hello');
+    await until(() => calls.length > 0);
+    expect(calls[0]?.pathToClaudeCodeExecutable).toBe('/opt/claude/bin/claude');
+    expect(calls[0]?.env?.CLAUDE_CONFIG_DIR).toBe('/Users/me/.claude-work');
+    await a.close();
+    const calls2: Options[] = [];
+    const b = new AgentSession('demo2', {
+      ...host(fakeQuery([[init('s-9'), result(0)]], calls2)),
+      claude: async () => ({ executable: null, configDir: null }),
+    });
+    await b.send('hello');
+    await until(() => calls2.length > 0);
+    expect(calls2[0]?.pathToClaudeCodeExecutable).toBeUndefined();
+    expect(calls2[0]?.env?.CLAUDE_CONFIG_DIR).toBe(process.env.CLAUDE_CONFIG_DIR);
+    await b.close();
+  });
+
   it('recovers when the generator throws: the next message starts the session again', async () => {
     const calls: Options[] = [];
     const a = new AgentSession(

@@ -7,7 +7,7 @@ export function pipelineTools(ctx: ToolContext) {
   return [
     tool(
       'save_plan',
-      'Save the tutorial plan for the storyboard review: a one-line summary, the steps (id s1, s2, …, a short imperative title, what happens on screen, draft narration), and optional proposed explainers ({after: step id or "start", idea}). Replaces the previous plan.',
+      'Save the tutorial plan: a one-line summary, the steps (id s1, s2, …, a short imperative title, what happens on screen, and narration once the narrate stage asks for it: leave it empty when planning), and optional proposed explainers ({after: step id or "start", idea}). Replaces the previous plan.',
       {
         summary: z.string().max(600).optional(),
         steps: z.array(

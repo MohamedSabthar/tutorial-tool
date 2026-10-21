@@ -117,7 +117,7 @@ describe('PipelineManager', () => {
       [true, true],
       git,
     );
-    await p.start(slug, { storyboard: false });
+    await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'done');
     expect(commits).toEqual(['http-service: Resource Path renamed [null]']);
     expect(last().history.find((h) => h.stage === 'script')?.summary).toContain('abc1234');
@@ -153,7 +153,7 @@ describe('PipelineManager', () => {
       [true, true],
       git,
     );
-    await p.start(slug, { storyboard: false });
+    await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'waiting');
     expect(last().gate).toMatchObject({
       kind: 'knowledge',
@@ -267,7 +267,7 @@ describe('PipelineManager', () => {
         },
       },
     );
-    await p.start(slug, { storyboard: false });
+    await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'done');
     expect(modes).toEqual(['dry', 'dry', 'record']);
     expect(calls).toEqual(['clear', 'voice Final s1. Final s2.']);
@@ -287,6 +287,51 @@ describe('PipelineManager', () => {
     expect(sent.some((t) => t.startsWith('[Pipeline · post-production]'))).toBe(false);
     expect(narration).toMatchObject({ steps: [{ narration: 'Final s1.' }, { narration: 'Final s2.' }] });
     expect(last().paced).toBe(true);
+  });
+
+  it('stops for the narration review: edits make the agent re-match cues, feedback revises', async () => {
+    const sentStages: string[] = [];
+    const { p } = make(
+      async (p, stage) => {
+        sentStages.push(stage);
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'narrate' || stage === 'narrate revision' || stage === 'narrate cues') {
+          if (stage === 'narrate')
+            await p.savePlan(slug, {
+              ...PLAN,
+              steps: PLAN.steps.map((x) => ({ ...x, narration: `Line ${x.id}.` })),
+            });
+          done(p, 'narrate');
+        } else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true, true],
+      undefined,
+      {
+        pace: { blocker: async () => null, voice: async () => 'Voiced', clear: async () => {} },
+        voiceover: async () => null,
+      },
+    );
+    await p.start(slug, { storyboard: false });
+    await until(() => last().status === 'waiting');
+    expect(last().gate).toMatchObject({ stage: 'narrate', kind: 'narration' });
+    expect(last().gate!.text).toMatch(/^2 lines/);
+
+    await p.revise(slug, 'Shorter, please.');
+    await until(() => sentStages.includes('narrate revision') && last().status === 'waiting');
+
+    await p.editPlan(slug, [{ op: 'step', id: 's2', field: 'narration', value: 'My own words.' }]);
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    expect(sentStages.filter((x) => x.startsWith('narrate'))).toEqual([
+      'narrate',
+      'narrate revision',
+      'narrate cues',
+    ]);
+    expect(last().history.map((h) => h.stage)).toContain('voice');
   });
 
   it('voices a paced take before the agent adds explainers, then voices the explainers', async () => {
@@ -312,7 +357,7 @@ describe('PipelineManager', () => {
         },
       },
     );
-    await p.start(slug, { storyboard: false });
+    await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'done');
     expect(order).toEqual(['voice', 'agent', 'voice']);
   });
@@ -333,7 +378,7 @@ describe('PipelineManager', () => {
       undefined,
       { costLimit: async () => 2 },
     );
-    await p.start(slug, { storyboard: false });
+    await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'waiting');
     expect(last().gate).toMatchObject({
       stage: 'script',
@@ -371,7 +416,7 @@ describe('PipelineManager', () => {
           },
         },
       );
-      await p.start(slug, { storyboard: false });
+      await p.start(slug, { storyboard: false, narration: false });
       await until(() => last().status === 'done');
       expect(modes).toEqual(['dry', 'record']);
       const history = last().history;
@@ -418,7 +463,7 @@ describe('PipelineManager', () => {
     );
     await expect(
       p.editPlan(slug, [{ op: 'step', id: 's1', field: 'narration', value: 'x' }]),
-    ).rejects.toThrow(/storyboard review/);
+    ).rejects.toThrow(/storyboard or narration review/);
     await p.start(slug);
     await until(() => last().status === 'waiting');
     expect(sent[0]).toContain("Don't propose explainers");
@@ -459,7 +504,7 @@ describe('PipelineManager', () => {
       },
       [false, false, false, false],
     );
-    await p.start(slug, { storyboard: false });
+    await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'waiting');
     expect(last().gate).toMatchObject({
       kind: 'help',

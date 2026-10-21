@@ -22,6 +22,8 @@ import {
   planInstruction,
   postInstruction,
   repairInstruction,
+  reviseNarrationInstruction,
+  syncCuesInstruction,
   retroInstruction,
   reviseInstruction,
   scriptInstruction,
@@ -199,8 +201,15 @@ export class PipelineManager {
   /** Storyboard edits from the user, while the plan is waiting for review. */
   async editPlan(slug: string, edits: PlanEdit[]): Promise<PipelineState> {
     const state = await this.get(slug);
-    if (!state.plan || state.status !== 'waiting' || state.gate?.kind !== 'storyboard')
-      throw new RpcError('the plan can only be edited during the storyboard review', 'bad_request');
+    if (
+      !state.plan ||
+      state.status !== 'waiting' ||
+      (state.gate?.kind !== 'storyboard' && state.gate?.kind !== 'narration')
+    )
+      throw new RpcError(
+        'the plan can only be edited during the storyboard or narration review',
+        'bad_request',
+      );
     const plan = structuredClone(state.plan);
     for (const e of edits) {
       if (e.op === 'step') {
@@ -615,9 +624,42 @@ export class PipelineManager {
           break;
         }
         case 'narrate': {
-          const plan = (await this.get(slug)).plan;
-          if (!plan) throw new Error('there is no plan to narrate');
-          await this.agentStageWithHelp(slug, live, 'narrate', narrateInstruction(plan));
+          const first = (await this.get(slug)).plan;
+          if (!first) throw new Error('there is no plan to narrate');
+          // A gate restored after a restart comes back with its decision: don't narrate again.
+          if (!pending) await this.agentStageWithHelp(slug, live, 'narrate', narrateInstruction(first));
+          if ((await this.get(slug)).gates.narration) {
+            for (;;) {
+              const before = new Map(
+                ((await this.get(slug)).plan?.steps ?? []).map((x) => [x.id, x.narration]),
+              );
+              const lines = [...before.values()].filter((n) => n.trim());
+              const words = lines.join(' ').split(/\s+/).filter(Boolean).length;
+              const d =
+                pending ??
+                (await this.gate(slug, live, {
+                  stage: 'narrate',
+                  kind: 'narration',
+                  title: 'Review the narration before the voice-over',
+                  text: `${lines.length} line${lines.length === 1 ? '' : 's'}, about ${Math.round(words / 2.5)} s of speech. Edit them in place, or ask the agent to tune them. The voice-over is made from them when you approve.`,
+                }));
+              // Edits made at the gate (also before a restart) compare against what the agent wrote.
+              const agentWrote = pending ? null : before;
+              pending = undefined;
+              if (d.kind === 'revise') {
+                await this.agentStageWithHelp(slug, live, 'narrate', reviseNarrationInstruction(d.feedback));
+                continue;
+              }
+              const plan = (await this.get(slug)).plan!;
+              const edited = plan.steps.filter((x) => !agentWrote || agentWrote.get(x.id) !== x.narration);
+              if (edited.length && agentWrote)
+                await this.agentStageWithHelp(slug, live, 'narrate', syncCuesInstruction(edited));
+              else if (!agentWrote)
+                // After a restart the edits are unknown: check every step's cues.
+                await this.agentStageWithHelp(slug, live, 'narrate', syncCuesInstruction(plan.steps));
+              break;
+            }
+          }
           stage = 'voice';
           break;
         }

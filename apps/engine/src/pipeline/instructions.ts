@@ -12,7 +12,8 @@ export function planInstruction(opts: { explainers: boolean } = { explainers: tr
   return [
     '[Pipeline · plan]',
     "Plan this tutorial. Read the brief in this project's CLAUDE.md (and any files it lists under References) and the product skill, then follow the tutorial-authoring skill to split it into 3–8 steps. Fit the length and style the brief asks for.",
-    `Save the plan with the studio tool save_plan: for each step an id (s1, s2, …), a short imperative title, what happens on screen, and draft narration. ${opts.explainers ? 'Propose explainers only where a concept is easier to show than to click through.' : "Don't propose explainers: the brief asks for a recording only."}`,
+    "Research first: for every part of the task the product skill doesn't already cover (no page object or component note for it, or notes that may be out of date), open the live product with inspect_ui and find the screens and controls involved, and record what you learn in the skill (following skill-maintenance). Plan steps from what you saw, not from guesses.",
+    `Save the plan with the studio tool save_plan: for each step an id (s1, s2, …), a short imperative title, and what happens on screen, naming the controls as they appear. Leave narration empty: it's written after the script has been dry-run, once every step is known. ${opts.explainers ? 'Propose explainers only where a concept is easier to show than to click through.' : "Don't propose explainers: the brief asks for a recording only."}`,
     "Don't write or run the script yet; the user reviews the plan first.",
     done('plan'),
   ].join('\n\n');
@@ -31,6 +32,7 @@ export function scriptInstruction(plan: Plan): string {
   return [
     '[Pipeline · script]',
     "Write script.spec.ts in this project for the approved plan below, following the tutorial-authoring skill: reuse the product skill's page objects, and use exactly these step ids and titles.",
+    "Before you script a step the skill doesn't cover, research it in the live product with inspect_ui (replay up to the step before it) and add page objects or notes for what you find, so the script isn't written from guesses.",
     "You may dry-run it with run_script while you work, but you don't have to: the pipeline dry-runs it as soon as you finish. Don't record.",
     '```json\n' + JSON.stringify(plan.steps, null, 2) + '\n```',
     done('script'),
@@ -67,11 +69,32 @@ export function narrateInstruction(plan: Plan): string {
     '[Pipeline · narrate]',
     'The dry run passed, so you know what the script does on screen. Write the final narration and tie the actions to it: the pipeline voices this narration before recording, and the recorder paces the take to the voice-over.',
     [
-      "1. Write each step's final narration, following the narration style in the tutorial-authoring skill. Start from the plan's narration below: the user reviewed it, so keep their wording unless it no longer matches what happens on screen. Describe the actions in the order the script does them, about 2.5 words per second of action. Save it with save_plan, keeping the step ids, titles and actions.",
+      "1. Write each step's narration now, from what you researched and what the dry run showed on screen, following the narration style in the tutorial-authoring skill. Where the plan below already has narration for a step, the user wrote it in the storyboard: keep their wording unless it no longer matches what happens on screen. Describe the actions in the order the script does them, about 2.5 words per second of action. Save it with save_plan, keeping the step ids, titles and actions.",
       "2. In script.spec.ts, give each action the viewer should see happen on a word a cue: `tut.cue('Create')` right before the call (this works before a page-object call too: its first click or key press takes the cue), or the `cue` option of tut.click, tut.type and tut.press. A cue is a word or short phrase copied from that step's narration, usually the control's name as spoken. Cues in a step follow the narration's order. Actions without a cue run at their own pace, and every step lasts at least its line.",
       "3. Don't change what the script does. Don't record: the pipeline voices the narration, then dry-runs the script to check every cue.",
     ].join('\n'),
     plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n'),
+    done('narrate'),
+  ].join('\n\n');
+}
+
+/** The user asked for changes at the narration gate: revise the narration and keep the cues in step. */
+export function reviseNarrationInstruction(feedback: string): string {
+  return [
+    '[Pipeline · narrate revision]',
+    `The user reviewed the final narration and asked for changes:\n\n${feedback}`,
+    "Update the narration with save_plan (same step ids, titles and actions), following the narration style in the tutorial-authoring skill. Then update the cues in script.spec.ts so every cue is still a word or phrase of its step's narration, in order. Don't change what the script does, and don't record.",
+    done('narrate'),
+  ].join('\n\n');
+}
+
+/** The user edited narration lines at the gate: match the script's cues to them. */
+export function syncCuesInstruction(steps: { id: string; title: string; narration: string }[]): string {
+  return [
+    '[Pipeline · narrate cues]',
+    "The user edited the narration of these steps. Keep their wording exactly: don't call save_plan.",
+    steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n'),
+    "Update the cues in script.spec.ts for these steps so every cue is a word or phrase of the new narration, in order; drop a cue whose word is gone or move it to the word that now names the action. Don't change what the script does, and don't record.",
     done('narrate'),
   ].join('\n\n');
 }
@@ -84,9 +107,9 @@ export function postInstruction(plan: Plan | null = null, opts: { narrated?: boo
       : "The take is recorded. Write the narration for each recorded step: read them with list_steps, then set each step's narration with apply_timeline_patch (replace /steps/<index>/narration).",
     opts.narrated
       ? ''
-      : "Follow the narration style in the tutorial-authoring skill, start from the plan's draft narration, and fit each step's length at about 2.5 words per second.",
-    plan && !opts.narrated
-      ? "The user reviewed this narration in the storyboard and may have edited it; keep their wording unless it doesn't fit the step's length:\n\n" +
+      : "Follow the narration style in the tutorial-authoring skill, describe what the take shows, and fit each step's length at about 2.5 words per second.",
+    plan && !opts.narrated && plan.steps.some((s) => s.narration.trim())
+      ? "The user wrote narration for some steps in the storyboard; keep their wording unless it doesn't fit the step's length:\n\n" +
         plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n')
       : '',
     plan?.explainers.length

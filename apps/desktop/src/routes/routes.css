@@ -19,14 +19,6 @@
 .app-live-chip {
   text-decoration: none;
 }
-.app-frame-path {
-  font-size: 11px;
-  color: var(--ui-gray-600);
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* Developer pages (dev builds only): a small icon button, out of the way. */
 .app-frame-dev {
   width: 24px;
@@ -1340,4 +1332,11 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+.settings-claude {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-gray-300);
 }

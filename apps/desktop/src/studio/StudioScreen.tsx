@@ -453,7 +453,7 @@ export function StudioScreen({ slug }: { slug: string }) {
         }
         actions={
           <>
-            <HeaderStatus path={false} />
+            <HeaderStatus />
             <LinkButton href={`#/brief/${slug}`} title="Goal, audience, voice and the rest of the brief">
               Brief
             </LinkButton>

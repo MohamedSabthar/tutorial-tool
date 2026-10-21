@@ -60,6 +60,8 @@ export type BriefReference = z.infer<typeof BriefReference>;
 
 export const BriefGates = z.object({
   storyboard: z.boolean().default(true),
+  /** Review the final narration before the voice-over. */
+  narration: z.boolean().default(true),
   recording: z.boolean().default(false),
   export: z.boolean().default(true),
 });
@@ -75,7 +77,7 @@ export const Brief = z.object({
   explainers: z.boolean().default(true),
   /** Claude Code's auto mode: a safety classifier approves tool calls and asks only when unsure. */
   autoMode: z.boolean().default(true),
-  gates: BriefGates.default({ storyboard: true, recording: false, export: true }),
+  gates: BriefGates.default({ storyboard: true, narration: true, recording: false, export: true }),
   notes: z.string().max(4000).default(''),
   references: z.array(BriefReference).max(30).default([]),
 });

@@ -322,7 +322,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
         }
         actions={
           <>
-            <HeaderStatus live={false} path={false} />
+            <HeaderStatus live={false} />
             <Button
               disabled={!agentWorking || agent?.state === 'interrupting'}
               onClick={pauseAgent}

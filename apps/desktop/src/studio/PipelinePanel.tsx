@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Button, Chip, GateBanner, Panel, Stepper, Switch, TextArea, type ChipTone } from '@studio/ui';
+import {
+  Button,
+  Chip,
+  GateBanner,
+  LinkButton,
+  Panel,
+  Stepper,
+  Switch,
+  TextArea,
+  type ChipTone,
+} from '@studio/ui';
 import type { PipelineStatus } from '@studio/core';
 import { pipelineSteps, usePipeline } from '../pipeline';
 import { DiffView } from './DiffView';
@@ -21,6 +31,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
   const p = usePipeline(slug);
   const [feedback, setFeedback] = useState('');
   const [storyboardGate, setStoryboardGate] = useState(true);
+  const [narrationGate, setNarrationGate] = useState(true);
   const s = p.state;
   const status = s?.status ?? 'idle';
   const active = status === 'running' || status === 'waiting';
@@ -32,7 +43,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
       {s?.gate && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <GateBanner title={s.gate.title} text={s.gate.text} />
-          {s.gate.kind === 'storyboard' && s.plan && (
+          {(s.gate.kind === 'storyboard' || s.gate.kind === 'narration') && s.plan && (
             <ol
               aria-label="Planned steps"
               style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.45 }}
@@ -51,6 +62,11 @@ export function PipelinePanel({ slug }: { slug: string }) {
               ))}
             </ol>
           )}
+          {s.gate.kind === 'narration' && (
+            <LinkButton size="sm" href={`#/storyboard/${slug}`}>
+              Edit the lines on the storyboard
+            </LinkButton>
+          )}
           {s.gate.kind === 'knowledge' && s.gate.diff && <DiffView diff={s.gate.diff} />}
           <TextArea
             aria-label="Feedback for the agent"
@@ -61,7 +77,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
           />
           <div style={{ display: 'flex', gap: 6 }}>
             <Button size="sm" variant="primary" disabled={!p.ready} onClick={() => void p.approve()}>
-              {s.gate.kind === 'storyboard'
+              {s.gate.kind === 'storyboard' || s.gate.kind === 'narration'
                 ? 'Approve'
                 : s.gate.kind === 'knowledge'
                   ? 'Commit'
@@ -101,12 +117,13 @@ export function PipelinePanel({ slug }: { slug: string }) {
               size="sm"
               variant="primary"
               disabled={!p.ready}
-              onClick={() => void p.start({ storyboard: storyboardGate })}
+              onClick={() => void p.start({ storyboard: storyboardGate, narration: narrationGate })}
               title="Plan, script, dry-run and record this tutorial from its brief (CLAUDE.md)"
             >
               {status === 'idle' ? 'Start from brief' : 'Run again'}
             </Button>
             <Switch label="Storyboard review" checked={storyboardGate} onChange={setStoryboardGate} />
+            <Switch label="Narration review" checked={narrationGate} onChange={setNarrationGate} />
           </>
         )}
       </div>

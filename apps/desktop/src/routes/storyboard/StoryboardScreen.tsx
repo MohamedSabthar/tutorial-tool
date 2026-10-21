@@ -40,7 +40,8 @@ export function storyboardCards(plan: Plan): Card[] {
       kind: 'step',
       n: i + 1,
       step,
-      seconds: Math.max(MIN_STEP_SECONDS, Math.round(narrationSeconds(step.narration))),
+      // Before the narration is written, the on-screen action gives the step's rough length.
+      seconds: Math.max(MIN_STEP_SECONDS, Math.round(narrationSeconds(step.narration || step.action))),
     });
     cards.push(...explainers.filter((e) => e.after === step.id).map(ex));
   });
@@ -73,7 +74,9 @@ export function StoryboardScreen({ slug }: { slug: string }) {
 
   const st = pipe.state;
   const plan = st?.plan ?? null;
-  const reviewing = st?.status === 'waiting' && st.gate?.kind === 'storyboard';
+  /** The narration gate: the final script, reviewed before the voice-over. */
+  const narrationGate = st?.status === 'waiting' && st.gate?.kind === 'narration';
+  const reviewing = (st?.status === 'waiting' && st.gate?.kind === 'storyboard') || narrationGate;
   const cards = plan ? storyboardCards(plan) : [];
 
   /** Sends edits typed since the last flush (on blur, and before approving or revising). */
@@ -117,6 +120,27 @@ export function StoryboardScreen({ slug }: { slug: string }) {
 
   const banner = (() => {
     if (!st) return null;
+    if (narrationGate)
+      return (
+        <GateBanner
+          title="Narration review: check the script before the voice-over"
+          text={`${st.gate?.text ?? ''} Ask for changes on the right to have the agent tune it.`}
+          actions={
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() =>
+                void act(async () => {
+                  await pipe.approve();
+                  openLive(slug);
+                })
+              }
+            >
+              Approve and voice →
+            </Button>
+          }
+        />
+      );
     if (reviewing)
       return (
         <GateBanner
@@ -254,7 +278,11 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                   <span style={{ flex: '1 1 10px' }} />
                   <span
                     className="sb-dur ui-mono"
-                    title="Estimated from the narration at about 150 words per minute"
+                    title={
+                      c.step.narration.trim()
+                        ? 'Estimated from the narration at about 150 words per minute'
+                        : 'Estimated from the on-screen action (the narration is written later)'
+                    }
                   >
                     {formatDuration(c.seconds)}
                   </span>
@@ -264,6 +292,11 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                   <TextArea
                     rows={rowsFor(drafts[`${c.step.id}:narration`] ?? c.step.narration)}
                     readOnly={!reviewing}
+                    placeholder={
+                      narrationGate
+                        ? undefined
+                        : 'Written after the agent has researched and dry-run every step; you review it before the voice-over. Type here to give your own wording.'
+                    }
                     value={drafts[`${c.step.id}:narration`] ?? c.step.narration}
                     onChange={(e) =>
                       edit(`${c.step.id}:narration`, e.target.value, {
@@ -357,14 +390,20 @@ export function StoryboardScreen({ slug }: { slug: string }) {
           </Panel>
           <Panel title="Ask for changes">
             <label htmlFor="sb-feedback" className="brief-muted">
-              The agent revises the storyboard before anything is recorded.
+              {narrationGate
+                ? 'The agent tunes the narration and keeps the script’s cues on the right words.'
+                : 'The agent revises the storyboard before anything is recorded.'}
             </label>
             <TextArea
               id="sb-feedback"
               rows={4}
               value={feedback}
               disabled={!reviewing}
-              placeholder="Add a short recap explainer at the end comparing GET and POST resources."
+              placeholder={
+                narrationGate
+                  ? 'Shorter sentences in step 3, and say "base path" instead of "service path".'
+                  : 'Add a short recap explainer at the end comparing GET and POST resources.'
+              }
               onChange={(e) => setFeedback(e.target.value)}
             />
             <Button

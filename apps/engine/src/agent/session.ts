@@ -43,8 +43,23 @@ export interface AgentHost {
   settings?: Partial<AgentSettings>;
   /** The project's own permission mode (from its brief), read when a session starts. */
   permissionMode?(slug: string): Promise<PermissionMode | undefined>;
+  /** Which Claude Code to run and which login it uses (Settings), read when a session starts. */
+  claude?(): Promise<ClaudeChoice>;
   /** Replaces the SDK's `query` in tests. */
   query?: typeof query;
+}
+
+/** The Claude Code executable (null: the SDK's own) and config dir (null: inherited). */
+export interface ClaudeChoice {
+  executable: string | null;
+  configDir: string | null;
+}
+
+/** The agent's environment with a chosen CLAUDE_CONFIG_DIR. */
+export function claudeEnv(choice: ClaudeChoice | null): Record<string, string | undefined> {
+  const env = agentEnv();
+  if (choice?.configDir) env.CLAUDE_CONFIG_DIR = choice.configDir;
+  return env;
 }
 
 /** Variables an outer Claude Code session sets that must not leak into ours. */
@@ -295,6 +310,7 @@ export class AgentSession {
 
   private async start() {
     const skills = await this.host.skills().catch(() => []);
+    const claude = (await this.host.claude?.().catch(() => null)) ?? null;
     const queue = new AsyncQueue<SDKUserMessage>();
     const resume = this.stored.sessionId ?? undefined;
     const permissionMode =
@@ -317,7 +333,8 @@ export class AgentSession {
       allowedTools: this.settings.allowedTools,
       mcpServers: this.host.mcpServers(this.slug),
       canUseTool: this.canUseTool,
-      env: agentEnv(),
+      env: claudeEnv(claude),
+      ...(claude?.executable ? { pathToClaudeCodeExecutable: claude.executable } : {}),
       ...(resume ? { resume } : {}),
       stderr: (data: string) => {
         const line = data.trim();

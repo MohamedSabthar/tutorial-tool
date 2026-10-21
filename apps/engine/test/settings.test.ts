@@ -17,7 +17,13 @@ describe('settings', () => {
 
   it('gives new briefs the default voice and auto mode', async () => {
     const store = new ProjectStore(ws);
-    expect(await store.readSettings()).toEqual({ defaultVoice: null, autoMode: true, maxCostPerRun: null });
+    expect(await store.readSettings()).toEqual({
+      defaultVoice: null,
+      autoMode: true,
+      maxCostPerRun: null,
+      claudeExecutable: null,
+      claudeConfigDir: null,
+    });
     await store.updateSettings({ defaultVoice: 'v1', autoMode: false, maxCostPerRun: 2.5 });
     const { slug } = await store.create({ title: 'A', product: 'wso2-integrator' });
     expect(await store.readBrief(slug)).toMatchObject({ voice: 'v1', autoMode: false });

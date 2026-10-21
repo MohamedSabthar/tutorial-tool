@@ -23,6 +23,8 @@ export function projectRoute(p: ProjectSummary): string {
 export function projectChip(p: ProjectSummary): { label: string; tone: ChipTone } {
   if (p.pipeline.status === 'waiting' && p.pipeline.stage === 'storyboard_gate')
     return { label: 'Storyboard review', tone: 'info' };
+  if (p.pipeline.status === 'waiting' && p.pipeline.stage === 'narrate')
+    return { label: 'Narration review', tone: 'info' };
   if (p.pipeline.status === 'waiting') return { label: 'Needs you', tone: 'info' };
   if (p.pipeline.status === 'running') return { label: 'Agent working', tone: 'info' };
   switch (p.status) {

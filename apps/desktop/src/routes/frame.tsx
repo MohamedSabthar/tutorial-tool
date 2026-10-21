@@ -19,20 +19,6 @@ export const appHrefs = (slug?: string | null): Partial<Record<NavKey, string>> 
   settings: '#/settings',
 });
 
-/** The workspace path from the engine, shown at the right of the header. */
-function useWorkspacePath() {
-  const { client, state } = useEngine();
-  const [path, setPath] = useState<string | null>(null);
-  useEffect(() => {
-    if (!client || state !== 'open') return;
-    void client.call('ping', { sentAt: 0 }).then(
-      (r) => setPath(r.workspace),
-      () => undefined,
-    );
-  }, [client, state]);
-  return path;
-}
-
 /** The run streaming to Live right now, if any. */
 export function useLiveSession(): LiveSession | null {
   const { client, state } = useEngine();
@@ -61,16 +47,10 @@ export function LiveChip() {
   );
 }
 
-/** Status at the right of every header: workspace, live run, engine, and (in dev) the developer pages. */
-export function HeaderStatus({ live = true, path = true }: { live?: boolean; path?: boolean }) {
-  const workspace = useWorkspacePath();
+/** Status at the right of every header: live run, engine, and (in dev) the developer pages. */
+export function HeaderStatus({ live = true }: { live?: boolean }) {
   return (
     <>
-      {path && workspace && (
-        <span className="ui-mono app-frame-path" title={workspace}>
-          {workspace.replace(/^\/Users\/[^/]+/, '~')}
-        </span>
-      )}
       {live && <LiveChip />}
       <EngineChip />
       {import.meta.env.DEV && (
