@@ -72,6 +72,7 @@ export default script;
 | `tut.type(locator, text, { description, clear, insert, cue })` | Clicks the field, then types at a human pace. `clear` empties a prefilled field first; `insert` enters text in one go (code editors with auto-closing brackets). |
 | `tut.press('Enter', { cue })` | A key or chord (`'Meta+Shift+P'`). Shown as a keystroke overlay. |
 | `tut.cue('Create')` | The next click, typing or key press lands on this narration word. Use it before page-object calls. |
+| `tut.showToasts()` / `tut.hideToasts()` | Notification toasts are hidden on camera; show them for a step that's about one. |
 | `tut.hold(ms)` | Holds still so the viewer can take something in (skipped in dry runs). |
 | `tut.waitFor(locator, timeoutMs?)` | Waits until visible, for slow views. Doesn't move the cursor. |
 | `tut.mask(locator, label)` | Marks an area to blur in post (emails, tokens, machine paths). |

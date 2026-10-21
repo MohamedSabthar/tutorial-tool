@@ -79,3 +79,13 @@ export function driftLine(d: ReturnType<typeof cueDrift>): string {
     ? `${d.cues - d.off} of ${d.cues} cues on time (${max})`
     : `${d.cues} cue${d.cues === 1 ? '' : 's'} on time (${max})`;
 }
+
+/** What was left open on camera at the end of steps, e.g. "s2: quick pick", or null. */
+export function leftoversLine(events: RecorderEvent[]): string | null {
+  const items = events.flatMap((e) =>
+    e.kind === 'marker' && e.name === 'onscreen'
+      ? [`${String(e.data?.stepId)}: ${((e.data?.items as string[] | undefined) ?? []).join(', ')}`]
+      : [],
+  );
+  return items.length ? `left on screen at step end: ${items.join('; ')}` : null;
+}

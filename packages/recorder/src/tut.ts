@@ -2,6 +2,7 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FrameLocator, Locator, Page } from 'playwright';
 import { findCue, lineDelay, type Pace, type Rect, type RecorderEvent, type StepPace } from '@studio/core';
+import type { Camera } from './camera';
 import { clickPoint, mousePath, moveDuration, rng, typingDelays, type Pt } from './human';
 
 /**
@@ -43,6 +44,8 @@ export interface TutOptions {
   pace?: Pace;
   /** Called as each step ends (dry runs keep a screenshot of it for the storyboard). */
   onStepDone?: (stepId: string) => Promise<void>;
+  /** What else is on camera: toasts, and what's left open when a step ends. */
+  camera?: Camera;
 }
 
 export interface LiveAction {
@@ -156,6 +159,15 @@ export class Tut {
       // The step lasts until its line has been spoken, plus a short tail.
       if (pace && this.line) await this.until(this.line.start + this.line.pace.duration + pace.tail);
       await this.opts.onStepDone?.(id).catch(() => {});
+      // Anything left open at the end of a step ends up in the video: report it.
+      const left = (await this.opts.camera?.leftovers()) ?? [];
+      if (left.length)
+        await this.emit({
+          kind: 'marker',
+          t: this.now(),
+          name: 'onscreen',
+          data: { stepId: id, items: left },
+        });
     } catch (e) {
       if (e instanceof StepFailedError) throw e;
       const page = this.opts.page;
@@ -289,6 +301,16 @@ export class Tut {
     await this.opts.page.keyboard.press(key);
     await this.emit({ kind: 'key', t: this.now(), stepId, key, ...(cue ? { cue } : {}) });
     await this.pause(250);
+  }
+
+  /** Shows product notifications on camera (they're hidden by default), for a step about one. */
+  async showToasts(): Promise<void> {
+    await this.opts.camera?.toasts(true);
+  }
+
+  /** Hides notifications again after showToasts(). */
+  async hideToasts(): Promise<void> {
+    await this.opts.camera?.toasts(false);
   }
 
   /** Holds still so the viewer can take something in (skipped in dry runs). */

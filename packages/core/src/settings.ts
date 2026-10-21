@@ -28,6 +28,10 @@ export const ProductConfig = z
     extensions: z.array(z.string().min(1)).optional(),
     /** The workspace skill with its page objects (defaults to the id). */
     skill: z.string().optional(),
+    /** CSS selectors hidden on camera, in the workbench and inside the product's webviews. */
+    hide: z
+      .object({ workbench: z.array(z.string()).optional(), webview: z.array(z.string()).optional() })
+      .optional(),
   })
   .passthrough();
 export type ProductConfig = z.infer<typeof ProductConfig>;

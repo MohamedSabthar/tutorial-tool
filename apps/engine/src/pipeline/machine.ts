@@ -14,7 +14,7 @@ import {
 } from '@studio/core';
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
-import { cueDrift, driftLine } from '../pace';
+import { cueDrift, driftLine, leftoversLine } from '../pace';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
@@ -582,12 +582,13 @@ export class PipelineManager {
             failure = null;
             const steps = r.events.filter((e) => e.kind === 'step-end').length;
             const paced = (await this.get(slug)).paced;
+            const left = leftoversLine(r.events);
             await this.end(
               slug,
               true,
               mode === 'dry'
-                ? `${steps} steps passed${paced ? ', cues checked' : ''}`
-                : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}`,
+                ? `${steps} steps passed${paced ? ', cues checked' : ''}${left ? ` · ${left}` : ''}`
+                : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}${left ? ` · ${left}` : ''}`,
             );
             if (mode === 'dry') await this.set(slug, { repairAttempts: 0 });
             if (mode === 'record' && paced && !retaken) {

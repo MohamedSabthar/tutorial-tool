@@ -8,6 +8,7 @@ import { createBIProject, type BIIntegration } from './fixtures/biProject';
 import { signedInProfile } from './launch/signin';
 import { launchVSCode, type Progress, type Viewport } from './launch/vscode';
 import { getProduct, readAppBundle } from './products';
+import { prepareCamera } from './camera';
 import { encodeTake, ScreenRecorder } from './record';
 import { startScreencast, type ScreencastFrame } from './screencast';
 import {
@@ -229,6 +230,8 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
 
     stage('load');
     await waitForFixture(page, mod.fixture, progress);
+    // Toasts and the product's own hidden elements stay off camera.
+    const camera = await prepareCamera(page, product.hide);
 
     const eventsFile = recording ? path.join(opts.takeDir!, 'events.jsonl') : opts.eventsFile;
     const tut = new Tut({
@@ -242,6 +245,7 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       timeout: opts.mode === 'dry' ? 10_000 : 20_000,
       captureTargets: opts.captureTargets ?? false,
       ...(opts.pace ? { pace: opts.pace } : {}),
+      camera,
       ...(opts.stepShotsDir
         ? {
             onStepDone: async (stepId: string) => {

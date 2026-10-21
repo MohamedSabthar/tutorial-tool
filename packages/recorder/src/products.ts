@@ -14,6 +14,8 @@ interface ProductBase {
   activityBarLabel: RegExp;
   /** The workspace skill with its page objects (defaults to the id). */
   skill?: string;
+  /** CSS selectors hidden on camera: in the workbench, and inside the product's webviews. */
+  hide?: { workbench?: string[]; webview?: string[] };
 }
 
 export interface VSCodeAppProduct extends ProductBase {
@@ -58,7 +60,13 @@ let registry: Record<string, Product> = { ...PRODUCTS };
  * built-in launch (only its name changes), and a new product without either is skipped.
  */
 export function configureProducts(
-  entries: { id: string; name: string; app?: string; extensions?: string[] }[],
+  entries: {
+    id: string;
+    name: string;
+    app?: string;
+    extensions?: string[];
+    hide?: { workbench?: string[]; webview?: string[] };
+  }[],
 ): void {
   const next: Record<string, Product> = { ...PRODUCTS };
   for (const e of entries) {
@@ -69,10 +77,11 @@ export function configureProducts(
       name: e.name,
       activityBarLabel: label,
       ...(base?.skill ? { skill: base.skill } : {}),
+      ...(e.hide ? { hide: e.hide } : base?.hide ? { hide: base.hide } : {}),
     };
     if (e.app) next[e.id] = { ...common, type: 'vscode-app', appPath: e.app };
     else if (e.extensions?.length) next[e.id] = { ...common, type: 'vscode', extensions: e.extensions };
-    else if (base) next[e.id] = { ...base, name: e.name };
+    else if (base) next[e.id] = { ...base, name: e.name, ...(e.hide ? { hide: e.hide } : {}) };
   }
   registry = next;
 }

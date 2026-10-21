@@ -15,3 +15,4 @@ export * from './record';
 export * from './script';
 export * from './inspect';
 export * from './launch/signin';
+export * from './camera';
