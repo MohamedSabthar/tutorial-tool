@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { listProducts } from '@studio/recorder/node';
 import {
   BRIEF_AUDIENCES,
   BRIEF_LENGTHS,
@@ -79,15 +80,22 @@ interface ProductEntry {
   skill?: string;
 }
 
+/** The products tutorials can be made for: the recorder's registry, with each one's skill. */
 async function products(workspace: string): Promise<ProductEntry[]> {
+  let entries: ProductEntry[] = [];
   try {
     const raw = JSON.parse(await readFile(path.join(workspace, 'products.json'), 'utf8')) as {
       products?: ProductEntry[];
     };
-    return raw.products ?? [];
+    entries = raw.products ?? [];
   } catch {
-    return [];
+    // No products.json: the built-in products.
   }
+  return listProducts().map((p) => ({
+    id: p.id,
+    name: p.name,
+    skill: entries.find((e) => e.id === p.id)?.skill ?? p.skill ?? p.id,
+  }));
 }
 
 const STOP = new Set(

@@ -50,6 +50,8 @@ export interface PipelineDeps {
     voice(slug: string, plan: Plan): Promise<string>;
     clear(slug: string): Promise<void>;
   };
+  /** The most a run may spend on the agent (US dollars), from Settings; null for no limit. */
+  costLimit?(): Promise<number | null>;
   /** Knowledge commits after repairs (optional in tests). */
   git?: WorkspaceGit;
   onCommit?(): void;
@@ -70,6 +72,8 @@ interface Live {
   abort: AbortController;
   /** Resolves the waiting gate. */
   decide?: (d: Decision) => void;
+  /** The user let this run go past its cost limit. */
+  costApproved?: boolean;
   /** Resolves the agent stage the machine is waiting on. */
   stageDone?: { stage: PipelineStage; resolve: (r: StageResult) => void };
 }
@@ -356,6 +360,7 @@ export class PipelineManager {
   ) {
     let text = instruction;
     for (;;) {
+      await this.checkCost(slug, live, stage);
       await this.begin(slug, stage);
       const before = (await this.deps.git?.head()) ?? null;
       const r = await this.agentStage(slug, live, stage, text);
@@ -370,6 +375,25 @@ export class PipelineManager {
       });
       text = d.kind === 'revise' ? `${instruction}\n\nThe user adds:\n\n${d.feedback}` : instruction;
     }
+  }
+
+  /**
+   * Before an agent stage: once the run's agent cost passes the limit set in Settings, waits
+   * at a help gate. Approving lets the run continue to the end without asking again.
+   */
+  private async checkCost(slug: string, live: Live, stage: PipelineStage) {
+    const limit = await this.deps.costLimit?.().catch(() => null);
+    if (!limit || live.costApproved) return;
+    const { status } = await this.deps.agents.get(slug).status();
+    const spent = status.costUsd - (await this.get(slug)).costAtStart;
+    if (spent < limit) return;
+    const d = await this.gate(slug, live, {
+      stage,
+      kind: 'help',
+      title: 'This run reached its cost limit',
+      text: `The agent has spent $${spent.toFixed(2)} on this run; the limit in Settings is $${limit.toFixed(2)}. Approve to finish the run anyway, or stop the pipeline.`,
+    });
+    if (d.kind === 'approve' || d.kind === 'revise') live.costApproved = true;
   }
 
   /**

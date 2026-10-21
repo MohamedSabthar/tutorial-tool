@@ -27,6 +27,7 @@ import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { RenderScreen } from './render/RenderScreen';
 import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
 import { ExportScreen } from './routes/export/ExportScreen';
+import { SettingsScreen } from './routes/settings/SettingsScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
@@ -81,6 +82,7 @@ function App() {
   const path = useHashPath();
   if (path.startsWith('/live')) return <LiveShell slug={match(path, 'live') ?? null} />;
   if (path === '/' || path === '/projects') return <ProjectsScreen />;
+  if (path === '/settings') return <SettingsScreen />;
   const studio = match(path, 'studio');
   if (studio) return <StudioScreen key={studio} slug={studio} />;
   const brief = match(path, 'brief');

@@ -15,6 +15,9 @@ const PLAN = {
   ],
 };
 
+/** What the fake agent session reports as spent so far. */
+let agentCost = 0;
+
 /**
  * A fake agent: for each pipeline message it runs `react(stage, text)`, which may call the
  * pipeline (save_plan / stage_done), then ends its turn with a result event.
@@ -49,7 +52,7 @@ function fakeAgents(react: (stage: string, text: string) => Promise<void> | void
       }, 1);
     },
     async status() {
-      return { status: { costUsd: 0 } };
+      return { status: { costUsd: agentCost } };
     },
     async interrupt() {
       return true;
@@ -312,6 +315,36 @@ describe('PipelineManager', () => {
     await p.start(slug, { storyboard: false });
     await until(() => last().status === 'done');
     expect(order).toEqual(['voice', 'agent', 'voice']);
+  });
+
+  it('pauses at a help gate once the run passes its cost limit, then finishes when approved', async () => {
+    agentCost = 0;
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          agentCost = 3; // planning spent more than the limit
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true],
+      undefined,
+      { costLimit: async () => 2 },
+    );
+    await p.start(slug, { storyboard: false });
+    await until(() => last().status === 'waiting');
+    expect(last().gate).toMatchObject({
+      stage: 'script',
+      kind: 'help',
+      title: 'This run reached its cost limit',
+    });
+    expect(last().gate!.text).toContain('$3.00');
+    expect(sent.some((t) => t.startsWith('[Pipeline · script]'))).toBe(false);
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    agentCost = 0;
   });
 
   it('records without pacing when the project has no voice, or voicing fails', async () => {

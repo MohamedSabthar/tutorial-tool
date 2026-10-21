@@ -36,6 +36,30 @@ pub fn studio_home() -> PathBuf {
     home.join(".tutorial-studio")
 }
 
+/// `~/.tutorial-studio/app.json`: app settings the engine can't keep in the workspace (where it is).
+fn app_settings_file() -> PathBuf {
+    studio_home().join("app.json")
+}
+
+/// The workspace folder chosen in Settings, if any.
+pub fn saved_workspace() -> Option<PathBuf> {
+    let text = std::fs::read_to_string(app_settings_file()).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    v.get("workspace")?.as_str().filter(|s| !s.is_empty()).map(PathBuf::from)
+}
+
+/// Saves the workspace folder for the next launch.
+pub fn save_workspace(path: &str) -> Result<(), String> {
+    let file = app_settings_file();
+    std::fs::create_dir_all(file.parent().unwrap()).map_err(|e| e.to_string())?;
+    let mut v: serde_json::Value = std::fs::read_to_string(&file)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    v["workspace"] = serde_json::Value::String(path.to_string());
+    std::fs::write(&file, serde_json::to_string_pretty(&v).unwrap()).map_err(|e| e.to_string())
+}
+
 /// Directories a Finder-launched app lacks on its PATH: Homebrew's (ffmpeg, git).
 const EXTRA_PATH: &str = "/opt/homebrew/bin:/usr/local/bin";
 
@@ -168,6 +192,7 @@ fn packaged_command(dir: &Path, workspace: Option<PathBuf>, port: u16, token: &s
         .args(["--port", &port.to_string(), "--token", token])
         .env("PATH", path)
         .env("STUDIO_CACHE", &home)
+        .env("STUDIO_PACKAGED", "1")
         .env("PLAYWRIGHT_BROWSERS_PATH", home.join("ms-playwright"))
         .current_dir(dir)
         .stderr(Stdio::from(log));

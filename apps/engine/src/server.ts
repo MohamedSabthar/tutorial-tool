@@ -10,6 +10,8 @@ import {
   TOKEN_QUERY,
   type RpcEvent,
   type RpcEventData,
+  type ProductConfig,
+  type StudioSettings,
   type Brief,
   type PlanEdit,
   type RpcMethod,
@@ -55,6 +57,8 @@ import { Exporter } from './export';
 import { DocWriter } from './docs';
 import { beforeBrowserLaunch, RenderHost } from '@studio/exporters/node';
 import { ensureChromium } from './runtime';
+import { ProductsRegistry } from './productsFile';
+import { claudeSignIn, setupStatus } from './setup';
 import { checkOverlay } from './overlayCheck';
 import { RunManager } from './runs';
 import { Library } from './library';
@@ -110,6 +114,9 @@ const dataUrl = (png: Buffer) => `data:image/png;base64,${png.toString('base64')
 export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const token = opts.token ?? randomBytes(24).toString('hex');
   await mkdir(opts.workspace, { recursive: true });
+  // The recorder launches what the workspace's products.json says.
+  const products = new ProductsRegistry(opts.workspace);
+  await products.load();
   const store = new ProjectStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
   const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
@@ -359,6 +366,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       },
       clear: (slug) => clearPace(store.dir(slug)),
     },
+    costLimit: async () => (await store.readSettings()).maxCostPerRun,
     git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });
@@ -750,6 +758,24 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return { ...r, screenshot: { ...size, dataUrl: dataUrl(png) } };
     },
     'live.status': async () => ({ session: runner.session }),
+    'settings.get': async () => ({
+      ...(await store.readSettings()),
+      workspace: opts.workspace,
+      packaged: process.env.STUDIO_PACKAGED === '1',
+    }),
+    'settings.update': async (patch: Partial<StudioSettings>) => ({
+      ...(await store.updateSettings(patch)),
+      workspace: opts.workspace,
+      packaged: process.env.STUDIO_PACKAGED === '1',
+    }),
+    'products.list': async () => products.list(),
+    'products.save': async ({ products: list }: { products: ProductConfig[] }) => {
+      const r = await products.save(list);
+      await workspace.commit('settings: products.json', ['products.json']).catch(() => null);
+      return r;
+    },
+    'setup.status': async () => setupStatus({ store, workspace, tts, products }),
+    'agent.signInStatus': async () => claudeSignIn(),
     'project.record': async ({ slug, mode }: { slug: string; mode: 'dry' | 'record' }) => {
       const r = await runner.runProject(slug, mode);
       if (r.take) {

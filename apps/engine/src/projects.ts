@@ -1,6 +1,14 @@
 import { mkdir, readdir, readFile, writeFile, access, copyFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { Brief, briefTitle, parseTimeline, Project, RpcError, type Timeline } from '@studio/core';
+import {
+  Brief,
+  briefTitle,
+  parseTimeline,
+  Project,
+  RpcError,
+  StudioSettings,
+  type Timeline,
+} from '@studio/core';
 import { projectClaudeMd } from './templates';
 import { renderBrief } from './brief';
 
@@ -59,37 +67,42 @@ export class ProjectStore {
     await writeJson(path.join(dir, 'tutorial.json'), parseTimeline({ version: 1 }));
     await writeFile(path.join(dir, 'CLAUDE.md'), projectClaudeMd(project));
     // New briefs start with the voice used last.
-    const voice = input.brief?.voice ?? (await this.defaultVoice());
-    if (input.brief || voice) await this.saveBrief(slug, Brief.parse({ ...input.brief, voice }));
+    const settings = await this.readSettings();
+    const voice = input.brief?.voice ?? settings.defaultVoice;
+    if (input.brief || voice)
+      await this.saveBrief(slug, Brief.parse({ autoMode: settings.autoMode, ...input.brief, voice }));
     return project;
   }
 
-  /** Workspace preferences that aren't knowledge (git-ignored): the default voice. */
+  /** Workspace preferences that aren't knowledge (git-ignored): see StudioSettings. */
   private get settingsFile() {
     return path.join(this.workspace, '.studio', 'settings.json');
   }
 
-  /** The voice last chosen in any brief: the default for briefs without one. */
-  async defaultVoice(): Promise<string | null> {
+  async readSettings(): Promise<StudioSettings> {
     try {
-      const v = (JSON.parse(await readFile(this.settingsFile, 'utf8')) as { defaultVoice?: unknown })
-        .defaultVoice;
-      return typeof v === 'string' && v ? v : null;
+      const r = StudioSettings.safeParse(JSON.parse(await readFile(this.settingsFile, 'utf8')));
+      return r.success ? r.data : StudioSettings.parse({});
     } catch {
-      return null;
+      return StudioSettings.parse({});
     }
   }
 
-  private async setDefaultVoice(voice: string) {
-    let settings: Record<string, unknown> = {};
-    try {
-      settings = JSON.parse(await readFile(this.settingsFile, 'utf8')) as Record<string, unknown>;
-    } catch {
-      // First setting.
-    }
-    if (settings.defaultVoice === voice) return;
+  async updateSettings(patch: Partial<StudioSettings>): Promise<StudioSettings> {
+    const next = StudioSettings.parse({ ...(await this.readSettings()), ...patch });
     await mkdir(path.dirname(this.settingsFile), { recursive: true });
-    await writeFile(this.settingsFile, JSON.stringify({ ...settings, defaultVoice: voice }, null, 2) + '\n');
+    await writeFile(this.settingsFile, JSON.stringify(next, null, 2) + '\n');
+    return next;
+  }
+
+  /** The default voice for briefs without one (the voice last chosen in a brief, or set in Settings). */
+  async defaultVoice(): Promise<string | null> {
+    return (await this.readSettings()).defaultVoice;
+  }
+
+  private async setDefaultVoice(voice: string) {
+    if ((await this.readSettings()).defaultVoice !== voice)
+      await this.updateSettings({ defaultVoice: voice });
   }
 
   /** The voice for a project's voice-over: its brief's, or the default. */
@@ -103,7 +116,8 @@ export class ProjectStore {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
         await this.readProject(slug);
-        return Brief.parse({ voice: await this.defaultVoice() });
+        const settings = await this.readSettings();
+        return Brief.parse({ voice: settings.defaultVoice, autoMode: settings.autoMode });
       }
       throw e;
     }

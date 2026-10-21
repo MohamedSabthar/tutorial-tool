@@ -3,6 +3,7 @@ import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
 import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
+import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
 import { Brief, PlanEdit } from './brief';
 import { Run } from './runs';
 import { ExplainerJob } from './explainers';
@@ -479,6 +480,23 @@ export const rpcMethods = {
   'export.cancel': { params: z.object({ slug: z.string() }), result: z.object({ cancelled: z.boolean() }) },
   /** The project's current or last export this session. */
   'export.status': { params: z.object({ slug: z.string() }), result: ExportState.nullable() },
+  /** Studio-wide defaults, plus where the workspace is and whether this is the packaged app. */
+  'settings.get': {
+    params: z.object({}),
+    result: StudioSettings.extend({ workspace: z.string(), packaged: z.boolean() }),
+  },
+  'settings.update': {
+    params: StudioSettings.partial(),
+    result: StudioSettings.extend({ workspace: z.string(), packaged: z.boolean() }),
+  },
+  /** The products the recorder can launch (built-in ones merged with products.json). */
+  'products.list': { params: z.object({}), result: z.array(ProductInfo) },
+  /** Replaces the entries of products.json (built-in products can't be removed) and commits. */
+  'products.save': { params: z.object({ products: z.array(ProductConfig) }), result: z.array(ProductInfo) },
+  /** The first-run checklist (the Claude sign-in is checked on request: see agent.signInStatus). */
+  'setup.status': { params: z.object({}), result: z.array(SetupItem) },
+  /** Runs `claude auth status` the way the agent would: only when the user asks. */
+  'agent.signInStatus': { params: z.object({}), result: ClaudeSignIn },
   /** The run streaming to Live right now, if any (screens show a Live chip). */
   'live.status': { params: z.object({}), result: z.object({ session: LiveSession.nullable() }) },
   /** The product's saved sign-in profile (recordings start signed in from a copy of it). */

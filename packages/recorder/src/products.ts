@@ -12,6 +12,8 @@ interface ProductBase {
   name: string;
   /** Activity-bar entry that proves the product UI loaded (matched against aria-label). */
   activityBarLabel: RegExp;
+  /** The workspace skill with its page objects (defaults to the id). */
+  skill?: string;
 }
 
 export interface VSCodeAppProduct extends ProductBase {
@@ -28,6 +30,7 @@ export interface VSCodeExtensionProduct extends ProductBase {
 
 export type Product = VSCodeAppProduct | VSCodeExtensionProduct;
 
+/** The products the studio ships with. */
 export const PRODUCTS: Record<string, Product> = {
   'wso2-integrator': {
     id: 'wso2-integrator',
@@ -42,11 +45,44 @@ export const PRODUCTS: Record<string, Product> = {
     type: 'vscode',
     extensions: ['WSO2.wso2-integrator@1.0.1'],
     activityBarLabel: /WSO2 Integrator/i,
+    skill: 'wso2-integrator',
   },
 };
 
+/** Built-in products merged with the workspace's products.json (see configureProducts). */
+let registry: Record<string, Product> = { ...PRODUCTS };
+
+/**
+ * Applies the workspace's product entries: `app` launches an installed VS Code-based app,
+ * `extensions` the pinned VS Code with those extensions; an entry with neither keeps the
+ * built-in launch (only its name changes), and a new product without either is skipped.
+ */
+export function configureProducts(
+  entries: { id: string; name: string; app?: string; extensions?: string[] }[],
+): void {
+  const next: Record<string, Product> = { ...PRODUCTS };
+  for (const e of entries) {
+    const base = PRODUCTS[e.id];
+    const label = base?.activityBarLabel ?? new RegExp(e.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const common = {
+      id: e.id,
+      name: e.name,
+      activityBarLabel: label,
+      ...(base?.skill ? { skill: base.skill } : {}),
+    };
+    if (e.app) next[e.id] = { ...common, type: 'vscode-app', appPath: e.app };
+    else if (e.extensions?.length) next[e.id] = { ...common, type: 'vscode', extensions: e.extensions };
+    else if (base) next[e.id] = { ...base, name: e.name };
+  }
+  registry = next;
+}
+
+export function listProducts(): Product[] {
+  return Object.values(registry);
+}
+
 export function getProduct(id: string): Product {
-  const p = PRODUCTS[id];
+  const p = registry[id];
   if (!p) throw new Error(`unknown product "${id}"`);
   return p;
 }

@@ -16,6 +16,7 @@ export const appHrefs = (slug?: string | null): Partial<Record<NavKey, string>> 
   projects: '#/projects',
   ...(slug ? { studio: `#/studio/${slug}` } : {}),
   live: `#${liveRoute(slug)}`,
+  settings: '#/settings',
 });
 
 /** The workspace path from the engine, shown at the right of the header. */

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { briefTitle, type ProjectSummary, type RpcResult } from '@studio/core';
 import { Chip, IconArrowRight, Rule, Select, type ChipTone } from '@studio/ui';
 import { useEngine } from '../../engine';
+import { GetStarted } from '../settings/SetupChecklist';
 import { AppFrame, formatDuration, navigate } from '../frame';
 
 const SUGGESTIONS = [
@@ -153,6 +154,8 @@ export function ProjectsScreen() {
             </span>
           )}
         </section>
+
+        <GetStarted />
 
         <section className="projects-recent" aria-labelledby="recent-heading">
           <div className="projects-recent-head">
