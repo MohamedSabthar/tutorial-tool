@@ -58,8 +58,10 @@ const script: TutorialScript = async (ctx) => {
 export default script;
 ```
 
-Plan for it: a repeated slow flow (several similar tools, endpoints, fields) is shown once on
-camera, and a product flow over about a minute that isn't the point of the tutorial is set up off
+Plan for it without changing what is taught: build what the brief asks for the way a developer
+would (four tools stay four tools, not one merged tool to save camera time). A repeated slow flow
+(several similar tools, endpoints, fields) is shown once on camera and the rest is created in
+setup; a product flow over about a minute that isn't the point of the tutorial is set up off
 camera. Start every step by waiting for the screen it expects, so a failure shows in the step that
 caused it, not several steps later.
 
