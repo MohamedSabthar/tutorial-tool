@@ -46,8 +46,8 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
   const replyAt = afterSteps(timing, n, duration);
   const wire = props.theme === 'wso2-dark' ? theme.color.steelLight : theme.color.steel;
 
-  // The request waits on the wire out of each stop from its beat and runs along it to the next
-  // stop's edge just before that beat (it never sits on a stop's text).
+  // The request rests in the middle of each stop from its beat and jumps in an arc to the next
+  // one just before that beat. The stop's text sits above and below the middle, clear of it.
   const pos = (s: number): { x: number; y: number } | null => {
     if (k < 0 || s < at(0)) return null;
     for (let i = 0; i < n - 1; i++) {
@@ -55,11 +55,12 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
       if (s < next) {
         const travel = Math.min(0.9, Math.max(0.3, (next - at(i)) * 0.6));
         const u = tween(s, next - travel, next);
-        const a = x(i) + nodeW;
-        return { x: a + (x(i + 1) - a) * u, y: MID };
+        const a = x(i) + nodeW / 2;
+        const b = x(i + 1) + nodeW / 2;
+        return { x: a + (b - a) * u, y: MID - Math.sin(Math.PI * u) * 70 };
       }
     }
-    return { x: x(n - 1), y: MID };
+    return { x: x(n - 1) + nodeW / 2, y: MID };
   };
   const head = pos(t);
   const trail = [0.09, 0.06, 0.03, 0].map((lag) => pos(t - lag));
@@ -166,7 +167,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                 />
                 <text
                   x={x(i) + 40}
-                  y={NODE_Y + 72}
+                  y={NODE_Y + 54}
                   fill={p.ink}
                   opacity={text}
                   style={{ fontFamily: theme.font.sans, fontSize: 30, fontWeight: 600 }}
@@ -176,7 +177,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                 {s.part && (
                   <text
                     x={x(i) + 40}
-                    y={NODE_Y + 120}
+                    y={NODE_Y + NODE_H - 26}
                     fill={p.muted}
                     opacity={text}
                     style={{ fontFamily: theme.font.mono, fontSize: 22 }}
