@@ -45,11 +45,38 @@ const glyphs: Record<string, React.CSSProperties> = {
     marginTop: 24,
   },
   'core:TextLabel': { width: '40%', height: 14, background: '#FF5800', borderRadius: 4 },
-  'core:ConceptCards': {
-    width: '66%',
-    height: '46%',
-    background: 'repeating-linear-gradient(90deg, #FFFFFF 0 28%, transparent 28% 36%)',
-    opacity: 0.85,
+  'core:CardDeck': {
+    width: '40%',
+    height: '52%',
+    background: '#2B3E5E',
+    border: '1.5px solid #FF5800',
+    borderRadius: 5,
+    transform: 'rotate(-6deg)',
+    boxShadow: '14px 4px 0 -2px #FF5800, 26px 10px 0 -4px #A9C6DD',
+  },
+  'core:TermSpotlight': {
+    width: '62%',
+    height: 14,
+    background: '#FFFFFF',
+    borderRadius: 3,
+    boxShadow: '0 12px 0 -4px #FF5800, 0 26px 0 -5px rgba(169,198,221,0.6)',
+  },
+  'core:BlueprintDive': {
+    width: '44%',
+    height: '52%',
+    border: '2px solid #FF5800',
+    borderRadius: 4,
+    background: 'repeating-linear-gradient(180deg, rgba(169,198,221,0.5) 0 2px, transparent 2px 9px)',
+    boxShadow: '0 0 0 6px rgba(255,88,0,0.18)',
+  },
+  'core:DepthLayers': {
+    width: '46%',
+    height: '28%',
+    background: 'rgba(43,62,94,0.9)',
+    border: '1.5px solid #FF5800',
+    borderRadius: 4,
+    transform: 'rotate(-30deg) skewX(30deg) scaleY(0.86)',
+    boxShadow: '0 12px 0 -1px rgba(169,198,221,0.7), 0 24px 0 -2px rgba(169,198,221,0.4)',
   },
   'core:BlueprintFlow': {
     width: '72%',
@@ -73,13 +100,6 @@ const glyphs: Record<string, React.CSSProperties> = {
     background:
       'linear-gradient(90deg, transparent 0 62%, #FF5800 62% 64%, transparent 64%), repeating-linear-gradient(180deg, #A9C6DD 0 3px, transparent 3px 8px)',
     borderLeft: '3px solid #FF5800',
-  },
-  'core:ArchitectureZoom': {
-    width: '30%',
-    height: '46%',
-    border: '2px solid #FF5800',
-    borderRadius: 4,
-    boxShadow: '-26px 0 0 -6px #A9C6DD, 26px 0 0 -6px #A9C6DD',
   },
 };
 

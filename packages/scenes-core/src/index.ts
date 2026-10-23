@@ -1,6 +1,8 @@
 import type { OverlayModule } from '@studio/overlay-sdk';
-import ConceptCards, { meta as conceptCardsMeta } from './ConceptCards';
-import ArchitectureZoom, { meta as architectureZoomMeta } from './ArchitectureZoom';
+import CardDeck, { meta as cardDeckMeta } from './CardDeck';
+import TermSpotlight, { meta as termSpotlightMeta } from './TermSpotlight';
+import BlueprintDive, { meta as blueprintDiveMeta } from './BlueprintDive';
+import DepthLayers, { meta as depthLayersMeta } from './DepthLayers';
 import BlueprintFlow, { meta as blueprintFlowMeta } from './BlueprintFlow';
 import LayeredPanels, { meta as layeredPanelsMeta } from './LayeredPanels';
 import CodeTrace, { meta as codeTraceMeta } from './CodeTrace';
@@ -10,16 +12,20 @@ export const PACKAGE = {
   role: 'Built-in explainer scenes and transitions',
 } as const;
 
-export { ConceptCards, ArchitectureZoom, BlueprintFlow, LayeredPanels, CodeTrace };
+export { BlueprintFlow, LayeredPanels, CodeTrace, CardDeck, TermSpotlight, BlueprintDive, DepthLayers };
 export { FlowProps } from './flow';
+export { ConceptProps } from './concepts';
+export { ArchitectureProps } from './architecture';
 
 /** Built-in explainer scenes by component id (`core:BlueprintFlow`, …). */
 export const coreScenes: Record<string, OverlayModule> = {
-  'core:ConceptCards': { default: ConceptCards, meta: conceptCardsMeta } as OverlayModule,
-  'core:ArchitectureZoom': { default: ArchitectureZoom, meta: architectureZoomMeta } as OverlayModule,
   'core:BlueprintFlow': { default: BlueprintFlow, meta: blueprintFlowMeta } as OverlayModule,
   'core:LayeredPanels': { default: LayeredPanels, meta: layeredPanelsMeta } as OverlayModule,
   'core:CodeTrace': { default: CodeTrace, meta: codeTraceMeta } as OverlayModule,
+  'core:CardDeck': { default: CardDeck, meta: cardDeckMeta } as OverlayModule,
+  'core:TermSpotlight': { default: TermSpotlight, meta: termSpotlightMeta } as OverlayModule,
+  'core:BlueprintDive': { default: BlueprintDive, meta: blueprintDiveMeta } as OverlayModule,
+  'core:DepthLayers': { default: DepthLayers, meta: depthLayersMeta } as OverlayModule,
 };
 
 /**
@@ -30,6 +36,14 @@ export const explainerLooks: { id: string; label: string }[][] = [
   [
     { id: 'core:BlueprintFlow', label: 'Blueprint' },
     { id: 'core:LayeredPanels', label: 'Panels' },
+  ],
+  [
+    { id: 'core:CardDeck', label: 'Deck' },
+    { id: 'core:TermSpotlight', label: 'Spotlight' },
+  ],
+  [
+    { id: 'core:BlueprintDive', label: 'Blueprint' },
+    { id: 'core:DepthLayers', label: 'Layers' },
   ],
 ];
 

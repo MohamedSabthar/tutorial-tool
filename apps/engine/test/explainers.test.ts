@@ -27,10 +27,10 @@ describe('Explainers', () => {
         props: {},
       },
       {
-        id: 'core:ConceptCards',
+        id: 'core:CardDeck',
         kind: 'scene',
         scope: 'core',
-        name: 'ConceptCards',
+        name: 'CardDeck',
         description: '',
         props: {},
         beats: [],
@@ -94,7 +94,7 @@ describe('Explainers', () => {
     let { timeline } = await timelines.get(slug);
     expect(timeline.scenes.find((s) => s.id === job.sceneId)).toMatchObject({
       kind: 'explainer',
-      component: 'core:ConceptCards',
+      component: 'core:CardDeck',
     });
 
     await ex.saveStoryboard(slug, job.sceneId, {
@@ -117,7 +117,7 @@ describe('Explainers', () => {
     expect((await ex.get(slug, job.sceneId)).status).toBe('review');
 
     await expect(ex.setScene(slug, job.sceneId, { component: 'core:Nope' })).rejects.toThrow(
-      /Available: core:BlueprintFlow, core:ConceptCards/,
+      /Available: core:BlueprintFlow, core:CardDeck/,
     );
     await expect(ex.setScene(slug, job.sceneId, { component: 'core:Callout' })).rejects.toThrow(
       /no scene component/,

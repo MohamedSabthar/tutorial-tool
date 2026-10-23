@@ -82,6 +82,8 @@ export const RecordingScene = z.object({
 export const REPLACED_SCENES: Record<string, string> = {
   'core:DiagramFlow': 'core:BlueprintFlow',
   'core:CodeWalkthrough': 'core:CodeTrace',
+  'core:ConceptCards': 'core:CardDeck',
+  'core:ArchitectureZoom': 'core:BlueprintDive',
 };
 
 export const ExplainerScene = z.object({

@@ -41,3 +41,11 @@ export function easeOut(t: number, a: number, b: number): number {
   if (b <= a) return t >= b ? 1 : 0;
   return 1 - Math.pow(1 - clamp01((t - a) / (b - a)), 3);
 }
+
+/** Eased (cubic in-out) 0..1 for t between a and b; a moment that never comes (a = ∞) stays 0. */
+export function span(t: number, a: number, b: number): number {
+  if (!Number.isFinite(a)) return a < 0 ? 1 : 0;
+  if (b <= a) return t >= b ? 1 : 0;
+  const x = clamp01((t - a) / (b - a));
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}

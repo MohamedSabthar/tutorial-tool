@@ -26,11 +26,16 @@ function frame(id: string, t: number, props: Record<string, unknown> = {}): stri
 }
 
 const LOOKS = ['core:BlueprintFlow', 'core:LayeredPanels', 'core:CodeTrace'];
+const ALL = [...LOOKS, 'core:CardDeck', 'core:TermSpotlight', 'core:BlueprintDive', 'core:DepthLayers'];
 
 describe('explainer looks', () => {
   it('render the same frame for the same time, across the scene', () => {
-    for (const id of LOOKS)
-      for (const t of [0, 0.4, 1.3, 2.9, 4.5, 6.2, 8.1, 9]) expect(frame(id, t)).toBe(frame(id, t));
+    for (const id of ALL)
+      for (const t of [0, 0.4, 1.3, 2.9, 4.5, 6.2, 8.1, 9]) {
+        expect(frame(id, t)).toBe(frame(id, t));
+        // A style computed from a moment that never comes must not leak NaN into the frame.
+        expect(frame(id, t)).not.toContain('NaN');
+      }
   });
 
   it('bring in the reply at the end, and only when there is one', () => {
@@ -66,6 +71,19 @@ describe('explainer looks', () => {
       ],
     };
     for (const l of looksFor('core:BlueprintFlow')) expect(frame(l.id, 5, props)).toContain('>B<');
+  });
+
+  it('show every concept and every part in focus by the end', () => {
+    for (const id of ['core:CardDeck', 'core:TermSpotlight']) {
+      const end = frame(id, 8.9);
+      for (const term of ['Listener', 'Service', 'Resource']) expect(end).toContain(`>${term}<`);
+    }
+    expect(frame('core:CardDeck', 0)).toContain('WSO2');
+    // The dive opens each box in turn: the integrator's parts are in view on its beat.
+    expect(frame('core:BlueprintDive', 4.6)).toContain('Service /greeting');
+    expect(frame('core:DepthLayers', 4.6)).toContain('Your HTTP service runs here');
+    expect(looksFor('core:CardDeck').map((l) => l.id)).toEqual(['core:CardDeck', 'core:TermSpotlight']);
+    expect(looksFor('core:DepthLayers').map((l) => l.id)).toEqual(['core:BlueprintDive', 'core:DepthLayers']);
   });
 
   it('render content written for the replaced Classic scenes', () => {

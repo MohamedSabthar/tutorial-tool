@@ -127,7 +127,7 @@ export class Explainers {
    * instruction on itself.
    */
   async start(slug: string, at: number, brief: string, ask: boolean): Promise<ExplainerJob> {
-    const sceneId = await this.deps.insertScene(slug, at, 'core:ConceptCards', {
+    const sceneId = await this.deps.insertScene(slug, at, 'core:CardDeck', {
       title: brief.length > 60 ? `${brief.slice(0, 57)}…` : brief,
       cards: [{ title: 'Storyboard in progress', text: 'The agent is planning this explainer.' }],
     });

@@ -553,7 +553,13 @@ describe('replaced scenes', () => {
       component: 'core:CodeTrace',
     });
     expect(Scene.parse({ ...old, component: 'core:ConceptCards' })).toMatchObject({
-      component: 'core:ConceptCards',
+      component: 'core:CardDeck',
+    });
+    expect(Scene.parse({ ...old, component: 'core:ArchitectureZoom' })).toMatchObject({
+      component: 'core:BlueprintDive',
+    });
+    expect(Scene.parse({ ...old, component: 'core:TermSpotlight' })).toMatchObject({
+      component: 'core:TermSpotlight',
     });
   });
 });

@@ -20,11 +20,19 @@ scenes). It has a component, props, narration lines and beats. Its length follow
      in depth; each lifts forward as the request reaches it.
    - `core:CodeTrace`: code that types itself out; then each step highlights its lines and lights
      its `part` of the `request`, with a note.
-   - `core:ConceptCards`: up to four cards appearing one per beat (defining terms).
-   - `core:ArchitectureZoom`: boxes on a 12×6 grid, zooming into one per beat.
-   - BlueprintFlow and LayeredPanels are interchangeable: the user picks the look in the Studio's
-     explainer inspector, so fill `part`, `request` and `reply` for both. With no other
-     instructions, use BlueprintFlow. A closing `reply` lands on the beat after the last step, so
+   - `core:CardDeck`: defining terms. Up to four cards (`title`, `text`) dealt from a stack, one
+     flipping face up per beat.
+   - `core:TermSpotlight`: the same props as CardDeck, shown as one big term at a time with its
+     meaning; earlier terms shrink into an index strip.
+   - `core:BlueprintDive`: where something fits. Boxes on a 12×6 grid with `links`; the camera
+     dives into each box in `focus`, one per beat, and it opens to show its `inner` parts with its
+     `detail` below.
+   - `core:DepthLayers`: the same props as BlueprintDive, shown as stacked layers (the boxes in
+     `focus`, five at most) that turn face-on one per beat.
+   - Looks with the same props are interchangeable (BlueprintFlow and LayeredPanels, CardDeck and
+     TermSpotlight, BlueprintDive and DepthLayers): the user picks the look in the Studio's
+     explainer inspector, so fill every prop both looks use (`part`, `request`, `reply`; `inner`,
+     `links`, `detail`). With no other instructions, use the first of each pair. A closing `reply` lands on the beat after the last step, so
      give it its own narration line.
 3. Write `projects/<slug>/scenes/<Name>.tsx` only when none fits. A thin wrapper around a
    built-in with tutorial-specific props is often enough (e.g. `RequestFlow` = `BlueprintFlow` with
