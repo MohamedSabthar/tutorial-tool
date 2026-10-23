@@ -1,6 +1,8 @@
+import { writeFileSync } from 'node:fs';
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  BRIEF_LENGTHS,
   idlePipeline,
   Plan,
   PipelineState,
@@ -21,6 +23,7 @@ import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
   alignInstruction,
   narrateInstruction,
+  trimInstruction,
   nudge,
   planInstruction,
   postInstruction,
@@ -121,9 +124,19 @@ export class PipelineManager {
     } catch {
       // No pipeline yet.
     }
-    // A stage that was running when the engine stopped can't continue; a gate can.
-    if (state.status === 'running')
-      state = { ...state, status: 'stopped', error: 'The app was closed while this stage was running.' };
+    // A stage that was running when the engine stopped can't continue by itself (a gate can):
+    // it is closed in the history, and the run can be resumed from it.
+    if (state.status === 'running') {
+      const history = state.history.map((h) =>
+        h.endedAt === null ? { ...h, endedAt: Date.now(), ok: false, summary: 'Interrupted' } : h,
+      );
+      state = {
+        ...state,
+        status: 'stopped',
+        history,
+        error: 'The engine stopped while this stage was running. Resume to continue from it.',
+      };
+    }
     this.states.set(slug, state);
     return state;
   }
@@ -190,6 +203,49 @@ export class PipelineManager {
     this.deps.stopRun();
     await this.deps.agents.get(slug).interrupt();
     return this.get(slug);
+  }
+
+  /**
+   * Continues a stopped or failed run from the stage it was in, with its plan and history. A
+   * repair starts again from the dry run that shows what to repair.
+   */
+  async resume(slug: string): Promise<PipelineState> {
+    const state = await this.get(slug);
+    if (this.live.has(slug)) throw new RpcError('the pipeline is already running', 'bad_request');
+    if ((state.status !== 'stopped' && state.status !== 'failed') || !state.stage)
+      throw new RpcError('there is no stopped run to resume', 'bad_request');
+    const from: PipelineStage = state.stage === 'repair' ? 'dry_run' : state.stage;
+    const next = await this.set(slug, {
+      status: 'running',
+      error: null,
+      endedAt: null,
+      gate: null,
+      resumeOnStart: false,
+    });
+    this.launch(slug, from);
+    return next;
+  }
+
+  /**
+   * The engine is about to be reloaded (a dev code change): runs in progress are marked so the
+   * next engine resumes them. Synchronous, because the watcher kills the process 5 s later.
+   */
+  prepareForReload(): void {
+    for (const slug of this.live.keys()) {
+      const state = this.states.get(slug);
+      if (state?.status !== 'running') continue;
+      const next = { ...state, resumeOnStart: true };
+      this.states.set(slug, next);
+      writeFileSync(this.file(slug), JSON.stringify(next, null, 2) + '\n');
+    }
+  }
+
+  /** At engine start: resumes the runs a reload interrupted. */
+  async restore(): Promise<void> {
+    for (const p of await this.deps.store.list().catch(() => [])) {
+      const state = await this.get(p.slug).catch(() => null);
+      if (state?.resumeOnStart) await this.resume(p.slug).catch(() => {});
+    }
   }
 
   /** Forgets a deleted project's pipeline (stop it first). */
@@ -480,6 +536,22 @@ export class PipelineManager {
     }
   }
 
+  /**
+   * The tutorial's estimated length on camera when it runs well past the brief's (more than a
+   * quarter, and at least 30 s, over its upper bound); null when it fits or isn't known.
+   */
+  private async overBudget(slug: string) {
+    const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
+    const brief = await this.deps.store.readBrief(slug).catch(() => null);
+    const length = BRIEF_LENGTHS.find((l) => l.value === brief?.length);
+    if (!timing.length || !length) return null;
+    const seconds = timing.reduce((n, s) => n + s.recorded, 0);
+    const max = length.seconds[1];
+    return seconds > max * 1.25 && seconds - max >= 30
+      ? { seconds, target: length.text.toLowerCase(), timing }
+      : null;
+  }
+
   /** After a passing dry run: record, or first narrate and voice for a paced take. */
   private async afterDryRun(slug: string): Promise<PipelineStage> {
     if ((await this.get(slug)).paced || !this.deps.pace) return 'record';
@@ -501,6 +573,8 @@ export class PipelineManager {
     let helpFeedback: string | undefined;
     /** A paced take with cues off their words is recorded again, once. */
     let retaken = false;
+    /** A script well over the brief's length is sent back to be shortened, once. */
+    let trimmed = false;
     while (stage !== 'done') {
       if (live.abort.signal.aborted) throw new Stopped();
       switch (stage) {
@@ -602,6 +676,19 @@ export class PipelineManager {
                   `${drift.off} cue${drift.off === 1 ? '' : 's'} off their words: recording again`,
                 );
                 stage = 'record';
+                break;
+              }
+            }
+            if (mode === 'dry' && !paced && !trimmed) {
+              const over = await this.overBudget(slug);
+              if (over) {
+                trimmed = true;
+                await this.annotate(
+                  slug,
+                  `about ${Math.round(over.seconds / 60)} min on camera, the brief asks for ${over.target}: shortening`,
+                );
+                await this.agentStageWithHelp(slug, live, 'script', trimInstruction(over));
+                stage = 'dry_run';
                 break;
               }
             }

@@ -22,3 +22,4 @@ export * from './scenes';
 export * from './beats';
 export * from './explainers';
 export * from './export';
+export * from './stepTiming';

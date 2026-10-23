@@ -7,6 +7,7 @@ import {
   type Plan,
   type PlanEdit,
   type Project,
+  type TimingFile,
 } from '@studio/core';
 import { Button, Chip, GateBanner, LinkButton, Panel, Stepper, TextArea } from '@studio/ui';
 import { openLive, useEngine } from '../../engine';
@@ -19,6 +20,19 @@ const EXPLAINER_SECONDS = 20;
 const MIN_STEP_SECONDS = 5;
 /** Rows that show the whole text in the storyboard's card width (about 110 characters a line). */
 const rowsFor = (text: string) => Math.max(2, Math.ceil(text.length / 110) + 1);
+
+/**
+ * How a step's line fits its time on camera (from the dry run): null when they match within a
+ * quarter (and 5 s). Longer action is fast-forwarded after the line; a longer line holds the
+ * screen still.
+ */
+export function lineFit(speech: number, onCamera: number): { text: string; long: boolean } | null {
+  const gap = onCamera - speech;
+  if (Math.abs(gap) <= Math.max(5, 0.25 * Math.min(speech, onCamera))) return null;
+  return gap > 0
+    ? { text: `${formatDuration(gap)} more on camera than the line: fast-forwarded after it`, long: false }
+    : { text: `The line runs ${formatDuration(-gap)} longer: the screen holds still`, long: true };
+}
 
 type Card =
   | { kind: 'step'; n: number; step: Plan['steps'][number]; seconds: number }
@@ -60,6 +74,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const pending = useRef(new Map<string, PlanEdit>());
+  const [timing, setTiming] = useState<TimingFile | null>(null);
 
   useEffect(() => {
     if (!client || conn !== 'open') return;
@@ -80,6 +95,14 @@ export function StoryboardScreen({ slug }: { slug: string }) {
   const shotsAt = st?.history.filter((h) => h.stage === 'dry_run' && h.ok).at(-1)?.endedAt ?? null;
   const reviewing = (st?.status === 'waiting' && st.gate?.kind === 'storyboard') || narrationGate;
   const cards = plan ? storyboardCards(plan) : [];
+
+  // Each step's time on camera, measured by the latest passing dry run.
+  useEffect(() => {
+    if (!client || conn !== 'open') return;
+    void client.call('project.timing', { slug }).then(setTiming, () => setTiming(null));
+  }, [client, conn, slug, shotsAt]);
+  const onCamera = (id: string) => timing?.steps.find((s) => s.id === id)?.recorded ?? null;
+  const cameraTotal = timing?.steps.reduce((n, s) => n + s.recorded, 0) ?? 0;
 
   /** Sends edits typed since the last flush (on blur, and before approving or revising). */
   const flush = async () => {
@@ -288,7 +311,24 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                   >
                     {formatDuration(c.seconds)}
                   </span>
+                  {onCamera(c.step.id) !== null && (
+                    <span
+                      className="sb-dur ui-mono"
+                      title="Time on camera, measured in the dry run with the recording's pacing added"
+                    >
+                      {formatDuration(onCamera(c.step.id)!)} on camera
+                    </span>
+                  )}
                 </div>
+                {(() => {
+                  const cam = onCamera(c.step.id);
+                  const fit = cam !== null && c.step.narration.trim() ? lineFit(c.seconds, cam) : null;
+                  return fit ? (
+                    <span className="sb-fit" data-long={fit.long ? 'true' : undefined}>
+                      {fit.text}
+                    </span>
+                  ) : null;
+                })()}
                 {shotsAt && info && (
                   <img
                     className="sb-shot"
@@ -370,6 +410,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
             </span>
             <span className="brief-muted">
               Target: {target.label} · narration ≈ 150 wpm
+              {cameraTotal > 0 ? ` · ${formatDuration(cameraTotal)} on camera in the dry run` : ''}
               {total > target.seconds[1] && plan
                 ? ` · about ${formatDuration(total - target.seconds[1])} over`
                 : ''}

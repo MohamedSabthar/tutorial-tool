@@ -1,5 +1,5 @@
-import type { Pace, Plan } from '@studio/core';
-import { timingLines, type StepTiming } from '../stepTiming';
+import type { Pace, Plan, StepTiming } from '@studio/core';
+import { timingLines } from '../stepTiming';
 
 /**
  * The messages the pipeline sends into the agent session, one per agent stage. Each names the
@@ -59,6 +59,26 @@ export function repairInstruction(input: {
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+/**
+ * The dry run shows the tutorial will run well past the brief's length: the agent shortens the
+ * script before any narration is written.
+ */
+export function trimInstruction(input: { seconds: number; target: string; timing: StepTiming[] }): string {
+  const mins = (s: number) => `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
+  return [
+    '[Pipeline · script, length budget]',
+    `The dry run passed, but the tutorial will run about ${mins(input.seconds)} on camera and the brief asks for ${input.target}. Shorten it before the narration is written:`,
+    timingLines(input.timing),
+    [
+      "1. Move what the viewer doesn't need to watch off camera: `export const setup = async (ctx) => { … }` in script.spec.ts runs after the product loads and before recording starts, with the same tut and page objects (create the extra items, fill sample data, do a repeated flow's later rounds there). The steps then start from that state.",
+      "2. Merge or drop steps that don't serve the brief's goal. If the steps change, save the plan again with save_plan (ids s1, s2, … in order) and keep the script's step ids and titles matching it.",
+      "3. Don't speed things up with shorter holds or waits: the recording needs them.",
+      "Dry-run the script with run_script until it passes. If it can't get shorter without losing what the brief asks for, say why in your stage_done summary; the pipeline goes on.",
+    ].join('\n'),
+    done('script'),
+  ].join('\n\n');
 }
 
 /**

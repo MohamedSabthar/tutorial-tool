@@ -6,6 +6,7 @@ import type { AgentEvent, PipelineStage, PipelineState } from '@studio/core';
 import { ProjectStore } from '../src/projects';
 import { PipelineManager, type PipelineDeps } from '../src/pipeline/machine';
 import type { ProjectRunResult } from '../src/recording';
+import { saveTimings } from '../src/stepTiming';
 
 const PLAN = {
   summary: 'Create a service',
@@ -570,6 +571,105 @@ describe('PipelineManager', () => {
     expect(last().gate).toMatchObject({ kind: 'help', stage: 'plan' });
     await p.stop(slug);
     await until(() => last().status === 'stopped');
+  });
+
+  it('resumes a run cut off by a reload from the stage it was in, and a stopped run on request', async () => {
+    const react = async (p: PipelineManager, stage: string) => {
+      if (stage === 'plan') {
+        await p.savePlan(slug, PLAN);
+        done(p, 'plan');
+      } else if (stage === 'script') done(p, 'script');
+      else if (stage === 'post-production') done(p, 'post');
+      else if (stage === 'retro') done(p, 'retro');
+    };
+    // The first engine is reloaded while it records: its recording never comes back.
+    let reloading: PipelineManager | null = null;
+    const first = make(react, [], undefined, {
+      runProject: async (_slug, mode) => {
+        if (mode === 'record') {
+          reloading!.prepareForReload();
+          return new Promise<never>(() => {});
+        }
+        return run(true);
+      },
+    });
+    reloading = first.p;
+    await first.p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().stage === 'record' && last().status === 'running');
+
+    // The next engine finds the run and continues it from the recording.
+    const second = make(react, [true]);
+    await second.p.restore();
+    await until(() => last().status === 'done');
+    expect(second.modes).toEqual(['record']);
+    expect(last().history.map((h) => [h.stage, h.ok])).toEqual([
+      ['plan', true],
+      ['script', true],
+      ['dry_run', true],
+      ['record', false],
+      ['record', true],
+      ['post', true],
+      ['qa', true],
+      ['retro', true],
+    ]);
+    expect(last().resumeOnStart).toBe(false);
+    await expect(second.p.resume(slug)).rejects.toThrow(/no stopped run/);
+  });
+
+  it('marks a run cut off without a reload as stopped, for the user to resume', async () => {
+    const { p } = make(async (p, stage) => {
+      if (stage === 'plan') {
+        await p.savePlan(slug, PLAN);
+        done(p, 'plan');
+      } else if (stage === 'script') await new Promise(() => {}); // the engine dies mid-turn
+    }, []);
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().stage === 'script' && last().status === 'running');
+    // A new engine without the reload mark: nothing restarts by itself.
+    const next = make(() => {}, []);
+    await next.p.restore();
+    const state = await next.p.get(slug);
+    expect(state).toMatchObject({ status: 'stopped', stage: 'script' });
+    expect(state.error).toMatch(/Resume/);
+    expect(state.history.at(-1)).toMatchObject({ stage: 'script', ok: false, summary: 'Interrupted' });
+  });
+
+  it('sends a script well over the brief length back once to be shortened before narrating', async () => {
+    const dry: number[] = [];
+    const { p, sent, modes } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [],
+      undefined,
+      {
+        // The first dry run measures 6 minutes for a 2–3 minute brief; after shortening, 2.
+        runProject: async (_slug, mode) => {
+          modes.push(mode);
+          if (mode === 'dry') {
+            dry.push(1);
+            const seconds = dry.length === 1 ? 180 : 60;
+            await saveTimings(store.dir(slug), [
+              { id: 's1', title: 'Open', recorded: seconds, actions: 3, waits: [] },
+              { id: 's2', title: 'Create', recorded: seconds, actions: 40, waits: [] },
+            ]);
+          }
+          return run(true);
+        },
+      },
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'dry', 'record']);
+    const trim = sent.find((t) => t.startsWith('[Pipeline · script, length budget]'));
+    expect(trim).toContain('about 6 min 0 s on camera and the brief asks for 2–3 minutes');
+    expect(trim).toContain('export const setup');
+    expect(sent.filter((t) => t.includes('length budget'))).toHaveLength(1);
   });
 
   it('escalates after the repair cap with a help gate', async () => {

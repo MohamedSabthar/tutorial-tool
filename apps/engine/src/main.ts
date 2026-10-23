@@ -42,7 +42,11 @@ const shutdown = () => {
   engine.close().finally(() => process.exit(0));
 };
 process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+// Under the dev watcher a SIGTERM is a code reload: running pipelines resume in the next engine.
+process.on('SIGTERM', () => {
+  if (process.env.STUDIO_EXIT_ON_STDIN_END === '0') engine.prepareForReload();
+  shutdown();
+});
 // Never outlive the app: exit when the parent (Tauri) closes our stdin, or, under a dev
 // watcher that owns stdin, when the app's process disappears.
 if (process.env.STUDIO_EXIT_ON_STDIN_END !== '0') {

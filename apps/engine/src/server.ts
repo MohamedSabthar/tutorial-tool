@@ -35,6 +35,7 @@ import { isUiPath, registerUi, resolveUiUrl } from './ui';
 import { Workspace } from './workspace';
 import { Runner } from './runner';
 import { stepTimings } from './recording';
+import { readTimings } from './stepTiming';
 import { startOverlayServer, type OverlayServer } from './overlayServer';
 import { HELLO_OVERLAY } from './overlayTemplates';
 import { TimelineStore, type Author } from './timeline';
@@ -108,6 +109,8 @@ export interface Engine {
   url: string;
   app: FastifyInstance;
   broadcast<E extends RpcEvent>(event: E, data: RpcEventData<E>): void;
+  /** A dev code reload is coming: running pipelines resume in the next engine. */
+  prepareForReload(): void;
   close(): Promise<void>;
 }
 
@@ -480,6 +483,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'pipeline.revise': async ({ slug, feedback }: { slug: string; feedback: string }) =>
       pipeline.revise(slug, feedback),
     'pipeline.stop': async ({ slug }: { slug: string }) => pipeline.stop(slug),
+    'pipeline.resume': async ({ slug }: { slug: string }) => pipeline.resume(slug),
+    'project.timing': async ({ slug }: { slug: string }) => readTimings(store.dir(slug)),
     'pipeline.editPlan': async ({ slug, edits }: { slug: string; edits: PlanEdit[] }) =>
       pipeline.editPlan(slug, edits),
     'brief.get': async ({ slug }: { slug: string }) => store.readBrief(slug),
@@ -978,6 +983,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const addr = app.server.address();
   const port = typeof addr === 'object' && addr ? addr.port : 0;
   listening = { port, token };
+  // Runs that a dev reload interrupted continue in this engine.
+  void pipeline.restore();
 
   return {
     port,
@@ -985,6 +992,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     url: `http://127.0.0.1:${port}`,
     app,
     broadcast,
+    prepareForReload: () => pipeline.prepareForReload(),
     async close() {
       await agents.closeAll().catch(() => {});
       await runner.close();

@@ -52,6 +52,12 @@ export interface ScriptFixture {
 export interface ScriptModule {
   fixture: ScriptFixture;
   script: TutorialScript;
+  /**
+   * Optional work done off camera, after the product loads and before the take starts: what the
+   * viewer doesn't need to watch (creating extra tools, filling sample data). Runs at dry-run
+   * speed inside one step named "setup"; the take begins after it.
+   */
+  setup?: TutorialScript;
 }
 
 /**
@@ -96,11 +102,14 @@ export async function loadScript(file: string): Promise<ScriptModule> {
     const mod = (await import(pathToFileURL(bundled).href)) as {
       default?: TutorialScript;
       fixture?: ScriptFixture;
+      setup?: TutorialScript;
     };
     if (typeof mod.default !== 'function')
       throw new Error(`${file} has no default export (the tutorial script)`);
     if (!mod.fixture) throw new Error(`${file} does not export a fixture`);
-    return { script: mod.default, fixture: mod.fixture };
+    if (mod.setup !== undefined && typeof mod.setup !== 'function')
+      throw new Error(`${file}: "setup" must be a function`);
+    return { script: mod.default, fixture: mod.fixture, ...(mod.setup ? { setup: mod.setup } : {}) };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -232,6 +241,31 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
     await waitForFixture(page, mod.fixture, progress);
     // Toasts and the product's own hidden elements stay off camera.
     const camera = await prepareCamera(page, product.hide);
+
+    // Off-camera setup: the take starts with the main Tut (frames before it are dropped).
+    if (mod.setup) {
+      progress('Setting up off camera…');
+      const prep = new Tut({ page, mode: 'dry', scale: session.viewport.scale, timeout: 20_000, camera });
+      try {
+        await prep.step('setup', 'Off-camera setup', () =>
+          mod.setup!({ tut: prep, page, webview: () => webview(page) }),
+        );
+      } catch (e) {
+        if (!(e instanceof StepFailedError)) throw e;
+        stage('failed');
+        return {
+          passed: false,
+          mode: opts.mode,
+          viewport: session.viewport,
+          events: [],
+          failure: e.failure,
+          targetFrames: [],
+          take: null,
+          screenshot: e.failure.screenshot,
+          durationMs: Date.now() - started,
+        };
+      }
+    }
 
     const eventsFile = recording ? path.join(opts.takeDir!, 'events.jsonl') : opts.eventsFile;
     const tut = new Tut({

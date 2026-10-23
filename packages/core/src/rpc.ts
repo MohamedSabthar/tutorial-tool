@@ -3,6 +3,7 @@ import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
 import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
+import { TimingFile } from './stepTiming';
 import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
 import { Pronunciation } from './pronounce';
 import { Brief, PlanEdit } from './brief';
@@ -469,6 +470,10 @@ export const rpcMethods = {
     result: PipelineState,
   },
   'pipeline.stop': { params: z.object({ slug: z.string() }), result: PipelineState },
+  /** Each step's estimated length on camera, from the latest passing dry run. */
+  'project.timing': { params: z.object({ slug: z.string() }), result: TimingFile.nullable() },
+  /** Continues a stopped or failed run from the stage it was in. */
+  'pipeline.resume': { params: z.object({ slug: z.string() }), result: PipelineState },
   /** Edits the plan in place during the storyboard review (narration, titles, explainer ideas). */
   'pipeline.editPlan': {
     params: z.object({ slug: z.string(), edits: z.array(PlanEdit).min(1).max(50) }),

@@ -58,6 +58,11 @@ const script: TutorialScript = async (ctx) => {
 export default script;
 ```
 
+Work the viewer doesn't need to watch (extra items, sample data, the later rounds of a repeated
+flow) goes in an optional `export const setup: TutorialScript = async (ctx) => { … }`. It runs
+after the product loads and before recording starts, at dry-run speed, with the same `tut` and
+page objects (wrapped in one step named "setup"); the first step starts from the state it leaves.
+
 - Only `import type` from `@studio/recorder/node`; runtime imports are relative files (page objects).
 - Step ids are `s1`, `s2`, … in order and never reused for a different step. Overlays anchor to them.
 - Step titles are short imperative sentences in sentence case: they become chapter titles.

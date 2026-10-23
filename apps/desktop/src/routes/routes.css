@@ -565,6 +565,18 @@
   border-radius: var(--ui-radius-pill);
   padding: 3px 8px;
 }
+.sb-fit {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--ui-orange-ink);
+  background: var(--ui-orange-100);
+  border-radius: var(--ui-radius-pill);
+  padding: 3px 10px;
+}
+.sb-fit[data-long] {
+  color: var(--ui-navy);
+  background: var(--ui-steel-100);
+}
 .sb-label {
   display: flex;
   flex-direction: column;

@@ -10,7 +10,7 @@ import {
   TextArea,
   type ChipTone,
 } from '@studio/ui';
-import type { PipelineStatus } from '@studio/core';
+import { PIPELINE_STAGES, type PipelineStatus } from '@studio/core';
 import { pipelineSteps, usePipeline } from '../pipeline';
 import { DiffView } from './DiffView';
 
@@ -35,6 +35,12 @@ export function PipelinePanel({ slug }: { slug: string }) {
   const s = p.state;
   const status = s?.status ?? 'idle';
   const active = status === 'running' || status === 'waiting';
+  // A run that stopped mid-way (stopped, failed, or cut off by an engine restart) can continue.
+  const resumable = (status === 'stopped' || status === 'failed') && !!s?.stage;
+  const resumeStage = s?.stage === 'repair' ? 'dry_run' : s?.stage;
+  const resumeLabel = (
+    PIPELINE_STAGES.find((x) => x.stage === resumeStage)?.label ?? 'where it stopped'
+  ).toLowerCase();
 
   return (
     <Panel title="Pipeline" action={<Chip tone={STATUS[status].tone}>{STATUS[status].label}</Chip>}>
@@ -113,14 +119,25 @@ export function PipelinePanel({ slug }: { slug: string }) {
           </Button>
         ) : (
           <>
+            {resumable && (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!p.ready}
+                onClick={() => void p.resume()}
+                title="Continue this run from the stage it stopped in, keeping its plan and progress"
+              >
+                Resume from {resumeLabel}
+              </Button>
+            )}
             <Button
               size="sm"
-              variant="primary"
+              variant={resumable ? 'ghost' : 'primary'}
               disabled={!p.ready}
               onClick={() => void p.start({ storyboard: storyboardGate, narration: narrationGate })}
               title="Plan, script, dry-run and record this tutorial from its brief (CLAUDE.md)"
             >
-              {status === 'idle' ? 'Start from brief' : 'Run again'}
+              {status === 'idle' ? 'Start from brief' : resumable ? 'Start over' : 'Run again'}
             </Button>
             <Switch label="Storyboard review" checked={storyboardGate} onChange={setStoryboardGate} />
             <Switch label="Narration review" checked={narrationGate} onChange={setNarrationGate} />

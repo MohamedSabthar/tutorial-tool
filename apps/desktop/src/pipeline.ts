@@ -52,6 +52,7 @@ export function usePipeline(slug: string | null) {
     approve: () => act(() => client!.call('pipeline.approve', { slug: target! })),
     revise: (feedback: string) => act(() => client!.call('pipeline.revise', { slug: target!, feedback })),
     stop: () => act(() => client!.call('pipeline.stop', { slug: target! })),
+    resume: () => act(() => client!.call('pipeline.resume', { slug: target! })),
   };
 }
 

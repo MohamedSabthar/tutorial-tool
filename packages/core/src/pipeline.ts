@@ -106,6 +106,8 @@ export const PipelineState = z.object({
   maxRepairs: z.number().int().default(3),
   /** Agent cost when this run started, so the UI can show the run's own cost. */
   costAtStart: z.number().default(0),
+  /** The engine was reloaded mid-stage (dev): the next engine resumes the run by itself. */
+  resumeOnStart: z.boolean().default(false),
   error: z.string().nullable(),
 });
 export type PipelineState = z.infer<typeof PipelineState>;
