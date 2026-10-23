@@ -1,13 +1,16 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   buildTimeMap,
   EXPORT_RESOLUTIONS,
+  renderSfxTrack,
   RpcError,
+  sfxCues,
   voiceSpans,
+  wavBytes,
   type ExportPlan,
   type ExportSettings,
   type ExportState,
@@ -23,6 +26,7 @@ import {
 import type { DocWriter } from './docs';
 import type { ProjectStore } from './projects';
 import type { TimelineStore } from './timeline';
+import { readEvents } from './timing';
 import { resolveUiUrl } from './ui';
 
 /** How often progress is broadcast while rendering. */
@@ -57,6 +61,21 @@ export class Exporter {
 
   status(slug: string): ExportState | null {
     return this.jobs.get(slug)?.state ?? null;
+  }
+
+  /** The click and typing sounds as one WAV in the export's work folder, or null without any. */
+  private async sfxTrack(slug: string, timeline: Timeline, duration: number): Promise<string | null> {
+    const dir = this.deps.store.dir(slug);
+    const eventsByTake: Record<string, Awaited<ReturnType<typeof readEvents>>> = {};
+    for (const take of timeline.takes)
+      eventsByTake[take.id] = await readEvents(dir, take.events).catch(() => []);
+    const cues = sfxCues(timeline, eventsByTake);
+    if (!cues.length) return null;
+    const rate = 48_000;
+    const file = path.join(this.work(slug), 'sfx.wav');
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, wavBytes(renderSfxTrack(cues, duration, rate, timeline.sfx.volume), rate));
+    return file;
   }
 
   private work(slug: string) {
@@ -124,6 +143,12 @@ export class Exporter {
     const audio = voiceSpans(timeline, tm).flatMap((s) =>
       s.line.audio ? [{ file: path.join(dir, s.line.audio), start: s.start }] : [],
     );
+    // Without a voice-over the mix isn't normalised: clicks alone would be raised to speech loudness.
+    const normalize = audio.length > 0;
+    if (outputs.video && timeline.sfx.enabled) {
+      const sfx = await this.sfxTrack(slug, timeline, tm.duration).catch(() => null);
+      if (sfx) audio.push({ file: sfx, start: 0 });
+    }
     const rel = `output/${slug}.mp4`;
     const total = Math.max(1, Math.round(tm.duration * settings.fps));
     const state: ExportState = {
@@ -187,6 +212,7 @@ export class Exporter {
             }),
           ...(settings.resolution === '720p' ? { size } : {}),
           audio,
+          normalize,
           ...(this.deps.workers ? { workers: this.deps.workers } : {}),
           signal: abort.signal,
           onProgress: (p: ExportProgress) => {

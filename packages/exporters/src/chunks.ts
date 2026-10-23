@@ -51,6 +51,8 @@ export interface ExportVideoOptions {
   host: () => RenderHost;
   /** Voice-over clips at their output times. */
   audio: AudioClip[];
+  /** Normalise the mix's loudness (default true; off without a voice-over). */
+  normalize?: boolean;
   /** Parallel workers (each a Chromium and an encoder); default CPU cores / 2. */
   workers?: number;
   encode?: Omit<EncodeOptions, 'fps'>;
@@ -154,7 +156,11 @@ export async function exportVideo(
     const files = chunks.map((_, k) => chunkFile(o.work, k));
     const todo = [...chunks.keys()].filter((k) => !reuse.has(k));
     const audioFile = path.join(o.work, 'audio.m4a');
-    const audio = mixAudio(o.audio, audioFile, { duration: total / o.fps, signal: o.signal });
+    const audio = mixAudio(o.audio, audioFile, {
+      duration: total / o.fps,
+      normalize: o.normalize ?? true,
+      signal: o.signal,
+    });
     audio.catch(() => {});
     let next = 0;
     await Promise.all(

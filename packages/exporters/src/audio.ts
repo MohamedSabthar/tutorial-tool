@@ -11,6 +11,8 @@ export interface MixOptions {
   duration: number;
   /** Integrated loudness target. */
   lufs?: number;
+  /** Normalise to `lufs` (default true). */
+  normalize?: boolean;
   signal?: AbortSignal;
 }
 
@@ -43,8 +45,9 @@ export async function mixAudio(clips: AudioClip[], out: string, opts: MixOptions
   const lufs = opts.lufs ?? -16;
   const { inputs, graph } = mixGraph(clips, opts.duration);
   const target = `I=${lufs}:TP=-1.5:LRA=11`;
+  const normalize = (opts.normalize ?? true) && clips.length > 0;
   let norm = `loudnorm=${target}`;
-  if (clips.length) {
+  if (normalize) {
     const log = await ffmpeg(
       [
         ...inputs,
@@ -73,7 +76,7 @@ export async function mixAudio(clips: AudioClip[], out: string, opts: MixOptions
       '-y',
       ...inputs,
       '-filter_complex',
-      `${graph};[mix]${clips.length ? `${norm},` : ''}aresample=${RATE},atrim=0:${opts.duration.toFixed(6)}[out]`,
+      `${graph};[mix]${normalize ? `${norm},` : ''}aresample=${RATE},atrim=0:${opts.duration.toFixed(6)}[out]`,
       '-map',
       '[out]',
       '-c:a',

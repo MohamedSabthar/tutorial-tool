@@ -23,3 +23,4 @@ export * from './beats';
 export * from './explainers';
 export * from './export';
 export * from './stepTiming';
+export * from './sfx';

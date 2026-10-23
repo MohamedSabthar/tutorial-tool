@@ -9,6 +9,7 @@ import type { OverlayModule } from '@studio/overlay-sdk';
 import {
   buildTimeMap,
   pointerOverlayInstances,
+  sfxCues,
   voiceSpans,
   type Segment,
   type TimelinePatch,
@@ -37,6 +38,7 @@ import { usePipeline } from '../pipeline';
 import { appHrefs, HeaderStatus, useLiveSession } from '../routes/frame';
 import { ProjectBar } from '../routes/ProjectBar';
 import { useLatestTake } from '../useTake';
+import { SfxPlayer } from './SfxPlayer';
 import { resolveTimeline, stepAt } from './resolve';
 import { StageHost } from './StageHost';
 import { TimelinePanel } from './TimelinePanel';
@@ -121,6 +123,12 @@ export function StudioScreen({ slug }: { slug: string }) {
   const controls = usePlayerController(duration);
   const playing = usePlayerValue(controls, (s) => s.playing);
   const rate = usePlayerValue(controls, (s) => s.rate);
+  // Click and typing sounds from the take's events, in output time.
+  const sfx = useMemo(
+    () =>
+      tl.timeline?.sfx.enabled && take && events?.length ? sfxCues(tl.timeline, { [take.id]: events }) : [],
+    [tl.timeline, take, events],
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
   const [tool, setTool] = useState<Tool>('select');
@@ -883,6 +891,31 @@ export function StudioScreen({ slug }: { slug: string }) {
                     {tl.timeline.showCaptions ? 'Captions on' : 'Captions off'}
                   </Button>
                 )}
+                {tl.timeline && (
+                  <Button
+                    size="sm"
+                    aria-pressed={tl.timeline.sfx.enabled}
+                    title={
+                      tl.timeline.sfx.enabled
+                        ? 'Click and typing sounds play under the recording (and are mixed into the export). Click to turn them off.'
+                        : 'No click or typing sounds. Click to turn them on.'
+                    }
+                    onClick={() =>
+                      void tl.patch(
+                        [
+                          {
+                            op: 'add',
+                            path: '/sfx',
+                            value: { ...tl.timeline!.sfx, enabled: !tl.timeline!.sfx.enabled },
+                          },
+                        ],
+                        { label: tl.timeline!.sfx.enabled ? 'Turn sounds off' : 'Turn sounds on' },
+                      )
+                    }
+                  >
+                    {tl.timeline.sfx.enabled ? 'Sounds on' : 'Sounds off'}
+                  </Button>
+                )}
                 <Segmented
                   label="View"
                   options={['Final', 'With annotations', 'Raw take'] as const}
@@ -1043,14 +1076,23 @@ export function StudioScreen({ slug }: { slug: string }) {
 
       <Timed player={controls}>
         {(t) => (
-          <VoicePlayer
-            spans={spans}
-            t={t}
-            playing={playing}
-            rate={rate}
-            media={media}
-            onSync={(at) => controls.seek(at)}
-          />
+          <>
+            <VoicePlayer
+              spans={spans}
+              t={t}
+              playing={playing}
+              rate={rate}
+              media={media}
+              onSync={(at) => controls.seek(at)}
+            />
+            <SfxPlayer
+              cues={sfx}
+              t={t}
+              playing={playing}
+              rate={rate}
+              volume={tl.timeline?.sfx.volume ?? 0.5}
+            />
+          </>
         )}
       </Timed>
     </div>

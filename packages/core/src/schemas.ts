@@ -190,6 +190,14 @@ export type Annotation = z.infer<typeof Annotation>;
 // Timeline and project
 // ---------------------------------------------------------------------------
 
+/** Click and typing sounds under the recording (preview and export). */
+export const SfxSettings = z.object({
+  enabled: z.boolean().default(true),
+  /** 0–1, relative to the voice-over. */
+  volume: z.number().min(0).max(1).default(0.5),
+});
+export type SfxSettings = z.infer<typeof SfxSettings>;
+
 export const Timeline = z
   .object({
     version: z.literal(1),
@@ -206,6 +214,8 @@ export const Timeline = z
     captions: z.array(Caption).default([]),
     /** Whether captions are drawn on the video (preview and export); the cues are kept either way. */
     showCaptions: z.boolean().default(true),
+    /** Click and typing sounds made from the recording's events (preview and export). */
+    sfx: SfxSettings.default({ enabled: true, volume: 0.5 }),
     annotations: z.array(Annotation).default([]),
   })
   .superRefine((tl, ctx) => {
