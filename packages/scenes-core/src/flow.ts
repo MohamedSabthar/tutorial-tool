@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Props shared by the request-flow looks (DiagramFlow, BlueprintFlow, LayeredPanels), so a
+ * Props shared by the request-flow looks (BlueprintFlow, LayeredPanels), so a
  * scene can switch look and keep its content. Looks ignore what they don't show.
  */
 export const FlowNode = z.object({

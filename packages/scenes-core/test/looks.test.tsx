@@ -53,20 +53,28 @@ describe('explainer looks', () => {
   });
 
   it('switch only between looks that share props', () => {
-    expect(looksFor('core:DiagramFlow').map((l) => l.id)).toEqual([
-      'core:DiagramFlow',
+    expect(looksFor('core:BlueprintFlow').map((l) => l.id)).toEqual([
       'core:BlueprintFlow',
       'core:LayeredPanels',
     ]);
-    expect(looksFor('core:CodeTrace').map((l) => l.id)).toEqual(['core:CodeWalkthrough', 'core:CodeTrace']);
-    expect(looksFor('core:ConceptCards')).toEqual([]);
-    // Flow content written for one look renders in the others.
+    expect(looksFor('core:CodeTrace')).toEqual([]);
+    // Flow content written for one look renders in the other.
     const props = {
       nodes: [
         { id: 'a', label: 'A' },
         { id: 'b', label: 'B', part: '/b' },
       ],
     };
-    for (const l of looksFor('core:DiagramFlow')) expect(frame(l.id, 5, props)).toContain('>B<');
+    for (const l of looksFor('core:BlueprintFlow')) expect(frame(l.id, 5, props)).toContain('>B<');
+  });
+
+  it('render content written for the replaced Classic scenes', () => {
+    const steps = [{ lines: [1, 1], note: 'Line one.' }];
+    expect(frame('core:CodeTrace', 8, { code: 'a\nb', steps })).toContain('Line one.');
+    const nodes = [
+      { id: 'x', label: 'X', detail: 'Ex' },
+      { id: 'y', label: 'Y', detail: 'Why' },
+    ];
+    expect(frame('core:LayeredPanels', 8, { nodes })).toContain('Why');
   });
 });

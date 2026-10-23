@@ -48,7 +48,7 @@ export const meta: OverlayMeta = {
   name: 'CodeTrace',
   kind: 'scene',
   description:
-    'Trace-and-code look: the code types itself out, then on each beat (or narration line) a highlight moves to the lines that handle the next part of the request, that part lights up in the request beside it and a note appears. A closing reply pops in on the next beat. Same props as CodeWalkthrough plus request, part and reply.',
+    'Trace-and-code look: the code types itself out, then on each beat (or narration line) a highlight moves to the lines that handle the next part of the request, that part lights up in the request beside it and a note appears. A closing reply pops in on the next beat.',
   props: Props,
   defaultDuration: 9,
 };

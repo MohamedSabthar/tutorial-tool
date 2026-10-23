@@ -13,23 +13,21 @@ scenes). It has a component, props, narration lines and beats. Its length follow
 
 1. `list_scenes` shows built-in (`core:`), workspace and project scenes with their prop schemas.
 2. Built-ins cover most needs with props alone:
-   - `core:DiagramFlow`: boxes in a row and a packet travelling between them, one hop per beat
-     (request flows, pipelines).
+   - `core:BlueprintFlow`: a request flow. Fine lines draw the stops on a grid, then a glowing
+     request runs along the wires to each stop on its beat while the request builds up from the
+     parts the stops read (`part` per node, `request`, `reply`).
+   - `core:LayeredPanels`: the same flow and props as BlueprintFlow, as one panel per stop stacked
+     in depth; each lifts forward as the request reaches it.
+   - `core:CodeTrace`: code that types itself out; then each step highlights its lines and lights
+     its `part` of the `request`, with a note.
    - `core:ConceptCards`: up to four cards appearing one per beat (defining terms).
-   - `core:CodeWalkthrough`: a code listing with a highlight moving through line ranges.
    - `core:ArchitectureZoom`: boxes on a 12×6 grid, zooming into one per beat.
-   - `core:BlueprintFlow` and `core:LayeredPanels`: polished looks for a request flow, with the
-     same props as `DiagramFlow` (plus `part` per node, `request` and `reply`). Blueprint draws the
-     stops on a grid and a glowing request hops between them while the request builds from the
-     parts; Panels stacks one panel per stop and lifts each as the request reaches it.
-   - `core:CodeTrace`: a polished `CodeWalkthrough` (same props plus `request`, `part` per step
-     and `reply`): the code types out, then each step lights its lines and its part of the request.
-   - Looks with the same props are interchangeable: the user picks one in the Studio's explainer
-     inspector. Fill `part`, `request` and `reply` so every look has its content. With no other
-     instructions, use BlueprintFlow for flows and CodeTrace for code. A closing `reply` lands on
-     the beat after the last step, so give it its own narration line.
+   - BlueprintFlow and LayeredPanels are interchangeable: the user picks the look in the Studio's
+     explainer inspector, so fill `part`, `request` and `reply` for both. With no other
+     instructions, use BlueprintFlow. A closing `reply` lands on the beat after the last step, so
+     give it its own narration line.
 3. Write `projects/<slug>/scenes/<Name>.tsx` only when none fits. A thin wrapper around a
-   built-in with tutorial-specific props is often enough (e.g. `RequestFlow` = `DiagramFlow` with
+   built-in with tutorial-specific props is often enough (e.g. `RequestFlow` = `BlueprintFlow` with
    the tutorial's nodes).
 
 ## Beats: animate on the narration, not on seconds

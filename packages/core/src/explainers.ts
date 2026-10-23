@@ -11,7 +11,7 @@ export type StoryboardBeat = z.infer<typeof StoryboardBeat>;
 
 export const Storyboard = z.object({
   title: z.string().min(1).max(120),
-  /** How the scene will be built, e.g. "core:DiagramFlow with four nodes". */
+  /** How the scene will be built, e.g. "core:BlueprintFlow with four nodes". */
   approach: z.string().max(400).default(''),
   beats: z.array(StoryboardBeat).min(1).max(8),
 });

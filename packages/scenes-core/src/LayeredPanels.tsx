@@ -15,7 +15,7 @@ export const meta: OverlayMeta = {
   name: 'LayeredPanels',
   kind: 'scene',
   description:
-    'Layered-panels look for a request flow: one translucent panel per stop slides in and stacks in depth; on each beat (or narration line) the request reaches the next stop, its panel lifts forward and the stop lights on a rail beside the request. A closing reply lands on the next beat. Same props as DiagramFlow and BlueprintFlow.',
+    'Layered-panels look for a request flow: one translucent panel per stop slides in and stacks in depth; on each beat (or narration line) the request reaches the next stop, its panel lifts forward and the stop lights on a rail beside the request. A closing reply lands on the next beat. Same props as BlueprintFlow.',
   props: FlowProps,
   defaultDuration: 9,
 };

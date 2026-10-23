@@ -78,10 +78,16 @@ export const RecordingScene = z.object({
   segments: z.array(Segment).min(1),
 });
 
+/** Built-in scenes that were replaced by a look with the same props: old timelines open with it. */
+export const REPLACED_SCENES: Record<string, string> = {
+  'core:DiagramFlow': 'core:BlueprintFlow',
+  'core:CodeWalkthrough': 'core:CodeTrace',
+};
+
 export const ExplainerScene = z.object({
   id: Id,
   kind: z.literal('explainer'),
-  component: ComponentRef,
+  component: ComponentRef.transform((c) => REPLACED_SCENES[c] ?? c),
   props: z.record(z.string(), z.unknown()).default({}),
   narration: z.array(z.string()).default([]),
   beats: z.array(Beat).default([]),

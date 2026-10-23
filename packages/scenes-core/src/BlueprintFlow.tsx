@@ -17,7 +17,7 @@ export const meta: OverlayMeta = {
   name: 'BlueprintFlow',
   kind: 'scene',
   description:
-    'Blueprint look for a request flow: fine lines draw the stops on a grid, then a glowing request hops to each stop on its beat (or narration line) while the request builds up from the parts each stop reads. A closing reply lands on the next beat. Same props as DiagramFlow and LayeredPanels.',
+    'Blueprint look for a request flow: fine lines draw the stops on a grid, then a glowing request hops to each stop on its beat (or narration line) while the request builds up from the parts each stop reads. A closing reply lands on the next beat. Same props as LayeredPanels.',
   props: FlowProps,
   defaultDuration: 9,
 };

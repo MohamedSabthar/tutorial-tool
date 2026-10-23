@@ -19,10 +19,10 @@ describe('Explainers', () => {
   const catalog: Catalog = {
     entries: [
       {
-        id: 'core:DiagramFlow',
+        id: 'core:BlueprintFlow',
         kind: 'scene',
         scope: 'core',
-        name: 'DiagramFlow',
+        name: 'BlueprintFlow',
         description: '',
         props: {},
       },
@@ -38,7 +38,7 @@ describe('Explainers', () => {
       { id: 'core:Callout', kind: 'overlay', scope: 'core', name: 'Callout', description: '', props: {} },
     ],
     schemas: new Map<string, z.ZodType>([
-      ['core:DiagramFlow', z.object({ title: z.string().default('x') }).strict()],
+      ['core:BlueprintFlow', z.object({ title: z.string().default('x') }).strict()],
     ]),
   };
 
@@ -99,7 +99,7 @@ describe('Explainers', () => {
 
     await ex.saveStoryboard(slug, job.sceneId, {
       title: 'How a request reaches /greeting',
-      approach: 'core:DiagramFlow',
+      approach: 'core:BlueprintFlow',
       beats: [
         { id: 'client', narration: 'A client sends a request.' },
         { id: 'listener', narration: 'The listener receives it.' },
@@ -117,17 +117,17 @@ describe('Explainers', () => {
     expect((await ex.get(slug, job.sceneId)).status).toBe('review');
 
     await expect(ex.setScene(slug, job.sceneId, { component: 'core:Nope' })).rejects.toThrow(
-      /Available: core:DiagramFlow, core:ConceptCards/,
+      /Available: core:BlueprintFlow, core:ConceptCards/,
     );
     await expect(ex.setScene(slug, job.sceneId, { component: 'core:Callout' })).rejects.toThrow(
       /no scene component/,
     );
     await expect(
-      ex.setScene(slug, job.sceneId, { component: 'core:DiagramFlow', props: { bogus: 1 } }),
+      ex.setScene(slug, job.sceneId, { component: 'core:BlueprintFlow', props: { bogus: 1 } }),
     ).rejects.toThrow(/props don't match/);
     expect(
-      await ex.setScene(slug, job.sceneId, { component: 'core:DiagramFlow', props: { title: 'Flow' } }),
-    ).toContain('core:DiagramFlow');
+      await ex.setScene(slug, job.sceneId, { component: 'core:BlueprintFlow', props: { title: 'Flow' } }),
+    ).toContain('core:BlueprintFlow');
 
     await ex.editBeat(slug, job.sceneId, 'listener', 'The listener on port 9090 receives it.');
     ({ timeline } = await timelines.get(slug));

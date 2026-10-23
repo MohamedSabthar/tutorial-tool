@@ -42,7 +42,7 @@ tutorial-tool/                    # app code (pnpm monorepo)
   packages/stage/                 # composition runtime: <Stage>, time context, video plane, camera, clock shim
   packages/overlay-sdk/           # what overlay authors import: hooks, GSAP/R3F bindings, theme, types
   packages/overlays-core/         # built-ins: Cursor, ClickRipple, Zoom, Captions, Blur, Callout, Highlight, TitleCard
-  packages/scenes-core/           # built-in explainer primitives (DiagramFlow, CodeWalkthrough, ConceptCards, ArchitectureZoom) + transitions
+  packages/scenes-core/           # built-in explainer primitives (BlueprintFlow, LayeredPanels, CodeTrace, ConceptCards, ArchitectureZoom) + transitions
   packages/tts/                   # ElevenLabs client
   packages/exporters/             # MP4 renderer (headless GPU Chromium), SRT/VTT, Markdown doc
 workspace/                        # its OWN git repo, so CLAUDE.md and skill lookup walk up to it

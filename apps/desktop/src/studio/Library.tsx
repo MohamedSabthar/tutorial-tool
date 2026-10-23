@@ -45,27 +45,11 @@ const glyphs: Record<string, React.CSSProperties> = {
     marginTop: 24,
   },
   'core:TextLabel': { width: '40%', height: 14, background: '#FF5800', borderRadius: 4 },
-  'core:DiagramFlow': {
-    width: '70%',
-    height: 12,
-    borderLeft: '14px solid #FF5800',
-    borderRight: '14px solid #A9C6DD',
-    background: 'linear-gradient(90deg, #FF5800 0 40%, #A9C6DD 40%)',
-    backgroundSize: '100% 2px',
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-  },
   'core:ConceptCards': {
     width: '66%',
     height: '46%',
     background: 'repeating-linear-gradient(90deg, #FFFFFF 0 28%, transparent 28% 36%)',
     opacity: 0.85,
-  },
-  'core:CodeWalkthrough': {
-    width: '64%',
-    height: '50%',
-    background: 'repeating-linear-gradient(180deg, #A9C6DD 0 3px, transparent 3px 8px)',
-    borderLeft: '3px solid #FF5800',
   },
   'core:BlueprintFlow': {
     width: '72%',

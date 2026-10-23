@@ -340,6 +340,6 @@ export default function Badge({ props, duration }: OverlayProps<Props>) {
   });
   // Captions need their overlay (the automatic one is added when there are cues).
   await client.call('timeline.rebuildFromTake', { slug });
-  await client.call('scenes.insert', { slug, at: 3.55, component: 'core:DiagramFlow', duration: 4 });
+  await client.call('scenes.insert', { slug, at: 3.55, component: 'core:BlueprintFlow', duration: 4 });
   return (await client.call('timeline.get', { slug })).timeline;
 }

@@ -34,7 +34,7 @@ export function speakable(text: string, rules: Pronunciation[]): Speakable {
     .sort((a, b) => b.tokens.length - a.tokens.length);
   const spoken: string[] = [];
   const spans: [number, number][] = [];
-  for (let i = 0; i < written.length; ) {
+  for (let i = 0; i < written.length;) {
     const rule = terms.find((r) => r.tokens.every((t, j) => cueToken(written[i + j] ?? '') === t));
     if (!rule) {
       spans.push([spoken.length, spoken.length + 1]);

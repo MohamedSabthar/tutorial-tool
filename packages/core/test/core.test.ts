@@ -542,3 +542,18 @@ describe('pronunciations', () => {
     ]);
   });
 });
+
+import { Scene } from '../src/index';
+
+describe('replaced scenes', () => {
+  it('open old timelines with the look that replaced them', () => {
+    const old = { id: 'sc-2', kind: 'explainer', component: 'core:DiagramFlow', duration: 'auto' };
+    expect(Scene.parse(old)).toMatchObject({ component: 'core:BlueprintFlow' });
+    expect(Scene.parse({ ...old, component: 'core:CodeWalkthrough' })).toMatchObject({
+      component: 'core:CodeTrace',
+    });
+    expect(Scene.parse({ ...old, component: 'core:ConceptCards' })).toMatchObject({
+      component: 'core:ConceptCards',
+    });
+  });
+});
