@@ -114,3 +114,96 @@ export const IconRegion = (p: IconProps) => (
     <rect x="4" y="5" width="16" height="14" rx="2" />
   </Svg>
 );
+
+// Pipeline stages ------------------------------------------------------------------------------
+
+/** Research and plan: a map folded in three. */
+export const IconPlan = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
+    <path d="M9 4v14M15 6v14" />
+  </Svg>
+);
+/** A review the user answers: an eye. */
+export const IconReview = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+    <circle cx="12" cy="12" r="2.5" />
+  </Svg>
+);
+/** Write the script: a page with brackets. */
+export const IconScript = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+    <path d="M14 3v6h6M10 13l-2 2 2 2M14 13l2 2-2 2" />
+  </Svg>
+);
+/** Dry run: a play mark in a dashed circle (a rehearsal). */
+export const IconDryRun = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" strokeDasharray="3 2.5" />
+    <path d="M10 8.5v7l5.5-3.5z" />
+  </Svg>
+);
+/** Repair: a wrench. */
+export const IconRepair = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L3.5 17.5a1.4 1.4 0 0 0 2 2l5.7-5.7a4 4 0 0 0 5.3-5.3l-2.4 2.4-2-2z" />
+  </Svg>
+);
+/** Narration: lines of text with a quote mark. */
+export const IconNarrate = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 6h10M4 10h16M4 14h16M4 18h9" />
+    <path d="M18 4v4" />
+  </Svg>
+);
+/** Voice-over: a microphone. */
+export const IconVoice = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+  </Svg>
+);
+/** Align to the voice: a waveform with a marker through it. */
+export const IconAlign = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 12h2M7 9v6M10 6v12M17 8v8M20 11v2" />
+    <path d="M13.5 3v18" strokeDasharray="2 2" />
+  </Svg>
+);
+/** Record: a filled dot in a ring. */
+export const IconRecord = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="4" fill="currentColor" />
+  </Svg>
+);
+/** Post-production: scissors. */
+export const IconPost = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="6" r="2.5" />
+    <circle cx="6" cy="18" r="2.5" />
+    <path d="M8 7.5L20 18M8 16.5L20 6" />
+  </Svg>
+);
+/** Final QA: a shield with a tick. */
+export const IconQa = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z" />
+    <path d="M9 12l2 2 4-4" />
+  </Svg>
+);
+/** Retrospective: an open book. */
+export const IconRetro = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z" />
+    <path d="M12 6v13.5" />
+  </Svg>
+);
+/** Disclosure chevron (points right; rotate it when open). */
+export const IconChevron = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 6l6 6-6 6" />
+  </Svg>
+);

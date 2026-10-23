@@ -407,11 +407,73 @@ select {
 }
 .ui-step {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 8px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
   border-radius: 10px;
   border: 1px solid transparent;
+}
+/* A step's row: its dot, title and (when it has detail) a disclosure chevron. */
+.ui-step-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.ui-step-head {
+  cursor: pointer;
+  border-radius: 6px;
+}
+button.ui-step-head:focus-visible {
+  outline: 2px solid var(--ui-navy);
+  outline-offset: 2px;
+}
+.ui-step-head .ui-step-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ui-step-chevron {
+  flex: none;
+  color: var(--ui-gray-500);
+}
+button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
+  transform: rotate(90deg);
+}
+.ui-step-detail {
+  padding-left: 32px;
+  white-space: pre-wrap;
+}
+.ui-step-dot {
+  position: relative;
+}
+/* Done or failed, on a step drawn with an icon. */
+.ui-step-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  line-height: 1;
+  border: 1.5px solid var(--ui-white);
+}
+.ui-step[data-state='done'] .ui-step-badge {
+  background: var(--ui-green-ink);
+  color: var(--ui-white);
+}
+.ui-step[data-state='failed'] .ui-step-badge {
+  background: var(--ui-red-ink);
+  color: var(--ui-white);
 }
 .ui-step[data-state='active'] {
   background: var(--ui-orange-100);

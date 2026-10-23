@@ -477,7 +477,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
           </Panel>
           {st && st.status !== 'idle' && (
             <Panel title="Pipeline">
-              <Stepper steps={pipelineSteps(st)} />
+              <Stepper steps={pipelineSteps(st)} collapsible />
             </Panel>
           )}
         </aside>

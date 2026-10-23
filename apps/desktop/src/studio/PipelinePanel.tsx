@@ -46,7 +46,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
 
   return (
     <Panel title="Pipeline" action={<Chip tone={STATUS[status].tone}>{STATUS[status].label}</Chip>}>
-      <Stepper steps={pipelineSteps(s)} />
+      <Stepper steps={pipelineSteps(s)} collapsible />
 
       {s?.gate && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

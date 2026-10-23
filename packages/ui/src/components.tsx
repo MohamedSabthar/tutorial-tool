@@ -1,9 +1,10 @@
 import {
   useId,
+  useState,
   type AnchorHTMLAttributes,
   type CSSProperties,
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { IconProjects, IconStudio, IconLive, IconLibrary, IconSettings } from './icons';
+import { IconChevron, IconProjects, IconStudio, IconLive, IconLibrary, IconSettings } from './icons';
 import markUrl from '../assets/mark-wso2-orange.png';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -304,22 +305,73 @@ export const Pin = ({ n, resolved = false }: { n: ReactNode; resolved?: boolean 
 
 export type StepState = 'done' | 'active' | 'todo' | 'gate' | 'failed';
 
-export function Stepper({ steps }: { steps: { label: ReactNode; sub?: ReactNode; state: StepState }[] }) {
+export interface StepperStep {
+  label: ReactNode;
+  sub?: ReactNode;
+  state: StepState;
+  /** Shown in the dot instead of the step's number; the dot's colour still gives the state. */
+  icon?: ReactNode;
+  /** Identifies the step across renders (which steps are open); defaults to the label. */
+  id?: string;
+}
+
+/**
+ * Steps in order. With `collapsible`, each step's detail (`sub`) is hidden until its row is
+ * opened; all start closed.
+ */
+export function Stepper({ steps, collapsible = false }: { steps: StepperStep[]; collapsible?: boolean }) {
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
   let n = 0;
   return (
     <ol className="ui-stepper">
       {steps.map((s, i) => {
         if (s.state !== 'gate') n++;
-        const mark = s.state === 'done' ? '✓' : s.state === 'gate' ? '◆' : s.state === 'failed' ? '!' : String(n);
+        const key = s.id ?? (typeof s.label === 'string' ? s.label : String(i));
+        const mark = s.icon ?? (s.state === 'done' ? '✓' : s.state === 'gate' ? '◆' : s.state === 'failed' ? '!' : String(n));
+        const badge = s.icon && (s.state === 'done' || s.state === 'failed') ? (s.state === 'done' ? '✓' : '!') : null;
+        const dot = (
+          <span className="ui-step-dot" aria-hidden="true">
+            {mark}
+            {badge && <span className="ui-step-badge">{badge}</span>}
+          </span>
+        );
+        const expandable = collapsible && !!s.sub;
+        const isOpen = expandable && open.has(key);
+        const status = { done: 'done', active: 'in progress', todo: 'not started', gate: 'waiting for you', failed: 'failed' }[s.state];
         return (
-          <li key={i} className="ui-step" data-state={s.state} aria-current={s.state === 'active' ? 'step' : undefined}>
-            <span className="ui-step-dot" aria-hidden="true">
-              {mark}
-            </span>
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-              <span className="ui-step-title">{s.label}</span>
-              {s.sub && <span className="ui-step-sub">{s.sub}</span>}
-            </span>
+          <li key={key} className="ui-step" data-state={s.state} aria-current={s.state === 'active' ? 'step' : undefined}>
+            {expandable ? (
+              <>
+                <button
+                  type="button"
+                  className="ui-step-head"
+                  aria-expanded={isOpen}
+                  onClick={() =>
+                    setOpen((cur) => {
+                      const next = new Set(cur);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    })
+                  }
+                >
+                  {dot}
+                  <span className="ui-step-title">{s.label}</span>
+                  <span className="ui-sr-only">, {status}</span>
+                  <IconChevron size={14} className="ui-step-chevron" />
+                </button>
+                {isOpen && <span className="ui-step-sub ui-step-detail">{s.sub}</span>}
+              </>
+            ) : (
+              <span className="ui-step-head">
+                {dot}
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <span className="ui-step-title">{s.label}</span>
+                  {!collapsible && s.sub && <span className="ui-step-sub">{s.sub}</span>}
+                </span>
+                <span className="ui-sr-only">, {status}</span>
+              </span>
+            )}
           </li>
         );
       })}

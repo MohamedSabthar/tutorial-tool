@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PIPELINE_STAGES, type PipelineState } from '@studio/core';
-import type { StepState } from '@studio/ui';
+import {
+  IconAlign,
+  IconDryRun,
+  IconNarrate,
+  IconPlan,
+  IconPost,
+  IconQa,
+  IconRecord,
+  IconRepair,
+  IconRetro,
+  IconReview,
+  IconScript,
+  IconVoice,
+  type StepperStep,
+  type StepState,
+} from '@studio/ui';
+import type { PipelineStage } from '@studio/core';
 import { useEngine } from './engine';
 
 /**
@@ -63,9 +79,23 @@ const ran = (history: PipelineState['history'], stage: string) => history.some((
  * Stepper rows for the pipeline. Repair shows once it has run; narrate and voice (voice-first
  * pacing) are hidden in a finished run that skipped them.
  */
-export function pipelineSteps(
-  state: PipelineState | null,
-): { label: string; sub?: string; state: StepState }[] {
+/** Each stage's icon in the stepper. */
+const STAGE_ICON: Record<PipelineStage, (p: { size?: number }) => StepperStep['icon']> = {
+  plan: IconPlan,
+  storyboard_gate: IconReview,
+  script: IconScript,
+  dry_run: IconDryRun,
+  repair: IconRepair,
+  narrate: IconNarrate,
+  voice: IconVoice,
+  align: IconAlign,
+  record: IconRecord,
+  post: IconPost,
+  qa: IconQa,
+  retro: IconRetro,
+};
+
+export function pipelineSteps(state: PipelineState | null): StepperStep[] {
   const history = state?.history ?? [];
   return PIPELINE_STAGES.filter((s) =>
     s.stage === 'repair'
@@ -89,7 +119,7 @@ export function pipelineSteps(
       stage === 'repair' && runs.length
         ? `${runs.length} attempt${runs.length === 1 ? '' : 's'}${last?.summary ? ` · ${last.summary}` : ''}`
         : last?.summary || undefined;
-    return { label, ...(sub ? { sub } : {}), state: st };
+    return { id: stage, label, icon: STAGE_ICON[stage]({ size: 13 }), ...(sub ? { sub } : {}), state: st };
   });
 }
 

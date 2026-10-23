@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DevShell, useHashPath, type DevRoute } from './shell';
 import { EngineProvider } from './engine';
@@ -102,10 +102,28 @@ function StudioLink() {
 const SLUG = '([a-z0-9][a-z0-9-]*)';
 const match = (path: string, prefix: string) => new RegExp(`^/${prefix}/${SLUG}`).exec(path)?.[1];
 
-/** Hash routes: the app screens (Live included) and the developer pages (anything else). */
+/**
+ * Hash routes: the app screens and the developer pages (anything else). Live stays mounted from
+ * the start and is only hidden on other screens, so its log, frames and progress survive
+ * switching screens (and it has followed the run before it is first opened).
+ */
 function App() {
   const path = useHashPath();
-  if (path.startsWith('/live')) return <LiveShell slug={match(path, 'live') ?? null} />;
+  const onLive = path.startsWith('/live');
+  const liveSlug = onLive ? (match(path, 'live') ?? null) : undefined;
+  const [lastLiveSlug, setLastLiveSlug] = useState<string | null>(null);
+  if (liveSlug !== undefined && liveSlug !== lastLiveSlug) setLastLiveSlug(liveSlug);
+  return (
+    <>
+      <div style={onLive ? undefined : { display: 'none' }}>
+        <LiveShell slug={liveSlug ?? lastLiveSlug} />
+      </div>
+      {!onLive && <Screen path={path} />}
+    </>
+  );
+}
+
+function Screen({ path }: { path: string }) {
   if (path === '/' || path === '/projects') return <ProjectsScreen />;
   if (path === '/settings') return <SettingsScreen />;
   const studio = match(path, 'studio');

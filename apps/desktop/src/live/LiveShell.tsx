@@ -417,7 +417,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
         <Panel title="Pipeline" style={{ flex: '1 1 250px', maxWidth: 290 }}>
           {pipe.state && pipe.state.status !== 'idle' && (
             <>
-              <Stepper steps={agentPipelineSteps(pipe.state)} />
+              <Stepper steps={agentPipelineSteps(pipe.state)} collapsible />
               {pipe.state.gate && (
                 <GateBanner
                   title={pipe.state.gate.title}
