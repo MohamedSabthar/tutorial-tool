@@ -3,7 +3,7 @@ import type { RecorderEvent } from '@studio/core';
 import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
 import { loadScript, openInspector, type Inspector, type ScriptFixture } from '@studio/recorder/node';
 import type { ProjectStore } from './projects';
-import { runProjectScript, type ProjectRunResult } from './recording';
+import { runProjectScript, type ProjectRunResult, type RunMode } from './recording';
 import type { Workspace } from './workspace';
 
 type Broadcast = <E extends RpcEvent>(event: E, data: RpcEventData<E>) => void;
@@ -114,12 +114,12 @@ export class Runner {
   }
 
   /** Runs a project's script.spec.ts (dry run, or record a new take). */
-  async runProject(slug: string, mode: 'dry' | 'record'): Promise<ProjectRunResult> {
+  async runProject(slug: string, mode: RunMode, opts: { until?: string } = {}): Promise<ProjectRunResult> {
     const title = (await this.store.open(slug).catch(() => null))?.project.title ?? slug;
     return this.exclusive(
       title,
-      mode,
-      (cb) => runProjectScript(this.store, this.workspace, slug, mode, cb),
+      mode === 'record' ? 'record' : 'dry',
+      (cb) => runProjectScript(this.store, this.workspace, slug, mode, cb, opts),
       slug,
     );
   }

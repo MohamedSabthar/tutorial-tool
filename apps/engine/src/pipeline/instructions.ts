@@ -16,6 +16,7 @@ export function planInstruction(opts: { explainers: boolean } = { explainers: tr
     "Plan this tutorial. Read the brief in this project's CLAUDE.md (and any files it lists under References) and the product skill, then follow the tutorial-authoring skill to split it into 3–8 steps. Fit the length and style the brief asks for.",
     "Research first: for every part of the task the product skill doesn't already cover (no page object or component note for it, or notes that may be out of date), open the live product with inspect_ui and find the screens and controls involved, and record what you learn in the skill (following skill-maintenance). Plan steps from what you saw, not from guesses.",
     `Save the plan with the studio tool save_plan: for each step an id (s1, s2, …), a short imperative title, and what happens on screen, naming the controls as they appear. Leave narration empty: it's written after the script has been dry-run, once every step is known. ${opts.explainers ? 'Propose explainers only where a concept is easier to show than to click through.' : "Don't propose explainers: the brief asks for a recording only."}`,
+    "Keep the camera on what teaches. When the task repeats a slow flow (several similar tools, endpoints, fields or records), show it once in full; the rest is off-camera setup, done before recording starts: say so in the plan (in that step's action, e.g. \"Off camera: setup creates subtract, multiply and divide the same way\"). A product flow that takes more than about a minute and isn't the point of the tutorial is setup too.",
     "Don't write or run the script yet; the user reviews the plan first.",
     done('plan'),
   ].join('\n\n');
@@ -34,6 +35,7 @@ export function scriptInstruction(plan: Plan): string {
   return [
     '[Pipeline · script]',
     "Write script.spec.ts in this project for the approved plan below, following the tutorial-authoring skill: reuse the product skill's page objects, and use exactly these step ids and titles.",
+    "Work the plan marks as off camera goes in `export const setup = async (ctx) => { … }` (it runs after the product loads and before recording starts, with the same tut and page objects), not in a step. Start every step by waiting for the screen it expects (tut.waitFor), so a failure shows in the step that caused it.",
     "Before you script a step the skill doesn't cover, research it in the live product with inspect_ui (replay up to the step before it) and add page objects or notes for what you find, so the script isn't written from guesses.",
     "You may dry-run it with run_script while you work, but you don't have to: the pipeline dry-runs it as soon as you finish. Don't record.",
     '```json\n' + JSON.stringify(plan.steps, null, 2) + '\n```',
@@ -55,7 +57,10 @@ export function repairInstruction(input: {
     `The ${input.mode === 'dry' ? 'dry run' : 'recording'} failed${input.stepId ? ` at step ${input.stepId}` : ''}: ${input.error}`,
     input.errorDetail ? '```\n' + input.errorDetail + '\n```' : '',
     input.feedback ? `The user adds:\n\n${input.feedback}` : '',
-    'Fix it by following the skill-maintenance skill: read the failure (run_script({"mode": "dry"}) shows the screenshot and ARIA snapshots), research with inspect_ui only if that isn\'t enough, then fix the page objects or the script and update the skill notes. Check with a dry run before you finish.',
+    "Fix it by following the skill-maintenance skill: read the failure (the screenshot and ARIA snapshots of a failed run), research with inspect_ui only if that isn't enough, then fix the page objects or the script and update the skill notes.",
+    input.stepId
+      ? `Check your fix up to the failing step only, not the whole script: run_script({"mode": "${input.mode === 'record' ? 'rehearse' : 'dry'}", "until": "${input.stepId}"})${input.mode === 'record' ? ' (rehearse runs at recording pace without recording: this step failed while recording)' : ''}. Make sure each step starts on the screen it expects (waitFor it) so a problem shows where it happens. Don't run the full script yourself: the pipeline does that next.`
+      : 'Check your fix with a dry run before you finish.',
     input.attempt >= input.max
       ? "This is your last repair before the user is asked for help, so don't guess. If you found the cause and fixed it, finish as usual. If you're not sure, stop: call stage_done with \"ok\": false and a summary for the user in three short parts: what you tried, what you think is wrong, and one specific question (for example which screen or control to use, whether the product needs a sign-in or setup first, or whether to drop the step). The user's answer comes back to you."
       : '',

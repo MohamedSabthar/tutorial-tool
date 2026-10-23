@@ -41,6 +41,8 @@ export interface TutOptions {
   /** Called as the pointer moves and clicks, in frame pixels (live cursor). */
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
   /** The voiced narration to pace steps and cues to. */
+  /** End the run after this step (a partial run, e.g. to check a repair). */
+  stopAfter?: string;
   pace?: Pace;
   /** Called as each step ends (dry runs keep a screenshot of it for the storyboard). */
   onStepDone?: (stepId: string) => Promise<void>;
@@ -77,6 +79,14 @@ export interface StepFailure {
   ariaSnapshot: string;
   /** ARIA snapshot of the active webview (WSO2 Integrator's visual editors), if any. */
   webviewAriaSnapshot: string;
+}
+
+/** Thrown after the step a partial run stops at (`stopAfter`): the run ends there, passed. */
+export class StopAfterStep extends Error {
+  override name = 'StopAfterStep';
+  constructor(readonly stepId: string) {
+    super(`stopped after step "${stepId}"`);
+  }
 }
 
 export class StepFailedError extends Error {
@@ -193,6 +203,7 @@ export class Tut {
     await this.emit({ kind: 'step-end', t: this.now(), stepId: id });
     this.current = null;
     this.line = null;
+    if (this.opts.stopAfter === id) throw new StopAfterStep(id);
   }
 
   /**

@@ -731,6 +731,8 @@ describe('PipelineManager', () => {
     expect(last().history.filter((h) => h.stage === 'repair')).toHaveLength(1);
     // The last repair is told to ask rather than guess.
     expect(sent.find((t) => t.includes('repair, attempt 1 of 1'))).toContain("so don't guess");
+    // It checks its fix up to the failing step, not with the whole script.
+    expect(sent.find((t) => t.includes('repair, attempt 1 of 1'))).toContain('"mode": "dry", "until": "s2"');
     expect(p.stageDone(slug, 'plan', true, 'x')).toMatch(/No pipeline stage is waiting/);
 
     await p.revise(slug, 'Use the Path field instead');

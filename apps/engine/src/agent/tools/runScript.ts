@@ -14,16 +14,28 @@ export function runScriptTools(ctx: ToolContext) {
         "Run this project's script.spec.ts in WSO2 Integrator on a fresh copy of its fixture; the user watches",
         'it live. mode "dry" checks the script quickly without recording; "record" records a new take and',
         'registers it in the timeline (steps and the recording scene are rebuilt; overlays are kept).',
-        'Always pass a dry run before recording. On failure you get the failing step, the error with',
+        'Always pass a dry run before recording. "rehearse" runs at recording pace (pointer moves, typing at',
+        'human speed, cues on their words) without recording: use it when a recording failed at a step',
+        'that passes dry runs. `until` stops after a step, so checking a fix to s6 needs only s1–s6.',
+        'On failure you get the failing step, the error with',
         "Playwright's call log, a screenshot, and ARIA snapshots of the window and the active webview.",
         "A passing dry run gives each step's recordedSeconds (how long it will take on camera, with the",
         'human pacing a dry run skips) and productWaits (where the product makes it wait): plan narration from these.',
       ].join(' '),
-      { mode: z.enum(['dry', 'record']) },
-      async ({ mode }): Promise<CallToolResult> => {
+      {
+        mode: z.enum(['dry', 'rehearse', 'record']),
+        until: z
+          .string()
+          .optional()
+          .describe(
+            'Stop after this step id (e.g. "s6"): a partial run, to check a fix quickly. Not with record.',
+          ),
+      },
+      async ({ mode, until }): Promise<CallToolResult> => {
+        if (mode === 'record' && until) return fail('A recording runs every step: drop "until".');
         let r;
         try {
-          r = await ctx.runner.runProject(ctx.slug, mode);
+          r = await ctx.runner.runProject(ctx.slug, mode, until ? { until } : {});
         } catch (e) {
           return fail(`The run could not start or crashed: ${e instanceof Error ? e.message : String(e)}`);
         }
@@ -49,7 +61,9 @@ export function runScriptTools(ctx: ToolContext) {
                   {
                     passed: true,
                     mode,
-                    summary: `${passedSteps}/${steps.length} steps passed`,
+                    summary: r.partial
+                      ? `${passedSteps} steps passed, stopped after ${until} as asked`
+                      : `${passedSteps}/${steps.length} steps passed`,
                     steps,
                     take: r.take ? { id: r.take.id, duration: r.take.duration, path: r.takePath } : null,
                     durationMs: r.durationMs,

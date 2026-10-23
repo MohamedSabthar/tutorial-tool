@@ -42,7 +42,16 @@ export interface ProjectRunResult extends RunResult {
   timingCheck?: string | null;
   /** A failed run's screenshot, project-relative. */
   failureShot?: string | null;
+  /** The run stopped after an earlier step, as asked (`until`). */
+  partial?: boolean;
 }
+
+/**
+ * How to run a script: `dry` checks it quickly (no pacing), `record` records a take, and
+ * `rehearse` runs at recording pace (pointer moves, typing, cues) without recording, for
+ * failures that only happen at that pace.
+ */
+export type RunMode = 'dry' | 'record' | 'rehearse';
 
 /**
  * Runs a project's script.spec.ts. Record mode saves recordings/take-N (video.mp4,
@@ -54,8 +63,9 @@ export async function runProjectScript(
   store: ProjectStore,
   workspace: Workspace,
   slug: string,
-  mode: 'dry' | 'record',
+  mode: RunMode,
   cb: RecordCallbacks = {},
+  opts: { until?: string } = {},
 ): Promise<ProjectRunResult> {
   await workspace.ensure();
   const dir = store.dir(slug);
@@ -70,16 +80,18 @@ export async function runProjectScript(
   const takeId = mode === 'record' ? await store.nextTakeId(slug) : null;
   const takePath = takeId ? `recordings/${takeId}` : null;
   const pace = await readPace(dir);
-  // Dry runs keep a still of each step for the storyboard review.
+  // Full dry runs keep a still of each step for the storyboard review.
+  const full = !opts.until;
   const shots = path.join(dir, '.studio', 'shots');
-  if (mode === 'dry') {
+  if (mode === 'dry' && full) {
     await rm(shots, { recursive: true, force: true });
     await mkdir(shots, { recursive: true });
   }
   const result = await runTutorial(mod, {
-    mode,
+    mode: mode === 'rehearse' ? 'record' : mode,
     ...(pace ? { pace } : {}),
-    ...(mode === 'dry' ? { stepShotsDir: shots } : {}),
+    ...(mode === 'dry' && full ? { stepShotsDir: shots } : {}),
+    ...(opts.until ? { until: opts.until } : {}),
     ...(takePath ? { takeDir: path.join(dir, takePath), takeId: takeId! } : {}),
     captureTargets: false,
     ...cb,
@@ -87,7 +99,7 @@ export async function runProjectScript(
 
   // A passing dry run measures the product: the narration is planned from these step timings.
   // The workspace's calibration corrects the estimate by what earlier recordings took.
-  if (mode === 'dry' && result.passed)
+  if (mode === 'dry' && full && result.passed)
     await saveTimings(dir, estimateTimings(result.events, (await readCalibration(workspace.root)).factor));
 
   // A recording checks the estimate it was planned with, and refines the calibration.
@@ -121,7 +133,7 @@ export async function runProjectScript(
     await writeFile(path.join(dir, failureShot), result.failure.screenshot);
   }
 
-  return { ...result, slug, takePath, codec, timingCheck, failureShot };
+  return { ...result, slug, takePath, codec, timingCheck, failureShot, partial: !full };
 }
 
 /**

@@ -13,6 +13,7 @@ import { encodeTake, ScreenRecorder } from './record';
 import { startScreencast, type ScreencastFrame } from './screencast';
 import {
   StepFailedError,
+  StopAfterStep,
   Tut,
   webview,
   type LiveAction,
@@ -131,6 +132,8 @@ export interface RunOptions {
   pace?: Pace;
   /** Keep a JPEG of the window at the end of each step here (`<step id>.jpg`). */
   stepShotsDir?: string;
+  /** End the run after this step: the steps after it don't run (a partial run). */
+  until?: string;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
@@ -279,6 +282,7 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
       timeout: opts.mode === 'dry' ? 10_000 : 20_000,
       captureTargets: opts.captureTargets ?? false,
       ...(opts.pace ? { pace: opts.pace } : {}),
+      ...(opts.until ? { stopAfter: opts.until } : {}),
       camera,
       ...(opts.stepShotsDir
         ? {
@@ -307,9 +311,12 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
     try {
       await mod.script({ tut, page, webview: () => webview(page) });
     } catch (e) {
-      if (!(e instanceof StepFailedError)) throw e;
-      failure = stopped ? { ...e.failure, error: 'Stopped by user' } : e.failure;
-      progress(stopped ? 'Stopped' : `Step ${failure.stepId} failed: ${failure.error}`);
+      if (e instanceof StopAfterStep) progress(`Stopped after ${e.stepId}, as asked`);
+      else if (!(e instanceof StepFailedError)) throw e;
+      else {
+        failure = stopped ? { ...e.failure, error: 'Stopped by user' } : e.failure;
+        progress(stopped ? 'Stopped' : `Step ${failure.stepId} failed: ${failure.error}`);
+      }
     }
     const tEnd = await tut.finish();
     const screenshot = stopped ? Buffer.alloc(0) : await page.screenshot();

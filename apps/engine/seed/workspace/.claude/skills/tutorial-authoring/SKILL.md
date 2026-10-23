@@ -58,6 +58,11 @@ const script: TutorialScript = async (ctx) => {
 export default script;
 ```
 
+Plan for it: a repeated slow flow (several similar tools, endpoints, fields) is shown once on
+camera, and a product flow over about a minute that isn't the point of the tutorial is set up off
+camera. Start every step by waiting for the screen it expects, so a failure shows in the step that
+caused it, not several steps later.
+
 Work the viewer doesn't need to watch (extra items, sample data, the later rounds of a repeated
 flow) goes in an optional `export const setup: TutorialScript = async (ctx) => { … }`. It runs
 after the product loads and before recording starts, at dry-run speed, with the same `tut` and
