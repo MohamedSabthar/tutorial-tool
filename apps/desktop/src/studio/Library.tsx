@@ -67,6 +67,29 @@ const glyphs: Record<string, React.CSSProperties> = {
     background: 'repeating-linear-gradient(180deg, #A9C6DD 0 3px, transparent 3px 8px)',
     borderLeft: '3px solid #FF5800',
   },
+  'core:BlueprintFlow': {
+    width: '72%',
+    height: '40%',
+    border: '1.5px solid #A9C6DD',
+    borderRadius: 4,
+    background:
+      'radial-gradient(circle at 70% 50%, #FF5800 0 4px, transparent 5px), repeating-linear-gradient(90deg, rgba(169,198,221,0.35) 0 1px, transparent 1px 10px)',
+  },
+  'core:LayeredPanels': {
+    width: '46%',
+    height: '36%',
+    background: '#2B3E5E',
+    border: '1.5px solid #FF5800',
+    borderRadius: 5,
+    boxShadow: '8px 8px 0 -1px #A9C6DD, 16px 16px 0 -2px rgba(169,198,221,0.5)',
+  },
+  'core:CodeTrace': {
+    width: '64%',
+    height: '50%',
+    background:
+      'linear-gradient(90deg, transparent 0 62%, #FF5800 62% 64%, transparent 64%), repeating-linear-gradient(180deg, #A9C6DD 0 3px, transparent 3px 8px)',
+    borderLeft: '3px solid #FF5800',
+  },
   'core:ArchitectureZoom': {
     width: '30%',
     height: '46%',

@@ -49,7 +49,7 @@ export function explainerTools(ctx: ToolContext) {
     ),
     tool(
       'set_explainer',
-      'Set an explainer scene\'s component (a scene from list_scenes: core:DiagramFlow, core:ConceptCards, core:CodeWalkthrough, core:ArchitectureZoom, or one in scenes/), its props (validated against the component), its narration lines and optionally beats ([{id, at}] with at = "vo:N", "word:x" or seconds; by default the component\'s beats fall on narration lines 0, 1, 2…).',
+      'Set an explainer scene\'s component (a scene from list_scenes: core:DiagramFlow, core:BlueprintFlow, core:LayeredPanels, core:ConceptCards, core:CodeWalkthrough, core:CodeTrace, core:ArchitectureZoom, or one in scenes/), its props (validated against the component), its narration lines and optionally beats ([{id, at}] with at = "vo:N", "word:x" or seconds; by default the component\'s beats fall on narration lines 0, 1, 2…).',
       {
         sceneId: z.string(),
         component: z.string().optional(),

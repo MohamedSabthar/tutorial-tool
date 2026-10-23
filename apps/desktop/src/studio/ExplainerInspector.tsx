@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { resolveBeats, type ExplainerScene, type TimelinePatch, type VoiceLine } from '@studio/core';
 import type { OverlayModule } from '@studio/overlay-sdk';
-import { Button, Chip, Panel, TextArea } from '@studio/ui';
+import { looksFor } from '@studio/scenes-core';
+import { Button, Chip, Panel, Segmented, TextArea } from '@studio/ui';
 
 /**
  * The selected explainer scene: its narration lines (each edit is one patch; beats re-time
  * from the text, or from the voice-over once it is regenerated), the resolved beat times,
- * its length and its props as JSON (checked against the component's schema). The parent keys
+ * its look (built-ins that share props), its length and its props as JSON (checked against the component's schema). The parent keys
  * it by the scene's narration and props, so outside changes (undo, the agent) reset the fields.
  */
 export function ExplainerInspector({
@@ -28,6 +29,7 @@ export function ExplainerInspector({
   const [props, setProps] = useState(JSON.stringify(scene.props, null, 2));
   const [propsError, setPropsError] = useState<string | null>(null);
 
+  const looks = looksFor(scene.component);
   const timing = resolveBeats(scene, voice, mod?.meta?.beats ?? []);
   const voiced = voice.length > 0;
   const saveLines = (next: string[]) =>
@@ -48,6 +50,22 @@ export function ExplainerInspector({
       <span className="ui-mono" style={{ fontSize: 12, color: 'var(--ui-gray-600)' }}>
         {scene.component} · {scene.id}
       </span>
+      {looks.length > 1 && (
+        <>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ui-navy)' }}>Look</span>
+          <Segmented
+            label="Explainer look"
+            block
+            options={looks.map((l) => ({ value: l.id, label: l.label }))}
+            value={scene.component}
+            onChange={(component) =>
+              void patch([{ op: 'replace', path: `/scenes/${index}/component`, value: component }], {
+                label: 'Change explainer look',
+              })
+            }
+          />
+        </>
+      )}
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ui-navy)' }}>Narration</span>
       {lines.map((l, i) => (
         <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>

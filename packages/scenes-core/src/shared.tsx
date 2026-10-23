@@ -18,3 +18,26 @@ export function activeStep(timing: SceneTiming, n: number, duration: number, t: 
 }
 
 export const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+/**
+ * When a scene's closing moment (a reply, a result) lands after its n steps: on beat n when the
+ * narration has a line for it, otherwise a little after the last step and before the end.
+ */
+export function afterSteps(timing: SceneTiming, n: number, duration: number): number {
+  if (timing.order[n] !== undefined) return timing.beats[timing.order[n]!]!;
+  const last = n > 0 ? stepTime(timing, n - 1, n, duration) : 0;
+  return Math.min(Math.max(last + 1.2, duration - 1.8), Math.max(last + 0.4, duration - 0.6));
+}
+
+/** Overshooting ease-out (0..1, peaks a little above 1): for things that pop in. */
+export function pop(t: number, a: number, b: number, overshoot = 1.6): number {
+  if (b <= a) return t >= b ? 1 : 0;
+  const x = clamp01((t - a) / (b - a)) - 1;
+  return 1 + (overshoot + 1) * x * x * x + overshoot * x * x;
+}
+
+/** Ease-out (cubic), 0..1 for t between a and b. */
+export function easeOut(t: number, a: number, b: number): number {
+  if (b <= a) return t >= b ? 1 : 0;
+  return 1 - Math.pow(1 - clamp01((t - a) / (b - a)), 3);
+}

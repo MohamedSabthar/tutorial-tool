@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   SceneFrame,
   sceneType,
@@ -9,32 +8,17 @@ import {
   type OverlayMeta,
   type OverlayProps,
 } from '@studio/overlay-sdk';
+import { FlowProps } from './flow';
 import { activeStep, stepTime } from './shared';
 
-const Props = z.object({
-  title: z.string().default('How a request flows'),
-  eyebrow: z.string().default(''),
-  nodes: z
-    .array(z.object({ id: z.string(), label: z.string(), detail: z.string().default('') }))
-    .min(2)
-    .max(6)
-    .default([
-      { id: 'client', label: 'Client', detail: 'A client sends GET /greeting' },
-      { id: 'listener', label: 'Listener :9090', detail: 'The listener receives it on port 9090' },
-      { id: 'service', label: 'Service /greeting', detail: 'The base path picks the service' },
-      { id: 'resource', label: 'Resource', detail: 'The resource returns the response' },
-    ]),
-  /** Node ids in the order the packet visits them (defaults to the node order). */
-  flow: z.array(z.string()).default([]),
-  theme: z.enum(['wso2-dark', 'wso2-light']).default('wso2-dark'),
-});
-type Props = z.infer<typeof Props>;
+const Props = FlowProps;
+type Props = FlowProps;
 
 export const meta: OverlayMeta = {
   name: 'DiagramFlow',
   kind: 'scene',
   description:
-    'Boxes in a row with a packet travelling between them: one hop per beat (or per narration line), each box lighting up with its detail as it is reached. Good for request flows and pipelines.',
+    'Boxes in a row with a packet travelling between them: one hop per beat (or per narration line), each box lighting up with its detail as it is reached. Good for request flows and pipelines. Same props as BlueprintFlow and LayeredPanels (it shows labels and details only).',
   props: Props,
   defaultDuration: 8,
 };
