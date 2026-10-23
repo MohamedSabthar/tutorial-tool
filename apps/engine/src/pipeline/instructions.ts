@@ -1,4 +1,5 @@
 import type { Pace, Plan, StepTiming } from '@studio/core';
+import { lateCueLines, type LateCue } from '../pace';
 import { timingLines } from '../stepTiming';
 
 /**
@@ -117,7 +118,12 @@ const NARRATION_LENGTH = [
  * After the voice-over: the agent sees each line's real length and ElevenLabs' word timings and
  * fits the script to them (cues, holds, waits). The approved narration doesn't change.
  */
-export function alignInstruction(plan: Plan, pace: Pace, timing: StepTiming[] = []): string {
+export function alignInstruction(
+  plan: Plan,
+  pace: Pace,
+  timing: StepTiming[] = [],
+  late: LateCue[] = [],
+): string {
   const steps = plan.steps
     .map((s) => {
       const line = pace.steps[s.id];
@@ -131,7 +137,14 @@ export function alignInstruction(plan: Plan, pace: Pace, timing: StepTiming[] = 
     })
     .join('\n');
   return [
-    '[Pipeline · align]',
+    late.length ? '[Pipeline · align, late cues]' : '[Pipeline · align]',
+    late.length
+      ? [
+          'The take was recorded, but these actions landed after their words:',
+          lateCueLines(late),
+          "The recorder waits for each cue's word, but it can't make the product faster. Recording again as it is would land them late again, so fix the script first: cue an action that depends on a slow screen on a later word, one spoken after the screen is ready. If no later word fits, the line needs more words before the action: change that step's narration with save_plan (the pipeline voices it again). The pipeline then dry-runs the script and records again.",
+        ].join('\n')
+      : '',
     `The narration is approved and voiced. Each line below has its length and ElevenLabs' word timings (word@seconds from the start of the line; the line starts ${pace.leadIn} s into its step). The recorder lands a cued action as its word starts, and each step lasts at least its line plus ${pace.tail} s.`,
     steps,
     [
@@ -143,7 +156,9 @@ export function alignInstruction(plan: Plan, pace: Pace, timing: StepTiming[] = 
       "Don't change the narration (it's approved) or what the script does, and don't record: the pipeline dry-runs the script to check the cues, then records.",
     ].join('\n'),
     done('align'),
-  ].join('\n\n');
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 /** The user asked for changes at the narration gate: revise the narration and keep the cues in step. */

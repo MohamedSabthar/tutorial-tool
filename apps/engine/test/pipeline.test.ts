@@ -298,7 +298,7 @@ describe('PipelineManager', () => {
     expect(last().paced).toBe(true);
   });
 
-  it('aligns the script to the word timings after the voice-over, and re-records a drifted take once', async () => {
+  it('aligns the script to the word timings, and fixes late cues before recording again, once', async () => {
     const sent: string[] = [];
     const modes: string[] = [];
     const bbox = { x: 0, y: 0, w: 1, h: 1 };
@@ -315,7 +315,7 @@ describe('PipelineManager', () => {
     let records = 0;
     const { p } = make(
       async (p, stage, text) => {
-        sent.push(text.split('\n')[0]!);
+        sent.push(text);
         if (stage === 'plan') {
           await p.savePlan(slug, PLAN);
           done(p, 'plan');
@@ -359,9 +359,12 @@ describe('PipelineManager', () => {
     );
     await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'done');
-    expect(modes).toEqual(['dry', 'dry', 'record', 'record']);
-    const align = sent.find((t) => t.startsWith('[Pipeline · align]'));
-    expect(align).toBeDefined();
+    // The late take goes back to the agent, is dry-run again, then recorded again.
+    expect(modes).toEqual(['dry', 'dry', 'record', 'dry', 'record']);
+    expect(sent.find((t) => t.startsWith('[Pipeline · align]'))).toBeDefined();
+    const fix = sent.find((t) => t.startsWith('[Pipeline · align, late cues]'));
+    expect(fix).toContain('- s1: "Open" landed 0.4 s after the word');
+    expect(sent.filter((t) => t.includes('late cues]'))).toHaveLength(1);
     expect(
       last()
         .history.filter((h) => h.stage === 'record')

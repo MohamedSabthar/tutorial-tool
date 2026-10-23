@@ -12,7 +12,15 @@ import {
   type ScreencastFrame,
 } from '@studio/recorder/node';
 import { readPace } from './pace';
-import { estimateTimings, saveTimings } from './stepTiming';
+import {
+  checkLine,
+  checkTimings,
+  estimateTimings,
+  readCalibration,
+  readTimings,
+  recordCalibration,
+  saveTimings,
+} from './stepTiming';
 import type { ProjectStore } from './projects';
 import type { Workspace } from './workspace';
 
@@ -30,6 +38,8 @@ export interface ProjectRunResult extends RunResult {
   slug: string;
   takePath: string | null;
   codec: string | null;
+  /** A recording compared with its dry-run estimate, e.g. "timing estimate 12% short". */
+  timingCheck?: string | null;
 }
 
 /**
@@ -74,7 +84,26 @@ export async function runProjectScript(
   });
 
   // A passing dry run measures the product: the narration is planned from these step timings.
-  if (mode === 'dry' && result.passed) await saveTimings(dir, estimateTimings(result.events));
+  // The workspace's calibration corrects the estimate by what earlier recordings took.
+  if (mode === 'dry' && result.passed)
+    await saveTimings(dir, estimateTimings(result.events, (await readCalibration(workspace.root)).factor));
+
+  // A recording checks the estimate it was planned with, and refines the calibration.
+  let timingCheck: string | null = null;
+  if (mode === 'record' && result.passed) {
+    const estimates = (await readTimings(dir))?.steps ?? [];
+    const lines = Object.fromEntries(
+      Object.entries(pace?.steps ?? {}).map(([id, l]) => [
+        id,
+        (pace?.leadIn ?? 0) + l.duration + (pace?.tail ?? 0),
+      ]),
+    );
+    const checks = checkTimings(estimates, result.events, lines);
+    if (checks.length) {
+      await recordCalibration(workspace.root, checks).catch(() => {});
+      timingCheck = checkLine(checks);
+    }
+  }
 
   let codec: string | null = null;
   if (result.take && takePath) {
@@ -82,7 +111,7 @@ export async function runProjectScript(
     await registerTake(dir, result.take, takePath);
     await workspace.commit(`take: ${slug}/${takeId}`, [`projects/${slug}`]);
   }
-  return { ...result, slug, takePath, codec };
+  return { ...result, slug, takePath, codec, timingCheck };
 }
 
 /**

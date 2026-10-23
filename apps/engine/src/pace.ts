@@ -89,3 +89,54 @@ export function leftoversLine(events: RecorderEvent[]): string | null {
   );
   return items.length ? `left on screen at step end: ${items.join('; ')}` : null;
 }
+
+export interface LateCue {
+  stepId: string;
+  word: string;
+  /** Seconds after its word the action landed. */
+  late: number;
+  /** What happened just before: the previous action in the step (or the step start), and how long ago. */
+  after: string;
+  gap: number;
+}
+
+/**
+ * The cued actions of a paced take that landed after their words, with what came before each:
+ * a long gap after the previous action means the product kept the script waiting.
+ */
+export function lateCues(events: RecorderEvent[]): LateCue[] {
+  const out: LateCue[] = [];
+  let last: { t: number; label: string; stepId: string } | null = null;
+  for (const e of events) {
+    if (e.kind === 'step-start') last = { t: e.t, label: 'the step start', stepId: e.stepId };
+    if (e.kind !== 'click' && e.kind !== 'key' && e.kind !== 'type') continue;
+    const label =
+      e.kind === 'click'
+        ? `clicking ${e.target}`
+        : e.kind === 'key'
+          ? `pressing ${e.key}`
+          : `typing into ${e.target}`;
+    if (e.kind !== 'type' && e.cue && e.t - e.cue.at > CUE_TOLERANCE) {
+      const prev = last && last.stepId === e.stepId ? last : null;
+      out.push({
+        stepId: e.stepId,
+        word: e.cue.word,
+        late: Math.round((e.t - e.cue.at) * 100) / 100,
+        after: prev?.label ?? 'the step start',
+        gap: prev ? Math.round((e.t - prev.t) * 10) / 10 : 0,
+      });
+    }
+    last = { t: e.t, label, stepId: e.stepId };
+  }
+  return out;
+}
+
+/** One line per late cue, for the agent. */
+export function lateCueLines(late: LateCue[]): string {
+  return late
+    .map(
+      (c) =>
+        `- ${c.stepId}: "${c.word}" landed ${c.late.toFixed(1)} s after the word, ${c.gap.toFixed(1)} s after ${c.after}`,
+    )
+    .join('\n');
+}

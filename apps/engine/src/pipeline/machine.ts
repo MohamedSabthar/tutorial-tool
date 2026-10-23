@@ -16,7 +16,7 @@ import {
 } from '@studio/core';
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
-import { cueDrift, driftLine, leftoversLine } from '../pace';
+import { cueDrift, driftLine, lateCues, leftoversLine, type LateCue } from '../pace';
 import { readTimings } from '../stepTiming';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
@@ -571,8 +571,9 @@ export class PipelineManager {
       errorDetail?: string;
     } | null = null;
     let helpFeedback: string | undefined;
-    /** A paced take with cues off their words is recorded again, once. */
+    /** A paced take with late cues goes back to the agent to fix the script, then is recorded again, once. */
     let retaken = false;
+    let late: LateCue[] = [];
     /** A script well over the brief's length is sent back to be shortened, once. */
     let trimmed = false;
     while (stage !== 'done') {
@@ -664,18 +665,18 @@ export class PipelineManager {
               true,
               mode === 'dry'
                 ? `${steps} steps passed${paced ? ', cues checked' : ''}${left ? ` · ${left}` : ''}`
-                : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}${left ? ` · ${left}` : ''}`,
+                : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}${r.timingCheck ? ` · ${r.timingCheck}` : ''}${left ? ` · ${left}` : ''}`,
             );
             if (mode === 'dry') await this.set(slug, { repairAttempts: 0 });
             if (mode === 'record' && paced && !retaken) {
-              const drift = cueDrift(r.events);
-              if (drift.off > 0) {
+              late = lateCues(r.events);
+              if (late.length) {
                 retaken = true;
                 await this.annotate(
                   slug,
-                  `${drift.off} cue${drift.off === 1 ? '' : 's'} off their words: recording again`,
+                  `${late.length} cue${late.length === 1 ? '' : 's'} late: fixing the script before recording again`,
                 );
-                stage = 'record';
+                stage = 'align';
                 break;
               }
             }
@@ -800,8 +801,13 @@ export class PipelineManager {
           const pace = (await this.deps.pace?.read?.(slug).catch(() => null)) ?? null;
           const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
           if (plan && pace)
-            await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace, timing));
-          stage = 'dry_run';
+            await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace, timing, late));
+          // Fixing late cues may lengthen lines: new narration is voiced (and aligned) again.
+          const after = (await this.get(slug)).plan;
+          const rewritten =
+            late.length > 0 && plan && after?.steps.some((s, i) => s.narration !== plan.steps[i]?.narration);
+          late = [];
+          stage = rewritten ? 'voice' : 'dry_run';
           break;
         }
         case 'post': {
