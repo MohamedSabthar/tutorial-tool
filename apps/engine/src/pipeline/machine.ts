@@ -21,6 +21,7 @@ import type { ProjectStore } from '../projects';
 import { cueDrift, driftLine, lateCues, leftoversLine, type LateCue } from '../pace';
 import { readTimings } from '../stepTiming';
 import { outlineChanges, scriptOutline } from './scriptOutline';
+import { cueProblems, DRY_SCRIPT, normalizeScript } from './cueCheck';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
@@ -70,6 +71,8 @@ export interface PipelineDeps {
   };
   /** Item-by-item progress of the running stage, for the windows (optional in tests). */
   progress?(p: PipelineProgress): void;
+  /** Which models the agent uses, from Settings (default balanced). */
+  agentModel?(): Promise<'balanced' | 'opus' | 'sonnet'>;
   /** Repairs the agent tries on its own before asking the user, from Settings (default 1). */
   maxRepairs?(): Promise<number>;
   /** The most a run may spend on the agent (US dollars), from Settings; null for no limit. */
@@ -82,6 +85,18 @@ export interface PipelineDeps {
 type Decision = { kind: 'approve' } | { kind: 'revise'; feedback: string };
 
 class Stopped extends Error {}
+
+/** Stages that need the most capable model under the balanced setting: research and fixing. */
+const DEEP_STAGES = new Set<PipelineStage>(['plan', 'repair']);
+const OPUS = 'claude-opus-5-5';
+const SONNET = 'claude-sonnet-5-5';
+
+/** The model an agent stage runs on for the Settings choice. */
+export function modelFor(stage: PipelineStage, choice: 'balanced' | 'opus' | 'sonnet'): string {
+  if (choice === 'opus') return OPUS;
+  if (choice === 'sonnet') return SONNET;
+  return DEEP_STAGES.has(stage) ? OPUS : SONNET;
+}
 
 /** A stage resumes by itself after a reload at most once in this long. */
 const AUTO_RESUME_MS = 120_000;
@@ -427,6 +442,9 @@ export class PipelineManager {
   ): Promise<StageResult> {
     if (live.abort.signal.aborted) throw new Stopped();
     const session = this.deps.agents.get(slug);
+    // The stage's model: the deep work on Opus, the writing on the faster Sonnet.
+    const choice = (await this.deps.agentModel?.().catch(() => undefined)) ?? 'balanced';
+    await session.setModel?.(modelFor(stage, choice));
     return new Promise((resolve, reject) => {
       let result: StageResult | null = null;
       let nudged = false;
@@ -582,6 +600,21 @@ export class PipelineManager {
       : null;
   }
 
+  /**
+   * Whether the script differs from the last one that passed a full dry run only in cues and
+   * hold lengths, with every cue a word of its voiced line, so the product needn't run again.
+   */
+  private async cuesOnly(slug: string): Promise<boolean> {
+    const dir = this.deps.store.dir(slug);
+    const [text, passed, pace] = await Promise.all([
+      readFile(path.join(dir, 'script.spec.ts'), 'utf8').catch(() => null),
+      readFile(path.join(dir, DRY_SCRIPT), 'utf8').catch(() => null),
+      this.deps.pace?.read?.(slug).catch(() => null) ?? null,
+    ]);
+    if (text === null || passed === null || !pace) return false;
+    return normalizeScript(text) === passed && cueProblems(text, pace).length === 0;
+  }
+
   /** After a passing dry run: record, or first narrate and voice for a paced take. */
   private async afterDryRun(slug: string): Promise<PipelineStage> {
     if ((await this.get(slug)).paced || !this.deps.pace) return 'record';
@@ -671,6 +704,18 @@ export class PipelineManager {
         case 'record': {
           const mode: 'dry' | 'record' = stage === 'dry_run' ? 'dry' : 'record';
           await this.begin(slug, stage);
+          // The cue check after the voice-over: if only cues and holds changed since the last
+          // passing dry run, check the cues against the voiced lines without running the product.
+          if (mode === 'dry' && (await this.get(slug)).paced && (await this.cuesOnly(slug))) {
+            await this.end(
+              slug,
+              true,
+              'Cues checked against the voiced lines (the rest of the script passed its dry run)',
+            );
+            failure = null;
+            stage = 'record';
+            break;
+          }
           const r = await this.engineRun(slug, mode);
           if (live.abort.signal.aborted) throw new Stopped();
           if (!('error' in r)) {

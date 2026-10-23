@@ -474,6 +474,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     costLimit: async () => (await store.readSettings()).maxCostPerRun,
     maxRepairs: async () => (await store.readSettings()).maxRepairs,
+    agentModel: async () => (await store.readSettings()).agentModel,
     git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });

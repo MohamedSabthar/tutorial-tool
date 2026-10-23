@@ -12,6 +12,7 @@ import {
   type ScreencastFrame,
 } from '@studio/recorder/node';
 import { readPace } from './pace';
+import { DRY_SCRIPT, normalizeScript } from './pipeline/cueCheck';
 import {
   checkLine,
   checkTimings,
@@ -99,8 +100,12 @@ export async function runProjectScript(
 
   // A passing dry run measures the product: the narration is planned from these step timings.
   // The workspace's calibration corrects the estimate by what earlier recordings took.
-  if (mode === 'dry' && full && result.passed)
+  if (mode === 'dry' && full && result.passed) {
     await saveTimings(dir, estimateTimings(result.events, (await readCalibration(workspace.root)).factor));
+    // What passed, so a later change to cues and holds alone needn't run the product again.
+    const text = await readFile(scriptFile, 'utf8').catch(() => null);
+    if (text !== null) await writeFile(path.join(dir, DRY_SCRIPT), normalizeScript(text));
+  }
 
   // A recording checks the estimate it was planned with, and refines the calibration.
   let timingCheck: string | null = null;

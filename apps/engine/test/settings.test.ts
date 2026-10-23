@@ -21,6 +21,7 @@ describe('settings', () => {
       defaultVoice: null,
       autoMode: true,
       maxCostPerRun: null,
+      agentModel: 'balanced',
       maxRepairs: 1,
       claudeExecutable: null,
       claudeConfigDir: null,

@@ -453,6 +453,16 @@ export class AgentSession {
     }).then((r) => (r.behavior === 'allow' ? { ...r, updatedInput: r.updatedInput ?? input } : r));
   };
 
+  /**
+   * The model for the next turns: switched in a running session, and used when the session
+   * starts or resumes. Same model again does nothing.
+   */
+  async setModel(model: string): Promise<void> {
+    if (this.settings.model === model) return;
+    this.settings = { ...this.settings, model };
+    if (this.q && this.queue && !this.queue.isClosed) await this.q.setModel(model).catch(() => {});
+  }
+
   /** Switches a running session's permission mode (the next start reads it from the host). */
   async setPermissionMode(mode: PermissionMode): Promise<void> {
     if (!this.q || !this.queue || this.queue.isClosed) return;

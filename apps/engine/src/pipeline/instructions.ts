@@ -35,9 +35,9 @@ export function scriptInstruction(plan: Plan): string {
   return [
     '[Pipeline · script]',
     "Write script.spec.ts in this project for the approved plan below, following the tutorial-authoring skill: reuse the product skill's page objects, and use exactly these step ids and titles.",
-    "Work the plan marks as off camera goes in `export const setup = async (ctx) => { … }` (it runs after the product loads and before recording starts, with the same tut and page objects), not in a step. Start every step by waiting for the screen it expects (tut.waitFor), so a failure shows in the step that caused it.",
+    'Work the plan marks as off camera goes in `export const setup = async (ctx) => { … }` (it runs after the product loads and before recording starts, with the same tut and page objects), not in a step. Start every step by waiting for the screen it expects (tut.waitFor), so a failure shows in the step that caused it.',
     "Before you script a step the skill doesn't cover, research it in the live product with inspect_ui (replay up to the step before it) and add page objects or notes for what you find, so the script isn't written from guesses.",
-    "You may dry-run it with run_script while you work, but you don't have to: the pipeline dry-runs it as soon as you finish. Don't record.",
+    "Don't run it with run_script: the pipeline dry-runs it as soon as you finish, and each run takes minutes. Don't record.",
     '```json\n' + JSON.stringify(plan.steps, null, 2) + '\n```',
     done('script'),
   ].join('\n\n');

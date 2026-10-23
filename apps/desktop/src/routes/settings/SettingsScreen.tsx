@@ -284,6 +284,22 @@ function DefaultsPanel() {
         )}
       </Field>
       <Field
+        label="Agent model"
+        hint="Balanced uses Opus for research, planning and repairs, and the faster Sonnet for writing the script, narration and the rest. All Sonnet is quickest and cheapest; all Opus is the most careful and slowest."
+      >
+        {(id) => (
+          <Select
+            id={id}
+            value={s.agentModel}
+            onChange={(e) => void update({ agentModel: e.target.value as Settings['agentModel'] })}
+          >
+            <option value="balanced">Balanced (default)</option>
+            <option value="sonnet">Sonnet 5.5 for everything (fastest)</option>
+            <option value="opus">Opus 5.5 for everything (most careful)</option>
+          </Select>
+        )}
+      </Field>
+      <Field
         label="Repairs before asking you"
         hint="When a dry run or recording fails, the agent tries this many repairs on its own, then tells you what it tried and asks how to go on. Each repair costs agent time and a dry run."
       >

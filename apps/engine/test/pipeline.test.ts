@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import { ProjectStore } from '../src/projects';
 import { PipelineManager, type PipelineDeps } from '../src/pipeline/machine';
 import type { ProjectRunResult } from '../src/recording';
 import { saveTimings } from '../src/stepTiming';
+import { DRY_SCRIPT, normalizeScript } from '../src/pipeline/cueCheck';
 
 const PLAN = {
   summary: 'Create a service',
@@ -702,6 +703,83 @@ describe('PipelineManager', () => {
     expect(trim).toContain('about 6 min 0 s on camera and the brief asks for 2–3 minutes');
     expect(trim).toContain('export const setup');
     expect(sent.filter((t) => t.includes('length budget'))).toHaveLength(1);
+  });
+
+  it('skips the cue-check dry run when only cues changed, and runs each stage on its model', async () => {
+    const models: string[] = [];
+    const scriptFile = () => path.join(store.dir(slug), 'script.spec.ts');
+    const plain = "await tut.step('s1', 'Open', async () => {\n  await tut.click(open);\n});\n";
+    const { p, modes } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') {
+          await writeFile(scriptFile(), plain);
+          done(p, 'script');
+        } else if (stage === 'narrate') {
+          // Narration adds a cue to the script; nothing else changes.
+          await writeFile(scriptFile(), plain.replace('tut.click(open)', "tut.click(open, { cue: 'Open' })"));
+          done(p, 'narrate');
+        } else if (stage === 'align') done(p, 'align');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [],
+      undefined,
+      {
+        agentModel: async () => 'balanced',
+        pace: {
+          blocker: async () => null,
+          voice: async () => 'Voiced',
+          clear: async () => {},
+          read: async () => ({
+            leadIn: 0.25,
+            clickGap: 0.6,
+            tail: 0.35,
+            steps: {
+              s1: {
+                text: 'Open it.',
+                duration: 1,
+                words: [
+                  { w: 'Open', start: 0, end: 0.4 },
+                  { w: 'it.', start: 0.45, end: 0.9 },
+                ],
+              },
+            },
+          }),
+        },
+        runProject: async (_slug, mode) => {
+          modes.push(mode);
+          // A passing full dry run leaves the script it passed with (as runProjectScript does).
+          if (mode === 'dry') {
+            await mkdir(path.join(store.dir(slug), '.studio'), { recursive: true });
+            await writeFile(
+              path.join(store.dir(slug), DRY_SCRIPT),
+              normalizeScript(await readFile(scriptFile(), 'utf8')),
+            );
+          }
+          return run(true);
+        },
+      },
+    );
+    // The fake session records the model each stage asks for.
+    const session = (p as unknown as { deps: PipelineDeps }).deps.agents.get(slug) as unknown as Record<
+      string,
+      unknown
+    >;
+    session.setModel = async (m: string) => void models.push(m);
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'done');
+    // One dry run before the narration; the cue check after the voice-over needs none.
+    expect(modes).toEqual(['dry', 'record']);
+    expect(
+      last()
+        .history.filter((h) => h.stage === 'dry_run')
+        .map((h) => h.summary),
+    ).toEqual(['2 steps passed', expect.stringContaining('Cues checked against the voiced lines')]);
+    expect(models[0]).toBe('claude-opus-5-5'); // plan
+    expect(models).toContain('claude-sonnet-5-5'); // the writing stages
   });
 
   it('asks the user after one repair by default, with what the agent said, and uses their answer', async () => {

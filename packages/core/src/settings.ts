@@ -8,6 +8,12 @@ export const StudioSettings = z.object({
   autoMode: z.boolean().default(true),
   /** A pipeline run pauses at a help gate once its agent cost passes this (US dollars). */
   maxCostPerRun: z.number().positive().nullable().default(null),
+  /**
+   * Which Claude models the pipeline's agent uses: `balanced` (Opus for research, planning and
+   * repairs; the faster Sonnet for writing the script, narration, alignment, post-production, QA
+   * and the retrospective), or one model for everything.
+   */
+  agentModel: z.enum(['balanced', 'opus', 'sonnet']).default('balanced'),
   /** Repairs the agent tries on its own when a run fails, before it asks the user for help. */
   maxRepairs: z.number().int().min(0).max(5).default(1),
   /** The Claude Code executable the agent runs; null for the one bundled with the agent SDK. */
