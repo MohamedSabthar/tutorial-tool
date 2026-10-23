@@ -14,7 +14,7 @@ import {
   type TimelinePatch,
 } from '@studio/core';
 import { resolveProps } from '@studio/overlays-core';
-import { usePlayer } from '@studio/stage';
+import { Timed, usePlayerController, usePlayerValue } from '@studio/stage';
 import {
   AppHeader,
   Button,
@@ -115,7 +115,11 @@ export function StudioScreen({ slug }: { slug: string }) {
     [tl.timeline, events],
   );
   const duration = resolved?.tm.duration ?? 1;
-  const [player, controls] = usePlayer(duration);
+  // The screen doesn't re-render as time passes: what follows the playhead subscribes itself
+  // (<Timed>, usePlayerValue), and handlers read the time when they run.
+  const controls = usePlayerController(duration);
+  const playing = usePlayerValue(controls, (s) => s.playing);
+  const rate = usePlayerValue(controls, (s) => s.rate);
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
   const [tool, setTool] = useState<Tool>('select');
@@ -184,13 +188,15 @@ export function StudioScreen({ slug }: { slug: string }) {
     openLive(slug);
   };
 
-  const t = player.t;
+  const now = () => controls.get().t;
   const spans = useMemo(
     () => (tl.timeline && resolved ? voiceSpans(tl.timeline, resolved.tm) : []),
     [tl.timeline, resolved],
   );
   const steps = resolved?.steps ?? [];
-  const current = stepAt(steps, t);
+  // Changes a few times per video, not every frame.
+  const currentId = usePlayerValue(controls, (s) => stepAt(steps, s.t)?.id ?? null);
+  const current = steps.find((s) => s.id === currentId) ?? null;
 
   function seekStep(dir: -1 | 1) {
     const i = current ? steps.indexOf(current) : -1;
@@ -200,7 +206,7 @@ export function StudioScreen({ slug }: { slug: string }) {
 
   function split() {
     if (!tl.timeline || !resolved) return;
-    const pos = resolved.tm.toSource(t);
+    const pos = resolved.tm.toSource(now());
     if (!pos || pos.kind !== 'recording') return;
     const si = tl.timeline.scenes.findIndex((s) => s.id === pos.sceneId);
     const scene = tl.timeline.scenes[si];
@@ -221,7 +227,7 @@ export function StudioScreen({ slug }: { slug: string }) {
     void tl.patch([{ op: 'replace', path: `/scenes/${si}/segments`, value: segments }], { label: 'Split' });
   }
 
-  function addOverlay(adding: string, at = t) {
+  function addOverlay(adding: string, at = now()) {
     if (!tl.timeline) return;
     const meta = registry[adding]?.meta;
     const len = meta?.defaultDuration ?? 3;
@@ -310,7 +316,7 @@ export function StudioScreen({ slug }: { slug: string }) {
         {
           op: 'add',
           path: '/annotations/-',
-          value: { id, t: Math.round(t * 100) / 100, shape, comment: '', status: 'open' },
+          value: { id, t: Math.round(now() * 100) / 100, shape, comment: '', status: 'open' },
         },
       ],
       { label: 'Add annotation' },
@@ -324,6 +330,7 @@ export function StudioScreen({ slug }: { slug: string }) {
     if (!take || !resolved) return;
     controls.pause();
     const id = `${kind}-${Date.now().toString(36)}`;
+    const t = now();
     const start = Math.round(t * 100) / 100;
     const component = kind === 'text' ? 'core:TextLabel' : kind === 'zoom' ? 'core:Zoom' : 'core:Blur';
     const len = kind === 'zoom' ? 2.5 : kind === 'blur' ? 3 : 2;
@@ -370,7 +377,7 @@ export function StudioScreen({ slug }: { slug: string }) {
     }
     controls.pause();
     void client
-      .call('scenes.insert', { slug, at: Math.round(t * 100) / 100, component })
+      .call('scenes.insert', { slug, at: Math.round(now() * 100) / 100, component })
       .catch((e: unknown) => setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }));
   }
   const stepLabel = (at: number) => {
@@ -380,11 +387,11 @@ export function StudioScreen({ slug }: { slug: string }) {
 
   const selectedOverlay = tl.timeline?.overlays.find((o) => o.id === selected) ?? null;
   const selectedInstance = resolved?.instances.find((i) => i.id === selected) ?? null;
-  const showHandles =
-    !!selectedInstance?.anchor &&
-    view !== 'Raw take' &&
-    t >= (selectedInstance?.start ?? 0) &&
-    t <= (selectedInstance?.end ?? 0);
+  const selectedOnScreen = usePlayerValue(
+    controls,
+    (s) => !!selectedInstance && s.t >= selectedInstance.start && s.t <= selectedInstance.end,
+  );
+  const showHandles = !!selectedInstance?.anchor && view !== 'Raw take' && selectedOnScreen;
   // Only targets on screen now: the current step's and the next step's (its first click is often visible).
   const nearSteps = new Set(
     current ? [current.id, steps[steps.indexOf(current) + 1]?.id].filter(Boolean) : [],
@@ -707,83 +714,91 @@ export function StudioScreen({ slug }: { slug: string }) {
                         border: '1px solid var(--ui-gray-300)',
                       }}
                     >
-                      <StageHost
-                        take={take}
-                        src={src}
-                        events={events}
-                        instances={instances}
-                        t={t}
-                        playing={player.playing}
-                        sourceTime={resolved.sourceTime}
-                        videoPlaying={player.playing && resolved.videoRuns(t)}
-                        showOverlays={view !== 'Raw take'}
-                        registry={registry}
-                        onOverlayError={reportError}
-                        captions={tl.timeline?.captions ?? []}
-                        layers={resolved.layersAt(t)}
-                      >
-                        {showHandles && selectedInstance?.anchor && (
-                          <Manipulator
-                            rect={selectedInstance.anchor}
-                            targets={snapTargets}
-                            onDrag={setDragRect}
-                            onCommit={commitManipulation}
-                          />
+                      <Timed player={controls}>
+                        {(t) => (
+                          <StageHost
+                            take={take}
+                            src={src}
+                            events={events}
+                            instances={instances}
+                            t={t}
+                            playing={playing}
+                            sourceTime={resolved.sourceTime}
+                            videoPlaying={playing && resolved.videoRuns(t)}
+                            showOverlays={view !== 'Raw take'}
+                            registry={registry}
+                            onOverlayError={reportError}
+                            captions={tl.timeline?.captions ?? []}
+                            layers={resolved.layersAt(t)}
+                          >
+                            {showHandles && selectedInstance?.anchor && (
+                              <Manipulator
+                                rect={selectedInstance.anchor}
+                                targets={snapTargets}
+                                onDrag={setDragRect}
+                                onCommit={commitManipulation}
+                              />
+                            )}
+                          </StageHost>
                         )}
-                      </StageHost>
+                      </Timed>
                       {tl.timeline && (
-                        <AnnotationLayer
-                          annotations={tl.timeline.annotations}
-                          t={t}
-                          tool={tool}
-                          show={view === 'With annotations'}
-                          selected={note}
-                          onSelect={(id) => {
-                            if (note && note !== id) closeNote();
-                            setNote(id);
-                          }}
-                          onCreate={createNote}
-                          onArea={addFromArea}
-                          popover={(a, style) => (
-                            <AnnotationPopover
-                              key={a.id}
-                              annotation={a}
-                              n={noteIndex(a.id) + 1}
-                              stepLabel={stepLabel(a.t)}
-                              style={style}
-                              onSave={(text) => {
-                                patchNote(a.id, 'comment', text, 'Edit annotation');
-                                setFresh(null);
-                                setNote(null);
+                        <Timed player={controls}>
+                          {(t) => (
+                            <AnnotationLayer
+                              annotations={tl.timeline!.annotations}
+                              t={t}
+                              tool={tool}
+                              show={view === 'With annotations'}
+                              selected={note}
+                              onSelect={(id) => {
+                                if (note && note !== id) closeNote();
+                                setNote(id);
                               }}
-                              onSend={(text) => {
-                                // Save the text first, then send this one annotation.
-                                const i = noteIndex(a.id);
-                                if (i < 0 || !tl.timeline) return;
-                                void tl
-                                  .patch(
-                                    [{ op: 'replace', path: `/annotations/${i}/comment`, value: text }],
-                                    {
-                                      label: 'Edit annotation',
-                                    },
-                                  )
-                                  .then(() => sendNotes([a.id]));
-                                setFresh(null);
-                                setNote(null);
-                              }}
-                              onResolve={(done) =>
-                                patchNote(
-                                  a.id,
-                                  'status',
-                                  done ? 'resolved' : 'open',
-                                  done ? 'Resolve annotation' : 'Reopen annotation',
-                                )
-                              }
-                              onDelete={() => removeNote(a.id)}
-                              onClose={closeNote}
+                              onCreate={createNote}
+                              onArea={addFromArea}
+                              popover={(a, style) => (
+                                <AnnotationPopover
+                                  key={a.id}
+                                  annotation={a}
+                                  n={noteIndex(a.id) + 1}
+                                  stepLabel={stepLabel(a.t)}
+                                  style={style}
+                                  onSave={(text) => {
+                                    patchNote(a.id, 'comment', text, 'Edit annotation');
+                                    setFresh(null);
+                                    setNote(null);
+                                  }}
+                                  onSend={(text) => {
+                                    // Save the text first, then send this one annotation.
+                                    const i = noteIndex(a.id);
+                                    if (i < 0 || !tl.timeline) return;
+                                    void tl
+                                      .patch(
+                                        [{ op: 'replace', path: `/annotations/${i}/comment`, value: text }],
+                                        {
+                                          label: 'Edit annotation',
+                                        },
+                                      )
+                                      .then(() => sendNotes([a.id]));
+                                    setFresh(null);
+                                    setNote(null);
+                                  }}
+                                  onResolve={(done) =>
+                                    patchNote(
+                                      a.id,
+                                      'status',
+                                      done ? 'resolved' : 'open',
+                                      done ? 'Resolve annotation' : 'Reopen annotation',
+                                    )
+                                  }
+                                  onDelete={() => removeNote(a.id)}
+                                  onClose={closeNote}
+                                />
+                              )}
                             />
                           )}
-                        />
+                        </Timed>
                       )}
                       <ToolRail tool={tool} onTool={chooseTool} />
                     </div>
@@ -800,17 +815,21 @@ export function StudioScreen({ slug }: { slug: string }) {
               <div
                 style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--ui-gray-100)' }}
               >
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: `${(t / duration) * 100}%`,
-                    background: 'var(--ui-orange)',
-                    borderRadius: 2,
-                  }}
-                />
+                <Timed player={controls}>
+                  {(t) => (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${(t / duration) * 100}%`,
+                        background: 'var(--ui-orange)',
+                        borderRadius: 2,
+                      }}
+                    />
+                  )}
+                </Timed>
                 {steps.map((s) => (
                   <span
                     key={s.id}
@@ -830,17 +849,18 @@ export function StudioScreen({ slug }: { slug: string }) {
                   <IconPrev size={14} />
                 </IconButton>
                 <IconButton
-                  label={player.playing ? 'Pause' : 'Play'}
+                  label={playing ? 'Pause' : 'Play'}
                   variant="primary"
                   onClick={() => controls.toggle()}
                 >
-                  {player.playing ? <IconPause size={14} /> : <IconPlay size={14} />}
+                  {playing ? <IconPause size={14} /> : <IconPlay size={14} />}
                 </IconButton>
                 <IconButton label="Next step" onClick={() => seekStep(1)}>
                   <IconNext size={14} />
                 </IconButton>
                 <span className="ui-mono" style={{ color: 'var(--ui-navy)' }}>
-                  {fmt(t)} <span style={{ color: 'var(--ui-gray-600)' }}>/ {fmt(duration)}</span>
+                  <Timed player={controls}>{(t) => fmt(t)}</Timed>{' '}
+                  <span style={{ color: 'var(--ui-gray-600)' }}>/ {fmt(duration)}</span>
                 </span>
                 <span style={{ flex: 1 }} />
                 {tl.timeline && (
@@ -914,7 +934,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               if (!client) return;
               controls.pause();
               void client
-                .call('scenes.insert', { slug, at: Math.round(t * 100) / 100, component: id })
+                .call('scenes.insert', { slug, at: Math.round(now() * 100) / 100, component: id })
                 .catch((e: unknown) =>
                   setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }),
                 );
@@ -945,14 +965,14 @@ export function StudioScreen({ slug }: { slug: string }) {
               slug={slug}
               timeline={tl.timeline}
               resolved={resolved}
-              t={t}
+              player={controls}
               onSeek={(x) => controls.seek(x)}
               selected={selected}
               onSelect={(id) => {
                 setSelected(id);
                 // Selecting something off-screen brings it into view so it can be edited.
                 const o = id ? tl.timeline?.overlays.find((x) => x.id === id) : null;
-                if (o && (t < o.start || t > o.end)) controls.seek(Math.min(o.start + 0.6, o.end));
+                if (o && (now() < o.start || now() > o.end)) controls.seek(Math.min(o.start + 0.6, o.end));
               }}
               patch={tl.patch}
               onSplit={split}
@@ -972,7 +992,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                     onAsk={(brief) => {
                       controls.pause();
                       return client!
-                        .call('explainers.start', { slug, at: Math.round(t * 100) / 100, brief })
+                        .call('explainers.start', { slug, at: Math.round(now() * 100) / 100, brief })
                         .then(() => undefined);
                     }}
                   />
@@ -981,7 +1001,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               onSelectScene={(id) => {
                 setSelectedScene(id);
                 const span = resolved.tm.scenes.find((x) => x.sceneId === id);
-                if (span && (t < span.start || t >= span.end)) controls.seek(span.start + 0.01);
+                if (span && (now() < span.start || now() >= span.end)) controls.seek(span.start + 0.01);
               }}
               onTransition={(between, value) => {
                 if (!tl.timeline) return;
@@ -1022,14 +1042,18 @@ export function StudioScreen({ slug }: { slug: string }) {
         </div>
       </div>
 
-      <VoicePlayer
-        spans={spans}
-        t={t}
-        playing={player.playing}
-        rate={player.rate}
-        media={media}
-        onSync={(at) => controls.seek(at)}
-      />
+      <Timed player={controls}>
+        {(t) => (
+          <VoicePlayer
+            spans={spans}
+            t={t}
+            playing={playing}
+            rate={rate}
+            media={media}
+            onSync={(at) => controls.seek(at)}
+          />
+        )}
+      </Timed>
     </div>
   );
 }

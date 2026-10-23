@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { voiceSpans, type OverlayInstance, type Timeline, type TimelinePatch } from '@studio/core';
 import { Button, Chip, Eyebrow } from '@studio/ui';
+import { Timed, type Player } from '@studio/stage';
 import type { Resolved } from './resolve';
 import { OVERLAY_DRAG_TYPE } from './Library';
 import { Waveform } from './Waveform';
@@ -22,7 +23,8 @@ interface Props {
   slug: string;
   timeline: Timeline;
   resolved: Resolved;
-  t: number;
+  /** The playhead follows it (only the timecode and the playhead re-render as it plays). */
+  player: Player;
   onSeek: (t: number) => void;
   selected: string | null;
   onSelect: (id: string | null) => void;
@@ -65,7 +67,7 @@ export function TimelinePanel({
   slug,
   timeline,
   resolved,
-  t,
+  player,
   onSeek,
   selected,
   onSelect,
@@ -502,7 +504,7 @@ export function TimelinePanel({
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span className="ui-mono" style={{ fontSize: 18, color: 'var(--ui-navy)' }}>
-          {fmt(t)}
+          <Timed player={player}>{(t) => fmt(t)}</Timed>
         </span>
         <span style={{ width: 1, height: 22, background: 'var(--ui-gray-300)', margin: '0 4px' }} />
         <Button size="sm" onClick={onSplit} title="Split the recording at the playhead (S)">
@@ -639,31 +641,35 @@ export function TimelinePanel({
               </div>
             </div>
           ))}
-          {/* playhead */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: LABEL_W + x(t) - 1,
-              width: 2,
-              background: 'var(--ui-navy)',
-              pointerEvents: 'none',
-            }}
-          >
-            <span
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: -6,
-                width: 14,
-                height: 12,
-                background: 'var(--ui-navy)',
-                borderRadius: '3px 3px 7px 7px',
-              }}
-            />
-          </div>
+          {/* playhead (follows the player on its own) */}
+          <Timed player={player}>
+            {(t) => (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: LABEL_W + x(t) - 1,
+                  width: 2,
+                  background: 'var(--ui-navy)',
+                  pointerEvents: 'none',
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: -6,
+                    width: 14,
+                    height: 12,
+                    background: 'var(--ui-navy)',
+                    borderRadius: '3px 3px 7px 7px',
+                  }}
+                />
+              </div>
+            )}
+          </Timed>
         </div>
       </div>
     </section>

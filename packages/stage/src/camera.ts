@@ -137,29 +137,49 @@ export function blendCamera(
 ): CameraState {
   const k = ease(u);
   const ratio = Math.log(b.zoom / a.zoom);
-  if (Math.abs(ratio) < 0.02) {
+  const pan = (): CameraState => {
     const dist = Math.hypot(b.focusX - a.focusX, b.focusY - a.focusY);
     const dip = Math.min(0.12, (dist * a.zoom) / stage.width / 4);
     return {
-      zoom: a.zoom * (1 - dip * Math.sin(Math.PI * k)),
+      zoom: Math.exp(lerp(Math.log(a.zoom), Math.log(b.zoom), k)) * (1 - dip * Math.sin(Math.PI * k)),
       focusX: lerp(a.focusX, b.focusX, k),
       focusY: lerp(a.focusY, b.focusY, k),
     };
-  }
-  const zoom = Math.exp(lerp(Math.log(a.zoom), Math.log(b.zoom), k));
-  const px = (b.focusX * b.zoom - a.focusX * a.zoom) / (b.zoom - a.zoom);
-  const py = (b.focusY * b.zoom - a.focusY * a.zoom) / (b.zoom - a.zoom);
+  };
+  const pivot = (): CameraState => {
+    const zoom = Math.exp(lerp(Math.log(a.zoom), Math.log(b.zoom), k));
+    const px = (b.focusX * b.zoom - a.focusX * a.zoom) / (b.zoom - a.zoom);
+    const py = (b.focusY * b.zoom - a.focusY * a.zoom) / (b.zoom - a.zoom);
+    return {
+      zoom,
+      focusX: px + ((a.focusX - px) * a.zoom) / zoom,
+      focusY: py + ((a.focusY - py) * a.zoom) / zoom,
+    };
+  };
+  // Nearly equal zooms pan (the pivot would be far away); clearly different ones zoom about the
+  // pivot. In between, the two cross-fade, so a ratio that drifts across the line (a glide
+  // between two holds that push in) never switches formulas in one frame.
+  const w = clamp01((Math.abs(ratio) - 0.01) / 0.04);
+  if (w === 0) return pan();
+  if (w === 1) return pivot();
+  const p = pan();
+  const q = pivot();
   return {
-    zoom,
-    focusX: px + ((a.focusX - px) * a.zoom) / zoom,
-    focusY: py + ((a.focusY - py) * a.zoom) / zoom,
+    zoom: Math.exp(lerp(Math.log(p.zoom), Math.log(q.zoom), w)),
+    focusX: lerp(p.focusX, q.focusX, w),
+    focusY: lerp(p.focusY, q.focusY, w),
   };
 }
 
 /**
  * Camera at time t. Moves become shots: ease in from rest (or glide from the previous shot when
- * the gap is under CHAIN_GAP), hold with a slow push-in, ease back out. Targets are clamped to
- * the video first, so the motion between them never needs correcting mid-way.
+ * the gap is under CHAIN_GAP), hold with a slow push-in, ease back out.
+ *
+ * The path is smooth in position and speed: the ease-in blends towards the drifting hold (so it
+ * arrives already moving with the push-in, instead of popping to it), the ease-out starts from
+ * it, and only the shots' own states are clamped to the video. Clamping every frame made the
+ * pan speed jump where the clamp switched on (around ×1.1, once the view no longer showed the
+ * frame margin); the pivot path between a clamped shot and rest stays inside the stage anyway.
  */
 export function cameraAt(
   t: number,
@@ -195,16 +215,13 @@ export function cameraAt(
       // A chained shot is entered by the previous shot's glide (handled on its iteration).
       if (chainedIn) continue;
       if (t < s.start) return rest;
-      return clampCamera(blendCamera(rest, s.to, (t - s.start) / s.e, stage), bounds, stage);
+      return blendCamera(rest, held(s, t), (t - s.start) / s.e, stage);
     }
     if (t <= outStart) return held(s, t);
     if (t <= outEnd) {
-      const to = chainedOut ? held(next!, next!.start + next!.e) : rest;
-      return clampCamera(
-        blendCamera(held(s, outStart), to, (t - outStart) / (outEnd - outStart), stage),
-        bounds,
-        stage,
-      );
+      // From the still-drifting hold, towards the next shot's (drifting) hold or rest.
+      const to = chainedOut ? held(next!, Math.max(t, next!.start)) : rest;
+      return blendCamera(held(s, t), to, (t - outStart) / (outEnd - outStart), stage);
     }
   }
   return rest;

@@ -107,3 +107,25 @@ export function usePlayer(duration: number): [PlayerState, Player] {
   const state = useSyncExternalStore(player.subscribe, player.get, player.get);
   return [state, player];
 }
+
+/**
+ * A player that doesn't re-render its owner as time passes (screens with a lot of UI): read
+ * the time where it's drawn with usePlayerValue or <Timed>, and in handlers with player.get().
+ */
+export function usePlayerController(duration: number): Player {
+  const [player] = useState(() => createPlayer(duration));
+  useEffect(() => player.setDuration(duration), [player, duration]);
+  useEffect(() => () => player.dispose(), [player]);
+  return player;
+}
+
+/** One value derived from the player; re-renders only when it changes (compared with Object.is). */
+export function usePlayerValue<T>(player: Player, select: (s: PlayerState) => T): T {
+  const read = () => select(player.get());
+  return useSyncExternalStore(player.subscribe, read, read);
+}
+
+/** Renders `children(t)` on every time change, without re-rendering anything around it. */
+export function Timed({ player, children }: { player: Player; children: (t: number) => ReactNode }) {
+  return <>{children(usePlayerValue(player, (s) => s.t))}</>;
+}
