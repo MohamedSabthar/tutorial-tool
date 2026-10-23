@@ -272,10 +272,13 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
         })),
       };
     const written = plan.steps.filter((st) => st.narration.trim()).length;
+    // The last passing dry run left a still of each step's end screen.
+    const shotsAt = pipe.state?.history.filter((h) => h.stage === 'dry_run' && h.ok).at(-1)?.endedAt;
     return {
       slug: pipeSlug,
       stage: 'narrate',
       message: `Narration: ${written} of ${plan.steps.length} lines written`,
+      ...(shotsAt ? { version: shotsAt } : {}),
       items: plan.steps.map((st) => {
         const words = st.narration.trim().split(/\s+/).filter(Boolean).length;
         return {
@@ -283,6 +286,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
           label: `${st.id} · ${st.narration.trim() || st.title}`,
           detail: words ? `${words} words · about ${Math.round(words / 2.5)} s` : '',
           state: words ? 'done' : 'pending',
+          ...(shotsAt ? { image: `.studio/shots/${st.id}.jpg` } : {}),
         };
       }),
     };

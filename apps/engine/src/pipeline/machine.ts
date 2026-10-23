@@ -20,6 +20,7 @@ import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
 import { cueDrift, driftLine, lateCues, leftoversLine, type LateCue } from '../pace';
 import { readTimings } from '../stepTiming';
+import { outlineChanges, scriptOutline } from './scriptOutline';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
@@ -577,6 +578,7 @@ export class PipelineManager {
       stepId: string | null;
       error: string;
       errorDetail?: string;
+      shot?: string | null;
     } | null = null;
     let helpFeedback: string | undefined;
     /** A paced take with late cues goes back to the agent to fix the script, then is recorded again, once. */
@@ -662,6 +664,7 @@ export class PipelineManager {
               stepId: r.failure?.stepId ?? null,
               error: r.failure?.error ?? 'failed',
               ...(r.failure?.errorDetail ? { errorDetail: r.failure.errorDetail } : {}),
+              shot: r.failureShot ?? null,
             };
           else {
             failure = null;
@@ -722,6 +725,22 @@ export class PipelineManager {
           }
           const attempt = (await this.get(slug)).repairAttempts + 1;
           await this.set(slug, { repairAttempts: attempt });
+          // The failure card: what failed, where, and which attempt this is.
+          this.deps.progress?.({
+            slug,
+            stage: 'repair',
+            message: `Repairing ${failure?.stepId ?? 'the script'}, attempt ${attempt} of ${state.maxRepairs}`,
+            items: [
+              {
+                id: 'failure',
+                label: `${failure?.mode === 'record' ? 'Recording' : 'Dry run'} failed${failure?.stepId ? ` at ${failure.stepId}` : ''}`,
+                detail: failure?.error ?? 'unknown error',
+                state: 'failed',
+                ...(failure?.shot ? { image: failure.shot } : {}),
+              },
+            ],
+            version: Date.now(),
+          });
           await this.agentStageWithHelp(
             slug,
             live,
@@ -810,8 +829,16 @@ export class PipelineManager {
           const plan = (await this.get(slug)).plan;
           const pace = (await this.deps.pace?.read?.(slug).catch(() => null)) ?? null;
           const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
+          const script = path.join(this.deps.store.dir(slug), 'script.spec.ts');
+          const before = scriptOutline(await readFile(script, 'utf8').catch(() => ''));
           if (plan && pace)
             await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace, timing, late));
+          // What the agent changed, in the stage's summary.
+          const changed = outlineChanges(
+            before,
+            scriptOutline(await readFile(script, 'utf8').catch(() => '')),
+          );
+          if (plan && pace) await this.annotate(slug, changed ?? 'no cue or hold changes');
           // Fixing late cues may lengthen lines: new narration is voiced (and aligned) again.
           const after = (await this.get(slug)).plan;
           const rewritten =

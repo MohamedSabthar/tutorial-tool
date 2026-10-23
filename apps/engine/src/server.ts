@@ -195,7 +195,35 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           const { timeline } = await timelines.get(slug);
           const take = timeline.takes.at(-1);
           const events = take ? await readEvents(store.dir(slug), take.events).catch(() => []) : [];
-          return checkVideo({ slug, timeline, events, stage: headless });
+          const r = await checkVideo({ slug, timeline, events, stage: headless });
+          // The contact sheets and issues on Live, as the agent sees them.
+          const qa = path.join(store.dir(slug), '.studio', 'qa');
+          await mkdir(qa, { recursive: true });
+          await Promise.all(r.sheets.map((s, i) => writeFileP(path.join(qa, `sheet-${i + 1}.jpg`), s)));
+          broadcast('pipeline.progress', {
+            slug,
+            stage: 'qa',
+            message: r.issues.length
+              ? `QA: ${r.issues.length} problem${r.issues.length === 1 ? '' : 's'} found`
+              : 'QA: nothing found from the timeline and the take',
+            items: [
+              ...r.issues.map((issue, i) => ({
+                id: `issue-${i}`,
+                label: issue,
+                detail: '',
+                state: 'failed' as const,
+              })),
+              ...r.sheets.map((_, i) => ({
+                id: `sheet-${i}`,
+                label: `Contact sheet ${i + 1} of ${r.sheets.length}`,
+                detail: '',
+                state: 'done' as const,
+                image: `.studio/qa/sheet-${i + 1}.jpg`,
+              })),
+            ],
+            version: Date.now(),
+          });
+          return r;
         },
         checkOverlay: async (file, o) =>
           checkOverlay({

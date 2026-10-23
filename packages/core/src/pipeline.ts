@@ -91,6 +91,8 @@ export const ProgressItem = z.object({
   state: z.enum(['pending', 'active', 'done', 'failed']),
   /** Project-relative audio to play back (a voiced line). */
   audio: z.string().optional(),
+  /** Project-relative picture shown with it (a step still, a failure screenshot, a QA sheet). */
+  image: z.string().optional(),
 });
 export type ProgressItem = z.infer<typeof ProgressItem>;
 
@@ -100,6 +102,8 @@ export const PipelineProgress = z.object({
   /** One plain sentence on what is happening now, e.g. "Voicing line 3 of 6". */
   message: z.string(),
   items: z.array(ProgressItem).default([]),
+  /** Changes when the pictures do, so windows don't show a cached one. */
+  version: z.number().optional(),
 });
 export type PipelineProgress = z.infer<typeof PipelineProgress>;
 

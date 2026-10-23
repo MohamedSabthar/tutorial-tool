@@ -40,6 +40,8 @@ export interface ProjectRunResult extends RunResult {
   codec: string | null;
   /** A recording compared with its dry-run estimate, e.g. "timing estimate 12% short". */
   timingCheck?: string | null;
+  /** A failed run's screenshot, project-relative. */
+  failureShot?: string | null;
 }
 
 /**
@@ -111,7 +113,15 @@ export async function runProjectScript(
     await registerTake(dir, result.take, takePath);
     await workspace.commit(`take: ${slug}/${takeId}`, [`projects/${slug}`]);
   }
-  return { ...result, slug, takePath, codec, timingCheck };
+  // A failed run keeps its screenshot for the repair card.
+  let failureShot: string | null = null;
+  if (!result.passed && result.failure?.screenshot.length) {
+    failureShot = '.studio/shots/failure.png';
+    await mkdir(path.join(dir, '.studio', 'shots'), { recursive: true });
+    await writeFile(path.join(dir, failureShot), result.failure.screenshot);
+  }
+
+  return { ...result, slug, takePath, codec, timingCheck, failureShot };
 }
 
 /**

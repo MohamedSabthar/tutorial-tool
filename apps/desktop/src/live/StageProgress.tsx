@@ -20,7 +20,7 @@ export function StageProgress({ progress }: { progress: PipelineProgress }) {
   const [playing, setPlaying] = useState<string | null>(null);
   const url = (rel: string) =>
     info
-      ? `http://127.0.0.1:${info.port}/media/${progress.slug}/${rel}?token=${encodeURIComponent(info.token)}`
+      ? `http://127.0.0.1:${info.port}/media/${progress.slug}/${rel}?token=${encodeURIComponent(info.token)}${progress.version ? `&v=${progress.version}` : ''}`
       : null;
 
   const play = (id: string, rel: string) => {
@@ -60,6 +60,9 @@ export function StageProgress({ progress }: { progress: PipelineProgress }) {
               >
                 {playing === it.id ? '■ Stop' : '▶ Play'}
               </Button>
+            )}
+            {it.image && url(it.image) && (
+              <img className="stage-progress-image" src={url(it.image)!} alt={`${it.label}: screenshot`} />
             )}
           </li>
         ))}
