@@ -70,6 +70,8 @@ export interface PipelineDeps {
   };
   /** Item-by-item progress of the running stage, for the windows (optional in tests). */
   progress?(p: PipelineProgress): void;
+  /** Repairs the agent tries on its own before asking the user, from Settings (default 1). */
+  maxRepairs?(): Promise<number>;
   /** The most a run may spend on the agent (US dollars), from Settings; null for no limit. */
   costLimit?(): Promise<number | null>;
   /** Knowledge commits after repairs (optional in tests). */
@@ -80,6 +82,9 @@ export interface PipelineDeps {
 type Decision = { kind: 'approve' } | { kind: 'revise'; feedback: string };
 
 class Stopped extends Error {}
+
+/** A stage resumes by itself after a reload at most once in this long. */
+const AUTO_RESUME_MS = 120_000;
 
 interface StageResult {
   ok: boolean;
@@ -249,11 +254,27 @@ export class PipelineManager {
     }
   }
 
-  /** At engine start: resumes the runs a reload interrupted. */
+  /**
+   * At engine start: resumes the runs a reload interrupted, each stage at most once in
+   * AUTO_RESUME_MS. Reloads in a row (code being edited) leave the run stopped for the user to
+   * resume, instead of restarting it every few seconds.
+   */
   async restore(): Promise<void> {
     for (const p of await this.deps.store.list().catch(() => [])) {
       const state = await this.get(p.slug).catch(() => null);
-      if (state?.resumeOnStart) await this.resume(p.slug).catch(() => {});
+      if (!state?.resumeOnStart || !state.stage) continue;
+      const again =
+        state.autoResumed?.stage === state.stage && Date.now() - state.autoResumed.at < AUTO_RESUME_MS;
+      if (again) {
+        await this.set(p.slug, {
+          resumeOnStart: false,
+          error:
+            'The engine restarted again while this stage ran (code being changed?). Resume when it has settled.',
+        });
+        continue;
+      }
+      await this.set(p.slug, { autoResumed: { stage: state.stage, at: Date.now() } });
+      await this.resume(p.slug).catch(() => {});
     }
   }
 
@@ -678,7 +699,9 @@ export class PipelineManager {
                 ? `${steps} steps passed${paced ? ', cues checked' : ''}${left ? ` · ${left}` : ''}`
                 : `Recorded ${r.take?.id ?? 'a take'}${r.take ? ` (${r.take.duration.toFixed(1)} s)` : ''}${paced ? ` · ${driftLine(cueDrift(r.events))}` : ''}${r.timingCheck ? ` · ${r.timingCheck}` : ''}${left ? ` · ${left}` : ''}`,
             );
-            if (mode === 'dry') await this.set(slug, { repairAttempts: 0 });
+            // Repairs count until a take is recorded: a passing dry run followed by a failing
+            // recording of the same step mustn't start the count again (that loops).
+            if (mode === 'record') await this.set(slug, { repairAttempts: 0 });
             if (mode === 'record' && paced && !retaken) {
               late = lateCues(r.events);
               if (late.length) {
@@ -708,17 +731,49 @@ export class PipelineManager {
             break;
           }
           await this.end(slug, false, `${failure.stepId ? `${failure.stepId}: ` : ''}${failure.error}`);
+          // The user stopped the run themselves: nothing to repair, ask them what next.
+          if (/stopped by user/i.test(failure.error)) {
+            const what = mode === 'dry' ? 'dry run' : 'recording';
+            const d = await this.gate(slug, live, {
+              stage,
+              kind: 'help',
+              title: `You stopped the ${what}`,
+              text: `The ${what} was stopped${failure.stepId ? ` at ${failure.stepId}` : ''}. Choose Try again to run it again as it is, or tell the agent what to change first. Stop the pipeline to end here.`,
+            });
+            if (d.kind === 'approve') {
+              stage = mode === 'dry' ? 'dry_run' : 'record';
+              break;
+            }
+            failure = { ...failure, error: `the user stopped the ${what} to ask for a change` };
+            helpFeedback = d.feedback;
+            stage = 'repair';
+            break;
+          }
           stage = 'repair';
           break;
         }
         case 'repair': {
+          // The limit comes from Settings each time, so changing it applies to a running run.
+          const max = await this.deps.maxRepairs?.().catch(() => undefined);
+          if (max !== undefined && max !== (await this.get(slug)).maxRepairs)
+            await this.set(slug, { maxRepairs: max });
           const state = await this.get(slug);
-          if (state.repairAttempts >= state.maxRepairs) {
+          if (!helpFeedback && state.repairAttempts >= state.maxRepairs) {
+            // Out of repairs: ask the user, with what failed and what the agent last said it needs.
+            const lastRepair = state.history.filter((h) => h.stage === 'repair').at(-1)?.summary;
+            const where = failure?.stepId ? ` at ${failure.stepId}` : '';
             const d = await this.gate(slug, live, {
               stage: 'repair',
               kind: 'help',
-              title: `Agent needs help${failure?.stepId ? ` at step ${failure.stepId}` : ''}`,
-              text: `${state.maxRepairs} repair attempts didn't fix it: ${failure?.error ?? 'unknown error'}. Approve to let the agent try again, or tell it what to do.`,
+              title: `The agent needs your help${where}`,
+              text: [
+                `The ${failure?.mode === 'record' ? 'recording' : 'dry run'} failed${where}: ${failure?.error ?? 'unknown error'}.`,
+                state.repairAttempts && lastRepair
+                  ? `After ${state.repairAttempts} repair${state.repairAttempts === 1 ? '' : 's'}, the agent says: ${lastRepair}`
+                  : "The agent hasn't tried to repair it yet.",
+                'Reply with a suggestion and the agent tries again with it, or choose Try again to let it try once more on its own.',
+              ].join('\n\n'),
+              ...(failure?.shot ? { image: failure.shot } : {}),
             });
             await this.set(slug, { repairAttempts: 0 });
             helpFeedback = d.kind === 'revise' ? d.feedback : undefined;
@@ -729,7 +784,7 @@ export class PipelineManager {
           this.deps.progress?.({
             slug,
             stage: 'repair',
-            message: `Repairing ${failure?.stepId ?? 'the script'}, attempt ${attempt} of ${state.maxRepairs}`,
+            message: `Repairing ${failure?.stepId ?? 'the script'}, attempt ${attempt} of ${Math.max(1, state.maxRepairs)}`,
             items: [
               {
                 id: 'failure',
@@ -747,7 +802,7 @@ export class PipelineManager {
             'repair',
             repairInstruction({
               attempt,
-              max: state.maxRepairs,
+              max: Math.max(1, state.maxRepairs),
               mode: failure?.mode ?? 'dry',
               stepId: failure?.stepId ?? null,
               error: failure?.error ?? 'unknown error',

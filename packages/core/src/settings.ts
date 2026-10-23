@@ -8,6 +8,8 @@ export const StudioSettings = z.object({
   autoMode: z.boolean().default(true),
   /** A pipeline run pauses at a help gate once its agent cost passes this (US dollars). */
   maxCostPerRun: z.number().positive().nullable().default(null),
+  /** Repairs the agent tries on its own when a run fails, before it asks the user for help. */
+  maxRepairs: z.number().int().min(0).max(5).default(1),
   /** The Claude Code executable the agent runs; null for the one bundled with the agent SDK. */
   claudeExecutable: z.string().min(1).nullable().default(null),
   /** CLAUDE_CONFIG_DIR for the agent (which Claude login it uses); null for the app's environment. */

@@ -79,6 +79,8 @@ export const Gate = z.object({
   text: z.string(),
   /** For knowledge gates: the uncommitted changes to CLAUDE.md and skills (unified diff). */
   diff: z.string().optional(),
+  /** Project-relative picture for the user (a failed run's screenshot). */
+  image: z.string().optional(),
 });
 export type Gate = z.infer<typeof Gate>;
 
@@ -128,11 +130,13 @@ export const PipelineState = z.object({
   repairAttempts: z.number().int().default(0),
   /** The script has its final narration and cues, and pace.json is voiced: record paced to it. */
   paced: z.boolean().default(false),
-  maxRepairs: z.number().int().default(3),
+  maxRepairs: z.number().int().default(1),
   /** Agent cost when this run started, so the UI can show the run's own cost. */
   costAtStart: z.number().default(0),
   /** The engine was reloaded mid-stage (dev): the next engine resumes the run by itself. */
   resumeOnStart: z.boolean().default(false),
+  /** The last automatic resume after a reload: which stage, and when (so reloads can't loop it). */
+  autoResumed: z.object({ stage: PipelineStage, at: z.number() }).nullable().default(null),
   error: z.string().nullable(),
 });
 export type PipelineState = z.infer<typeof PipelineState>;

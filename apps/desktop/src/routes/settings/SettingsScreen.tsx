@@ -207,7 +207,7 @@ function ClaudeSettings() {
   );
 }
 
-/** Defaults for new tutorials, and the cost limit for pipeline runs. */
+/** Defaults for new tutorials, and the cost and repair limits for pipeline runs. */
 function DefaultsPanel() {
   const { client, state } = useEngine();
   const [s, setS] = useState<Settings | null>(null);
@@ -281,6 +281,24 @@ function DefaultsPanel() {
               }}
             />
           </div>
+        )}
+      </Field>
+      <Field
+        label="Repairs before asking you"
+        hint="When a dry run or recording fails, the agent tries this many repairs on its own, then tells you what it tried and asks how to go on. Each repair costs agent time and a dry run."
+      >
+        {(id) => (
+          <Select
+            id={id}
+            value={String(s.maxRepairs)}
+            onChange={(e) => void update({ maxRepairs: Number(e.target.value) })}
+          >
+            <option value="0">0: ask me straight away</option>
+            <option value="1">1 (default)</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="5">5</option>
+          </Select>
         )}
       </Field>
       {error && (

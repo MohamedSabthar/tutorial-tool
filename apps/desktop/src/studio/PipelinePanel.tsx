@@ -11,6 +11,7 @@ import {
   type ChipTone,
 } from '@studio/ui';
 import { PIPELINE_STAGES, type PipelineStatus } from '@studio/core';
+import { useEngine } from '../engine';
 import { pipelineSteps, usePipeline } from '../pipeline';
 import { DiffView } from './DiffView';
 
@@ -29,6 +30,7 @@ const STATUS: Record<PipelineStatus, { label: string; tone: ChipTone }> = {
  */
 export function PipelinePanel({ slug }: { slug: string }) {
   const p = usePipeline(slug);
+  const { info } = useEngine();
   const [feedback, setFeedback] = useState('');
   const [storyboardGate, setStoryboardGate] = useState(true);
   const [narrationGate, setNarrationGate] = useState(true);
@@ -49,6 +51,17 @@ export function PipelinePanel({ slug }: { slug: string }) {
       {s?.gate && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <GateBanner title={s.gate.title} text={s.gate.text} />
+          {s.gate.image && info && (
+            <img
+              src={`http://127.0.0.1:${info.port}/media/${slug}/${s.gate.image}?token=${encodeURIComponent(info.token)}&v=${s.history.at(-1)?.endedAt ?? 0}`}
+              alt="The screen when the run failed"
+              style={{
+                maxWidth: '100%',
+                border: '1px solid var(--ui-gray-300)',
+                borderRadius: 'var(--ui-radius-md)',
+              }}
+            />
+          )}
           {(s.gate.kind === 'storyboard' || s.gate.kind === 'narration') && s.plan && (
             <ol
               aria-label="Planned steps"
@@ -98,7 +111,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
                 setFeedback('');
               }}
             >
-              Revise with agent
+              {s.gate.kind === 'help' ? 'Send suggestion' : 'Revise with agent'}
             </Button>
             {s.gate.kind === 'knowledge' && (
               <Button size="sm" variant="ghost" disabled={!p.ready} onClick={() => void p.revise('discard')}>

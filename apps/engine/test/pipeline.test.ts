@@ -236,7 +236,7 @@ describe('PipelineManager', () => {
       ['qa', true],
       ['retro', true],
     ]);
-    expect(sent.find((t) => t.includes('repair, attempt 1 of 3'))).toContain('Resource Path was not visible');
+    expect(sent.find((t) => t.includes('repair, attempt 1 of 1'))).toContain('Resource Path was not visible');
     expect((await store.open(slug)).project.status).toBe('edit');
   });
 
@@ -619,6 +619,35 @@ describe('PipelineManager', () => {
     await expect(second.p.resume(slug)).rejects.toThrow(/no stopped run/);
   });
 
+  it('resumes after a reload only once in a while, so reloads in a row cannot loop a stage', async () => {
+    const hang = new Promise<never>(() => {});
+    const react = async (p: PipelineManager, stage: string) => {
+      if (stage === 'plan') {
+        await p.savePlan(slug, PLAN);
+        done(p, 'plan');
+      } else if (stage === 'script') await hang;
+    };
+    const first = make(react, []);
+    await first.p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().stage === 'script' && last().status === 'running');
+    first.p.prepareForReload();
+    // The next engine resumes the script stage, then is reloaded again straight away.
+    const second = make(react, []);
+    await second.p.restore();
+    await until(
+      () =>
+        last().status === 'running' &&
+        last().autoResumed?.stage === 'script' &&
+        last().history.filter((h) => h.stage === 'script').length === 2,
+    );
+    second.p.prepareForReload();
+    const third = make(react, []);
+    await third.p.restore();
+    const state = await third.p.get(slug);
+    expect(state).toMatchObject({ status: 'stopped', stage: 'script', resumeOnStart: false });
+    expect(state.error).toMatch(/restarted again/);
+  });
+
   it('marks a run cut off without a reload as stopped, for the user to resume', async () => {
     const { p } = make(async (p, stage) => {
       if (stage === 'plan') {
@@ -675,8 +704,98 @@ describe('PipelineManager', () => {
     expect(sent.filter((t) => t.includes('length budget'))).toHaveLength(1);
   });
 
-  it('escalates after the repair cap with a help gate', async () => {
+  it('asks the user after one repair by default, with what the agent said, and uses their answer', async () => {
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'repair')
+          p.stageDone(slug, 'repair', true, 'Widened the wait. Is Resource Path the right field?');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [false, false, true, true],
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'waiting');
+    expect(last().gate).toMatchObject({
+      kind: 'help',
+      stage: 'repair',
+      title: 'The agent needs your help at s2',
+    });
+    expect(last().gate?.text).toContain(
+      'the agent says: Widened the wait. Is Resource Path the right field?',
+    );
+    expect(last().history.filter((h) => h.stage === 'repair')).toHaveLength(1);
+    // The last repair is told to ask rather than guess.
+    expect(sent.find((t) => t.includes('repair, attempt 1 of 1'))).toContain("so don't guess");
+    expect(p.stageDone(slug, 'plan', true, 'x')).toMatch(/No pipeline stage is waiting/);
+
+    await p.revise(slug, 'Use the Path field instead');
+    await until(() => last().status === 'done');
+    expect(sent.filter((t) => t.includes('Use the Path field instead'))).toHaveLength(1);
+  });
+
+  it('reads the repair limit from Settings: 0 asks before any repair', async () => {
     const { p } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+      },
+      [false],
+      undefined,
+      { maxRepairs: async () => 0 },
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'waiting');
+    expect(last().gate?.text).toContain("hasn't tried to repair it yet");
+    expect(last().history.some((h) => h.stage === 'repair')).toBe(false);
+    await p.stop(slug);
+  });
+
+  it("doesn't repair a run the user stopped: it asks whether to run it again", async () => {
+    const { p, modes } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [],
+      undefined,
+      {
+        runProject: async (_slug, mode) => {
+          modes.push(mode);
+          // The first dry run is stopped by the user at s1.
+          return modes.length === 1
+            ? ({
+                passed: false,
+                events: [],
+                failure: { stepId: 's1', error: 'Stopped by user' },
+                take: null,
+              } as never)
+            : run(true);
+        },
+      },
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'waiting');
+    expect(last().gate).toMatchObject({ kind: 'help', title: 'You stopped the dry run' });
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'dry', 'record']);
+    expect(last().history.some((h) => h.stage === 'repair')).toBe(false);
+  });
+
+  it('keeps counting repairs through passing dry runs until a take is recorded', async () => {
+    // The recording fails twice at the same step although the dry runs pass.
+    const { p, modes } = make(
       async (p, stage) => {
         if (stage === 'plan') {
           await p.savePlan(slug, PLAN);
@@ -684,17 +803,12 @@ describe('PipelineManager', () => {
         } else if (stage === 'script') done(p, 'script');
         else if (stage === 'repair') done(p, 'repair');
       },
-      [false, false, false, false],
+      [true, false, true, false],
     );
     await p.start(slug, { storyboard: false, narration: false });
     await until(() => last().status === 'waiting');
-    expect(last().gate).toMatchObject({
-      kind: 'help',
-      stage: 'repair',
-      title: 'Agent needs help at step s2',
-    });
-    expect(last().history.filter((h) => h.stage === 'repair')).toHaveLength(3);
-    expect(p.stageDone(slug, 'plan', true, 'x')).toMatch(/No pipeline stage is waiting/);
+    expect(modes).toEqual(['dry', 'record', 'dry', 'record']);
+    expect(last().gate).toMatchObject({ kind: 'help', stage: 'repair' });
     await p.stop(slug);
   });
 

@@ -473,6 +473,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       read: (slug) => readPace(store.dir(slug)),
     },
     costLimit: async () => (await store.readSettings()).maxCostPerRun,
+    maxRepairs: async () => (await store.readSettings()).maxRepairs,
     git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });

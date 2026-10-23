@@ -56,6 +56,9 @@ export function repairInstruction(input: {
     input.errorDetail ? '```\n' + input.errorDetail + '\n```' : '',
     input.feedback ? `The user adds:\n\n${input.feedback}` : '',
     'Fix it by following the skill-maintenance skill: read the failure (run_script({"mode": "dry"}) shows the screenshot and ARIA snapshots), research with inspect_ui only if that isn\'t enough, then fix the page objects or the script and update the skill notes. Check with a dry run before you finish.',
+    input.attempt >= input.max
+      ? "This is your last repair before the user is asked for help, so don't guess. If you found the cause and fixed it, finish as usual. If you're not sure, stop: call stage_done with \"ok\": false and a summary for the user in three short parts: what you tried, what you think is wrong, and one specific question (for example which screen or control to use, whether the product needs a sign-in or setup first, or whether to drop the step). The user's answer comes back to you."
+      : '',
     done('repair'),
   ]
     .filter(Boolean)
