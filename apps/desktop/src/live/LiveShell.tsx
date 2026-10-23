@@ -249,10 +249,46 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
   // The running stage's progress (the voiced lines stay up while the agent aligns to them).
   const pipeStage =
     pipe.state?.status === 'running' || pipe.state?.status === 'waiting' ? pipe.state.stage : null;
-  const showProgress =
-    !!progress &&
+  const engineProgress =
+    progress &&
     progress.slug === pipeSlug &&
-    (progress.stage === pipeStage || (progress.stage === 'voice' && pipeStage === 'align'));
+    (progress.stage === pipeStage || (progress.stage === 'voice' && pipeStage === 'align'))
+      ? progress
+      : null;
+  // While the agent plans or narrates, the steps and lines it has saved so far.
+  const planProgress = ((): PipelineProgress | null => {
+    const plan = pipe.state?.plan;
+    if (!plan || !pipeSlug || (pipeStage !== 'plan' && pipeStage !== 'narrate')) return null;
+    if (pipeStage === 'plan')
+      return {
+        slug: pipeSlug,
+        stage: 'plan',
+        message: `Planned ${plan.steps.length} step${plan.steps.length === 1 ? '' : 's'}`,
+        items: plan.steps.map((st) => ({
+          id: st.id,
+          label: `${st.id} · ${st.title}`,
+          detail: '',
+          state: 'done',
+        })),
+      };
+    const written = plan.steps.filter((st) => st.narration.trim()).length;
+    return {
+      slug: pipeSlug,
+      stage: 'narrate',
+      message: `Narration: ${written} of ${plan.steps.length} lines written`,
+      items: plan.steps.map((st) => {
+        const words = st.narration.trim().split(/\s+/).filter(Boolean).length;
+        return {
+          id: st.id,
+          label: `${st.id} · ${st.narration.trim() || st.title}`,
+          detail: words ? `${words} words · about ${Math.round(words / 2.5)} s` : '',
+          state: words ? 'done' : 'pending',
+        };
+      }),
+    };
+  })();
+  const shown = engineProgress ?? planProgress;
+  const showProgress = !!shown;
   useEffect(() => {
     if (!client || state !== 'open' || !pipeSlug) return;
     void client.call('agent.status', { slug: pipeSlug, history: 200 }).then(
@@ -481,7 +517,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
           style={{ flex: '999 1 560px' }}
         >
           {!running && showProgress ? (
-            <StageProgress progress={progress} />
+            <StageProgress progress={shown!} />
           ) : frame ? (
             <div
               style={{

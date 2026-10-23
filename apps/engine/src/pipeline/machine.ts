@@ -12,6 +12,7 @@ import {
   type Gate,
   type Pace,
   type PipelineProgress,
+  type ProgressItem,
   type PipelineStage,
   type Project,
 } from '@studio/core';
@@ -821,11 +822,43 @@ export class PipelineManager {
         }
         case 'post': {
           const { plan, paced, runId } = await this.get(slug);
+          // A checklist for the windows: narration, voice-over and timing fit, explainers.
+          const n = plan?.explainers.length ?? 0;
+          const items: ProgressItem[] = [
+            { id: 'narration', label: 'Narration on the steps', detail: '', state: 'pending' },
+            { id: 'voice', label: 'Voice-over and timing fit', detail: '', state: 'pending' },
+            ...(n
+              ? [
+                  {
+                    id: 'explainers',
+                    label: `${n} explainer${n === 1 ? '' : 's'} (the agent builds them, you approve each storyboard)`,
+                    detail: '',
+                    state: 'pending' as const,
+                  },
+                ]
+              : []),
+          ];
+          const report = (id: string, state: ProgressItem['state'], detail = '', message?: string) => {
+            const item = items.find((x) => x.id === id);
+            if (item) Object.assign(item, { state, detail });
+            this.deps.progress?.({
+              slug,
+              stage: 'post',
+              message: message ?? `Post-production: ${item?.label.toLowerCase() ?? id}`,
+              items: items.map((x) => ({ ...x })),
+            });
+          };
           const voice = async () => {
             if (!this.deps.voiceover) return;
+            report('voice', 'active', 'voicing and fitting…');
+            let failed = false;
             const note = await this.deps
               .voiceover(slug, runId ?? 'pipeline', paced && plan ? plan : undefined)
-              .catch((e: unknown) => `Voice-over failed: ${e instanceof Error ? e.message : String(e)}`);
+              .catch((e: unknown) => {
+                failed = true;
+                return `Voice-over failed: ${e instanceof Error ? e.message : String(e)}`;
+              });
+            report('voice', failed ? 'failed' : 'done', note ?? '');
             if (note) await this.annotate(slug, note);
           };
           if (paced) {
@@ -833,15 +866,27 @@ export class PipelineManager {
             // the agent only has explainers to add (voiced once they are in).
             await this.begin(slug, 'post');
             await this.end(slug, true, 'Final narration on the steps');
+            report('narration', 'done', 'the approved narration');
             await voice();
             if (plan?.explainers.length) {
+              report('explainers', 'active', 'the agent is building them');
               await this.agentStageWithHelp(slug, live, 'post', postInstruction(plan, { narrated: true }));
+              report('explainers', 'done');
               await voice();
             }
           } else {
+            report('narration', 'active', 'the agent is writing it');
             await this.agentStageWithHelp(slug, live, 'post', postInstruction(plan));
+            report('narration', 'done');
+            if (n) report('explainers', 'done');
             await voice();
           }
+          report(
+            'voice',
+            items.find((x) => x.id === 'voice')!.state,
+            items.find((x) => x.id === 'voice')!.detail,
+            'Post-production done',
+          );
           stage = 'qa';
           break;
         }
