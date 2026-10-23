@@ -123,7 +123,7 @@ export function StudioScreen({ slug }: { slug: string }) {
   const controls = usePlayerController(duration);
   const playing = usePlayerValue(controls, (s) => s.playing);
   const rate = usePlayerValue(controls, (s) => s.rate);
-  // Click and typing sounds from the take's events, in output time.
+  // Click sounds from the take's clicks, in output time.
   const sfx = useMemo(
     () =>
       tl.timeline?.sfx.enabled && take && events?.length ? sfxCues(tl.timeline, { [take.id]: events }) : [],
@@ -897,8 +897,8 @@ export function StudioScreen({ slug }: { slug: string }) {
                     aria-pressed={tl.timeline.sfx.enabled}
                     title={
                       tl.timeline.sfx.enabled
-                        ? 'Click and typing sounds play under the recording (and are mixed into the export). Click to turn them off.'
-                        : 'No click or typing sounds. Click to turn them on.'
+                        ? 'Mouse click sounds play under the recording (and are mixed into the export). Click to turn them off.'
+                        : 'No click sounds. Click to turn them on.'
                     }
                     onClick={() =>
                       void tl.patch(
@@ -913,7 +913,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                       )
                     }
                   >
-                    {tl.timeline.sfx.enabled ? 'Sounds on' : 'Sounds off'}
+                    {tl.timeline.sfx.enabled ? 'Click sounds on' : 'Click sounds off'}
                   </Button>
                 )}
                 <Segmented

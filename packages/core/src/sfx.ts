@@ -1,7 +1,7 @@
 import type { RecorderEvent, Timeline } from './schemas';
 import { buildTimeMap } from './timemap';
 
-export type SfxKind = 'click' | 'key';
+export type SfxKind = 'click';
 
 /** A sound at an output time. `variant` picks one of a few takes of it, so repeats don't sound copied. */
 export interface SfxCue {
@@ -11,44 +11,22 @@ export interface SfxCue {
 }
 
 export const SFX_VARIANTS = 4;
-/** Typing ticks are left out where the take plays faster than this (they'd be a buzz). */
-const TYPE_MAX_RATE = 1.5;
-/** The recorder's typing pace (characters a second) and its longer pauses (see human.ts). */
-const TYPE_CPS = 14;
 
 /**
- * The click and typing sounds a timeline's recording makes, in output time: a click for each
- * click, a key sound for each key press and for each character typed (at the recorder's typing
- * pace). Moments cut out of the video make no sound; typing inside a fast-forward is left out.
+ * The click sounds a timeline's recording makes, in output time: one for each mouse click.
+ * Moments cut out of the video make no sound. (Typing and key presses are silent.)
  */
 export function sfxCues(tl: Timeline, eventsByTake: Record<string, RecorderEvent[]>): SfxCue[] {
   const tm = buildTimeMap(tl);
-  const rateAt = (out: number) => {
-    const seg = tm.segments.find((s) => out >= s.start && out < s.end)?.segment;
-    return seg?.kind === 'speed' ? seg.rate : 1;
-  };
   const cues: SfxCue[] = [];
   let n = 0;
-  const add = (take: string, t: number, kind: SfxKind, typing = false) => {
-    const out = tm.toOutput(take, t)[0];
-    if (out === undefined) return;
-    if (typing && rateAt(out) > TYPE_MAX_RATE) return;
-    cues.push({ t: Math.round(out * 1000) / 1000, kind, variant: n++ % SFX_VARIANTS });
-  };
-  for (const [take, events] of Object.entries(eventsByTake)) {
+  for (const [take, events] of Object.entries(eventsByTake))
     for (const e of events) {
-      if (e.kind === 'click') add(take, e.t, 'click');
-      else if (e.kind === 'key') add(take, e.t, 'key');
-      else if (e.kind === 'type') {
-        // The event marks where typing starts; each character follows at the recorder's pace.
-        let at = e.t;
-        for (const ch of e.text) {
-          add(take, at, 'key', true);
-          at += (ch === ' ' ? 1.4 : /[./:_-]/.test(ch) ? 1.25 : 1) / TYPE_CPS;
-        }
-      }
+      if (e.kind !== 'click') continue;
+      const out = tm.toOutput(take, e.t)[0];
+      if (out !== undefined)
+        cues.push({ t: Math.round(out * 1000) / 1000, kind: 'click', variant: n++ % SFX_VARIANTS });
     }
-  }
   return cues.sort((a, b) => a.t - b.t);
 }
 
@@ -66,41 +44,29 @@ function rng(seed: number): () => number {
 
 /**
  * One sound as mono samples at `rate`. A click is a mouse button's press and, 70–90 ms later, a
- * quieter release: each a few milliseconds of bright, fast-decaying noise with a short tone in
- * it. A key is a softer, darker tick over a low thump. Variants shift the pitch and timing a
- * little.
+ * quieter release: each a few milliseconds of high-passed, fast-decaying noise with a short tone
+ * in it. Variants shift the pitch and timing a little.
  */
-export function synthSfx(kind: SfxKind, variant: number, rate: number): Float32Array {
-  const rand = rng(kind === 'click' ? 101 + variant : 201 + variant);
-  const len = Math.round((kind === 'click' ? 0.12 : 0.06) * rate);
+export function synthSfx(_kind: SfxKind, variant: number, rate: number): Float32Array {
+  const rand = rng(101 + variant);
+  const len = Math.round(0.12 * rate);
   const out = new Float32Array(len);
-  // `bright` high-passes the noise (a crisp click); otherwise it is low-passed (a soft tick).
-  const burst = (at: number, gain: number, tau: number, tone: number, bright: boolean) => {
+  const burst = (at: number, gain: number, tau: number, tone: number) => {
     const start = Math.round(at * rate);
-    const a = bright ? 0.12 : 0.3;
     let lp = 0;
     for (let i = start; i < len; i++) {
       const s = (i - start) / rate;
       const env = Math.exp(-s / tau);
       if (env < 1e-4) break;
       const noise = rand() * 2 - 1;
-      lp += a * (noise - lp);
-      const shaped = bright ? noise - lp : lp;
-      out[i]! += gain * env * (0.75 * shaped + 0.25 * Math.sin(2 * Math.PI * tone * s));
+      // High-pass: the noise minus its low end, for a crisp click.
+      lp += 0.12 * (noise - lp);
+      out[i]! += gain * env * (0.75 * (noise - lp) + 0.25 * Math.sin(2 * Math.PI * tone * s));
     }
   };
   const jitter = 0.94 + rand() * 0.12;
-  if (kind === 'click') {
-    burst(0, 0.55, 0.0012, 3200 * jitter, true);
-    burst(0.07 + rand() * 0.02, 0.3, 0.001, 3600 * jitter, true);
-  } else {
-    burst(0, 0.32, 0.0025, 1400 * jitter, false);
-    // The low thump of the key bottoming out.
-    for (let i = 0; i < len; i++) {
-      const s = i / rate;
-      out[i]! += 0.18 * Math.exp(-s / 0.008) * Math.sin(2 * Math.PI * 170 * jitter * s);
-    }
-  }
+  burst(0, 0.55, 0.0012, 3200 * jitter);
+  burst(0.07 + rand() * 0.02, 0.3, 0.001, 3600 * jitter);
   return out;
 }
 

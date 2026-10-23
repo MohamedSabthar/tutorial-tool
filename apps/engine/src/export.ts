@@ -63,7 +63,7 @@ export class Exporter {
     return this.jobs.get(slug)?.state ?? null;
   }
 
-  /** The click and typing sounds as one WAV in the export's work folder, or null without any. */
+  /** The click sounds as one WAV in the export's work folder, or null without any. */
   private async sfxTrack(slug: string, timeline: Timeline, duration: number): Promise<string | null> {
     const dir = this.deps.store.dir(slug);
     const eventsByTake: Record<string, Awaited<ReturnType<typeof readEvents>>> = {};

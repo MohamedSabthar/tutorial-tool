@@ -7,7 +7,7 @@ const AHEAD = 4;
 const JUMP = 0.3;
 
 /**
- * Plays the click and typing sounds with the preview. Web Audio schedules each sound at its
+ * Plays the click sounds with the preview. Web Audio schedules each sound at its
  * output time, a few seconds ahead of the playhead; a pause, seek or speed change cancels what
  * is scheduled and starts again from the playhead. Export mixes the same sounds itself.
  */
