@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AgentEvent, AgentStatus, RecorderEvent, RpcEventData } from '@studio/core';
+import type { AgentEvent, AgentStatus, PipelineProgress, RecorderEvent, RpcEventData } from '@studio/core';
 import {
   AppHeader,
   Button,
@@ -18,6 +18,7 @@ import {
 } from '@studio/ui';
 import { useEngine } from '../engine';
 import { ProjectBar } from '../routes/ProjectBar';
+import { StageProgress } from './StageProgress';
 import { appHrefs, HeaderStatus } from '../routes/frame';
 import { elapsed as runElapsed, pipelineSteps as agentPipelineSteps, usePipeline } from '../pipeline';
 
@@ -29,7 +30,12 @@ interface StepRow {
   id: string;
   title: string;
   done: boolean;
+  /** Cued actions in a paced take: the word, and how far from it the action landed (seconds). */
+  cues: { word: string; off: number }[];
 }
+
+/** A cued action this close to its word counts as on time (the engine's CUE_TOLERANCE). */
+const CUE_OK = 0.15;
 
 interface LogLine {
   t: string;
@@ -128,6 +134,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
   /** The recorder's pointer (frame px); `clickAt` restarts the click ring. */
   const [pointer, setPointer] = useState<{ x: number; y: number; clickAt: number } | null>(null);
   const [steps, setSteps] = useState<StepRow[]>([]);
+  const [progress, setProgress] = useState<PipelineProgress | null>(null);
   const [log, setLog] = useState<LogLine[]>([]);
   const [raw, setRaw] = useState<string[]>([]);
   const [view, setView] = useState<'Readable' | 'Raw'>('Readable');
@@ -189,7 +196,12 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
         setPointer((cur) => ({ x: p.x, y: p.y, clickAt: p.click ? Date.now() : (cur?.clickAt ?? 0) })),
       ),
       client.on('recorder.event', (e) => {
-        if (e.kind === 'step-start') setSteps((s) => [...s, { id: e.stepId, title: e.title, done: false }]);
+        if (e.kind === 'step-start')
+          setSteps((s) => [...s, { id: e.stepId, title: e.title, done: false, cues: [] }]);
+        if ((e.kind === 'click' || e.kind === 'key') && e.cue) {
+          const cue = { word: e.cue.word, off: Math.round((e.t - e.cue.at) * 100) / 100 };
+          setSteps((s) => s.map((x) => (x.id === e.stepId ? { ...x, cues: [...x.cues, cue] } : x)));
+        }
         if (e.kind === 'step-end')
           setSteps((s) => s.map((x) => (x.id === e.stepId ? { ...x, done: true } : x)));
         const line = readable(e);
@@ -200,6 +212,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
           ),
         );
       }),
+      client.on('pipeline.progress', setProgress),
       client.on('agent.state', (a) => {
         setAgent(a);
         setPending((p) => ({ ...p, [a.slug]: a.pending }));
@@ -233,6 +246,13 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
 
   // A window opened while a request is waiting still shows it.
   const pipeSlug = pipe.state?.slug ?? null;
+  // The running stage's progress (the voiced lines stay up while the agent aligns to them).
+  const pipeStage =
+    pipe.state?.status === 'running' || pipe.state?.status === 'waiting' ? pipe.state.stage : null;
+  const showProgress =
+    !!progress &&
+    progress.slug === pipeSlug &&
+    (progress.stage === pipeStage || (progress.stage === 'voice' && pipeStage === 'align'));
   useEffect(() => {
     if (!client || state !== 'open' || !pipeSlug) return;
     void client.call('agent.status', { slug: pipeSlug, history: 200 }).then(
@@ -460,7 +480,9 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
           }
           style={{ flex: '999 1 560px' }}
         >
-          {frame ? (
+          {!running && showProgress ? (
+            <StageProgress progress={progress} />
+          ) : frame ? (
             <div
               style={{
                 position: 'relative',
@@ -613,6 +635,19 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
                     >
                       {s.id} · {s.title}
                     </span>
+                    {s.cues.map((c, j) => (
+                      <span
+                        key={j}
+                        className="live-cue ui-mono"
+                        data-late={Math.abs(c.off) > CUE_OK ? 'true' : undefined}
+                        title={`"${c.word}" landed ${Math.abs(c.off).toFixed(2)} s ${c.off < 0 ? 'before' : 'after'} the word`}
+                      >
+                        {Math.abs(c.off) > CUE_OK ? '✗' : '✓'} {c.word}{' '}
+                        {Math.abs(c.off) > CUE_OK
+                          ? `+${c.off.toFixed(1)} s`
+                          : `${Math.round(c.off * 1000)} ms`}
+                      </span>
+                    ))}
                   </div>
                 );
               })}

@@ -11,6 +11,7 @@ import {
   type PlanEdit,
   type Gate,
   type Pace,
+  type PipelineProgress,
   type PipelineStage,
   type Project,
 } from '@studio/core';
@@ -56,11 +57,17 @@ export interface PipelineDeps {
    */
   pace?: {
     blocker(slug: string): Promise<string | null>;
-    voice(slug: string, plan: Plan): Promise<string>;
+    voice(
+      slug: string,
+      plan: Plan,
+      progress?: (p: Omit<PipelineProgress, 'slug' | 'stage'>) => void,
+    ): Promise<string>;
     clear(slug: string): Promise<void>;
     /** The voiced lines with their ElevenLabs word timings, for the align stage. */
     read?(slug: string): Promise<Pace | null>;
   };
+  /** Item-by-item progress of the running stage, for the windows (optional in tests). */
+  progress?(p: PipelineProgress): void;
   /** The most a run may spend on the agent (US dollars), from Settings; null for no limit. */
   costLimit?(): Promise<number | null>;
   /** Knowledge commits after repairs (optional in tests). */
@@ -780,7 +787,9 @@ export class PipelineManager {
           if (!plan) throw new Error('there is no plan to voice');
           await this.begin(slug, 'voice');
           try {
-            const line = await this.deps.pace!.voice(slug, plan);
+            const line = await this.deps.pace!.voice(slug, plan, (p) =>
+              this.deps.progress?.({ slug, stage: 'voice', ...p }),
+            );
             await this.end(slug, true, line);
             await this.set(slug, { paced: true });
             // The agent fits the script to the real lines, then a dry run checks the cues.

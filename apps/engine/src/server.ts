@@ -28,6 +28,7 @@ import {
   removeExplainerScene,
   type Timeline,
   type ExportSettings,
+  type ProgressItem,
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
@@ -385,6 +386,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       broadcast('project.changed', { slug });
     },
     emit: (s) => broadcast('pipeline.changed', s),
+    progress: (p) => broadcast('pipeline.progress', p),
     voiceover: async (slug, group, narration) => {
       if (!(await store.voiceFor(slug))) return 'No voice chosen in the brief, so no voice-over yet.';
       if (!(await tts.status()).configured) return 'ElevenLabs has no key yet, so no voice-over.';
@@ -409,11 +411,33 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           : !(await tts.status()).configured
             ? 'ElevenLabs has no key yet.'
             : null,
-      voice: async (slug, plan) => {
+      voice: async (slug, plan, progress) => {
+        // One row per narrated step: pending, voicing, then its length (and whether it was cached).
+        const items: ProgressItem[] = plan.steps
+          .filter((s) => s.narration.trim())
+          .map((s) => ({ id: s.id, label: `${s.id} · ${s.title}`, detail: '', state: 'pending' }));
         const r = await voicePace(
           { store, tts, pronunciations: () => pronunciations.list() },
           slug,
           plan.steps,
+          ({ stepId, index, total, done }) => {
+            const item = items.find((x) => x.id === stepId);
+            if (item) {
+              item.state = done ? 'done' : 'active';
+              item.detail = done
+                ? `${done.seconds.toFixed(1)} s${done.cached ? ' · cached' : ''}`
+                : 'voicing…';
+              if (done) item.audio = done.audio;
+            }
+            progress?.({
+              message: done
+                ? index + 1 === total
+                  ? `Voiced all ${total} lines`
+                  : `Voiced line ${index + 1} of ${total}`
+                : `Voicing line ${index + 1} of ${total}`,
+              items: items.map((x) => ({ ...x })),
+            });
+          },
         );
         return `Voiced ${r.lines} line${r.lines === 1 ? '' : 's'} (${r.seconds.toFixed(1)} s) to pace the take`;
       },

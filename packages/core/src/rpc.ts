@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
-import { PipelineGates, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
+import { PipelineGates, PipelineProgress, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
 import { TimingFile } from './stepTiming';
 import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
 import { Pronunciation } from './pronounce';
@@ -588,6 +588,8 @@ export const rpcEvents = {
   /** The newest rendered frame of a running export (a small JPEG, a few per second). */
   'export.frame': z.object({ slug: z.string(), index: z.number(), data: z.string() }),
   'pipeline.changed': PipelineState,
+  /** Item-by-item progress of the running stage (the voice-over's lines, post-production). */
+  'pipeline.progress': PipelineProgress,
   'live.session': LiveSession,
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;

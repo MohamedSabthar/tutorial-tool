@@ -82,6 +82,27 @@ export const Gate = z.object({
 });
 export type Gate = z.infer<typeof Gate>;
 
+/** What a running stage is working through, item by item (lines being voiced, post steps). */
+export const ProgressItem = z.object({
+  id: z.string(),
+  label: z.string(),
+  /** A short result or state, e.g. "6.2 s · cached". */
+  detail: z.string().default(''),
+  state: z.enum(['pending', 'active', 'done', 'failed']),
+  /** Project-relative audio to play back (a voiced line). */
+  audio: z.string().optional(),
+});
+export type ProgressItem = z.infer<typeof ProgressItem>;
+
+export const PipelineProgress = z.object({
+  slug: z.string(),
+  stage: PipelineStage,
+  /** One plain sentence on what is happening now, e.g. "Voicing line 3 of 6". */
+  message: z.string(),
+  items: z.array(ProgressItem).default([]),
+});
+export type PipelineProgress = z.infer<typeof PipelineProgress>;
+
 export const PipelineGates = z.object({
   /** Stop after planning so the user can review the steps before the script (optional, off by default). */
   storyboard: z.boolean().default(false),

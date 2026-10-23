@@ -35,12 +35,23 @@ describe('voice-first pace', () => {
 
   it('voices the narrated steps with their neighbours, as the post voice-over does, and saves pace.json', async () => {
     const requests: unknown[] = [];
-    const r = await voicePace({ store, tts: tts(requests) as never }, slug, [
-      { id: 's1', narration: ' Open it. ' },
-      { id: 's2', narration: '' },
-      { id: 's3', narration: 'Click Save.' },
-    ]);
+    const progress: string[] = [];
+    const r = await voicePace(
+      { store, tts: tts(requests) as never },
+      slug,
+      [
+        { id: 's1', narration: ' Open it. ' },
+        { id: 's2', narration: '' },
+        { id: 's3', narration: 'Click Save.' },
+      ],
+      (l) =>
+        progress.push(
+          `${l.stepId} ${l.index + 1}/${l.total}${l.done ? ` ${l.done.seconds.toFixed(1)}` : ''}`,
+        ),
+    );
     expect(r.lines).toBe(2);
+    // Each line reports when it starts and when it is voiced.
+    expect(progress).toEqual(['s1 1/2', 's1 1/2 0.8', 's3 2/2', 's3 2/2 1.1']);
     expect(requests).toEqual([
       { text: 'Open it.', voiceId: 'voice-1', nextText: 'Click Save.' },
       { text: 'Click Save.', voiceId: 'voice-1', previousText: 'Open it.' },

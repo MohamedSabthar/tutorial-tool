@@ -37,6 +37,13 @@ export async function voicePace(
   },
   slug: string,
   steps: { id: string; narration: string }[],
+  /** Called before and after each line: its step, and once voiced its length and audio. */
+  onLine?: (line: {
+    stepId: string;
+    index: number;
+    total: number;
+    done?: { seconds: number; cached: boolean; audio: string };
+  }) => void,
 ): Promise<{ pace: Pace; lines: number; seconds: number }> {
   const voiceId = await deps.store.voiceFor(slug);
   if (!voiceId) throw new RpcError('Choose a voice in the brief first.', 'bad_request');
@@ -50,7 +57,14 @@ export async function voicePace(
     const prev = narrated[i - 1]?.narration.trim();
     const next = narrated[i + 1]?.narration.trim();
     const { words, ...req } = voiceLine(text, rules, { prev, next });
+    onLine?.({ stepId: step.id, index: i, total: narrated.length });
     const r = await deps.tts.synthesize(slug, { ...req, voiceId });
+    onLine?.({
+      stepId: step.id,
+      index: i,
+      total: narrated.length,
+      done: { seconds: r.duration, cached: r.cached, audio: r.audio },
+    });
     out[step.id] = { text, duration: Math.round(r.duration * 1000) / 1000, words: words(r.alignment) };
     seconds += r.duration;
   }
