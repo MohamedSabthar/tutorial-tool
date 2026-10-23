@@ -35,6 +35,7 @@ import {
 import { openLive, useEngine } from '../engine';
 import { usePipeline } from '../pipeline';
 import { appHrefs, HeaderStatus, useLiveSession } from '../routes/frame';
+import { ProjectBar } from '../routes/ProjectBar';
 import { useLatestTake } from '../useTake';
 import { resolveTimeline, stepAt } from './resolve';
 import { StageHost } from './StageHost';
@@ -461,9 +462,6 @@ export function StudioScreen({ slug }: { slug: string }) {
         actions={
           <>
             <HeaderStatus />
-            <LinkButton href={`#/brief/${slug}`} title="Goal, audience, voice and the rest of the brief">
-              Brief
-            </LinkButton>
             <Button
               onClick={() => setConfirmRecord(true)}
               disabled={!!live}
@@ -475,6 +473,7 @@ export function StudioScreen({ slug }: { slug: string }) {
           </>
         }
       />
+      <ProjectBar slug={slug} current="studio" />
       {needsRebuild && (
         <GateBanner
           title="This project's take has no scenes or steps yet"

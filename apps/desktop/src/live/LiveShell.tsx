@@ -17,6 +17,7 @@ import {
   type StepState,
 } from '@studio/ui';
 import { useEngine } from '../engine';
+import { ProjectBar } from '../routes/ProjectBar';
 import { appHrefs, HeaderStatus } from '../routes/frame';
 import { elapsed as runElapsed, pipelineSteps as agentPipelineSteps, usePipeline } from '../pipeline';
 
@@ -336,6 +337,9 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
           </>
         }
       />
+      {(slug ?? session?.slug ?? pipeSlug) && (
+        <ProjectBar slug={(slug ?? session?.slug ?? pipeSlug)!} current="live" />
+      )}
 
       <main
         style={{

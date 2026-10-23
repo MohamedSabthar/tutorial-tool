@@ -1362,3 +1362,83 @@
 .pron-row {
   align-items: center;
 }
+
+/* The open project across its screens (ProjectBar). */
+.project-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 20px;
+  background: var(--ui-white);
+  border-bottom: 1px solid var(--ui-gray-300);
+  font-size: 13px;
+  color: var(--ui-navy);
+}
+.project-bar[data-waiting] {
+  background: var(--ui-orange-100);
+  border-bottom-color: var(--ui-orange);
+}
+.project-bar-title {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-bar-links {
+  display: flex;
+  gap: 2px;
+  background: var(--ui-gray-50);
+  border-radius: var(--ui-radius-pill);
+  padding: 2px;
+}
+.project-bar-link {
+  position: relative;
+  padding: 4px 12px;
+  border-radius: var(--ui-radius-pill);
+  color: var(--ui-gray-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+.project-bar-link:hover {
+  color: var(--ui-navy);
+}
+.project-bar-link:focus-visible {
+  outline: 2px solid var(--ui-navy);
+  outline-offset: 1px;
+}
+.project-bar-link[aria-current='page'] {
+  background: var(--ui-white);
+  color: var(--ui-navy);
+  box-shadow: 0 0 0 1px var(--ui-gray-300);
+}
+.project-bar-dot {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ui-orange);
+}
+.project-bar-gate,
+.project-bar-doing {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.project-bar-gate-title {
+  font-weight: 700;
+}
+.project-bar-doing {
+  color: var(--ui-gray-600);
+}
+/* A static marker: the app UI keeps to the no-animation rule used for overlays. */
+.project-bar-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ui-orange);
+  box-shadow: 0 0 0 3px var(--ui-orange-100);
+}

@@ -248,9 +248,14 @@ export function StoryboardScreen({ slug }: { slug: string }) {
           <LinkButton size="sm" href={`#/brief/${slug}`}>
             Edit the brief
           </LinkButton>
+          {st.stage && (
+            <Button size="sm" variant="primary" onClick={() => void pipe.resume()}>
+              Resume
+            </Button>
+          )}
           <Button
             size="sm"
-            variant="primary"
+            variant={st.stage ? 'secondary' : 'primary'}
             onClick={() => void pipe.start({ storyboard: brief?.gates.storyboard ?? true })}
           >
             Start again
@@ -264,6 +269,7 @@ export function StoryboardScreen({ slug }: { slug: string }) {
     <AppFrame
       current="projects"
       slug={slug}
+      project="storyboard"
       banner={
         <>
           {banner}

@@ -198,6 +198,7 @@ export function BriefScreen({ slug }: { slug: string }) {
     <AppFrame
       current="projects"
       slug={slug}
+      project="brief"
       footer={
         <>
           {error && (

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { LiveSession } from '@studio/core';
 import { AppHeader, Chip, EdgeAccent, IconCode, type NavKey } from '@studio/ui';
 import { EngineChip, useEngine } from '../engine';
+import { ProjectBar, type ProjectScreen } from './ProjectBar';
 
 /** Changes the main window's screen (hash routes, so a reload keeps the screen). */
 export const navigate = (route: string) => {
@@ -69,6 +70,7 @@ export function HeaderStatus({ live = true }: { live?: boolean }) {
 export function AppFrame({
   current,
   slug,
+  project,
   banner,
   footer,
   children,
@@ -76,6 +78,8 @@ export function AppFrame({
   current?: NavKey;
   /** The open project, so the Studio and Live icons go to it. */
   slug?: string;
+  /** Shows the project bar for `slug`, with this screen marked. */
+  project?: ProjectScreen;
   banner?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -84,6 +88,7 @@ export function AppFrame({
     <div className="app-frame">
       <EdgeAccent />
       <AppHeader {...(current ? { current } : {})} hrefs={appHrefs(slug)} actions={<HeaderStatus />} />
+      {slug && project && <ProjectBar slug={slug} current={project} />}
       {banner}
       <div className="app-frame-body">{children}</div>
       {footer && <footer className="app-frame-footer">{footer}</footer>}
