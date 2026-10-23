@@ -80,6 +80,7 @@ describe('checkVideo', () => {
     });
     expect(r.issues).toEqual([
       expect.stringMatching(/^s1: its voice runs 1\.25 s into the next step/),
+      expect.stringMatching(/^s2: 7\.8 s with no voice after its line \(0:12\.25–0:20\.00\)/),
       's1: "Open" late by 400 ms',
       'left on screen at step end: s1: dialog: Save changes?',
       expect.stringMatching(/^caption at 0:01.00 is too long/),
@@ -95,5 +96,38 @@ describe('checkVideo', () => {
     ]);
     expect(rendered).toHaveLength(6);
     expect(r.sheets).toHaveLength(1);
+  });
+
+  it('flags a long fast-forward after a line, but not the silence it replaced', async () => {
+    const timeline = parseTimeline({
+      version: 1,
+      takes: [{ ...take, duration: 40 }],
+      scenes: [
+        {
+          id: 'sc',
+          kind: 'recording',
+          take: 'take-1',
+          segments: [
+            { kind: 'src', from: 0, to: 13 },
+            { kind: 'speed', from: 13, to: 40, rate: 2 },
+          ],
+        },
+      ],
+      steps: [
+        { id: 's1', title: 'One', take: 'take-1', from: 0, to: 10, narration: 'Open it.' },
+        { id: 's2', title: 'Two', take: 'take-1', from: 10, to: 40, narration: 'Add the rest.' },
+      ],
+      voice: [
+        { id: 'vo-s1', owner: 's1', text: 'Open it.', start: 0.25, duration: 9 },
+        { id: 'vo-s2', owner: 's2', text: 'Add the rest.', start: 0.25, duration: 2 },
+      ],
+    });
+    const r = await checkVideo({
+      slug: 'x',
+      timeline,
+      events: [],
+      stage: { render: async (_slug, times) => times.map((t) => ({ t, png, errors: {} })) as never },
+    });
+    expect(r.issues).toEqual([expect.stringMatching(/^s2: 13\.5 s fast-forwarded after its line/)]);
   });
 });

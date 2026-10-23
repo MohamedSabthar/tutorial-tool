@@ -12,6 +12,7 @@ import {
   type ScreencastFrame,
 } from '@studio/recorder/node';
 import { readPace } from './pace';
+import { estimateTimings, saveTimings } from './stepTiming';
 import type { ProjectStore } from './projects';
 import type { Workspace } from './workspace';
 
@@ -34,7 +35,8 @@ export interface ProjectRunResult extends RunResult {
 /**
  * Runs a project's script.spec.ts. Record mode saves recordings/take-N (video.mp4,
  * events.jsonl, poster.jpg), registers the take in tutorial.json and commits. With a pace.json
- * (voice-first recording), the take is paced to it and dry runs check the script's cues.
+ * (voice-first recording), the take is paced to it and dry runs check the script's cues. A passing
+ * dry run saves each step's estimated recorded length (.studio/timing.json).
  */
 export async function runProjectScript(
   store: ProjectStore,
@@ -70,6 +72,9 @@ export async function runProjectScript(
     captureTargets: false,
     ...cb,
   });
+
+  // A passing dry run measures the product: the narration is planned from these step timings.
+  if (mode === 'dry' && result.passed) await saveTimings(dir, estimateTimings(result.events));
 
   let codec: string | null = null;
   if (result.take && takePath) {

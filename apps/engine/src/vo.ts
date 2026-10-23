@@ -35,7 +35,7 @@ export interface VoiceoverResult {
 export type AfterVoice = (
   slug: string,
   opts: { author: Author; group: string | null },
-) => Promise<{ before: number; after: number; steps: { hold: number; speed: number }[] }>;
+) => Promise<{ before: number; after: number; steps: { hold: number; saved: number }[] }>;
 
 /**
  * The voice-over: one line per recorded step, synthesized from the step's narration with the
@@ -145,7 +145,7 @@ export class Voiceover {
         before: f.before,
         after: f.after,
         holds: f.steps.filter((s) => s.hold > 0).length,
-        spedUp: f.steps.filter((s) => s.speed > 1).length,
+        spedUp: f.steps.filter((s) => s.saved > 0.5).length,
       };
     }
     return result;

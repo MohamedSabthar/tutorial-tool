@@ -1,4 +1,5 @@
 import type { Pace, Plan } from '@studio/core';
+import { timingLines, type StepTiming } from '../stepTiming';
 
 /**
  * The messages the pipeline sends into the agent session, one per agent stage. Each names the
@@ -64,10 +65,14 @@ export function repairInstruction(input: {
  * Voice-first recording: after a passing dry run the agent writes the final narration and ties
  * the script's actions to its words; the pipeline then voices it and records paced to it.
  */
-export function narrateInstruction(plan: Plan): string {
+export function narrateInstruction(plan: Plan, timing: StepTiming[] = []): string {
   return [
     '[Pipeline · narrate]',
     'The dry run passed, so you know what the script does on screen. Write the final narration and tie the actions to it: the pipeline voices this narration before recording, and the recorder paces the take to the voice-over.',
+    timing.length
+      ? `How long each step will take on camera, measured in the dry run (the product's own time) with the recorder's pacing added:\n${timingLines(timing)}`
+      : '',
+    timing.length ? NARRATION_LENGTH : '',
     [
       "1. Write each step's narration now, from what you researched and what the dry run showed on screen, following the narration style in the tutorial-authoring skill. Where the plan below already has narration for a step, the user wrote it in the storyboard: keep their wording unless it no longer matches what happens on screen. Describe the actions in the order the script does them, about 2.5 words per second of action. Save it with save_plan, keeping the step ids, titles and actions.",
       "2. In script.spec.ts, give each action the viewer should see happen on a word a cue: `tut.cue('Create')` right before the call (this works before a page-object call too: its first click or key press takes the cue), or the `cue` option of tut.click, tut.type and tut.press. A cue is a word or short phrase copied from that step's narration, usually the control's name as spoken. Cues in a step follow the narration's order. Actions without a cue run at their own pace, and every step lasts at least its line.",
@@ -75,20 +80,34 @@ export function narrateInstruction(plan: Plan): string {
     ].join('\n'),
     plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n'),
     done('narrate'),
-  ].join('\n\n');
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
+
+/** How long a line should be for its step, and what happens to the time it doesn't cover. */
+const NARRATION_LENGTH = [
+  'Size every line to its step, at about 2.5 words a second:',
+  "- A line covers the step's time on camera, give or take 20%. Post-production keeps the voiced part as recorded, then fast-forwards whatever runs on after the line ends (a badge shows it), so anything the viewer should follow must happen while the line is speaking.",
+  '- A product wait inside the step (listed above): talk through it, saying what the product is doing, and put the cue of the next action on a word that comes after the wait. Or end the line before it, and the wait is fast-forwarded.',
+  '- A step that is much longer than anything worth saying (the same flow repeated, a long list of fields): narrate the first time in full and the rest in one sentence ("Add the other three tools the same way"); the rest is fast-forwarded. If it is long enough to bore even at 4×, say so in your stage_done summary: it\'s better done in the fixture or cut.',
+].join('\n');
 
 /**
  * After the voice-over: the agent sees each line's real length and ElevenLabs' word timings and
  * fits the script to them (cues, holds, waits). The approved narration doesn't change.
  */
-export function alignInstruction(plan: Plan, pace: Pace): string {
+export function alignInstruction(plan: Plan, pace: Pace, timing: StepTiming[] = []): string {
   const steps = plan.steps
     .map((s) => {
       const line = pace.steps[s.id];
-      if (!line) return `- ${s.id} ${s.title}: no voice line`;
+      const t = timing.find((x) => x.id === s.id);
+      const onCamera = t
+        ? ` · about ${Math.round(t.recorded)} s on camera${t.waits.length ? ` (product waits: ${t.waits.map((w) => `${w.seconds} s after ${w.after}`).join(', ')})` : ''}`
+        : '';
+      if (!line) return `- ${s.id} ${s.title}: no voice line${onCamera}`;
       const words = line.words.map((w) => `${w.w}@${w.start.toFixed(1)}`).join(' ');
-      return `- ${s.id} ${s.title} · line ${line.duration.toFixed(1)} s\n  ${words}`;
+      return `- ${s.id} ${s.title} · line ${line.duration.toFixed(1)} s${onCamera}\n  ${words}`;
     })
     .join('\n');
   return [
@@ -99,7 +118,8 @@ export function alignInstruction(plan: Plan, pace: Pace): string {
       'Read script.spec.ts and fit it to these timings:',
       "1. Every cue must be a word of its step's line, in order, placed on the word that names the action.",
       '2. A pointer move takes 0.2–0.75 s, typing about 14 characters a second, and the product needs time to respond: if an action depends on a screen that is still loading at its word, cue it on a later word or wait for the screen first.',
-      "3. If a line is much longer than its step's actions, add tut.hold after the action the words describe, so the screen the viewer hears about is on screen while it's described. If the actions take much longer than the line, make sure nothing important happens after the line ends without words.",
+      "3. If a line is much longer than its step's actions, add tut.hold after the action the words describe, so the screen the viewer hears about is on screen while it's described. If the actions take much longer than the line, make sure nothing important happens after the line ends without words: post-production fast-forwards it.",
+      '4. A product wait (listed with its step) between two cues: put the second cue on a word that is spoken after the wait has ended, or the click lands late and the take is recorded again.',
       "Don't change the narration (it's approved) or what the script does, and don't record: the pipeline dry-runs the script to check the cues, then records.",
     ].join('\n'),
     done('align'),
@@ -162,6 +182,8 @@ export function qaInstruction(): string {
       '- secrets, emails or machine paths on screen: add a core:Blur over them for as long as they show',
       '- a zoom that cuts off its target or moves too often: adjust or remove it',
       '- voice running into the next step: run generate_voiceover again (unchanged lines come from the cache, and it re-runs the timing fit)',
+      '- silence after a line at normal speed: run generate_voiceover again (its timing fit fast-forwards what runs on after a line)',
+      "- a long fast-forward after a line: if the viewer needs to follow it, it needed narration (list it for the user); if not, cut the source range the viewer doesn't need from the recording scene's segments",
       "Things you can't fix from the timeline (an error dialog in the recording, a click off its word, a wrong screen) need a new take or a script change: don't record, list them in your summary for the user.",
     ].join('\n'),
     'When check_video reports nothing you can fix, finish. Your summary is the QA report: what you checked, what you fixed, and what is left for the user.',

@@ -14,6 +14,14 @@ const CLUSTER_GAP = 3;
 const ZOOM_IN = 1.0;
 const ZOOM_OUT = 1.2;
 const TYPE_CPS = 14;
+/** Played at least this fast, a stretch shows the fast-forward badge. */
+const FF_RATE = 2;
+/** Speeds above this are product waits skipped over, shown without a number. */
+const FF_ACTION_MAX = 4;
+/** Fast-forwarded stretches closer than this (output seconds) share one badge. */
+const FF_JOIN = 0.6;
+/** A badge shorter than this would only flash, so none is shown. */
+const FF_MIN = 1.2;
 
 type Action = Extract<RecorderEvent, { kind: 'click' | 'type' }>;
 
@@ -74,8 +82,9 @@ export interface AutoOptions {
 
 /**
  * The default edit, derived from the recorder's events: the pointer (Cursor + ClickRipple),
- * a short Zoom on each cluster of clicks and typing, a Blur over every `tut.mask` area, and a
- * TitleCard on the first step. Times are output times of the current timeline, so this runs
+ * a short Zoom on each cluster of clicks and typing, a Blur over every `tut.mask` area, a
+ * FastForward badge wherever the timing fit plays the take faster, and a TitleCard on the first
+ * step. Times are output times of the current timeline, so this runs
  * again whenever the timeline's timing changes (take registered, timing fit).
  */
 export function autoOverlays(
@@ -178,6 +187,29 @@ export function autoOverlays(
         author: 'auto',
       });
     });
+
+  // A badge over every stretch the timing fit fast-forwards.
+  const ff: { start: number; end: number; rate: number }[] = [];
+  for (const s of tm.segments) {
+    if (s.segment.kind !== 'speed' || s.segment.rate < FF_RATE) continue;
+    const rate = s.segment.rate <= FF_ACTION_MAX ? s.segment.rate : 0;
+    const prev = ff.at(-1);
+    if (prev && s.start - prev.end < FF_JOIN) {
+      prev.end = s.end;
+      prev.rate = Math.max(prev.rate, rate);
+    } else ff.push({ start: s.start, end: s.end, rate });
+  }
+  ff.filter((f) => f.end - f.start >= FF_MIN).forEach((f, i) => {
+    result.push({
+      id: `auto-ff-${i + 1}`,
+      component: 'core:FastForward',
+      start: r3(f.start),
+      end: r3(f.end),
+      layer: 75,
+      props: { rate: Math.round(f.rate * 10) / 10 },
+      author: 'auto',
+    });
+  });
 
   // Captions show the captions track's cue at each moment.
   if (tl.captions.length)

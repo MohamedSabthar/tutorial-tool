@@ -125,6 +125,9 @@ export function StageHost({
   const moves = useMemo(() => cameraMoves(instances), [instances]);
   const camera = cameraAt(t, showOverlays ? moves : [], restCamera(STAGE), fit.rect, STAGE);
   const st = Math.min(Math.max(sourceTime(t), 0), take.duration - 0.01);
+  // How fast the take runs here (0 in a freeze); a jump at a cut reads as normal speed.
+  const ahead = (sourceTime(t + 0.05) - sourceTime(t)) / 0.05;
+  const rate = ahead > 17 || ahead < 0 ? 1 : Math.round(ahead * 100) / 100;
 
   // Overlays on the recording (anchored, or drawing the pointer) travel with it in transitions;
   // the rest (titles, captions, labels) stay on screen.
@@ -202,7 +205,7 @@ export function StageHost({
                   <div key="recording" style={{ position: 'absolute', inset: 0, ...layer.style }}>
                     <FrameShadow />
                     <Scene3D>
-                      <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} />
+                      <VideoPlane src={src} sourceTime={st} playing={videoPlaying ?? playing} rate={rate} />
                     </Scene3D>
                     {(showOverlays ? onRecording : []).map(renderInstance)}
                   </div>

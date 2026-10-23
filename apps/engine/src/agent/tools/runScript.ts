@@ -2,6 +2,7 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { stepTimings } from '../../recording';
+import { estimateTimings } from '../../stepTiming';
 import { cap, fail, round, type ToolContext } from './context';
 import { imageBlock } from './frames';
 
@@ -15,6 +16,8 @@ export function runScriptTools(ctx: ToolContext) {
         'registers it in the timeline (steps and the recording scene are rebuilt; overlays are kept).',
         'Always pass a dry run before recording. On failure you get the failing step, the error with',
         "Playwright's call log, a screenshot, and ARIA snapshots of the window and the active webview.",
+        "A passing dry run gives each step's recordedSeconds (how long it will take on camera, with the",
+        'human pacing a dry run skips) and productWaits (where the product makes it wait): plan narration from these.',
       ].join(' '),
       { mode: z.enum(['dry', 'record']) },
       async ({ mode }): Promise<CallToolResult> => {
@@ -25,11 +28,17 @@ export function runScriptTools(ctx: ToolContext) {
           return fail(`The run could not start or crashed: ${e instanceof Error ? e.message : String(e)}`);
         }
         if (r.take) ctx.onTake();
-        const steps = stepTimings(r.events).map((s) => ({
-          id: s.id,
-          title: s.title,
-          seconds: s.end === null ? null : round(s.end - s.start),
-        }));
+        // A dry run skips the human pacing: give the agent what each step will take on camera.
+        const estimates = new Map(estimateTimings(r.events).map((s) => [s.id, s]));
+        const steps = stepTimings(r.events).map((s) => {
+          const est = mode === 'dry' ? estimates.get(s.id) : undefined;
+          return {
+            id: s.id,
+            title: s.title,
+            seconds: s.end === null ? null : round(s.end - s.start),
+            ...(est ? { recordedSeconds: est.recorded, productWaits: est.waits } : {}),
+          };
+        });
         const passedSteps = steps.filter((s) => s.seconds !== null).length;
         if (r.passed)
           return {

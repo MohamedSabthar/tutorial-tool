@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildTimeMap, parseTimeline, RecorderEvent, voiceSpans } from '@studio/core';
-import { fitTiming, MAX_SPEED } from '../src/timing';
+import { autoOverlays } from '../src/autoOverlays';
+import { fitTiming, GRACE, MAX_SPEED, TAIL, WAIT_KEEP } from '../src/timing';
 
 const take = {
   id: 'take-1',
@@ -53,22 +54,23 @@ function timeline(segments: unknown[] = [{ kind: 'src', from: 0, to: 30 }]) {
 }
 
 describe('fitTiming', () => {
-  it('holds steps whose voice is longer, speeds up idle stretches of steps whose action is longer', () => {
+  it('holds steps whose voice is longer, fast-forwards product waits after a shorter line', () => {
     const tl = timeline();
     const before = voiceSpans(tl, buildTimeMap(tl));
     expect(before[0]!.end).toBeGreaterThan(10); // s1's line runs into s2
 
     const r = fitTiming(tl, events);
     const [s1, s2, s3] = r.steps;
-    expect(s1).toMatchObject({ stepId: 's1', speed: 1, overrun: 0 });
+    expect(s1).toMatchObject({ stepId: 's1', speed: 1, saved: 0, overrun: 0 });
     expect(s1!.hold).toBeCloseTo(0.25 + 12 + 0.35 - 10, 1);
     // s2 starts 0.2 s after s1's click, so its line waits until 0.6 s after it.
     expect(r.timeline.voice.find((v) => v.owner === 's2')!.start).toBeCloseTo(0.4, 3);
-    expect(s2!.speed).toBe(MAX_SPEED);
-    expect(r.timeline.scenes[0]!.kind === 'recording' && r.timeline.scenes[0]!.segments).toContainEqual(
-      expect.objectContaining({ kind: 'speed', rate: MAX_SPEED }),
-    );
-    expect(s3).toMatchObject({ hold: 0, speed: MAX_SPEED, overrun: 0 });
+    // s2: the line and a second of grace play as recorded, the wait after it is skipped over.
+    const voiced = 0.4 + 3 + 0.35 + GRACE;
+    const segs = r.timeline.scenes[0]!.kind === 'recording' ? r.timeline.scenes[0]!.segments : [];
+    expect(segs).toContainEqual({ kind: 'speed', from: 10 + voiced, to: 20, rate: expect.any(Number) });
+    expect(s2!.saved).toBeCloseTo(10 - voiced - WAIT_KEEP, 1);
+    expect(s3).toMatchObject({ hold: 0, overrun: 0 });
 
     // No line overlaps the next step's action.
     const tm = buildTimeMap(r.timeline);
@@ -77,8 +79,38 @@ describe('fitTiming', () => {
       tm.toOutput('take-1', r.timeline.steps.find((s) => s.id === id)!.from)[0]!;
     expect(spans[0]!.end).toBeLessThanOrEqual(stepStart('s2'));
     expect(spans[1]!.end).toBeLessThanOrEqual(stepStart('s3'));
-    // 30 s + s1's freeze - 2.8 s saved in each of s2 and s3 (8.4 s idle at 1.5×).
-    expect(r.after).toBeCloseTo(30 + s1!.hold - 2.8 - 2.8, 1);
+    expect(stepStart('s3') - spans[1]!.end).toBeLessThan(TAIL + GRACE + WAIT_KEEP + 0.1);
+  });
+
+  it('fast-forwards unnarrated action after a line at 2–4× and badges it', () => {
+    // s3 keeps clicking for 8 s after its 4 s line.
+    const busy = RecorderEvent.array().parse(
+      Array.from({ length: 17 }, (_, i) => ({
+        kind: 'click',
+        t: 26 + i * 0.25,
+        stepId: 's3',
+        x: 5,
+        y: 5,
+        target: `t${i}`,
+        bbox,
+      })),
+    );
+    const all = [...events, ...busy];
+    const r = fitTiming(timeline(), all);
+    const s3 = r.steps[2]!;
+    expect(s3.speed).toBeGreaterThanOrEqual(2);
+    expect(s3.speed).toBeLessThanOrEqual(MAX_SPEED);
+    const badges = autoOverlays(r.timeline, all).filter((o) => o.component === 'core:FastForward');
+    expect(badges.some((b) => (b.props as { rate: number }).rate === s3.speed)).toBe(true);
+  });
+
+  it("plays a paced take's voiced part as recorded, so its clicks stay on their words", () => {
+    const paced = [{ kind: 'marker' as const, t: 0, name: 'start', data: { paced: true } }, ...events];
+    const r = fitTiming(timeline(), paced);
+    const segs = r.timeline.scenes[0]!.kind === 'recording' ? r.timeline.scenes[0]!.segments : [];
+    const voicedEnd = 10 + 0.4 + 3 + 0.35 + GRACE;
+    for (const s of segs) if (s.kind === 'speed') expect(s.from).toBeGreaterThanOrEqual(voicedEnd - 1e-3);
+    expect(r.steps[0]!.hold).toBeGreaterThan(0);
   });
 
   it('keeps cuts and replaces earlier fits instead of stacking them', () => {
@@ -96,19 +128,10 @@ describe('fitTiming', () => {
     expect(fitTiming(cut, events).steps[0]!.action).toBeCloseTo(8, 3);
   });
 
-  it('never speeds up a paced take, so its clicks stay on their words', () => {
-    const paced = [{ kind: 'marker' as const, t: 0, name: 'start', data: { paced: true } }, ...events];
-    const r = fitTiming(timeline(), paced);
-    expect(r.steps.map((s) => s.speed)).toEqual([1, 1, 1]);
-    const segs = r.timeline.scenes[0]!.kind === 'recording' ? r.timeline.scenes[0]!.segments : [];
-    expect(segs.some((s) => s.kind === 'speed')).toBe(false);
-    expect(r.steps[0]!.hold).toBeGreaterThan(0);
-  });
-
   it('leaves steps without a voice line alone', () => {
     const tl = { ...timeline(), voice: [] };
     const r = fitTiming(tl, events);
-    expect(r.steps.every((s) => s.hold === 0 && s.speed === 1)).toBe(true);
+    expect(r.steps.every((s) => s.hold === 0 && s.speed === 1 && s.saved === 0)).toBe(true);
     expect(r.after).toBe(30);
   });
 });

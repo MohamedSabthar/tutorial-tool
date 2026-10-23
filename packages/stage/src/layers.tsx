@@ -145,10 +145,13 @@ export function VideoPlane({
   src,
   sourceTime,
   playing,
+  rate = 1,
 }: {
   src: string;
   sourceTime: number;
   playing: boolean;
+  /** Take seconds per stage second here: 0 in a freeze, above 1 where the take is sped up. */
+  rate?: number;
 }) {
   const { fit } = useCamera();
   const { width, height, mode } = useStageTime();
@@ -249,14 +252,19 @@ export function VideoPlane({
     };
   }, [video, texture, invalidate]);
 
-  // Follow stage time: native playback while playing (correcting drift), exact seeks otherwise.
+  // Follow stage time: native playback at the segment's speed while playing (correcting drift),
+  // a still frame in a freeze, exact seeks otherwise.
   useEffect(() => {
     if (exporting) return;
     const frame = 1 / 30;
-    if (playing) {
+    const still = rate < 0.05;
+    if (playing && !still) {
       seekTargets.delete(video);
+      const want = Math.min(16, Math.max(0.25, rate));
+      if (Math.abs(video.playbackRate - want) > 0.01) video.playbackRate = want;
       if (video.paused) void video.play().catch(() => {});
-      if (Math.abs(video.currentTime - sourceTime) > frame * 3) video.currentTime = sourceTime;
+      if (Math.abs(video.currentTime - sourceTime) > frame * 3 * Math.max(1, want))
+        video.currentTime = sourceTime;
     } else {
       if (!video.paused) video.pause();
       if (Math.abs(lastSet.current - sourceTime) > 1e-4) {
@@ -265,7 +273,7 @@ export function VideoPlane({
       }
       seekTargets.set(video, sourceTime);
     }
-  }, [video, sourceTime, playing, exporting]);
+  }, [video, sourceTime, playing, exporting, rate]);
 
   const cx = fit.rect.x + fit.rect.w / 2 - width / 2;
   const cy = -(fit.rect.y + fit.rect.h / 2 - height / 2);

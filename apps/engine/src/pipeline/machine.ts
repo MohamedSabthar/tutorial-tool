@@ -15,6 +15,7 @@ import {
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
 import { cueDrift, driftLine, leftoversLine } from '../pace';
+import { readTimings } from '../stepTiming';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
@@ -647,7 +648,10 @@ export class PipelineManager {
           const first = (await this.get(slug)).plan;
           if (!first) throw new Error('there is no plan to narrate');
           // A gate restored after a restart comes back with its decision: don't narrate again.
-          if (!pending) await this.agentStageWithHelp(slug, live, 'narrate', narrateInstruction(first));
+          const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
+          if (!pending)
+            await this.agentStageWithHelp(slug, live, 'narrate', narrateInstruction(first, timing));
+          const onCamera = timing.reduce((n, s) => n + s.recorded, 0);
           if ((await this.get(slug)).gates.narration) {
             for (;;) {
               const before = new Map(
@@ -661,7 +665,7 @@ export class PipelineManager {
                   stage: 'narrate',
                   kind: 'narration',
                   title: 'Review the narration before the voice-over',
-                  text: `${lines.length} line${lines.length === 1 ? '' : 's'}, about ${Math.round(words / 2.5)} s of speech. Edit them in place, or ask the agent to tune them. The voice-over is made from them when you approve.`,
+                  text: `${lines.length} line${lines.length === 1 ? '' : 's'}, about ${Math.round(words / 2.5)} s of speech${onCamera ? ` for about ${Math.round(onCamera)} s on camera` : ''}. Edit them in place, or ask the agent to tune them. The voice-over is made from them when you approve.`,
                 }));
               // Edits made at the gate (also before a restart) compare against what the agent wrote.
               const agentWrote = pending ? null : before;
@@ -707,7 +711,9 @@ export class PipelineManager {
         case 'align': {
           const plan = (await this.get(slug)).plan;
           const pace = (await this.deps.pace?.read?.(slug).catch(() => null)) ?? null;
-          if (plan && pace) await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace));
+          const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
+          if (plan && pace)
+            await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace, timing));
           stage = 'dry_run';
           break;
         }

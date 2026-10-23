@@ -102,6 +102,14 @@ lands as its word is spoken. So:
   short phrase copied from that step's narration; cues in a step follow the narration's order.
 - Leave setup actions (waits, scrolling, closing a notification) without a cue.
 - A cue that isn't in the narration fails the step in the dry run that checks the cues.
+- Size each line from the dry run. `run_script` in dry mode gives each step's `recordedSeconds`
+  (how long it will run on camera, with the pacing a dry run skips) and its `productWaits`. Aim
+  for about 2.5 words a second of that.
+- A product wait inside a step: talk through it (what the product is doing) and cue the next
+  action on a word spoken after the wait, or end the line before it.
+- Whatever runs on after a line is fast-forwarded in post-production, with a badge: nothing the
+  viewer needs to follow may happen there. A flow repeated on camera: narrate the first one, sum
+  up the rest in one sentence, and let them fast-forward.
 
 ## Narration style
 

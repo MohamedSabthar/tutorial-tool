@@ -266,3 +266,58 @@ export function Captions({ props }: OverlayProps<CaptionsProps>) {
     </DomLayer>
   );
 }
+
+// ---------------------------------------------------------------------------
+// FastForward
+// ---------------------------------------------------------------------------
+
+const FastForwardProps = z.object({
+  /** The playback speed shown; 0 shows the badge without a number (a product wait skipped). */
+  rate: z.number().min(0).default(4),
+});
+type FastForwardProps = z.infer<typeof FastForwardProps>;
+
+export const fastForwardMeta: OverlayMeta = {
+  name: 'FastForward',
+  description:
+    'A small fast-forward badge at the top right, for stretches played faster than recorded (the timing fit adds one wherever it speeds up action after a line).',
+  props: FastForwardProps,
+  defaultDuration: 3,
+};
+
+export function FastForward({ props }: OverlayProps<FastForwardProps>) {
+  const { t, duration } = useOverlayTime();
+  // In and out over 0.2 s, from time alone.
+  const a = Math.min(1, t / 0.2, (duration - t) / 0.2);
+  const rate = props.rate ?? 4;
+  return (
+    <DomLayer>
+      <span
+        aria-label={rate ? `Playing at ${rate} times speed` : 'Fast-forward'}
+        style={{
+          position: 'absolute',
+          right: 64,
+          top: 56,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '10px 18px',
+          borderRadius: 999,
+          fontFamily: theme.font.sans,
+          fontSize: 26,
+          fontWeight: 700,
+          color: theme.color.white,
+          background: 'rgba(12,21,38,0.82)',
+          boxShadow: theme.shadow,
+          opacity: Math.max(0, a),
+          transform: `translateY(${(1 - Math.max(0, a)) * -8}px)`,
+        }}
+      >
+        <svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true">
+          <path d="M0 0 L12 9 L0 18 Z M13 0 L25 9 L13 18 Z" fill={theme.color.orange} />
+        </svg>
+        {rate ? `${Number.isInteger(rate) ? rate : rate.toFixed(1)}×` : 'Fast-forward'}
+      </span>
+    </DomLayer>
+  );
+}

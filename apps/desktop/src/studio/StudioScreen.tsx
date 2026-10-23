@@ -1068,7 +1068,7 @@ function RegenerateVo({ slug }: { slug: string }) {
     return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   };
   const fitText = (f: { before: number; after: number; holds: number; spedUp: number }) =>
-    `fitted ${len(f.before)} → ${len(f.after)} (${f.holds} freeze${f.holds === 1 ? '' : 's'}, ${f.spedUp} sped up)`;
+    `fitted ${len(f.before)} → ${len(f.after)} (${f.holds} freeze${f.holds === 1 ? '' : 's'}, ${f.spedUp} fast-forwarded)`;
   const run = (kind: 'vo' | 'fit' | 'auto', fn: () => Promise<string>) => {
     setBusy(kind);
     setNote(null);
@@ -1106,7 +1106,7 @@ function RegenerateVo({ slug }: { slug: string }) {
       <Button
         size="sm"
         disabled={!client || !!busy}
-        title="Freeze where the voice runs longer than the action; speed up idle stretches (at most 1.5×) where it is shorter"
+        title="Freeze where the voice runs longer than the action; fast-forward what runs on after a line ends (product waits, and unnarrated action at up to 4×)"
         onClick={() =>
           run('fit', async () => {
             const r = await client!.call('timing.fit', { slug });
@@ -1114,7 +1114,7 @@ function RegenerateVo({ slug }: { slug: string }) {
               before: r.before,
               after: r.after,
               holds: r.steps.filter((x) => x.hold > 0).length,
-              spedUp: r.steps.filter((x) => x.speed > 1).length,
+              spedUp: r.steps.filter((x) => x.saved > 0.5).length,
             });
           })
         }

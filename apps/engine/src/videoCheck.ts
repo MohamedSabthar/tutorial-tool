@@ -6,13 +6,17 @@ import type { HeadlessStage } from './render';
 /** The longest caption line a viewer reads comfortably, and the shortest time it's on screen. */
 const CAPTION_CHARS = 42;
 const CAPTION_MIN_S = 0.8;
+/** Silence after a line, at normal speed, that a viewer notices (seconds). */
+const SILENCE_S = 3;
+/** Fast-forward after a line longer than this is worth narrating or cutting (seconds). */
+const FAST_FORWARD_S = 12;
 /** Frames per contact sheet (3 a row). */
 const SHEET = 12;
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
 
 export interface VideoCheckResult {
-  /** Problems found without looking: voice overlaps, cue drift, leftovers, captions. */
+  /** Problems found without looking: voice overlaps, silences, cue drift, leftovers, captions. */
   issues: string[];
   /** The frames rendered, in order, with what each shows. */
   frames: { t: number; label: string }[];
@@ -52,6 +56,23 @@ export async function checkVideo(opts: {
       issues.push(
         `${s.id}: its voice runs ${(span.end - next).toFixed(2)} s into the next step (at ${fmt(next)})`,
       );
+    // The picture running on after the line in silence: at normal speed, or fast-forwarded.
+    if (span && next - span.end > SILENCE_S) {
+      let fast = 0;
+      for (const g of tm.segments) {
+        if (g.segment.kind !== 'speed' || g.segment.rate < 2) continue;
+        fast += Math.max(0, Math.min(g.end, next) - Math.max(g.start, span.end));
+      }
+      const still = next - span.end - fast;
+      if (still > SILENCE_S)
+        issues.push(
+          `${s.id}: ${still.toFixed(1)} s with no voice after its line (${fmt(span.end)}–${fmt(next)}); fit the timing again, or narrate what happens there`,
+        );
+      if (fast > FAST_FORWARD_S)
+        issues.push(
+          `${s.id}: ${fast.toFixed(1)} s fast-forwarded after its line (from ${fmt(span.end)}); narrate it, or cut what the viewer doesn't need to see`,
+        );
+    }
   }
 
   // Clicks off their words, and anything left open at a step's end.

@@ -274,6 +274,7 @@ export const rpcMethods = {
           needed: z.number(),
           hold: z.number(),
           speed: z.number(),
+          saved: z.number(),
           overrun: z.number(),
         }),
       ),
