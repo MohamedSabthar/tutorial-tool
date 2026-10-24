@@ -18,6 +18,7 @@ export const appHrefs = (slug?: string | null): Partial<Record<NavKey, string>> 
   ...(slug ? { studio: `#/studio/${slug}` } : {}),
   live: `#${liveRoute(slug)}`,
   settings: '#/settings',
+  guide: '#/guide',
 });
 
 /** The run streaming to Live right now, if any. */

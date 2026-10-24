@@ -240,3 +240,10 @@ export const IconExitFullscreen = (p: IconProps) => (
     <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
   </Svg>
 );
+/** Help: a question mark in a circle (the user guide). */
+export const IconHelp = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6M12 17h.01" />
+  </Svg>
+);

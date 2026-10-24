@@ -4,7 +4,7 @@ import {
   type AnchorHTMLAttributes,
   type CSSProperties,
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { IconChevron, IconProjects, IconStudio, IconLive, IconLibrary, IconSettings } from './icons';
+import { IconChevron, IconHelp, IconProjects, IconStudio, IconLive, IconLibrary, IconSettings } from './icons';
 import markUrl from '../assets/mark-wso2-orange.png';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -57,7 +57,7 @@ export const Logo = ({ size = 22 }: { size?: number }) => (
 // Header and navigation
 // ---------------------------------------------------------------------------
 
-export type NavKey = 'projects' | 'studio' | 'live' | 'library' | 'settings';
+export type NavKey = 'projects' | 'studio' | 'live' | 'library' | 'settings' | 'guide';
 
 const navItems: { key: NavKey; label: string; Icon: typeof IconProjects }[] = [
   { key: 'projects', label: 'Projects', Icon: IconProjects },
@@ -65,6 +65,7 @@ const navItems: { key: NavKey; label: string; Icon: typeof IconProjects }[] = [
   { key: 'live', label: 'Live', Icon: IconLive },
   { key: 'library', label: 'Library', Icon: IconLibrary },
   { key: 'settings', label: 'Settings', Icon: IconSettings },
+  { key: 'guide', label: 'Guide', Icon: IconHelp },
 ];
 
 export function AppHeader({

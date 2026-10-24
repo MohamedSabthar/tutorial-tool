@@ -676,6 +676,13 @@ export function TimelinePanel({
         >
           Shortcuts
         </span>
+        <a
+          className="timeline-keys"
+          href="#/guide?s=recording"
+          title="The guide: editing the recording and the voice-over"
+        >
+          How editing works
+        </a>
         <label
           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ui-gray-600)' }}
         >

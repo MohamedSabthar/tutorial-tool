@@ -309,14 +309,17 @@ export function BriefScreen({ slug }: { slug: string }) {
                 hint={
                   voiceError === 'no-key' ? (
                     <>
-                      Add an ElevenLabs key on the <a href="#/voice">Voice page</a> to choose a voice.
+                      Add an ElevenLabs key in <a href="#/settings">Settings</a> to choose a voice.
                     </>
                   ) : voiceError ? (
                     <>
-                      {voiceError}. Save a working key on the <a href="#/voice">Voice page</a>.
+                      {voiceError}. Save a working key in <a href="#/settings">Settings</a>.
                     </>
                   ) : (
-                    'Used for the voice-over after recording.'
+                    <>
+                      Choose one before you start: the take is then recorded paced to the voice, so clicks
+                      land on their words. <a href="#/guide?s=brief">Why it matters</a>
+                    </>
                   )
                 }
               >

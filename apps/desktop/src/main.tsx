@@ -28,6 +28,7 @@ import { RenderScreen } from './render/RenderScreen';
 import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
 import { ExportScreen } from './routes/export/ExportScreen';
 import { SettingsScreen } from './routes/settings/SettingsScreen';
+import { GuideScreen } from './routes/guide/GuideScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
@@ -129,6 +130,8 @@ function App() {
 function Screen({ path }: { path: string }) {
   if (path === '/' || path === '/projects') return <ProjectsScreen />;
   if (path === '/settings') return <SettingsScreen />;
+  if (path.split('?')[0] === '/guide')
+    return <GuideScreen section={new URLSearchParams(path.split('?')[1] ?? '').get('s')} />;
   const studio = match(path, 'studio');
   if (studio) return <StudioScreen key={studio} slug={studio} />;
   const brief = match(path, 'brief');
