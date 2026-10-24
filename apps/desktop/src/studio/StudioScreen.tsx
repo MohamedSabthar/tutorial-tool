@@ -1403,8 +1403,10 @@ function InsertExplainer({
             role="dialog"
             aria-label="Explainer brief"
             style={{
+              // Opens upwards: the toolbar sits near the bottom of the window, so a popover
+              // below it would push its buttons off screen.
               position: 'absolute',
-              top: 34,
+              bottom: 'calc(100% + 6px)',
               left: 0,
               zIndex: 10,
               width: 320,

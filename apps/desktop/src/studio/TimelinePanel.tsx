@@ -671,8 +671,8 @@ export function TimelinePanel({
         <span
           tabIndex={0}
           className="timeline-keys"
-          title="Space play · J/L ±1 s · ←/→ frame · S split · ⌫ delete"
-          aria-label="Keyboard shortcuts: Space play, J and L one second, arrows one frame, S split, Delete removes"
+          title="Space play · J/L ±1 s · ←/→ frame · S split · ⌫ delete · F full screen · Esc deselect"
+          aria-label="Keyboard shortcuts: Space play, J and L one second, arrows one frame, S split, Delete removes, F full screen, Escape deselects"
         >
           Shortcuts
         </span>
