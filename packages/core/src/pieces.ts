@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { Segment } from './schemas';
+import type { Segment, Timeline } from './schemas';
+import { buildTimeMap } from './timemap';
 
 /**
  * Hand edits to the pieces (segments) of a recording scene: speed, remove, freeze, back to
@@ -98,4 +99,77 @@ export function editPiece(segments: Segment[], index: number, edit: PieceEdit): 
       ];
     }
   }
+}
+
+/**
+ * Splits the recording piece showing at output time `t`, so a piece starts there. Returns the
+ * timeline unchanged when `t` is already a piece edge or not in a recording.
+ */
+export function splitPieceAt(tl: Timeline, t: number): Timeline {
+  const span = buildTimeMap(tl).segments.find((g) => g.start + EDGE < t && t < g.end - EDGE);
+  if (!span) return tl;
+  const si = tl.scenes.findIndex((s) => s.id === span.sceneId);
+  const scene = tl.scenes[si];
+  if (!scene || scene.kind !== 'recording') return tl;
+  const s = span.segment;
+  const local = t - span.start;
+  let parts: [Segment, Segment];
+  if (s.kind === 'hold') {
+    parts = [
+      { ...s, duration: r3(local) },
+      { ...s, duration: r3(s.duration - local) },
+    ];
+  } else {
+    const cut = r3(s.from + local * (s.kind === 'speed' ? s.rate : 1));
+    parts = [
+      { ...s, to: cut },
+      { ...s, from: cut },
+    ];
+  }
+  const segments = [
+    ...scene.segments.slice(0, span.index),
+    ...parts,
+    ...scene.segments.slice(span.index + 1),
+  ];
+  return { ...tl, scenes: tl.scenes.map((x, i) => (i === si ? { ...scene, segments } : x)) };
+}
+
+/**
+ * Applies an edit (speed, remove, auto) to everything shown in output time [from, to): pieces
+ * are split at both ends first. Freezes inside the range are removed with `remove` and handed
+ * back with `auto`; a speed leaves them as they are.
+ */
+export function editRange(
+  tl: Timeline,
+  from: number,
+  to: number,
+  edit: Extract<PieceEdit, { op: 'speed' | 'remove' | 'auto' }>,
+): { timeline: Timeline; pieces: number } {
+  if (!(to > from)) throw new Error('The range must end after it starts.');
+  const split = splitPieceAt(splitPieceAt(tl, from), to);
+  const inside = buildTimeMap(split).segments.filter(
+    (g) => g.start >= from - EDGE && g.end <= to + EDGE && g.end > g.start,
+  );
+  if (!inside.length) throw new Error('No recording is shown in that range.');
+  let out = split;
+  // Last first, so earlier indexes stay valid when pieces are removed.
+  for (const g of [...inside].reverse()) {
+    if (edit.op === 'speed' && g.segment.kind === 'hold') continue;
+    const si = out.scenes.findIndex((s) => s.id === g.sceneId);
+    const scene = out.scenes[si];
+    if (!scene || scene.kind !== 'recording') continue;
+    const segments = editPiece(scene.segments, g.index, edit);
+    out = { ...out, scenes: out.scenes.map((x, i) => (i === si ? { ...scene, segments } : x)) };
+  }
+  return { timeline: out, pieces: inside.length };
+}
+
+/** The recording piece at output time `t`: its scene, index and the take time shown there. */
+export function pieceAt(
+  tl: Timeline,
+  t: number,
+): { sceneId: string; index: number; takeTime: number } | null {
+  const pos = buildTimeMap(tl).toSource(t);
+  if (!pos || pos.kind !== 'recording') return null;
+  return { sceneId: pos.sceneId, index: pos.segment, takeTime: pos.takeTime };
 }

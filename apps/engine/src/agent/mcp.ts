@@ -7,6 +7,7 @@ import { runScriptTools } from './tools/runScript';
 import { inspectTools } from './tools/inspectUi';
 import { pipelineTools } from './tools/pipeline';
 import { voTools } from './tools/vo';
+import { editingTools } from './tools/editing';
 import { checkOverlayTools } from './tools/checkOverlay';
 import { checkVideoTools } from './tools/checkVideo';
 import { explainerTools } from './tools/insertExplainer';
@@ -21,7 +22,7 @@ export function studioServer(ctx: ToolContext): Record<string, McpServerConfig> 
     name: 'studio',
     version: '0.2.0',
     instructions:
-      'Tutorial Studio tools for the current tutorial project. Read the tutorial with get_timeline, list_steps and capture_frame; change it only with apply_timeline_patch (never edit tutorial.json directly). Run and debug script.spec.ts with run_script and inspect_ui. Voice the narration with generate_voiceover. After writing an overlay component, verify it with check_overlay. Explain a concept with insert_explainer (storyboard first), set_explainer and check_scene.',
+      'Tutorial Studio tools for the current tutorial project. Read the tutorial with get_timeline, list_steps and capture_frame; change it only with apply_timeline_patch (never edit tutorial.json directly). Run and debug script.spec.ts with run_script and inspect_ui. Voice the narration with generate_voiceover. When the user asks for a specific edit, use edit_recording, freeze_frame and restore_cut for the recording, and add_voice_line, edit_voice_line and remove_voice_line for the voice-over. After writing an overlay component, verify it with check_overlay. Explain a concept with insert_explainer (storyboard first), set_explainer and check_scene.',
     tools: [
       ...projectTools(ctx),
       ...timelineTools(ctx),
@@ -30,6 +31,7 @@ export function studioServer(ctx: ToolContext): Record<string, McpServerConfig> 
       ...inspectTools(ctx),
       ...pipelineTools(ctx),
       ...voTools(ctx),
+      ...editingTools(ctx),
       ...checkOverlayTools(ctx),
       ...checkVideoTools(ctx),
       ...explainerTools(ctx),

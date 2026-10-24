@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cutGaps, editPiece, type Segment } from '../src';
+import { cutGaps, editPiece, editRange, pieceAt, sampleTimeline, splitPieceAt, type Segment } from '../src';
 
 const segs: Segment[] = [
   { kind: 'src', from: 0, to: 10 },
@@ -56,5 +56,44 @@ describe('editPiece', () => {
     expect(() => editPiece(segs, 0, { op: 'freeze', at: 15, duration: 1 })).toThrow(/outside/);
     expect(() => editPiece(segs, 2, { op: 'restoreCut' })).toThrow(/Nothing/);
     expect(() => editPiece(segs, 9, { op: 'remove' })).toThrow(/no piece/);
+  });
+});
+
+describe('editing in output time', () => {
+  // sample: sc-1 shows take 0–20 s, a 2 s freeze, then take 20–30 s (output 0–32 s).
+  const segsOf = (tl: ReturnType<typeof sampleTimeline>) =>
+    tl.scenes[0]!.kind === 'recording' ? tl.scenes[0]!.segments : [];
+
+  it('splits the piece at an output time, and leaves edges alone', () => {
+    const tl = sampleTimeline();
+    expect(segsOf(splitPieceAt(tl, 5)).slice(0, 2)).toEqual([
+      { kind: 'src', from: 0, to: 5 },
+      { kind: 'src', from: 5, to: 20 },
+    ]);
+    expect(splitPieceAt(tl, 20)).toBe(tl);
+  });
+
+  it('speeds up just the range, splitting at both ends', () => {
+    const { timeline, pieces } = editRange(sampleTimeline(), 5, 15, { op: 'speed', rate: 4 });
+    expect(pieces).toBe(1);
+    expect(segsOf(timeline).slice(0, 3)).toEqual([
+      { kind: 'src', from: 0, to: 5 },
+      { kind: 'speed', from: 5, to: 15, rate: 4, manual: true },
+      { kind: 'src', from: 15, to: 20 },
+    ]);
+  });
+
+  it('removes a range across a freeze, leaving one cut', () => {
+    const { timeline } = editRange(sampleTimeline(), 5, 25, { op: 'remove' });
+    expect(segsOf(timeline)).toEqual([
+      { kind: 'src', from: 0, to: 5 },
+      { kind: 'src', from: 23, to: 30 },
+    ]);
+    expect(cutGaps(segsOf(timeline))).toEqual([{ after: 0, from: 5, to: 23 }]);
+  });
+
+  it('finds the piece and take time at an output time', () => {
+    expect(pieceAt(sampleTimeline(), 25)).toEqual({ sceneId: 'sc-1', index: 2, takeTime: 23 });
+    expect(() => editRange(sampleTimeline(), 8, 8, { op: 'remove' })).toThrow(/end after/);
   });
 });

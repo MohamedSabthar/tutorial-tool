@@ -2,7 +2,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   buildTimeMap,
+  cutGaps,
   editPiece,
+  editRange,
+  pieceAt,
   outputRemapper,
   segmentDuration,
   remapOutputItems,
@@ -397,6 +400,85 @@ export class TimingFit {
     await saveTiming(this.deps, slug, timeline, after, events, { ...opts, label: PIECE_LABEL[p.edit.op] });
     return { segments };
   }
+}
+
+/** Edits in output time, for the agent (it reads times from get_timeline, not piece indexes). */
+export class RecordingEdits {
+  constructor(
+    private fit: TimingFit,
+    private deps: { store: ProjectStore; timelines: TimelineStore },
+  ) {}
+
+  /** Speed, remove or hand back to the fit everything shown in output time [from, to). */
+  async editRange(
+    slug: string,
+    p: { from: number; to: number; edit: Extract<PieceEdit, { op: 'speed' | 'remove' | 'auto' }> },
+    opts: { author?: Author; group?: string | null } = {},
+  ) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    let r: ReturnType<typeof editRange>;
+    try {
+      r = editRange(timeline, p.from, p.to, p.edit);
+    } catch (e) {
+      throw new RpcError(e instanceof Error ? e.message : String(e), 'bad_request');
+    }
+    if (!r.timeline.scenes.some((s) => s.kind !== 'recording' || s.segments.some((g) => g.kind !== 'hold')))
+      throw new RpcError('That would cut the whole recording out.', 'bad_request');
+    const take = timeline.takes.at(-1);
+    const events = take ? await readEvents(this.deps.store.dir(slug), take.events) : [];
+    await saveTiming(this.deps, slug, timeline, r.timeline, events, {
+      ...opts,
+      label: PIECE_LABEL[p.edit.op],
+    });
+    return { pieces: r.pieces, duration: r3(buildTimeMap(r.timeline).duration) };
+  }
+
+  /** Freezes the frame shown at output time `at` for `seconds`. */
+  async freezeAt(
+    slug: string,
+    p: { at: number; seconds: number },
+    opts: { author?: Author; group?: string | null } = {},
+  ) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    const here = pieceAt(timeline, p.at);
+    if (!here) throw new RpcError('No recording is shown at that time.', 'bad_request');
+    return this.fit.editPiece(
+      slug,
+      {
+        sceneId: here.sceneId,
+        index: here.index,
+        edit: { op: 'freeze', at: here.takeTime, duration: p.seconds },
+      },
+      opts,
+    );
+  }
+
+  /** Puts back the recording cut out nearest output time `at` (within a second). */
+  async restoreCutAt(slug: string, p: { at: number }, opts: { author?: Author; group?: string | null } = {}) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    const cut = cutsOf(timeline)
+      .filter((c) => Math.abs(c.at - p.at) <= 1)
+      .sort((a, b) => Math.abs(a.at - p.at) - Math.abs(b.at - p.at))[0];
+    if (!cut) throw new RpcError('There is no cut within a second of that time.', 'bad_request');
+    return this.fit.editPiece(
+      slug,
+      { sceneId: cut.sceneId, index: cut.after, edit: { op: 'restoreCut' } },
+      opts,
+    );
+  }
+}
+
+/** Every cut between recording pieces, with the output time where it falls. */
+export function cutsOf(tl: Timeline) {
+  const tm = buildTimeMap(tl);
+  return tl.scenes.flatMap((sc) =>
+    sc.kind !== 'recording'
+      ? []
+      : cutGaps(sc.segments).flatMap((g) => {
+          const span = tm.segments.find((x) => x.sceneId === sc.id && x.index === g.after);
+          return span ? [{ sceneId: sc.id, after: g.after, at: r3(span.end), from: g.from, to: g.to }] : [];
+        }),
+  );
 }
 
 const PIECE_LABEL: Record<PieceEdit['op'], string> = {

@@ -7,9 +7,11 @@ import {
   PatchError,
   TimelineError,
   TimelinePatch,
+  voiceSpans,
   type OverlayInstance,
   type Timeline,
 } from '@studio/core';
+import { cutsOf } from '../../timing';
 import { fail, json, round, type ToolContext } from './context';
 
 const overlaps = (start: number, end: number, from?: number, to?: number) =>
@@ -57,8 +59,30 @@ export function summarize(tl: Timeline, version: number, from?: number, to?: num
     overlays: tl.overlays
       .map((o, index) => ({ index, ...o }))
       .filter((o) => overlaps(o.start, o.end, from, to)),
+    // Recording pieces (speed, freezes) and cuts, so edits can be planned in output time.
+    pieces: map.segments
+      .filter((g) => overlaps(g.start, g.end, from, to))
+      .map((g) => ({
+        start: round(g.start),
+        end: round(g.end),
+        kind: g.segment.kind,
+        ...(g.segment.kind === 'speed' ? { rate: g.segment.rate } : {}),
+        ...(g.segment.manual ? { manual: true } : {}),
+      })),
+    cuts: cutsOf(tl)
+      .filter((c) => overlaps(c.at, c.at, from, to) || (from === undefined && to === undefined))
+      .map((c) => ({ at: c.at, removed: round(c.to - c.from) })),
     captions: tl.captions.filter((c) => overlaps(c.start, c.end, from, to)).length,
-    voiceLines: tl.voice.length,
+    voiceLines: voiceSpans(tl, map)
+      .filter((v) => overlaps(v.start, v.end, from, to))
+      .map((v) => ({
+        id: v.line.id,
+        owner: v.line.owner,
+        start: round(v.start),
+        end: round(v.end),
+        text: v.line.text.length > 80 ? `${v.line.text.slice(0, 80)}…` : v.line.text,
+        ...(v.line.manual ? { manual: true } : {}),
+      })),
     openAnnotations: tl.annotations.filter((a) => a.status !== 'resolved').length,
   };
 }

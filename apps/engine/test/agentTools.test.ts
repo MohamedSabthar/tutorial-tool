@@ -14,6 +14,8 @@ import { timelineTools } from '../src/agent/tools/timeline';
 import { projectTools } from '../src/agent/tools/project';
 import { frameTools } from '../src/agent/tools/frames';
 import { voTools } from '../src/agent/tools/vo';
+import { editingTools } from '../src/agent/tools/editing';
+import { RecordingEdits, TimingFit } from '../src/timing';
 import { Voiceover } from '../src/vo';
 import { annotationMessage } from '../src/agent/annotationContext';
 import { buildTimeMap, voiceSpans } from '@studio/core';
@@ -96,6 +98,7 @@ beforeAll(async () => {
     docs: null as never,
     pipeline: null as never,
     voiceover: null as never,
+    edits: null as never,
     checkOverlay: null as never,
     checkScene: null as never,
     checkVideo: null as never,
@@ -146,7 +149,13 @@ afterAll(async () => {
   await rm(ws, { recursive: true, force: true });
 });
 
-const tools = () => [...timelineTools(ctx), ...projectTools(ctx), ...frameTools(ctx), ...voTools(ctx)];
+const tools = () => [
+  ...timelineTools(ctx),
+  ...projectTools(ctx),
+  ...frameTools(ctx),
+  ...voTools(ctx),
+  ...editingTools(ctx),
+];
 async function call(name: string, args: Record<string, unknown> = {}): Promise<CallToolResult> {
   const t = tools().find((x) => x.name === name);
   if (!t) throw new Error(`no tool ${name}`);
@@ -337,6 +346,42 @@ describe('studio tools', () => {
     expect(tl.voice.some((v) => v.id === line.id)).toBe(false);
     expect(tl.captions.some((c) => c.text.includes('Note the port'))).toBe(false);
     await expect(vo.removeLine(slug, { id: line.id })).rejects.toThrow(/no voice line/);
+  });
+
+  it('edits the recording and voice lines in output time with the editing tools', async () => {
+    ctx.edits = new RecordingEdits(new TimingFit({ store, timelines }), { store, timelines });
+    const pieces = async () =>
+      JSON.parse(text(await call('get_timeline'))) as {
+        pieces: { start: number; end: number; kind: string; rate?: number; manual?: boolean }[];
+        cuts: { at: number; removed: number }[];
+        voiceLines: { id: string; start: number; manual?: boolean }[];
+      };
+
+    expect(text(await call('edit_recording', { from: 2, to: 6, action: 'speed' }))).toMatch(/Give a rate/);
+    expect((await call('edit_recording', { from: 2, to: 6, action: 'speed', rate: 2 })).isError).toBeFalsy();
+    let tl = await pieces();
+    expect(tl.pieces).toContainEqual({ start: 2, end: 4, kind: 'speed', rate: 2, manual: true });
+
+    await call('edit_recording', { from: 6, to: 8, action: 'remove' });
+    tl = await pieces();
+    // After the 2× piece (output 2–4 s), output 6–8 s is take 8–10 s: the cut sits at 6 s.
+    expect(tl.cuts).toEqual([{ at: 6, removed: 2 }]);
+    await call('restore_cut', { at: 6.2 });
+    expect((await pieces()).cuts).toEqual([]);
+    expect((await call('restore_cut', { at: 6.2 })).isError).toBe(true);
+
+    await call('freeze_frame', { at: 9, seconds: 1.5 });
+    expect((await pieces()).pieces.some((p) => p.kind === 'hold' && p.manual)).toBe(true);
+
+    const added = JSON.parse(text(await call('add_voice_line', { text: 'Watch the port.', at: 3 }))) as {
+      line: { id: string };
+    };
+    expect((await pieces()).voiceLines).toContainEqual(
+      expect.objectContaining({ id: added.line.id, start: 3, manual: true }),
+    );
+    expect(text(await call('edit_voice_line', { id: added.line.id }))).toMatch(/new text/);
+    await call('remove_voice_line', { id: added.line.id });
+    expect((await pieces()).voiceLines.some((v) => v.id === added.line.id)).toBe(false);
   });
 
   it('builds one agent message per batch of annotations, with frames and context', async () => {

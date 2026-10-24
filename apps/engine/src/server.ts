@@ -51,7 +51,7 @@ import { projectCard } from './cards';
 import { secretStore } from './secrets';
 import { TtsService } from './tts';
 import { Voiceover } from './vo';
-import { readEvents, TimingFit } from './timing';
+import { readEvents, RecordingEdits, TimingFit } from './timing';
 import { clearPace, readPace, voicePace } from './pace';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
@@ -181,6 +181,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         runner,
         pipeline,
         voiceover,
+        edits,
         explainers,
         docs,
         checkScene: async (sceneId) =>
@@ -258,6 +259,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   beforeBrowserLaunch(() => ensureChromium(chromiumLog));
   if (process.env.PLAYWRIGHT_BROWSERS_PATH) void ensureChromium(chromiumLog).catch(() => {});
   const timing = new TimingFit({ store, timelines });
+  const edits = new RecordingEdits(timing, { store, timelines });
   const runs = new RunManager({
     workspace: opts.workspace,
     store,

@@ -6,6 +6,7 @@ import type { Catalog } from '../catalog';
 import type { Runner } from '../../runner';
 import type { PipelineManager } from '../../pipeline/machine';
 import type { Voiceover } from '../../vo';
+import type { RecordingEdits } from '../../timing';
 import type { CheckResult } from '../../overlayCheck';
 import type { SceneCheckResult } from '../../sceneCheck';
 import type { Explainers } from '../../explainers';
@@ -19,7 +20,9 @@ export interface ToolContext {
   catalog(): Promise<Catalog>;
   runner: Runner;
   pipeline: Pick<PipelineManager, 'savePlan' | 'stageDone'>;
-  voiceover: Pick<Voiceover, 'generate'>;
+  voiceover: Pick<Voiceover, 'generate' | 'addLine' | 'editLine' | 'removeLine'>;
+  /** Hand edits to the recording in output time (speed, cut, freeze, restore). */
+  edits: Pick<RecordingEdits, 'editRange' | 'freezeAt' | 'restoreCutAt'>;
   checkOverlay(file: string, opts: { times?: number[]; instanceId?: string }): Promise<CheckResult>;
   checkScene(sceneId: string): Promise<SceneCheckResult>;
   /** Final QA of the rendered video (see videoCheck.ts). */

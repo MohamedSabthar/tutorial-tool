@@ -123,6 +123,24 @@ lands as its word is spoken. So:
   viewer needs to follow may happen there. A flow repeated on camera: narrate the first one, sum
   up the rest in one sentence, and let them fast-forward.
 
+## Hand edits after recording
+
+Timing is the fit's job: `generate_voiceover` re-runs it, and it freezes and fast-forwards as
+needed. When the user asks for a specific change (in chat or an annotation), or a stretch of a
+step plays with nothing said over it, edit by hand. Times are output seconds from
+`get_timeline`, which lists `pieces` (speed, freezes, `manual`), `cuts` and `voiceLines` (ids):
+
+- `edit_recording(from, to, action)`: `speed` with a `rate` (above 4× only for a static
+  screen), `normal`, `remove` (off camera; overlays and captions follow), or `auto` (hand it
+  back to the fit). `restore_cut(at)` puts a cut back.
+- `freeze_frame(at, seconds)`: hold a screen while a line finishes.
+- `add_voice_line(text, at)`: narrate a stretch the step's line doesn't cover, in the narration
+  style below. Footage under it plays at normal speed after the next fit.
+  `edit_voice_line(id, text?, at?)` and `remove_voice_line(id)` change or drop one.
+
+What these tools change is marked manual: the fit and voice-over regeneration keep it. Don't
+re-do routine timing by hand, and don't undo the user's manual pieces or lines unless asked.
+
 ## Narration style
 
 - Sentence case, second person ("you"), present tense, active voice.
