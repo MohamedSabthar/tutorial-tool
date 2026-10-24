@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Capabilities for the app windows",
   "windows": ["studio", "studio-*"],
-  "permissions": ["core:default", "core:window:allow-set-theme"]
+  "permissions": ["core:default", "core:window:allow-set-theme", "core:window:allow-set-fullscreen"]
 }

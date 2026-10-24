@@ -167,6 +167,9 @@
   box-shadow: var(--ui-shadow-sm);
   cursor: pointer;
 }
+.tool-rail-toggle {
+  color: var(--ui-gray-600);
+}
 .tool-rail-btn[aria-pressed='true'] {
   background: var(--ui-orange);
   color: var(--ui-on-fill);
@@ -400,6 +403,15 @@
 .studio-preview {
   flex: 1 1 auto;
   min-height: 0;
+}
+/* Full screen: the preview and its play bar cover the window. */
+.studio-preview-full {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 /* The stage is as large as the panel allows while keeping its aspect ratio. */
 .studio-stage-fit {

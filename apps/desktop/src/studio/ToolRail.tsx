@@ -1,7 +1,10 @@
 /**
  * The preview's floating tool rail. P and R annotate (a pin or a region at the current time);
  * T, Z and B add a TextLabel, Zoom or Blur by clicking or dragging on the preview; V selects.
+ * The rail folds away behind a ‹ button (the keys still work) and comes back with ›.
  */
+import { IconChevron } from '@studio/ui';
+
 export type Tool = 'select' | 'pin' | 'region' | 'text' | 'zoom' | 'blur';
 
 export const TOOLS: { tool: Tool; key: string; label: string }[] = [
@@ -17,7 +20,30 @@ export const TOOLS: { tool: Tool; key: string; label: string }[] = [
 export const toolForKey = (key: string): Tool | undefined =>
   TOOLS.find((t) => t.key === key.toUpperCase())?.tool;
 
-export function ToolRail({ tool, onTool }: { tool: Tool; onTool: (t: Tool) => void }) {
+export function ToolRail({
+  tool,
+  onTool,
+  shown,
+  onShown,
+}: {
+  tool: Tool;
+  onTool: (t: Tool) => void;
+  shown: boolean;
+  onShown: (shown: boolean) => void;
+}) {
+  const toggle = (
+    <button
+      type="button"
+      className="tool-rail-btn tool-rail-toggle"
+      aria-label={shown ? 'Hide preview tools' : 'Show preview tools'}
+      title={shown ? 'Hide tools (the keys still work)' : 'Show tools'}
+      aria-expanded={shown}
+      onClick={() => onShown(!shown)}
+    >
+      <IconChevron size={14} style={shown ? { transform: 'scaleX(-1)' } : undefined} />
+    </button>
+  );
+  if (!shown) return <div className="tool-rail">{toggle}</div>;
   return (
     <div role="toolbar" aria-label="Preview tools" aria-orientation="vertical" className="tool-rail">
       {TOOLS.map((t) => (
@@ -33,6 +59,7 @@ export function ToolRail({ tool, onTool }: { tool: Tool; onTool: (t: Tool) => vo
           {t.key}
         </button>
       ))}
+      {toggle}
     </div>
   );
 }

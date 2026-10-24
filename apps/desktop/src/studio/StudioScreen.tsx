@@ -23,6 +23,8 @@ import {
   EdgeAccent,
   GateBanner,
   IconButton,
+  IconExitFullscreen,
+  IconFullscreen,
   IconNext,
   IconPause,
   IconPlay,
@@ -46,6 +48,7 @@ import { Inspector } from './Inspector';
 import { Library } from './Library';
 import { VoicePlayer } from './VoicePlayer';
 import { ToolRail, toolForKey, type Tool } from './ToolRail';
+import { useFullscreen } from './fullscreen';
 import { AnnotationLayer, AnnotationsPanel, type Shape } from './Annotations';
 import { AnnotationPopover } from './AnnotationPopover';
 import { screenToStage } from './StageHost';
@@ -132,6 +135,12 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('Final');
   const [tool, setTool] = useState<Tool>('select');
+  const [toolsShown, setToolsShown] = useState(() => readPref('studio.tools') !== 'hidden');
+  const showTools = (shown: boolean) => {
+    setToolsShown(shown);
+    writePref('studio.tools', shown ? 'shown' : 'hidden');
+  };
+  const [full, setFull] = useFullscreen();
   const [sceneComponent, setSceneComponent] = useState<string>('');
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const jobs = useExplainers(slug).filter(
@@ -278,6 +287,7 @@ export function StudioScreen({ slug }: { slug: string }) {
       else if (e.key === 'ArrowRight') controls.seek(controls.get().t + 1 / 30);
       else if (e.key === 's') split();
       else if (e.key === 'x') insertExplainer();
+      else if (e.key === 'f' && !mod) setFull(!full);
       else if (!mod && !e.altKey && toolForKey(e.key)) chooseTool(toolForKey(e.key)!);
       else if ((e.key === 'Backspace' || e.key === 'Delete') && selected && tl.timeline) {
         const i = tl.timeline.overlays.findIndex((o) => o.id === selected);
@@ -286,6 +296,8 @@ export function StudioScreen({ slug }: { slug: string }) {
             label: 'Delete overlay',
           });
         setSelected(null);
+      } else if (e.key === 'Escape' && full) {
+        setFull(false);
       } else if (e.key === 'Escape') {
         setSelected(null);
         setTool('select');
@@ -705,7 +717,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               ))}
             </div>
           ) : (
-            <Panel className="studio-preview">
+            <Panel className={full ? 'studio-preview studio-preview-full' : 'studio-preview'}>
               {/* The stage keeps its aspect and fits the space left by the timeline. */}
               <div className="studio-stage-fit">
                 <div
@@ -807,7 +819,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                           )}
                         </Timed>
                       )}
-                      <ToolRail tool={tool} onTool={chooseTool} />
+                      <ToolRail tool={tool} onTool={chooseTool} shown={toolsShown} onShown={showTools} />
                     </div>
                   ) : (
                     <div className="studio-stage-empty">
@@ -922,6 +934,12 @@ export function StudioScreen({ slug }: { slug: string }) {
                   value={view}
                   onChange={setView}
                 />
+                <IconButton
+                  label={full ? 'Exit full screen (F or Esc)' : 'Full screen (F)'}
+                  onClick={() => setFull(!full)}
+                >
+                  {full ? <IconExitFullscreen size={14} /> : <IconFullscreen size={14} />}
+                </IconButton>
               </div>
             </Panel>
           )}
