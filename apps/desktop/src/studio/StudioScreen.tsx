@@ -729,7 +729,8 @@ export function StudioScreen({ slug }: { slug: string }) {
                     <div
                       style={{
                         position: 'relative',
-                        borderRadius: 10,
+                        // Concentric with the panel's corner (14px radius less 8px padding).
+                        borderRadius: 'var(--ui-radius-sm)',
                         overflow: 'hidden',
                         border: '1px solid var(--ui-gray-300)',
                       }}

@@ -400,9 +400,12 @@
   gap: 10px;
   padding: 12px 6px;
 }
+/* Tight padding so the 16:9 preview gets as much of the panel as it can. */
 .studio-preview {
   flex: 1 1 auto;
   min-height: 0;
+  padding: 8px;
+  gap: 6px;
 }
 /* Seek bar under the preview: a thin track that thickens on hover, with a handle. */
 .seek-bar {
