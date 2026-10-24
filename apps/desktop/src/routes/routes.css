@@ -1689,3 +1689,220 @@
   background: var(--ui-gray-50);
   font: 13px var(--ui-mono);
 }
+
+/* Guide: "How it's built" diagrams (inline SVG coloured from the theme tokens). */
+.guide-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--ui-track-eyebrow);
+  text-transform: uppercase;
+  color: var(--ui-gray-600);
+  margin-bottom: -8px;
+}
+.guide-arch {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+.guide-arch-row,
+.guide-arch-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 760px) {
+  .guide-arch-row,
+  .guide-arch-links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.guide-arch-box {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-gray-300);
+  border-radius: 12px;
+  background: var(--ui-white);
+}
+.guide-arch-box h4,
+.guide-arch-ws h4 {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ui-navy);
+}
+.guide-arch-box h4 small {
+  font: 500 11px var(--ui-mono);
+  color: var(--ui-gray-600);
+}
+.guide-main .guide-arch-box ul {
+  list-style: none;
+  padding: 0;
+  gap: 4px;
+}
+.guide-arch-box li {
+  max-width: none !important;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--ui-gray-50);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.guide-arch-box li b {
+  color: var(--ui-navy);
+  font-weight: 600;
+}
+.guide-arch-box[data-part='engine'] {
+  border-color: var(--ui-orange);
+}
+.guide-arch-box[data-part='ext'] li {
+  background: transparent;
+  border: 1px dashed var(--ui-gray-300);
+}
+.guide-arch-links {
+  font: 12px var(--ui-mono);
+  color: var(--ui-gray-600);
+  text-align: center;
+}
+.guide-arch-links span::before {
+  content: '⇅ ';
+  color: var(--ui-orange);
+}
+.guide-arch-ws {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-steel);
+  border-radius: 12px;
+  background: var(--ui-steel-100);
+}
+.guide-diagram {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 8px;
+}
+.guide-diagram figcaption {
+  font-size: 13px;
+  color: var(--ui-gray-600);
+}
+.guide-diagram svg {
+  width: 100%;
+  height: auto;
+  color: var(--ui-ink);
+  font-family: var(--ui-font);
+}
+.guide-diagram-scroll {
+  overflow-x: auto;
+}
+.guide-diagram-scroll svg {
+  min-width: 760px;
+}
+.guide-diagram .d-title {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--ui-navy);
+}
+.guide-diagram .d-name,
+.guide-diagram .d-gname {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ui-navy);
+}
+.guide-diagram .d-gname {
+  font-size: 12px;
+  font-weight: 700;
+}
+.guide-diagram .d-small {
+  font-size: 12px;
+  fill: var(--ui-gray-600);
+}
+.guide-diagram .d-label {
+  font-size: 11.5px;
+  fill: var(--ui-gray-600);
+}
+.guide-diagram .d-tool {
+  font: 11px var(--ui-mono);
+  fill: var(--ui-ink);
+}
+.guide-diagram .d-box,
+.guide-diagram .d-res rect {
+  fill: var(--ui-white);
+  stroke: var(--ui-gray-300);
+  stroke-width: 1.5;
+}
+.guide-diagram .d-group rect {
+  fill: var(--ui-gray-50);
+  stroke: none;
+}
+.guide-diagram .d-engine {
+  fill: var(--ui-white);
+  stroke: var(--ui-navy);
+  stroke-width: 1.5;
+}
+.guide-diagram .d-gate {
+  fill: var(--ui-steel-100);
+  stroke: var(--ui-steel);
+  stroke-width: 1.5;
+}
+.guide-diagram .d-agent {
+  fill: var(--ui-orange-100);
+  stroke: var(--ui-orange);
+  stroke-width: 2;
+}
+.guide-diagram .d-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+.guide-diagram .d-dash {
+  stroke-dasharray: 5 4;
+}
+.guide-diagram .d-steel {
+  stroke: var(--ui-steel);
+}
+.guide-diagram .d-loop,
+.guide-diagram .d-learn {
+  fill: none;
+  stroke: var(--ui-orange);
+  stroke-width: 2;
+}
+.guide-diagram .d-learn {
+  stroke-dasharray: 7 5;
+}
+.guide-diagram .d-orange-fill {
+  fill: var(--ui-orange);
+}
+.guide-diagram .d-orange-text {
+  fill: var(--ui-orange);
+  font-weight: 600;
+}
+.guide-stages td:nth-child(2) {
+  white-space: nowrap;
+  color: var(--ui-navy);
+  font-weight: 600;
+}
+.guide-stack {
+  list-style: none;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px 20px !important;
+  padding: 0 !important;
+}
+.guide-stack li {
+  max-width: none !important;
+  padding-top: 8px;
+  border-top: 1px solid var(--ui-gray-300);
+  font-size: 14px;
+}
+.guide-stack li b {
+  display: block;
+  color: var(--ui-navy);
+}
+.guide-stack code {
+  font-size: 12px;
+}
