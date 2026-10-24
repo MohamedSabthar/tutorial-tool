@@ -46,6 +46,7 @@ import { resolveTimeline, stepAt } from './resolve';
 import { StageHost } from './StageHost';
 import { TimelinePanel, type PieceRef } from './TimelinePanel';
 import { PieceInspector } from './PieceInspector';
+import { VoiceLinePanel } from './VoiceLinePanel';
 import { Inspector } from './Inspector';
 import { Library } from './Library';
 import { VoicePlayer } from './VoicePlayer';
@@ -147,6 +148,8 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [sceneComponent, setSceneComponent] = useState<string>('');
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [piece, setPiece] = useState<PieceRef | null>(null);
+  // The voice line being edited, or 'new' while writing one.
+  const [lineSel, setLineSel] = useState<string | null>(null);
   const jobs = useExplainers(slug).filter(
     (j) => j.status === 'storyboarding' || j.status === 'review' || j.status === 'building',
   );
@@ -306,6 +309,7 @@ export function StudioScreen({ slug }: { slug: string }) {
         setFull(false);
       } else if (e.key === 'Escape') {
         setPiece(null);
+        setLineSel(null);
         setSelected(null);
         setTool('select');
         closeNote();
@@ -433,6 +437,19 @@ export function StudioScreen({ slug }: { slug: string }) {
       if (hold >= 0) setPiece({ sceneId: piece.sceneId, index: hold });
     }
   }
+  const selLine = lineSel && lineSel !== 'new' ? tl.timeline?.voice.find((v) => v.id === lineSel) : undefined;
+  const lineOwner = selLine
+    ? (tl.timeline?.steps.find((s) => s.id === selLine.owner)?.title ??
+      (tl.timeline?.scenes.some((s) => s.id === selLine.owner) ? 'Explainer' : undefined))
+    : undefined;
+  const selectLine = (id: string | null) => {
+    setLineSel(id);
+    if (!id) return;
+    setPiece(null);
+    setSelected(null);
+    setSelectedScene(null);
+  };
+
   function pieceTakeTime(): number | null {
     if (!resolved || !piece || !pieceSegment || pieceSegment.kind === 'hold') return null;
     const pos = resolved.tm.toSource(now());
@@ -963,6 +980,26 @@ export function StudioScreen({ slug }: { slug: string }) {
                 />
               ) : null;
             })()}
+          {client && (lineSel === 'new' || selLine) && (
+            <VoiceLinePanel
+              key={selLine ? `${selLine.id}:${selLine.text}` : 'new'}
+              line={selLine ?? null}
+              ownerLabel={lineOwner}
+              playhead={now}
+              onAdd={async (text, at) => {
+                const r = await client.call('vo.addLine', { slug, text, at });
+                setLineSel(r.line.id);
+              }}
+              onEdit={async (p) => {
+                await client.call('vo.editLine', { slug, id: selLine!.id, ...p });
+              }}
+              onRemove={async () => {
+                await client.call('vo.removeLine', { slug, id: selLine!.id });
+                setLineSel(null);
+              }}
+              onClose={() => setLineSel(null)}
+            />
+          )}
           {pieceSegment && (
             <PieceInspector
               key={`${piece!.sceneId}:${piece!.index}`}
@@ -1044,6 +1081,13 @@ export function StudioScreen({ slug }: { slug: string }) {
               actions={
                 <>
                   <RegenerateVo slug={slug} />
+                  <Button
+                    size="sm"
+                    onClick={() => selectLine('new')}
+                    title="Write a line for the voice to say, starting at the playhead"
+                  >
+                    + Voice line
+                  </Button>
                   <InsertExplainer
                     registry={registry}
                     value={sceneComponent}
@@ -1058,10 +1102,14 @@ export function StudioScreen({ slug }: { slug: string }) {
                   />
                 </>
               }
+              selectedLine={lineSel}
+              onSelectLine={selectLine}
+              onMoveLine={(id, at) => void client?.call('vo.editLine', { slug, id, at })}
               selectedPiece={piece}
               onSelectPiece={(p) => {
                 setPiece(p);
                 if (!p) return;
+                setLineSel(null);
                 setSelected(null);
                 setSelectedScene(null);
                 const span = resolved.tm.segments.find((g) => g.sceneId === p.sceneId && g.index === p.index);

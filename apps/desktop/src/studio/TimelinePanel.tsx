@@ -51,6 +51,11 @@ interface Props {
   onSelectPiece?: (piece: PieceRef | null) => void;
   /** The cut after piece `after` of a scene is clicked: put the recording back. */
   onRestoreCut?: (sceneId: string, after: number) => void;
+  /** The voice line selected for editing. */
+  selectedLine?: string | null;
+  onSelectLine?: (id: string | null) => void;
+  /** A voice line dragged to start at output time `at`. */
+  onMoveLine?: (id: string, at: number) => void;
 }
 
 /** A piece (segment) of a recording scene. */
@@ -97,7 +102,13 @@ export function TimelinePanel({
   selectedPiece,
   onSelectPiece,
   onRestoreCut,
+  selectedLine,
+  onSelectLine,
+  onMoveLine,
 }: Props) {
+  // A voice line being dragged along its lane: where the drag began, and how far it has moved.
+  const lineDragStart = useRef<{ id: string; x: number; start: number } | null>(null);
+  const [lineDrag, setLineDrag] = useState<{ id: string; dt: number } | null>(null);
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
@@ -441,24 +452,48 @@ export function TimelinePanel({
       height: LANE_H,
       render: () =>
         timeline.voice.length ? (
-          voiceSpans(timeline, resolved.tm).map(({ line, start, end }) => (
-            <div
-              key={line.id}
-              title={`${line.owner}: ${line.text}`}
-              style={{
-                position: 'absolute',
-                top: 4,
-                height: LANE_H - 8,
-                left: x(start),
-                width: x(end - start),
-                background: 'var(--ui-green-100)',
-                borderRadius: 4,
-                overflow: 'hidden',
-              }}
-            >
-              {line.audio && <Waveform slug={slug} audio={line.audio} height={LANE_H - 8} />}
-            </div>
-          ))
+          voiceSpans(timeline, resolved.tm).map(({ line, start, end }) => {
+            const shift = lineDrag?.id === line.id ? lineDrag.dt : 0;
+            return (
+              <button
+                type="button"
+                key={line.id}
+                className="timeline-line"
+                data-manual={line.manual ? '' : undefined}
+                aria-pressed={selectedLine === line.id}
+                aria-label={`Voice line${line.manual ? ' (hand-written)' : ''}: ${line.text}. Select to edit, drag to move`}
+                title={`${line.manual ? 'Hand-written' : line.owner}: ${line.text}`}
+                style={{ left: x(Math.max(0, start + shift)), width: x(end - start), height: LANE_H - 8 }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  lineDragStart.current = { id: line.id, x: e.clientX, start };
+                }}
+                onPointerMove={(e) => {
+                  const d = lineDragStart.current;
+                  if (!d || d.id !== line.id || Math.abs(e.clientX - d.x) < 3) return;
+                  setLineDrag({ id: line.id, dt: Math.round((e.clientX - d.x) / pps / SNAP) * SNAP });
+                }}
+                onPointerUp={() => {
+                  const d = lineDragStart.current;
+                  lineDragStart.current = null;
+                  const dragged = lineDrag?.id === line.id ? lineDrag.dt : 0;
+                  setLineDrag(null);
+                  if (!d) return;
+                  if (dragged !== 0) onMoveLine?.(line.id, Math.max(0, d.start + dragged));
+                  else onSelectLine?.(selectedLine === line.id ? null : line.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectLine?.(selectedLine === line.id ? null : line.id);
+                  }
+                }}
+              >
+                {line.audio && <Waveform slug={slug} audio={line.audio} height={LANE_H - 8} />}
+              </button>
+            );
+          })
         ) : (
           <span style={{ position: 'absolute', left: 8, top: 8, fontSize: 11, color: 'var(--ui-gray-500)' }}>
             No voice-over yet: write narration, then Regenerate VO

@@ -700,6 +700,19 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       author: 'user' | 'agent';
     }) => timing.editPiece(p.slug, p, { author: p.author, group: `piece-${Date.now()}` }),
     'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
+    'vo.addLine': async (p: { slug: string; text: string; at: number; author: 'user' | 'agent' }) =>
+      voiceover.addLine(p.slug, p, { author: p.author }),
+    'vo.editLine': async (p: {
+      slug: string;
+      id: string;
+      text?: string;
+      at?: number;
+      author: 'user' | 'agent';
+    }) => voiceover.editLine(p.slug, p, { author: p.author }),
+    'vo.removeLine': async (p: { slug: string; id: string; author: 'user' | 'agent' }) => {
+      await voiceover.removeLine(p.slug, p, { author: p.author });
+      return {};
+    },
     'tts.status': async () => tts.status(),
     'tts.setKey': async ({ apiKey }: { apiKey: string }) => tts.setKey(apiKey),
     'tts.clearKey': async () => tts.clearKey(),

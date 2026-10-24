@@ -169,6 +169,11 @@ export const VoiceLine = z.object({
   start: Seconds,
   duration: Seconds,
   words: z.array(Word).default([]),
+  /**
+   * Written or placed by hand: generating the voice-over again keeps it, and the timing fit
+   * keeps its start (a step can have several lines).
+   */
+  manual: z.boolean().optional(),
 });
 export type VoiceLine = z.infer<typeof VoiceLine>;
 

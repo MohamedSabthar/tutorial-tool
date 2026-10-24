@@ -160,6 +160,20 @@ describe('fitTiming', () => {
     expect(() => parseTimeline(JSON.parse(JSON.stringify(once)))).not.toThrow();
   });
 
+  it('fits a step to its last line when it has hand-placed lines, and keeps their start', () => {
+    // s3 (20–30 s): its 4 s line, plus a hand-written 2 s line placed 7 s in.
+    const tl = timeline();
+    tl.voice.push({ ...line('s3', 2), id: 'vo-hand', start: 7, manual: true });
+    const r = fitTiming(tl, events);
+    expect(r.timeline.voice.find((v) => v.id === 'vo-hand')!.start).toBe(7);
+    // Nothing under the hand-written line is fast-forwarded: s3 needs 7 + 2 + TAIL seconds.
+    const s3 = r.steps[2]!;
+    expect(s3.needed).toBeCloseTo(7 + 2 + TAIL, 3);
+    const segs = r.timeline.scenes[0]!.kind === 'recording' ? r.timeline.scenes[0]!.segments : [];
+    for (const sg of segs)
+      if (sg.kind === 'speed' && sg.to > 20) expect(sg.from).toBeGreaterThanOrEqual(20 + 9);
+  });
+
   it('leaves steps without a voice line alone', () => {
     const tl = { ...timeline(), voice: [] };
     const r = fitTiming(tl, events);

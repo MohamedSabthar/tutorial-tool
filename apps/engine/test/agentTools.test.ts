@@ -312,6 +312,33 @@ describe('studio tools', () => {
     await expect(vo.peaks(slug, '../tutorial.json')).rejects.toThrow(/audio/);
   });
 
+  it('adds, rewrites, moves and deletes hand-written voice lines; regenerating keeps them', async () => {
+    const slug = ctx.slug;
+    // s1 shows from 0 s and s2 from 10 s of output.
+    const { line } = await vo.addLine(slug, { text: 'Note the port number.', at: 4 });
+    expect(line).toMatchObject({ owner: 's1', start: 4, duration: 1.2, manual: true });
+    expect(ttsCalls.at(-1)).toMatchObject({ text: 'Note the port number.' });
+    let tl = (await timelines.get(slug)).timeline;
+    expect(tl.captions.some((c) => c.text.includes('port number'))).toBe(true);
+
+    // New text is voiced again; a move re-attaches the line to the step showing there.
+    await vo.editLine(slug, { id: line.id, text: 'Note the port.' });
+    const moved = (await vo.editLine(slug, { id: line.id, at: 12.5 })).line;
+    expect(moved).toMatchObject({ owner: 's2', start: 2.5, text: 'Note the port.', manual: true });
+
+    // Generating the whole voice-over again keeps the hand-written line.
+    await call('generate_voiceover');
+    tl = (await timelines.get(slug)).timeline;
+    expect(tl.voice.find((v) => v.id === line.id)).toMatchObject({ owner: 's2', start: 2.5 });
+    expect(tl.voice.filter((v) => v.owner === 's2')).toHaveLength(2);
+
+    await vo.removeLine(slug, { id: line.id });
+    tl = (await timelines.get(slug)).timeline;
+    expect(tl.voice.some((v) => v.id === line.id)).toBe(false);
+    expect(tl.captions.some((c) => c.text.includes('Note the port'))).toBe(false);
+    await expect(vo.removeLine(slug, { id: line.id })).rejects.toThrow(/no voice line/);
+  });
+
   it('builds one agent message per batch of annotations, with frames and context', async () => {
     const slug = ctx.slug;
     await timelines.patch(

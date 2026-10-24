@@ -660,6 +660,33 @@
   border: 2px solid var(--ui-orange);
   z-index: 2;
 }
+/* Voice lines on the Voice-over lane: click to edit, drag to move. */
+.timeline-line {
+  position: absolute;
+  top: 4px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--ui-green-100);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: grab;
+  touch-action: none;
+}
+.timeline-line:active {
+  cursor: grabbing;
+}
+.timeline-line[data-manual] {
+  border: 1px dashed var(--ui-green-ink);
+  /* Above generated lines it overlaps, so it can still be picked. */
+  z-index: 1;
+}
+.timeline-line:hover {
+  border-color: var(--ui-green-ink);
+}
+.timeline-line[aria-pressed='true'] {
+  border: 2px solid var(--ui-orange);
+  z-index: 2;
+}
 /* Where recording was cut out: a scissor mark that puts it back. */
 .timeline-cut {
   position: absolute;

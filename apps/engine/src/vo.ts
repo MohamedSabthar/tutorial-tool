@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  buildTimeMap,
+  ownerStart,
   RpcError,
   SCENE_LEAD_IN,
   SCENE_LINE_GAP,
@@ -10,7 +12,9 @@ import {
   type TimedWord,
   type ExplainerScene,
   type Step,
+  type Timeline,
 } from '@studio/core';
+import { withCaptions } from './captions';
 import type { ProjectStore } from './projects';
 import type { Author, TimelineStore } from './timeline';
 import type { TtsService } from './tts';
@@ -121,13 +125,14 @@ export class Voiceover {
       freshScenes.set(scene.id, lines);
     }
 
-    // Keep lines of steps and scenes that weren't regenerated; replace the rest.
+    // Keep hand-written lines, and lines of steps and scenes that weren't regenerated; replace the rest.
     const voice = [
       ...timeline.voice.filter(
         (v) =>
-          !fresh.has(v.owner) &&
-          !freshScenes.has(v.owner) &&
-          !(wanted === null && isStepLine(v, timeline.steps)),
+          v.manual ||
+          (!fresh.has(v.owner) &&
+            !freshScenes.has(v.owner) &&
+            !(wanted === null && isStepLine(v, timeline.steps))),
       ),
       ...fresh.values(),
       ...[...freshScenes.values()].flat(),
@@ -149,6 +154,86 @@ export class Voiceover {
       };
     }
     return result;
+  }
+
+  /**
+   * A voice line written by hand, voiced and placed at output time `at` under the step (or
+   * explainer) showing there. It is marked manual: regenerating the voice-over keeps it.
+   */
+  async addLine(slug: string, p: { text: string; at: number }, opts: { author?: Author } = {}) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    const voiced = await this.voice(slug, p.text);
+    const place = placeAt(timeline, p.at);
+    const line = VoiceLine.parse({
+      id: `vo-hand-${Date.now().toString(36)}`,
+      ...place,
+      ...voiced,
+      manual: true,
+    });
+    await this.saveVoice(slug, timeline, [...timeline.voice, line], opts, 'Add voice line');
+    return { line };
+  }
+
+  /** Rewrites a line's text (voiced again) and/or moves it to output time `at`; it becomes manual. */
+  async editLine(
+    slug: string,
+    p: { id: string; text?: string; at?: number },
+    opts: { author?: Author } = {},
+  ) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    const old = timeline.voice.find((v) => v.id === p.id);
+    if (!old) throw new RpcError(`There is no voice line ${p.id}.`, 'not_found');
+    const text = p.text?.trim();
+    const voiced = text && text !== old.text ? await this.voice(slug, text) : {};
+    const place = p.at !== undefined ? placeAt(timeline, p.at) : {};
+    const line = VoiceLine.parse({ ...old, ...voiced, ...place, manual: true });
+    const voice = timeline.voice.map((v) => (v.id === p.id ? line : v));
+    await this.saveVoice(slug, timeline, voice, opts, text ? 'Edit voice line' : 'Move voice line');
+    return { line };
+  }
+
+  async removeLine(slug: string, p: { id: string }, opts: { author?: Author } = {}) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    if (!timeline.voice.some((v) => v.id === p.id))
+      throw new RpcError(`There is no voice line ${p.id}.`, 'not_found');
+    const voice = timeline.voice.filter((v) => v.id !== p.id);
+    await this.saveVoice(slug, timeline, voice, opts, 'Delete voice line');
+  }
+
+  /** Voices one hand-written line with the project's voice and pronunciations. */
+  private async voice(slug: string, text: string) {
+    const clean = text.trim();
+    if (!clean) throw new RpcError('Write the line first.', 'bad_request');
+    const voiceId = await this.deps.store.voiceFor(slug);
+    if (!voiceId) throw new RpcError('Choose a voice in the brief first.', 'bad_request');
+    const rules = (await this.deps.pronunciations?.().catch(() => [])) ?? [];
+    const { words, ...req } = voiceLine(clean, rules, {});
+    const r = await this.deps.tts.synthesize(slug, { ...req, voiceId });
+    return {
+      text: clean,
+      audio: r.audio,
+      duration: Math.round(r.duration * 1000) / 1000,
+      words: words(r.alignment),
+    };
+  }
+
+  /** Saves the voice with captions rebuilt from it, as one undo step. */
+  private async saveVoice(
+    slug: string,
+    timeline: Timeline,
+    voice: VoiceLine[],
+    opts: { author?: Author },
+    label: string,
+  ) {
+    const next = withCaptions({ ...timeline, voice });
+    await this.deps.timelines.patch(
+      slug,
+      [
+        { op: 'replace', path: '/voice', value: voice },
+        { op: 'replace', path: '/captions', value: next.captions },
+      ],
+      { author: opts.author ?? 'user', group: null, label },
+    );
   }
 
   /** Waveform peaks (0–1, PEAK_RATE per second) of a project audio file, cached next to it. */
@@ -177,6 +262,25 @@ export class Voiceover {
 }
 
 const isStepLine = (v: VoiceLine, steps: Step[]) => steps.some((s) => s.id === v.owner);
+
+/**
+ * The owner and start for a line at output time `at`: the step or explainer that begins last
+ * at or before it (lines are stored relative to their owner, so they move with it).
+ */
+function placeAt(tl: Timeline, at: number): { owner: string; start: number } {
+  const tm = buildTimeMap(tl);
+  const owners = [
+    ...tl.steps.map((s) => s.id),
+    ...tl.scenes.filter((s) => s.kind === 'explainer').map((s) => s.id),
+  ]
+    .map((id) => ({ id, start: ownerStart(tl, tm, id) }))
+    .filter((o): o is { id: string; start: number } => o.start !== null && o.start <= at + 1e-3)
+    .sort((a, b) => b.start - a.start);
+  const owner = owners[0];
+  if (!owner)
+    throw new RpcError('There is no step or explainer at that time to attach the line to.', 'bad_request');
+  return { owner: owner.id, start: Math.round(Math.max(0, at - owner.start) * 1000) / 1000 };
+}
 
 function lineFor(step: Step, r: { audio: string; duration: number }, words: TimedWord[]): VoiceLine {
   return VoiceLine.parse({

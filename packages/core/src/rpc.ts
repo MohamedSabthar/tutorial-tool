@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Project, Rect, RecorderEvent, Segment, Take, Timeline } from './schemas';
+import { Project, Rect, RecorderEvent, Segment, Take, Timeline, VoiceLine } from './schemas';
 import { PieceEdit } from './pieces';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
@@ -186,6 +186,31 @@ export const rpcMethods = {
         .object({ before: z.number(), after: z.number(), holds: z.number(), spedUp: z.number() })
         .optional(),
     }),
+  },
+  /** A line written by hand, voiced and placed at output time `at`; regenerating the voice-over keeps it. */
+  'vo.addLine': {
+    params: z.object({
+      slug: z.string(),
+      text: z.string().min(1).max(600),
+      at: z.number().nonnegative(),
+      author: z.enum(['user', 'agent']).default('user'),
+    }),
+    result: z.object({ line: VoiceLine }),
+  },
+  /** New text (voiced again) and/or a new place (output time `at`) for a line; it becomes hand-made. */
+  'vo.editLine': {
+    params: z.object({
+      slug: z.string(),
+      id: z.string(),
+      text: z.string().min(1).max(600).optional(),
+      at: z.number().nonnegative().optional(),
+      author: z.enum(['user', 'agent']).default('user'),
+    }),
+    result: z.object({ line: VoiceLine }),
+  },
+  'vo.removeLine': {
+    params: z.object({ slug: z.string(), id: z.string(), author: z.enum(['user', 'agent']).default('user') }),
+    result: z.object({}),
   },
   /** Rebuilds the automatic overlays (pointer, zooms, blurs, title) from the take's events; keeps the rest. */
   'overlays.auto': {

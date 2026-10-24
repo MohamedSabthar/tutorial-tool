@@ -124,8 +124,8 @@ function sinceLastAction(events: RecorderEvent[], t: number): number {
  */
 export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
   const before = buildTimeMap(tl).duration;
-  const lineOf = new Map<string, VoiceLine>();
-  for (const v of tl.voice) lineOf.set(v.owner, v);
+  const linesOf = new Map<string, VoiceLine[]>();
+  for (const v of tl.voice) linesOf.set(v.owner, [...(linesOf.get(v.owner) ?? []), v]);
   const busy = busyIntervals(events);
   const fits: StepFit[] = [];
   const leadIns = new Map<string, number>();
@@ -181,10 +181,15 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
       const own: Piece[] = [];
       while (i < pieces.length && pieces[i]!.step === step) own.push(pieces[i++]!);
       const action = own.reduce((n, { range: [a, b] }) => n + (b - a), 0);
-      const line = lineOf.get(step.id);
+      const lines = linesOf.get(step.id) ?? [];
+      const line = lines.length > 0;
       const leadIn = Math.max(LEAD_IN, CLICK_GAP - sinceLastAction(events, own[0]!.range[0]));
       leadIns.set(step.id, r3(leadIn));
-      const needed = line ? leadIn + line.duration + TAIL : 0;
+      // The step lasts until its last line ends: the generated line starts after the lead-in,
+      // hand-placed lines where they were put.
+      const needed = line
+        ? Math.max(...lines.map((v) => (v.manual ? v.start : leadIn) + v.duration)) + TAIL
+        : 0;
 
       // What runs on after the line (and a moment of grace) is fast-forwarded.
       const voiced = line ? needed + GRACE : Infinity;
@@ -260,7 +265,9 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
     return { ...scene, segments: compact(segments) };
   });
 
-  const voice = tl.voice.map((v) => (leadIns.has(v.owner) ? { ...v, start: leadIns.get(v.owner)! } : v));
+  const voice = tl.voice.map((v) =>
+    leadIns.has(v.owner) && !v.manual ? { ...v, start: leadIns.get(v.owner)! } : v,
+  );
   const timeline: Timeline = { ...tl, scenes, voice };
 
   // Check: each line ends before the next step's action starts.
@@ -268,10 +275,10 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
   const spans = voiceSpans(timeline, tm);
   const starts = tl.steps.map((s) => ({ id: s.id, at: tm.toOutput(s.take, s.from)[0] ?? Infinity }));
   for (const f of fits) {
-    const span = spans.find((s) => s.line.owner === f.stepId);
+    const ends = spans.filter((s) => s.line.owner === f.stepId).map((s) => s.end);
     const own = starts.find((s) => s.id === f.stepId)?.at ?? 0;
     const next = Math.min(...starts.filter((s) => s.at > own).map((s) => s.at), tm.duration);
-    if (span) f.overrun = r3(Math.max(0, span.end - next));
+    if (ends.length) f.overrun = r3(Math.max(0, Math.max(...ends) - next));
   }
   return { timeline, steps: fits, before: r3(before), after: r3(tm.duration) };
 }
