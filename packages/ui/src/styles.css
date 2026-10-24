@@ -52,7 +52,7 @@
 }
 
 /*
- * Dark theme ("Slate"): blue-grey surfaces, light text. Panels use --ui-white and the page
+ * Dark theme ("Navy, sharper"): WSO2 navy surfaces, light text. Panels use --ui-white and the page
  * behind them --ui-gray-50, so panels sit above the page as in the light theme. Navy-filled
  * states (selected segments, playheads, badges) invert to light fills with dark text, since
  * they use --ui-navy with --ui-white.
@@ -61,31 +61,31 @@
   color-scheme: dark;
   color: var(--ui-ink);
 
-  --ui-orange-100: #4d3020;
-  --ui-orange-ink: #ffa56b;
-  --ui-navy: #f7f9fc;
+  --ui-orange-100: #4a2a17;
+  --ui-orange-ink: #ff9a5c;
+  --ui-navy: #f5f8fc;
   --ui-navy-900: #ffffff;
 
-  --ui-white: #262f3e;
-  --ui-gray-50: #1c2431;
-  --ui-gray-100: #2f3a4b;
-  --ui-gray-300: #455269;
-  --ui-gray-500: #a2acbd;
-  --ui-gray-600: #c8cfdb;
-  --ui-ink: #edf0f5;
+  --ui-white: #1a2539;
+  --ui-gray-50: #0e1524;
+  --ui-gray-100: #23304a;
+  --ui-gray-300: #3b4b68;
+  --ui-gray-500: #9aa6ba;
+  --ui-gray-600: #c2cbda;
+  --ui-ink: #eaeef5;
 
-  --ui-steel-100: #2a3d56;
-  --ui-steel-300: #6a90b5;
+  --ui-steel-100: #1f3550;
+  --ui-steel-300: #5a84ac;
   --ui-steel-ink: #a9cbe8;
-  --ui-green-100: #1d3d35;
-  --ui-green-ink: #86e2b6;
+  --ui-green-100: #173a31;
+  --ui-green-ink: #7fe0b1;
   --ui-red: #ef5153;
-  --ui-red-100: #4a2328;
+  --ui-red-100: #45202a;
   --ui-red-ink: #ff9c9d;
 
-  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --ui-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --ui-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.45);
+  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ui-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --ui-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.5);
 }
 
 :root {
