@@ -149,6 +149,8 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [sceneComponent, setSceneComponent] = useState<string>('');
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [piece, setPiece] = useState<PieceRef | null>(null);
+  // Playback repeats the selected piece while on.
+  const [looping, setLooping] = useState(false);
   // The voice line being edited, or 'new' while writing one.
   const [lineSel, setLineSel] = useState<string | null>(null);
   const jobs = useExplainers(slug).filter(
@@ -464,6 +466,21 @@ export function StudioScreen({ slug }: { slug: string }) {
     setSelected(null);
     setSelectedScene(null);
   };
+
+  const pieceSpan = piece
+    ? resolved?.tm.segments.find((g) => g.sceneId === piece.sceneId && g.index === piece.index)
+    : undefined;
+  // Looping: back to the piece's start when playback reaches its end (or leaves it).
+  const loopStart = looping ? pieceSpan?.start : undefined;
+  const loopEnd = looping ? pieceSpan?.end : undefined;
+  useEffect(() => {
+    if (loopStart === undefined || loopEnd === undefined) return;
+    return controls.subscribe((s) => {
+      if (s.playing && (s.t >= loopEnd - 1 / 60 || s.t < loopStart - 0.25)) controls.seek(loopStart);
+    });
+  }, [controls, loopStart, loopEnd]);
+  // No piece, no loop.
+  if (looping && !piece) setLooping(false);
 
   function pieceTakeTime(): number | null {
     if (!resolved || !piece || !pieceSegment || pieceSegment.kind === 'hold') return null;
@@ -1023,6 +1040,14 @@ export function StudioScreen({ slug }: { slug: string }) {
               playheadTake={pieceTakeTime}
               onEdit={editPiece}
               onClose={() => setPiece(null)}
+              looping={looping}
+              onLoop={(on) => {
+                setLooping(on);
+                if (on && pieceSpan) {
+                  controls.seek(pieceSpan.start);
+                  controls.play();
+                }
+              }}
             />
           )}
           {tl.timeline && (

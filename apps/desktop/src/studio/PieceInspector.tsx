@@ -15,8 +15,13 @@ export function PieceInspector({
   playheadTake,
   onEdit,
   onClose,
+  looping,
+  onLoop,
 }: {
   segment: Segment;
+  /** Playback repeats this piece while on. */
+  looping: boolean;
+  onLoop: (on: boolean) => void;
   /** Take time under the playhead if it is inside this piece (read when freezing). */
   playheadTake: () => number | null;
   onEdit: (edit: PieceEdit) => Promise<void>;
@@ -189,6 +194,17 @@ export function PieceInspector({
           </Field>
         </>
       )}
+
+      <div className="piece-row">
+        <Button
+          size="sm"
+          aria-pressed={looping}
+          onClick={() => onLoop(!looping)}
+          title="Play this piece over and over while you adjust it"
+        >
+          {looping ? 'Looping' : 'Loop this piece'}
+        </Button>
+      </div>
 
       <div className="piece-row">
         <Button size="sm" variant="danger" disabled={busy} onClick={() => void run({ op: 'remove' })}>
