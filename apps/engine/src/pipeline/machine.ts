@@ -15,6 +15,7 @@ import {
   type ProgressItem,
   type PipelineStage,
   type Project,
+  type Silence,
 } from '@studio/core';
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
@@ -30,6 +31,7 @@ import {
   trimInstruction,
   nudge,
   planInstruction,
+  polishInstruction,
   postInstruction,
   qaInstruction,
   repairInstruction,
@@ -53,6 +55,8 @@ export interface PipelineDeps {
    * plan's final narration is put on the steps first.
    */
   voiceover?(slug: string, group: string, narration?: Plan): Promise<string | null>;
+  /** Stretches of the video still playing with no voice (after the voice-over and fit). */
+  silences?(slug: string): Promise<Silence[]>;
   /**
    * Voice-first recording (optional in tests). `paceBlocker` says why a project can't be voiced
    * before recording (no voice or key), or null; `voicePace` voices the plan's narration into
@@ -954,6 +958,12 @@ export class PipelineManager {
           const items: ProgressItem[] = [
             { id: 'narration', label: 'Narration on the steps', detail: '', state: 'pending' },
             { id: 'voice', label: 'Voice-over and timing fit', detail: '', state: 'pending' },
+            {
+              id: 'polish',
+              label: 'Silent stretches (narrate, speed up or cut)',
+              detail: '',
+              state: 'pending',
+            },
             ...(n
               ? [
                   {
@@ -1007,6 +1017,30 @@ export class PipelineManager {
             report('narration', 'done');
             if (n) report('explainers', 'done');
             await voice();
+          }
+          // Stretches still playing with no voice: the agent narrates, speeds up or cuts each.
+          const total = (l: Silence[]) => Math.round(l.reduce((n, x) => n + x.seconds, 0));
+          if (items.find((x) => x.id === 'voice')!.state === 'failed')
+            report('polish', 'failed', 'skipped: the voice-over or its timing fit failed');
+          else if (this.deps.silences) {
+            const gaps = await this.deps.silences(slug).catch(() => []);
+            if (!gaps.length) report('polish', 'done', 'none');
+            else {
+              report(
+                'polish',
+                'active',
+                `${gaps.length} stretch${gaps.length === 1 ? '' : 'es'}, ${total(gaps)} s`,
+              );
+              await this.agentStageWithHelp(slug, live, 'post', polishInstruction(gaps));
+              const left = await this.deps.silences(slug).catch(() => []);
+              report(
+                'polish',
+                'done',
+                left.length
+                  ? `${gaps.length - left.length} of ${gaps.length} handled; ${left.length} left (${total(left)} s)`
+                  : `all ${gaps.length} handled`,
+              );
+            }
           }
           report(
             'voice',

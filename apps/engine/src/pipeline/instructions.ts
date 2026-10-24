@@ -1,4 +1,4 @@
-import type { Pace, Plan, StepTiming } from '@studio/core';
+import type { Pace, Plan, Silence, StepTiming } from '@studio/core';
 import { lateCueLines, type LateCue } from '../pace';
 import { timingLines } from '../stepTiming';
 
@@ -213,6 +213,46 @@ export function postInstruction(plan: Plan | null = null, opts: { narrated?: boo
     .join('\n\n');
 }
 
+const clock = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+
+/** One silent stretch as a line of the polish instruction. */
+export function silenceLine(s: Silence): string {
+  const tags = [
+    s.owner ? `${s.owner.id} ${s.owner.title}` : '',
+    s.rate > 1 ? `plays at ${s.rate}×` : '',
+    s.freezes ? 'has a freeze' : '',
+    s.idle ? 'idle: nothing happens on screen' : '',
+    s.repeats ? 'repeats controls used earlier' : '',
+    s.manual ? 'edited by hand: leave it' : '',
+  ].filter(Boolean);
+  const acts = s.actions.slice(0, 8).map((a) => `${clock(a.at)} ${a.what}`);
+  const more = s.actions.length > 8 ? ` (+${s.actions.length - 8} more)` : '';
+  return `- ${clock(s.start)}–${clock(s.end)} (${s.seconds.toFixed(1)} s) · ${tags.join(' · ')}${
+    acts.length ? `\n  ${acts.join('; ')}${more}` : ''
+  }`;
+}
+
+/**
+ * Post-production polish: the voice-over is on and fitted, but stretches still play with no
+ * voice. The agent decides, like an editor, whether each is narrated, sped up or taken off camera.
+ */
+export function polishInstruction(silences: Silence[]): string {
+  return [
+    '[Pipeline · silent stretches]',
+    `The voice-over is on and the timing is fitted, but ${silences.length} stretch${silences.length === 1 ? '' : 'es'} still play with no voice (output seconds; find_silences gives the same list):`,
+    silences.map(silenceLine).join('\n'),
+    [
+      'Decide for each stretch what serves the viewer best, as an editor would, using the hand-edit tools (see "Hand edits after recording" in the tutorial-authoring skill). Look at frames with capture_frame when the actions alone do not tell you what the viewer sees.',
+      '- Narrate it (add_voice_line) when it shows something the viewer should follow and has not seen yet. Start each line at or just before the first action it describes (times above) and say what the viewer sees happen, in the narration style of the skill, at about 2.5 words per second of the part you keep at normal speed. Several short lines read better than one long one.',
+      '- Speed it up (edit_recording "speed": 2–4× for action, up to 16× for a static screen) when it is routine: a flow already shown (repeats), scrolling, obvious fields, a product working. One short line can say what happens ("The other two tools are added the same way.").',
+      '- Take it off camera (edit_recording "remove") when nothing the viewer needs happens: an idle wait, a detour, a slip and its fix. A badge marks the cut.',
+      '- Leave it when it is short and the screen speaks for itself (a result appearing), or when it was edited by hand.',
+    ].join('\n'),
+    "Then run fit_timing and find_silences. Handle what is left once more, then stop: two rounds at most. Don't rewrite step narration or regenerate the voice-over. Your summary lists each stretch and what you did with it.",
+    done('post'),
+  ].join('\n\n');
+}
+
 /** Final QA: the agent checks the video as it will be exported and fixes what it can. */
 export function qaInstruction(): string {
   return [
@@ -225,8 +265,7 @@ export function qaInstruction(): string {
       '- secrets, emails or machine paths on screen: add a core:Blur over them for as long as they show',
       '- a zoom that cuts off its target or moves too often: adjust or remove it',
       '- voice running into the next step: run generate_voiceover again (unchanged lines come from the cache, and it re-runs the timing fit)',
-      '- silence after a line at normal speed: run generate_voiceover again (its timing fit fast-forwards what runs on after a line)',
-      "- a long fast-forward after a line: if the viewer needs to follow it, it needed narration (list it for the user); if not, cut the source range the viewer doesn't need from the recording scene's segments",
+      '- stretches with no voice (find_silences lists them): narrate, speed up or cut each, as an editor would (add_voice_line, edit_recording), then fit_timing',
       "Things you can't fix from the timeline (an error dialog in the recording, a click off its word, a wrong screen) need a new take or a script change: don't record, list them in your summary for the user.",
     ].join('\n'),
     'When check_video reports nothing you can fix, finish. Your summary is the QA report: what you checked, what you fixed, and what is left for the user.',

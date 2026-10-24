@@ -99,6 +99,7 @@ beforeAll(async () => {
     pipeline: null as never,
     voiceover: null as never,
     edits: null as never,
+    fit: null as never,
     checkOverlay: null as never,
     checkScene: null as never,
     checkVideo: null as never,
@@ -374,6 +375,21 @@ describe('studio tools', () => {
     expect(tl.voice.some((v) => v.id === line.id)).toBe(false);
     expect(tl.captions.some((c) => c.text.includes('Note the port'))).toBe(false);
     await expect(vo.removeLine(slug, { id: line.id })).rejects.toThrow(/no voice line/);
+  });
+
+  it('lists silent stretches and re-fits the timing for the agent', async () => {
+    ctx.fit = new TimingFit({ store, timelines });
+    const r = JSON.parse(text(await call('find_silences', { minSeconds: 1 }))) as {
+      count: number;
+      silences: { start: number; end: number; owner: { id: string } | null; idle: boolean }[];
+    };
+    expect(r.count).toBe(r.silences.length);
+    expect(r.count).toBeGreaterThan(0);
+    for (const s of r.silences) expect(s.end - s.start).toBeGreaterThanOrEqual(1);
+    const fit = JSON.parse(text(await call('fit_timing'))) as { before: number; after: number };
+    expect(fit.after).toBeGreaterThan(0);
+    // Later tests rely on the unfitted times.
+    await timelines.undo(ctx.slug);
   });
 
   it('edits the recording and voice lines in output time with the editing tools', async () => {

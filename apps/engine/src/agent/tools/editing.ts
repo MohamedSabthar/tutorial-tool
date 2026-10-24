@@ -1,5 +1,7 @@
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { SILENCE_MIN } from '@studio/core';
+import { projectSilences } from '../../timing';
 import { fail, json, type ToolContext } from './context';
 
 const seconds = z.number().nonnegative();
@@ -14,6 +16,36 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function editingTools(ctx: ToolContext) {
   const opts = () => ({ author: 'agent' as const, group: ctx.runId() });
   return [
+    tool(
+      'find_silences',
+      `List the stretches of the video with no voice-over (at least minSeconds, default ${SILENCE_MIN}), in output seconds: the step showing, playback speed, hand-made edits, the clicks and typing shown (with their times), and hints: idle (nothing happens on screen) and repeats (mostly controls already used earlier).`,
+      { minSeconds: z.number().min(0.5).max(60).optional() },
+      async ({ minSeconds }) => {
+        try {
+          const s = await projectSilences(ctx, ctx.slug, minSeconds ? { min: minSeconds } : {});
+          return json({
+            count: s.length,
+            seconds: Math.round(s.reduce((n, x) => n + x.seconds, 0)),
+            silences: s,
+          });
+        } catch (e) {
+          return fail(message(e));
+        }
+      },
+    ),
+    tool(
+      'fit_timing',
+      'Fit the recording to the voice-over again: freezes where a voice line runs longer than its step, fast-forwards what runs on after the last line. Run it after adding or moving voice lines. Hand-made pieces and lines stay as they are.',
+      {},
+      async () => {
+        try {
+          const r = await ctx.fit.fit(ctx.slug, { author: 'agent', group: ctx.runId() });
+          return json({ before: r.before, after: r.after });
+        } catch (e) {
+          return fail(message(e));
+        }
+      },
+    ),
     tool(
       'edit_recording',
       'Change how the recording plays between two output times (seconds, from get_timeline): "speed" plays it at `rate` (0.25–16; above 4 only for static screens), "normal" plays it as recorded, "remove" cuts it from the video (off camera), "auto" hands it back to the timing fit. Pieces are split at both times. Overlays, captions and annotations follow. Use it when the user asks for a cut or speed change; leave routine timing to the fit.',

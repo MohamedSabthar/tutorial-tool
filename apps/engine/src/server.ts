@@ -51,7 +51,7 @@ import { projectCard } from './cards';
 import { secretStore } from './secrets';
 import { TtsService } from './tts';
 import { Voiceover } from './vo';
-import { readEvents, RecordingEdits, TimingFit } from './timing';
+import { projectSilences, readEvents, RecordingEdits, TimingFit } from './timing';
 import { clearPace, readPace, voicePace } from './pace';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
@@ -182,6 +182,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         pipeline,
         voiceover,
         edits,
+        fit: timing,
         explainers,
         docs,
         checkScene: async (sceneId) =>
@@ -418,6 +419,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     emit: (s) => broadcast('pipeline.changed', s),
     progress: (p) => broadcast('pipeline.progress', p),
+    silences: (slug) => projectSilences({ store, timelines }, slug),
     voiceover: async (slug, group, narration) => {
       if (!(await store.voiceFor(slug))) return 'No voice chosen in the brief, so no voice-over yet.';
       if (!(await tts.status()).configured) return 'ElevenLabs has no key yet, so no voice-over.';

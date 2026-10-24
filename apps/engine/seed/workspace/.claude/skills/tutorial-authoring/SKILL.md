@@ -138,6 +138,11 @@ step plays with nothing said over it, edit by hand. Times are output seconds fro
   style below. Footage under it plays at normal speed after the next fit.
   `edit_voice_line(id, text?, at?)` and `remove_voice_line(id)` change or drop one.
 
+`find_silences` lists every stretch with no voice, with the clicks and typing in it and hints
+(`idle`, `repeats`); `fit_timing` fits again after you add or move lines. For each stretch,
+decide like an editor: narrate what the viewer should follow, speed up what is routine or
+repeated, take idle waits and detours off camera, and leave what speaks for itself.
+
 What these tools change is marked manual: the fit and voice-over regeneration keep it. Don't
 re-do routine timing by hand, and don't undo the user's manual pieces or lines unless asked.
 

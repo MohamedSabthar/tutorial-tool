@@ -5,6 +5,7 @@ import {
   cutGaps,
   editPiece,
   editRange,
+  findSilences,
   pieceAt,
   outputRemapper,
   segmentDuration,
@@ -490,6 +491,18 @@ const PIECE_LABEL: Record<PieceEdit['op'], string> = {
   restoreCut: 'Restore cut',
   trim: 'Trim piece',
 };
+
+/** The unvoiced stretches of a project's video (see findSilences), from its latest take's events. */
+export async function projectSilences(
+  deps: { store: ProjectStore; timelines: TimelineStore },
+  slug: string,
+  opts: { min?: number } = {},
+) {
+  const { timeline } = await deps.timelines.get(slug);
+  const take = timeline.takes.at(-1);
+  const events = take ? await readEvents(deps.store.dir(slug), take.events).catch(() => []) : [];
+  return findSilences(timeline, events, opts);
+}
 
 export async function readEvents(projectDir: string, rel: string): Promise<RecorderEvent[]> {
   const text = await readFile(path.join(projectDir, rel), 'utf8');

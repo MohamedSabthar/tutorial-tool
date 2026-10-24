@@ -446,6 +446,46 @@ describe('PipelineManager', () => {
     expect(order).toEqual(['voice', 'agent', 'voice']);
   });
 
+  it('has the agent handle silent stretches after the voice-over, only when there are some', async () => {
+    const gap = {
+      start: 9,
+      end: 20.5,
+      seconds: 11.5,
+      owner: { id: 's2', title: 'Add a resource' },
+      rate: 1,
+      freezes: false,
+      manual: false,
+      actions: [{ at: 11, what: 'click button "Add"' }],
+      idle: false,
+      repeats: false,
+    };
+    let checks = 0;
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script' || stage === 'narrate') done(p, stage);
+        else if (stage === 'post-production' || stage === 'silent stretches') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true, true],
+      undefined,
+      {
+        pace: { blocker: async () => null, voice: async () => 'Voiced', clear: async () => {} },
+        voiceover: async () => null,
+        // Found before the agent's turn; none left after it.
+        silences: async () => (checks++ === 0 ? [gap] : []),
+      },
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'done');
+    const polish = sent.find((t) => t.startsWith('[Pipeline · silent stretches]'));
+    expect(polish).toContain('0:09.0–0:20.5 (11.5 s) · s2 Add a resource');
+    expect(polish).toContain('0:11.0 click button "Add"');
+    expect(checks).toBe(2);
+  });
+
   it('pauses at a help gate once the run passes its cost limit, then finishes when approved', async () => {
     agentCost = 0;
     const { p, sent } = make(
