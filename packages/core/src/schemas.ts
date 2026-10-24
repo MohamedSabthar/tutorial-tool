@@ -44,12 +44,15 @@ export type Take = z.infer<typeof Take>;
 export const SrcSegment = z.object({ kind: z.literal('src'), from: Seconds, to: Seconds });
 /** Freezes the frame at take time `at` for `duration` seconds. */
 export const HoldSegment = z.object({ kind: z.literal('hold'), at: Seconds, duration: Seconds });
-/** Plays take time [from, to) at `rate` (1.5 = 50% faster). */
+/**
+ * Plays take time [from, to) at `rate` (1.5 = 50% faster). Up to 16×: the timing fit plays a
+ * product wait (a static screen) that fast, and the preview's video and the export follow it.
+ */
 export const SpeedSegment = z.object({
   kind: z.literal('speed'),
   from: Seconds,
   to: Seconds,
-  rate: z.number().min(0.25).max(4),
+  rate: z.number().min(0.25).max(16),
 });
 
 export const Segment = z

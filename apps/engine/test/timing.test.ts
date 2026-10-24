@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildTimeMap, parseTimeline, RecorderEvent, voiceSpans } from '@studio/core';
 import { autoOverlays } from '../src/autoOverlays';
-import { fitTiming, GRACE, MAX_SPEED, TAIL, WAIT_KEEP } from '../src/timing';
+import { fitTiming, GRACE, MAX_SPEED, MAX_WAIT_SPEED, TAIL, WAIT_KEEP } from '../src/timing';
 
 const take = {
   id: 'take-1',
@@ -80,6 +80,16 @@ describe('fitTiming', () => {
     expect(spans[0]!.end).toBeLessThanOrEqual(stepStart('s2'));
     expect(spans[1]!.end).toBeLessThanOrEqual(stepStart('s3'));
     expect(stepStart('s3') - spans[1]!.end).toBeLessThan(TAIL + GRACE + WAIT_KEEP + 0.1);
+  });
+
+  it('saves a fit whose product waits play faster than 4× (the timeline accepts them)', () => {
+    // s2's 5 s wait after its line is played down to about WAIT_KEEP: well past 4×.
+    const r = fitTiming(timeline(), events);
+    const segs = r.timeline.scenes[0]!.kind === 'recording' ? r.timeline.scenes[0]!.segments : [];
+    const fastest = Math.max(...segs.map((s) => (s.kind === 'speed' ? s.rate : 1)));
+    expect(fastest).toBeGreaterThan(4);
+    expect(fastest).toBeLessThanOrEqual(MAX_WAIT_SPEED);
+    expect(() => parseTimeline(JSON.parse(JSON.stringify(r.timeline)))).not.toThrow();
   });
 
   it('fast-forwards unnarrated action after a line at 2–4× and badges it', () => {
