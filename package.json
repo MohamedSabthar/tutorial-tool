@@ -19,7 +19,8 @@
     "test:parity": "pnpm --filter @studio/desktop build && STUDIO_PARITY=1 vitest run parity",
     "test:recorder": "STUDIO_E2E=1 vitest run e2e",
     "package:engine": "node scripts/package-engine.mjs",
-    "package": "pnpm --filter @studio/desktop build && pnpm package:engine && pnpm --filter @studio/desktop tauri build --bundles app --config src-tauri/tauri.bundle.conf.json"
+    "package": "pnpm --filter @studio/desktop build && pnpm package:engine && pnpm --filter @studio/desktop tauri build --bundles app --config src-tauri/tauri.bundle.conf.json",
+    "dmg": "node scripts/build-dmg.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

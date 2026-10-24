@@ -267,15 +267,14 @@ describe('AgentSession', () => {
     expect(calls[0]?.pathToClaudeCodeExecutable).toBe('/opt/claude/bin/claude');
     expect(calls[0]?.env?.CLAUDE_CONFIG_DIR).toBe('/Users/me/.claude-work');
     await a.close();
+    // Claude Code isn't shipped with the app: with none installed, the session doesn't start.
     const calls2: Options[] = [];
     const b = new AgentSession('demo2', {
       ...host(fakeQuery([[init('s-9'), result(0)]], calls2)),
       claude: async () => ({ executable: null, configDir: null }),
     });
-    await b.send('hello');
-    await until(() => calls2.length > 0);
-    expect(calls2[0]?.pathToClaudeCodeExecutable).toBeUndefined();
-    expect(calls2[0]?.env?.CLAUDE_CONFIG_DIR).toBe(process.env.CLAUDE_CONFIG_DIR);
+    await expect(b.send('hello')).rejects.toThrow(/Claude Code was not found.*install\.sh/);
+    expect(calls2).toHaveLength(0);
     await b.close();
   });
 

@@ -80,5 +80,10 @@ describe('checking cues without running the product', () => {
     expect(modelFor('qa', 'balanced')).toBe('claude-sonnet-5-5');
     expect(modelFor('plan', 'sonnet')).toBe('claude-sonnet-5-5');
     expect(modelFor('narrate', 'opus')).toBe('claude-opus-5-5');
+    // Custom: the deep model for research, planning and repairs, the other for the rest.
+    const custom = { deep: 'claude-fable-5-1', writing: 'haiku' };
+    expect(modelFor('plan', custom)).toBe('claude-fable-5-1');
+    expect(modelFor('repair', custom)).toBe('claude-fable-5-1');
+    expect(modelFor('script', custom)).toBe('haiku');
   });
 });

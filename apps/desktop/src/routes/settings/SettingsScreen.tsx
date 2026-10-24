@@ -7,6 +7,17 @@ import { AppFrame } from '../frame';
 import { SetupChecklist } from './SetupChecklist';
 
 type Settings = RpcResult<'settings.get'>;
+
+/** Models offered for the custom choice (any id or alias Claude Code accepts works). */
+const MODEL_SUGGESTIONS = [
+  'claude-opus-5-5',
+  'claude-sonnet-5-5',
+  'claude-haiku-5-5',
+  'claude-fable-5-1',
+  'opus',
+  'sonnet',
+  'haiku',
+];
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** Settings: keys, defaults for new tutorials, the workspace, and the products to record. */
@@ -189,18 +200,19 @@ function ClaudeSettings() {
     <div className="settings-claude">
       <strong>Claude</strong>
       <span className="settings-hint">
-        The agent runs Claude Code with its sign-in. To sign in, run <code>claude auth login</code> in
-        Terminal (with the same config folder).
+        The agent runs the Claude Code you installed, with its sign-in. Install it with{' '}
+        <code>curl -fsSL https://claude.ai/install.sh | bash</code>, then run <code>claude auth login</code>{' '}
+        in Terminal (with the same config folder).
       </span>
       <Field
         label="Claude Code executable"
-        hint="Empty: the one that ships with the app. e.g. ~/.local/bin/claude"
+        hint="Empty: the one installed on this Mac (found on the PATH or in ~/.local/bin). Set it to use another, e.g. ~/.local/bin/claude"
       >
         {(id) => (
           <Input
             id={id}
             value={exe}
-            placeholder="Bundled with the app"
+            placeholder="The installed Claude Code"
             onChange={(e) => setExe(e.target.value)}
           />
         )}
@@ -319,9 +331,46 @@ function DefaultsPanel() {
             <option value="balanced">Balanced (default)</option>
             <option value="sonnet">Sonnet 5.5 for everything (fastest)</option>
             <option value="opus">Opus 5.5 for everything (most careful)</option>
+            <option value="custom">Custom models…</option>
           </Select>
         )}
       </Field>
+      {s.agentModel === 'custom' && (
+        <>
+          {/* Model ids or Claude Code aliases; the list suggests the current models. */}
+          <datalist id="agent-models">
+            {MODEL_SUGGESTIONS.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+          {(
+            [
+              ['deep', 'Model for research, planning and repairs'],
+              ['writing', 'Model for the script, narration and the rest'],
+            ] as const
+          ).map(([key, label]) => (
+            <Field
+              key={key}
+              label={label}
+              hint="A model id such as claude-opus-5-5, or an alias: opus, sonnet, haiku."
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  list="agent-models"
+                  defaultValue={s.customModels[key]}
+                  key={s.customModels[key]}
+                  onBlur={(e) => {
+                    const v = e.currentTarget.value.trim();
+                    if (v && v !== s.customModels[key])
+                      void update({ customModels: { ...s.customModels, [key]: v } });
+                  }}
+                />
+              )}
+            </Field>
+          ))}
+        </>
+      )}
       <Field
         label="Repairs before asking you"
         hint="When a dry run or recording fails, the agent tries this many repairs on its own, then tells you what it tried and asks how to go on. Each repair costs agent time and a dry run."

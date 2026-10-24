@@ -11,12 +11,16 @@ export const StudioSettings = z.object({
   /**
    * Which Claude models the pipeline's agent uses: `balanced` (Opus for research, planning and
    * repairs; the faster Sonnet for writing the script, narration, alignment, post-production, QA
-   * and the retrospective), or one model for everything.
+   * and the retrospective), one model for everything, or `custom` (the two models below).
    */
-  agentModel: z.enum(['balanced', 'opus', 'sonnet']).default('balanced'),
+  agentModel: z.enum(['balanced', 'opus', 'sonnet', 'custom']).default('balanced'),
+  /** With `custom`: the model for research, planning and repairs, and the one for everything else. */
+  customModels: z
+    .object({ deep: z.string().trim().min(1).max(120), writing: z.string().trim().min(1).max(120) })
+    .default({ deep: 'claude-opus-5-5', writing: 'claude-sonnet-5-5' }),
   /** Repairs the agent tries on its own when a run fails, before it asks the user for help. */
   maxRepairs: z.number().int().min(0).max(5).default(1),
-  /** The Claude Code executable the agent runs; null for the one bundled with the agent SDK. */
+  /** The Claude Code executable the agent runs; null for the one installed on this Mac. */
   claudeExecutable: z.string().min(1).nullable().default(null),
   /** CLAUDE_CONFIG_DIR for the agent (which Claude login it uses); null for the app's environment. */
   claudeConfigDir: z.string().min(1).nullable().default(null),
@@ -65,7 +69,16 @@ export type ProductInfo = z.infer<typeof ProductInfo>;
 
 /** One line of the first-run checklist. */
 export const SetupItem = z.object({
-  id: z.enum(['claude', 'elevenlabs', 'workspace', 'ffmpeg', 'product', 'chromium', 'firstTake']),
+  id: z.enum([
+    'claude-code',
+    'claude',
+    'elevenlabs',
+    'workspace',
+    'ffmpeg',
+    'product',
+    'chromium',
+    'firstTake',
+  ]),
   label: z.string(),
   ok: z.boolean().nullable(),
   detail: z.string(),

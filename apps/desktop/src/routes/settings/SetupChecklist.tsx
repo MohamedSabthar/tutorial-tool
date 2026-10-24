@@ -47,6 +47,13 @@ export function SetupChecklist({ compact = false }: { compact?: boolean }) {
   const action = (i: SetupItem) => {
     if (!client || i.ok) return null;
     switch (i.id) {
+      case 'claude-code':
+        // Installed in Terminal: check again once it is.
+        return (
+          <Button size="sm" disabled={busy === i.id} onClick={() => void act(i.id, async () => undefined)}>
+            {busy === i.id ? 'Checking…' : 'Check again'}
+          </Button>
+        );
       case 'claude':
         return (
           <Button

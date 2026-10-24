@@ -41,12 +41,29 @@ const out = path.join(repo, 'apps/desktop/src-tauri/resources/engine');
 
 /** Packages the bundle loads at runtime instead of bundling (binaries, dynamic loading). */
 const RUNTIME = {
-  'apps/engine': ['playwright', '@anthropic-ai/claude-agent-sdk', 'vite', 'typescript', 'eslint', 'typescript-eslint'],
+  'apps/engine': [
+    'playwright',
+    '@anthropic-ai/claude-agent-sdk',
+    'vite',
+    'typescript',
+    'eslint',
+    'typescript-eslint',
+  ],
   'packages/recorder': ['esbuild'],
 };
 /** Types and libraries the overlay type-check resolves (from the app's own dependencies). */
 const OVERLAY_TYPES = {
-  'apps/desktop': ['react', 'react-dom', '@types/react', '@types/react-dom', 'three', '@types/three', '@react-three/fiber', 'gsap', 'zod'],
+  'apps/desktop': [
+    'react',
+    'react-dom',
+    '@types/react',
+    '@types/react-dom',
+    'three',
+    '@types/three',
+    '@react-three/fiber',
+    'gsap',
+    'zod',
+  ],
 };
 
 const step = (msg) => console.log(`· ${msg}`);
@@ -94,15 +111,37 @@ for (const [dir, names] of Object.entries({ ...RUNTIME, ...OVERLAY_TYPES }))
   for (const name of names) deps[name] = version(dir, name);
 // In a folder outside the repo: npm inside a pnpm workspace trips over the parent's layout.
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'studio-engine-'));
-const manifest = JSON.stringify({ name: 'tutorial-studio-engine', private: true, type: 'module', dependencies: deps }, null, 2) + '\n';
+const manifest =
+  JSON.stringify(
+    { name: 'tutorial-studio-engine', private: true, type: 'module', dependencies: deps },
+    null,
+    2,
+  ) + '\n';
 writeFileSync(path.join(tmp, 'package.json'), manifest);
 // No bin links (the bundler copies files, not symlinks) and no install scripts (Playwright's
 // browsers download on first run, into ~/.tutorial-studio). Peers are listed explicitly, so
 // legacy peer resolution (npm 10's peer-set resolver crashes on this tree).
-execFileSync('npm', ['install', '--omit=dev', '--no-package-lock', '--no-bin-links', '--ignore-scripts', '--legacy-peer-deps', '--no-audit', '--no-fund'], {
-  cwd: tmp,
-  stdio: 'inherit',
-});
+execFileSync(
+  'npm',
+  [
+    'install',
+    '--omit=dev',
+    '--no-package-lock',
+    '--no-bin-links',
+    '--ignore-scripts',
+    '--legacy-peer-deps',
+    '--no-audit',
+    '--no-fund',
+  ],
+  {
+    cwd: tmp,
+    stdio: 'inherit',
+  },
+);
+// Claude Code is installed by the user, not shipped: drop the agent SDK's native binary package.
+const scope = path.join(tmp, 'node_modules/@anthropic-ai');
+for (const name of readdirSync(scope))
+  if (name.startsWith('claude-agent-sdk-')) rmSync(path.join(scope, name), { recursive: true, force: true });
 renameSync(path.join(tmp, 'node_modules'), path.join(out, 'node_modules'));
 writeFileSync(path.join(out, 'package.json'), manifest);
 rmSync(tmp, { recursive: true, force: true });

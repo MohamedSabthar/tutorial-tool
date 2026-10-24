@@ -76,7 +76,7 @@ export interface PipelineDeps {
   /** Item-by-item progress of the running stage, for the windows (optional in tests). */
   progress?(p: PipelineProgress): void;
   /** Which models the agent uses, from Settings (default balanced). */
-  agentModel?(): Promise<'balanced' | 'opus' | 'sonnet'>;
+  agentModel?(): Promise<ModelChoice>;
   /** Repairs the agent tries on its own before asking the user, from Settings (default 1). */
   maxRepairs?(): Promise<number>;
   /** The most a run may spend on the agent (US dollars), from Settings; null for no limit. */
@@ -95,11 +95,15 @@ const DEEP_STAGES = new Set<PipelineStage>(['plan', 'repair']);
 const OPUS = 'claude-opus-5-5';
 const SONNET = 'claude-sonnet-5-5';
 
+/** The Settings choice of models: a preset, or custom models for the deep and the writing stages. */
+export type ModelChoice = 'balanced' | 'opus' | 'sonnet' | { deep: string; writing: string };
+
 /** The model an agent stage runs on for the Settings choice. */
-export function modelFor(stage: PipelineStage, choice: 'balanced' | 'opus' | 'sonnet'): string {
+export function modelFor(stage: PipelineStage, choice: ModelChoice): string {
   if (choice === 'opus') return OPUS;
   if (choice === 'sonnet') return SONNET;
-  return DEEP_STAGES.has(stage) ? OPUS : SONNET;
+  const { deep, writing } = choice === 'balanced' ? { deep: OPUS, writing: SONNET } : choice;
+  return DEEP_STAGES.has(stage) ? deep : writing;
 }
 
 /** A stage resumes by itself after a reload at most once in this long. */
@@ -446,7 +450,7 @@ export class PipelineManager {
   ): Promise<StageResult> {
     if (live.abort.signal.aborted) throw new Stopped();
     const session = this.deps.agents.get(slug);
-    // The stage's model: the deep work on Opus, the writing on the faster Sonnet.
+    // The stage's model: by default the deep work on Opus, the writing on the faster Sonnet.
     const choice = (await this.deps.agentModel?.().catch(() => undefined)) ?? 'balanced';
     await session.setModel?.(modelFor(stage, choice));
     return new Promise((resolve, reject) => {

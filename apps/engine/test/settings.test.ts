@@ -22,6 +22,7 @@ describe('settings', () => {
       autoMode: true,
       maxCostPerRun: null,
       agentModel: 'balanced',
+      customModels: { deep: 'claude-opus-5-5', writing: 'claude-sonnet-5-5' },
       maxRepairs: 1,
       claudeExecutable: null,
       claudeConfigDir: null,

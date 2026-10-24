@@ -1,9 +1,9 @@
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { ClaudeSignIn, SetupItem } from '@studio/core';
 import { claudeEnv, type ClaudeChoice } from './agent/session';
+import { findClaude, INSTALL_CLAUDE } from './claudeCode';
 import type { ProjectStore } from './projects';
 import type { ProductsRegistry } from './productsFile';
 import { browserStatus } from './runtime';
@@ -17,19 +17,6 @@ const run = (cmd: string, args: string[], env?: NodeJS.ProcessEnv) =>
     ),
   );
 
-/** The Claude Code binary the agent SDK runs (its platform package), or `claude` on the PATH. */
-function claudeBinary(): string {
-  try {
-    const sdk = createRequire(import.meta.url).resolve('@anthropic-ai/claude-agent-sdk');
-    const native = createRequire(sdk).resolve(
-      `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`,
-    );
-    return path.join(path.dirname(native), 'claude');
-  } catch {
-    return 'claude';
-  }
-}
-
 /** The last sign-in check this session (the checklist shows it; null until the user checks). */
 let lastSignIn: ClaudeSignIn | null = null;
 
@@ -40,7 +27,16 @@ let lastSignIn: ClaudeSignIn | null = null;
  */
 export async function claudeSignIn(choice: ClaudeChoice | null = null): Promise<ClaudeSignIn> {
   const env = claudeEnv(choice) as NodeJS.ProcessEnv;
-  const { code, out } = await run(choice?.executable ?? claudeBinary(), ['auth', 'status'], env);
+  const executable = choice?.executable ?? (await findClaude());
+  if (!executable)
+    return (lastSignIn = {
+      loggedIn: false,
+      method: null,
+      account: null,
+      configDir: null,
+      error: INSTALL_CLAUDE,
+    });
+  const { code, out } = await run(executable, ['auth', 'status'], env);
   try {
     const s = JSON.parse(out.slice(out.indexOf('{'))) as {
       loggedIn?: boolean;
@@ -75,11 +71,15 @@ export async function setupStatus(deps: {
   tts: Pick<TtsService, 'status'>;
   products: ProductsRegistry;
 }): Promise<SetupItem[]> {
-  const [tts, ws, ffmpeg, projects] = await Promise.all([
+  const [tts, ws, ffmpeg, projects, claude] = await Promise.all([
     deps.tts.status(),
     deps.workspace.status(),
     run('ffmpeg', ['-version']),
     deps.store.list().catch(() => []),
+    deps.store.readSettings().then(
+      (s) => s.claudeExecutable ?? findClaude(),
+      () => findClaude(),
+    ),
   ]);
   const takes = await Promise.all(
     projects.map((p) =>
@@ -93,6 +93,12 @@ export async function setupStatus(deps: {
   const installed = apps.filter((p) => p.available);
   const chromium = browserStatus();
   return [
+    {
+      id: 'claude-code',
+      label: 'Claude Code installed',
+      ok: !!claude,
+      detail: claude ? claude : INSTALL_CLAUDE,
+    },
     {
       id: 'claude',
       label: 'Claude sign-in for the agent',

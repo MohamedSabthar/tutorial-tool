@@ -14,6 +14,7 @@ import {
 import { AgentEvent, type AgentEventInput, type AgentState, type AgentStatus } from '@studio/core';
 import { AsyncQueue } from './queue';
 import { normalize, summarizeInput } from './events';
+import { INSTALL_CLAUDE } from '../claudeCode';
 
 export interface AgentSettings {
   /** Claude Code model id or alias. Undefined lets Claude Code choose. */
@@ -311,6 +312,9 @@ export class AgentSession {
   private async start() {
     const skills = await this.host.skills().catch(() => []);
     const claude = (await this.host.claude?.().catch(() => null)) ?? null;
+    // Claude Code isn't shipped with the app: without an installed one there is nothing to run.
+    if (this.host.claude && !claude?.executable)
+      throw new Error(`Claude Code was not found. ${INSTALL_CLAUDE}`);
     const queue = new AsyncQueue<SDKUserMessage>();
     const resume = this.stored.sessionId ?? undefined;
     const permissionMode =

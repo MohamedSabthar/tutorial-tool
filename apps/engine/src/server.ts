@@ -32,6 +32,7 @@ import {
   type PieceEdit,
 } from '@studio/core';
 import { ProjectStore } from './projects';
+import { findClaude } from './claudeCode';
 import { registerMedia } from './media';
 import { isUiPath, registerUi, resolveUiUrl } from './ui';
 import { Workspace } from './workspace';
@@ -170,7 +171,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     permissionMode: async (slug) => ((await store.readBrief(slug)).autoMode ? 'auto' : 'default'),
     claude: async () => {
       const s = await store.readSettings();
-      return { executable: s.claudeExecutable, configDir: s.claudeConfigDir };
+      // The Claude Code the user installed: the one named in Settings, else the one on this Mac.
+      return { executable: s.claudeExecutable ?? (await findClaude()), configDir: s.claudeConfigDir };
     },
     workspaceDir: opts.workspace,
     mcpServers: (slug) =>
@@ -484,7 +486,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     costLimit: async () => (await store.readSettings()).maxCostPerRun,
     maxRepairs: async () => (await store.readSettings()).maxRepairs,
-    agentModel: async () => (await store.readSettings()).agentModel,
+    agentModel: async () => {
+      const s = await store.readSettings();
+      return s.agentModel === 'custom' ? s.customModels : s.agentModel;
+    },
     git: knowledge,
     onCommit: () => void workspace.status().then((st) => broadcast('workspace.changed', { head: st.head })),
   });
