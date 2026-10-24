@@ -383,9 +383,10 @@ export class TimingFit {
     const scene = timeline.scenes[si];
     if (!scene || scene.kind !== 'recording')
       throw new RpcError(`There is no recording scene ${p.sceneId}.`, 'bad_request');
+    const take = timeline.takes.find((t) => t.id === scene.take);
     let segments: Segment[];
     try {
-      segments = editPiece(scene.segments, p.index, p.edit);
+      segments = editPiece(scene.segments, p.index, p.edit, { takeDuration: take?.duration });
     } catch (e) {
       throw new RpcError(e instanceof Error ? e.message : String(e), 'bad_request');
     }
@@ -395,7 +396,6 @@ export class TimingFit {
       ...timeline,
       scenes: timeline.scenes.map((s, i) => (i === si ? { ...scene, segments } : s)),
     };
-    const take = timeline.takes.find((t) => t.id === scene.take);
     const events = take ? await readEvents(this.deps.store.dir(slug), take.events) : [];
     await saveTiming(this.deps, slug, timeline, after, events, { ...opts, label: PIECE_LABEL[p.edit.op] });
     return { segments };
@@ -488,6 +488,7 @@ const PIECE_LABEL: Record<PieceEdit['op'], string> = {
   duration: 'Change freeze',
   auto: 'Automatic timing',
   restoreCut: 'Restore cut',
+  trim: 'Trim piece',
 };
 
 export async function readEvents(projectDir: string, rel: string): Promise<RecorderEvent[]> {

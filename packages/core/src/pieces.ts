@@ -24,6 +24,12 @@ export const PieceEdit = z.discriminatedUnion('op', [
   z.object({ op: z.literal('auto') }),
   /** Put back the recording cut out after this piece (up to the next piece). */
   z.object({ op: z.literal('restoreCut') }),
+  /** Move the piece's start and/or end in the take (drag its edges): trims or extends it. */
+  z.object({
+    op: z.literal('trim'),
+    from: z.number().nonnegative().optional(),
+    to: z.number().nonnegative().optional(),
+  }),
 ]);
 export type PieceEdit = z.infer<typeof PieceEdit>;
 
@@ -49,8 +55,19 @@ export function cutGaps(segments: Segment[]): CutGap[] {
   return gaps;
 }
 
-/** Applies a hand edit to piece `index`; throws if it doesn't apply to that piece. */
-export function editPiece(segments: Segment[], index: number, edit: PieceEdit): Segment[] {
+/** Shortest piece a trim may leave (seconds of take). */
+const MIN_PIECE = 0.1;
+
+/**
+ * Applies a hand edit to piece `index`; throws if it doesn't apply to that piece. A trim stays
+ * clear of the neighbouring pieces and inside the take (`takeDuration`, when known).
+ */
+export function editPiece(
+  segments: Segment[],
+  index: number,
+  edit: PieceEdit,
+  opts: { takeDuration?: number } = {},
+): Segment[] {
   const s = segments[index];
   if (!s) throw new Error(`There is no piece ${index} in this scene.`);
   const replace = (...next: Segment[]) => [
@@ -86,6 +103,21 @@ export function editPiece(segments: Segment[], index: number, edit: PieceEdit): 
     case 'auto':
       if (s.kind === 'hold') return s.manual ? replace() : segments;
       return replace({ kind: 'src', from: s.from, to: s.to });
+    case 'trim': {
+      if (s.kind === 'hold') throw new Error('A freeze has no edges to trim: change its length instead.');
+      const from = r3(edit.from ?? s.from);
+      const to = r3(edit.to ?? s.to);
+      if (to - from < MIN_PIECE) throw new Error('That leaves the piece too short.');
+      const prev = segments.slice(0, index).findLast((x) => x.kind !== 'hold');
+      const next = segments.slice(index + 1).find((x) => x.kind !== 'hold');
+      if (prev && from < prev.to - 1e-3)
+        throw new Error('The piece would overlap the one before it.');
+      if (next && to > next.from + 1e-3)
+        throw new Error('The piece would overlap the one after it.');
+      if (opts.takeDuration !== undefined && to > opts.takeDuration + 1e-3)
+        throw new Error('The piece would run past the end of the recording.');
+      return replace({ ...s, from, to, manual: true });
+    }
     case 'restoreCut': {
       const gap = cutGaps(segments).find((g) => g.after === index);
       if (!gap) throw new Error('Nothing is cut out after this piece.');

@@ -133,6 +133,31 @@ export function PieceInspector({
               )}
             </Field>
           </div>
+          <div className="piece-row">
+            {(['from', 'to'] as const).map((edge) => (
+              <Field key={edge} label={edge === 'from' ? 'Starts at (recording s)' : 'Ends at (recording s)'}>
+                {(id) => (
+                  <Input
+                    id={id}
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    defaultValue={segment[edge]}
+                    key={segment[edge]}
+                    title="Trim or extend the piece; drag its edges on the timeline to do the same"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                    }}
+                    onBlur={(e) => {
+                      const n = Number(e.currentTarget.value);
+                      if (Number.isFinite(n) && Math.abs(n - segment[edge]) > 1e-3)
+                        void run({ op: 'trim', [edge]: n });
+                    }}
+                  />
+                )}
+              </Field>
+            ))}
+          </div>
           <Field
             label="Freeze at the playhead (seconds)"
             hint="Freezes the frame under the playhead, inside this piece."

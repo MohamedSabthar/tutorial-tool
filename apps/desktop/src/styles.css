@@ -656,6 +656,19 @@
 .timeline-piece:hover {
   border-color: var(--ui-navy);
 }
+/* Drag handles on a piece's ends: trim or extend it in the take. */
+.timeline-piece-edge {
+  position: absolute;
+  top: 4px;
+  width: 8px;
+  border-radius: 3px;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 3;
+}
+.timeline-piece-edge:hover {
+  background: color-mix(in srgb, var(--ui-navy) 30%, transparent);
+}
 .timeline-piece[aria-pressed='true'] {
   border: 2px solid var(--ui-orange);
   z-index: 2;

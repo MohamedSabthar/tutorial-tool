@@ -11,6 +11,7 @@ import {
   voiceOverlaps,
   voiceSpans,
   type OverlayInstance,
+  type Segment,
   type Timeline,
   type TimelinePatch,
 } from '@studio/core';
@@ -63,6 +64,10 @@ interface Props {
   onSelectLine?: (id: string | null) => void;
   /** A voice line dragged to start at output time `at`. */
   onMoveLine?: (id: string, at: number) => void;
+  /** A piece edge dragged to a new take time. */
+  onTrimPiece?: (piece: PieceRef, edge: { from?: number; to?: number }) => void;
+  /** Take times piece edges snap to (clicks, step starts). */
+  snapTimes?: number[];
 }
 
 /** A piece (segment) of a recording scene. */
@@ -112,7 +117,39 @@ export function TimelinePanel({
   selectedLine,
   onSelectLine,
   onMoveLine,
+  onTrimPiece,
+  snapTimes = [],
 }: Props) {
+  // A piece edge being dragged: which edge, where the drag began (px) and how far it has moved
+  // (output seconds).
+  const [trimDrag, setTrimDrag] = useState<{
+    sceneId: string;
+    index: number;
+    edge: 'start' | 'end';
+    x: number;
+    dt: number;
+  } | null>(null);
+  const beginTrim = (e: ReactPointerEvent<HTMLElement>, piece: PieceRef, edge: 'start' | 'end') => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setTrimDrag({ ...piece, edge, x: e.clientX, dt: 0 });
+  };
+  const moveTrim = (e: ReactPointerEvent<HTMLElement>) =>
+    setTrimDrag((d) => (d ? { ...d, dt: (e.clientX - d.x) / pps } : d));
+  const endTrim = (seg: Exclude<Segment, { kind: 'hold' }>) => {
+    const d = trimDrag;
+    setTrimDrag(null);
+    if (!d || Math.abs(d.dt * pps) < 3 || !onTrimPiece) return;
+    // Output seconds dragged → take seconds at the piece's speed, snapped to a click or step start.
+    const rate = seg.kind === 'speed' ? seg.rate : 1;
+    const raw = (d.edge === 'start' ? seg.from : seg.to) + d.dt * rate;
+    const tol = (8 / pps) * rate;
+    const near = snapTimes
+      .filter((t) => Math.abs(t - raw) <= tol)
+      .sort((x, y) => Math.abs(x - raw) - Math.abs(y - raw))[0];
+    const at = Math.max(0, Math.round((near ?? raw) * 1000) / 1000);
+    onTrimPiece({ sceneId: d.sceneId, index: d.index }, d.edge === 'start' ? { from: at } : { to: at });
+  };
   // A voice line being dragged along its lane: where the drag began, and how far it has moved.
   const lineDragStart = useRef<{ id: string; x: number; start: number } | null>(null);
   const [lineDrag, setLineDrag] = useState<{ id: string; dt: number } | null>(null);
@@ -345,16 +382,19 @@ export function TimelinePanel({
             />
           );
         }),
-        ...resolved.tm.segments.map((g) => {
+        ...resolved.tm.segments.flatMap((g) => {
           const seg = g.segment;
           const on = selectedPiece?.sceneId === g.sceneId && selectedPiece.index === g.index;
+          const trim = trimDrag?.sceneId === g.sceneId && trimDrag.index === g.index ? trimDrag : null;
+          const left = x(g.start + (trim?.edge === 'start' ? trim.dt : 0));
+          const right = x(g.end + (trim?.edge === 'end' ? trim.dt : 0));
           const label =
             seg.kind === 'hold'
               ? `Freeze ${seg.duration.toFixed(1)} s`
               : seg.kind === 'speed'
                 ? `${seg.rate}× · ${seg.from.toFixed(1)}–${seg.to.toFixed(1)} s`
                 : `Recording · ${seg.from.toFixed(1)}–${seg.to.toFixed(1)} s`;
-          return (
+          return [
             <button
               type="button"
               key={`${g.sceneId}-${g.index}`}
@@ -365,11 +405,28 @@ export function TimelinePanel({
               aria-label={`${label}${seg.manual ? ', edited by hand' : ''}. Select to edit`}
               title={`${label}${seg.manual ? ' · edited by hand' : ''} · ${fmt(g.start)}–${fmt(g.end)}`}
               onClick={() => onSelectPiece?.(on ? null : { sceneId: g.sceneId, index: g.index })}
-              style={{ left: x(g.start), width: Math.max(x(g.end) - x(g.start), 2), height: LANE_H - 8 }}
+              style={{ left, width: Math.max(right - left, 2), height: LANE_H - 8 }}
             >
               {label}
-            </button>
-          );
+            </button>,
+            // Edge handles sit beside the piece button (not inside it), so a drag isn't also a click.
+            ...(seg.kind !== 'hold' && onTrimPiece
+              ? (['start', 'end'] as const).map((edge) => (
+                  <span
+                    key={`${g.sceneId}-${g.index}-${edge}`}
+                    aria-hidden="true"
+                    className="timeline-piece-edge"
+                    title={
+                      edge === 'start' ? 'Drag to trim or extend the start' : 'Drag to trim or extend the end'
+                    }
+                    style={{ left: (edge === 'start' ? left : right) - 4, height: LANE_H - 8 }}
+                    onPointerDown={(e) => beginTrim(e, { sceneId: g.sceneId, index: g.index }, edge)}
+                    onPointerMove={moveTrim}
+                    onPointerUp={() => endTrim(seg)}
+                  />
+                ))
+              : []),
+          ];
         }),
         // Recording cut out between two pieces: a mark that puts it back.
         ...timeline.scenes.flatMap((sc) =>

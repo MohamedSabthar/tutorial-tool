@@ -449,6 +449,14 @@ export function StudioScreen({ slug }: { slug: string }) {
     const ids = voiceOverlaps(spans).get(selLine.id) ?? [];
     return spans.filter((s) => ids.includes(s.line.id)).map((s) => s.line.text);
   }, [selLine, tl.timeline, resolved]);
+  // Piece edges snap to clicks, key presses and step starts in the take.
+  const snapTimes = useMemo(
+    () => [
+      ...events.flatMap((e) => (e.kind === 'click' || e.kind === 'key' || e.kind === 'type' ? [e.t] : [])),
+      ...(tl.timeline?.steps.map((s) => s.from) ?? []),
+    ],
+    [events, tl.timeline],
+  );
   const selectLine = (id: string | null) => {
     setLineSel(id);
     if (!id) return;
@@ -1112,7 +1120,26 @@ export function StudioScreen({ slug }: { slug: string }) {
               }
               selectedLine={lineSel}
               onSelectLine={selectLine}
-              onMoveLine={(id, at) => void client?.call('vo.editLine', { slug, id, at })}
+              onMoveLine={(id, at) =>
+                void client
+                  ?.call('vo.editLine', { slug, id, at })
+                  .catch((e: unknown) =>
+                    setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }),
+                  )
+              }
+              onTrimPiece={(p, edge) =>
+                void client
+                  ?.call('timeline.editPiece', {
+                    slug,
+                    sceneId: p.sceneId,
+                    index: p.index,
+                    edit: { op: 'trim', ...edge },
+                  })
+                  .catch((e: unknown) =>
+                    setSending({ text: e instanceof Error ? e.message : String(e), tone: 'error' }),
+                  )
+              }
+              snapTimes={snapTimes}
               selectedPiece={piece}
               onSelectPiece={(p) => {
                 setPiece(p);

@@ -122,3 +122,27 @@ describe('voiceOverlaps', () => {
     expect(voiceOverlaps([span('a', 0, 5), span('b', 4.97, 6)]).size).toBe(0);
   });
 });
+
+describe('trim', () => {
+  it('moves a piece edge, staying clear of its neighbours and inside the take', () => {
+    // segs: 0–10, 10–20 at 2×, 25–30: the last piece can grow back to 20 s, not further.
+    expect(editPiece(segs, 2, { op: 'trim', from: 21 })[2]).toEqual({
+      kind: 'src',
+      from: 21,
+      to: 30,
+      manual: true,
+    });
+    expect(() => editPiece(segs, 2, { op: 'trim', from: 19 })).toThrow(/before it/);
+    expect(() => editPiece(segs, 0, { op: 'trim', to: 12 })).toThrow(/after it/);
+    expect(() => editPiece(segs, 2, { op: 'trim', to: 31 }, { takeDuration: 30 })).toThrow(
+      /end of the recording/,
+    );
+    expect(() => editPiece(segs, 1, { op: 'trim', from: 19.95 })).toThrow(/too short/);
+    expect(editPiece(segs, 1, { op: 'trim', to: 15 })[1]).toMatchObject({
+      kind: 'speed',
+      from: 10,
+      to: 15,
+      rate: 2,
+    });
+  });
+});
