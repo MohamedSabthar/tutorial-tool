@@ -1,5 +1,6 @@
 import {
   buildTimeMap,
+  cutGaps,
   pointerOverlayInstances,
   type OverlayInstance,
   type Rect,
@@ -22,6 +23,10 @@ const FF_ACTION_MAX = 4;
 const FF_JOIN = 0.6;
 /** A badge shorter than this would only flash, so none is shown. */
 const FF_MIN = 1.2;
+/** Cuts shorter than this (seconds of take) get no "skipped" badge. */
+const SKIP_MIN = 1;
+/** How long the "skipped" badge shows after a cut. */
+const SKIP_SHOW = 1.6;
 
 type Action = Extract<RecorderEvent, { kind: 'click' | 'type' }>;
 
@@ -210,6 +215,28 @@ export function autoOverlays(
       author: 'auto',
     });
   });
+
+  // A "skipped" badge just after every cut, so a jump reads as an edit, not a glitch.
+  for (const sc of tl.scenes) {
+    if (sc.kind !== 'recording') continue;
+    for (const gap of cutGaps(sc.segments)) {
+      // The jump shows where the next recorded piece starts (after any freeze in between).
+      const next = sc.segments.findIndex((g, i) => i > gap.after && g.kind !== 'hold');
+      const span = tm.segments.find((g) => g.sceneId === sc.id && g.index === next);
+      if (!span || gap.to - gap.from < SKIP_MIN) continue;
+      const end = Math.min(span.start + SKIP_SHOW, tm.duration);
+      if (end - span.start < 0.3) continue;
+      result.push({
+        id: `auto-skip-${sc.id}-${gap.after}`,
+        component: 'core:Skip',
+        start: r3(span.start),
+        end: r3(end),
+        layer: 75,
+        props: { seconds: r3(gap.to - gap.from) },
+        author: 'auto',
+      });
+    }
+  }
 
   // Captions show the captions track's cue at each moment.
   if (tl.captions.length)

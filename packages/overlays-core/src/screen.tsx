@@ -321,3 +321,60 @@ export function FastForward({ props }: OverlayProps<FastForwardProps>) {
     </DomLayer>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Skip
+// ---------------------------------------------------------------------------
+
+const SkipProps = z.object({
+  /** Seconds of recording cut out at this point; 0 shows the badge without a number. */
+  seconds: z.number().min(0).default(0),
+});
+type SkipProps = z.infer<typeof SkipProps>;
+
+export const skipMeta: OverlayMeta = {
+  name: 'Skip',
+  description:
+    'A short "skipped ahead" badge at the top right, just after a cut, so a jump in the recording reads as an edit rather than a glitch (added automatically at every cut).',
+  props: SkipProps,
+  defaultDuration: 1.6,
+};
+
+/** "Skipped ahead" badge, shown for a moment after a cut; fades from time alone. */
+export function Skip({ props }: OverlayProps<SkipProps>) {
+  const { t, duration } = useOverlayTime();
+  const a = Math.max(0, Math.min(1, t / 0.15, (duration - t) / 0.3));
+  const s = props.seconds ?? 0;
+  const label = s >= 1 ? `${Math.round(s)} s skipped` : 'Skipped ahead';
+  return (
+    <DomLayer>
+      <span
+        aria-label={label}
+        style={{
+          position: 'absolute',
+          right: 64,
+          top: 56,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '10px 18px',
+          borderRadius: 999,
+          fontFamily: theme.font.sans,
+          fontSize: 26,
+          fontWeight: 700,
+          color: theme.color.white,
+          background: 'rgba(12,21,38,0.82)',
+          boxShadow: theme.shadow,
+          opacity: a,
+          transform: `translateY(${(1 - a) * -8}px)`,
+        }}
+      >
+        <svg width="24" height="18" viewBox="0 0 24 18" aria-hidden="true">
+          <path d="M0 0 L12 9 L0 18 Z" fill={theme.color.orange} />
+          <rect x="15" y="0" width="4" height="18" rx="1" fill={theme.color.orange} />
+        </svg>
+        {label}
+      </span>
+    </DomLayer>
+  );
+}

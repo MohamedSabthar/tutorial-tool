@@ -84,6 +84,19 @@ describe('autoOverlays', () => {
     expect(zooms[1]!.start).toBeCloseTo(20 - 15 + 7 - 1, 3);
   });
 
+  it('adds a "skipped" badge where the recording jumps after a cut, not for tiny cuts', () => {
+    // Take 5–15 s is cut; a 2 s freeze sits before the jump, so it shows at output 7 s.
+    const cut = tl([
+      { kind: 'src', from: 0, to: 5 },
+      { kind: 'hold', at: 4.9, duration: 2 },
+      { kind: 'src', from: 15, to: 29.5 },
+      { kind: 'src', from: 29.9, to: 30 },
+    ]);
+    const skips = autoOverlays(cut, events).filter((o) => o.component === 'core:Skip');
+    expect(skips).toHaveLength(1); // the 0.4 s cut near the end gets none
+    expect(skips[0]).toMatchObject({ start: 7, end: 8.6, props: { seconds: 10 } });
+  });
+
   it('replaces only automatic overlays and keeps ones the user edited', () => {
     const first = withAutoOverlays(
       tl([{ kind: 'src', from: 0, to: 30 }], [{ id: 'mine', component: 'core:Callout', start: 1, end: 2 }]),

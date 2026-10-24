@@ -19,6 +19,8 @@ import {
   captionsMeta,
   FastForward,
   fastForwardMeta,
+  Skip,
+  skipMeta,
   Keystroke,
   keystrokeMeta,
   TextLabel,
@@ -58,6 +60,7 @@ export const coreOverlays: Record<string, OverlayModule> = {
   'core:Keystroke': mod(keystrokeMeta, Keystroke as OverlayModule['default']),
   'core:Captions': mod(captionsMeta, Captions as OverlayModule['default']),
   'core:FastForward': mod(fastForwardMeta, FastForward as OverlayModule['default']),
+  'core:Skip': mod(skipMeta, Skip as OverlayModule['default']),
 };
 
 /** Instance props with the component's defaults applied (throws on invalid props). */
