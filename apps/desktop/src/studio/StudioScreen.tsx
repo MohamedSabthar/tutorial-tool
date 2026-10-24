@@ -50,6 +50,7 @@ import { VoicePlayer } from './VoicePlayer';
 import { ToolRail, toolForKey, type Tool } from './ToolRail';
 import { useFullscreen } from './fullscreen';
 import { SeekBar } from './SeekBar';
+import { usePlayerFit } from './usePlayerFit';
 import { AnnotationLayer, AnnotationsPanel, type Shape } from './Annotations';
 import { AnnotationPopover } from './AnnotationPopover';
 import { screenToStage } from './StageHost';
@@ -175,6 +176,9 @@ export function StudioScreen({ slug }: { slug: string }) {
     writePref('studio.side', v);
   };
   const [centre, setCentre] = useState<'Preview' | 'Review'>('Preview');
+  const reviewing = centre === 'Review' && jobs.length > 0;
+  // The preview panel hugs the video (no bands beside it), except in full screen.
+  const player = usePlayerFit((tl.timeline?.size.w ?? 16) / (tl.timeline?.size.h ?? 9), !full && !reviewing);
   // About a third of the window unless the user has resized it.
   const [timelineH, setTimelineH] = useState(() =>
     clampTimeline(Number(readPref('studio.timelineH')) || window.innerHeight * 0.32),
@@ -701,7 +705,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               onChange={setCentre}
             />
           )}
-          {centre === 'Review' && jobs.length > 0 ? (
+          {reviewing ? (
             <div className="studio-review">
               {jobs.map((job) => (
                 <ExplainerStoryboard
@@ -718,9 +722,12 @@ export function StudioScreen({ slug }: { slug: string }) {
               ))}
             </div>
           ) : (
-            <Panel className={full ? 'studio-preview studio-preview-full' : 'studio-preview'}>
+            <Panel
+              className={full ? 'studio-preview studio-preview-full' : 'studio-preview'}
+              style={player.maxWidth ? { maxWidth: player.maxWidth } : undefined}
+            >
               {/* The stage keeps its aspect and fits the space left by the timeline. */}
-              <div className="studio-stage-fit">
+              <div className="studio-stage-fit" ref={player.fitRef}>
                 <div
                   className="studio-stage-box"
                   style={{ aspectRatio: `${tl.timeline?.size.w ?? 16} / ${tl.timeline?.size.h ?? 9}` }}
