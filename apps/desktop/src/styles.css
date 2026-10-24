@@ -400,12 +400,10 @@
   gap: 10px;
   padding: 12px 6px;
 }
-/* Tight padding, and centred at the width of its video (usePlayerFit sets max-width). */
+/* Tight padding so the 16:9 preview gets as much of the panel as it can. */
 .studio-preview {
   flex: 1 1 auto;
   min-height: 0;
-  width: 100%;
-  align-self: center;
   padding: 8px;
   gap: 6px;
 }
@@ -509,8 +507,7 @@
   width: min(100cqw, 100cqh * 16 / 9);
 }
 .studio-stage-empty {
-  box-sizing: border-box;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   display: grid;
   place-items: center;
   border: 1px dashed var(--ui-gray-300);
