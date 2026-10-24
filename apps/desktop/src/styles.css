@@ -527,16 +527,21 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--ui-white);
-  border-top: 1px solid var(--ui-gray-300);
+  /* Lines up with the side panels' outer edges; the panels above leave a 12px gap. */
+  padding: 0 12px 12px 18px;
 }
+/* The timeline is a panel like the others. */
 .studio-dock > section {
   flex: 1 1 auto;
   min-height: 0;
+  border: 1px solid var(--ui-gray-300);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-sm);
 }
+/* Sits in the gap above the timeline box. */
 .studio-dock-handle {
   position: absolute;
-  top: -4px;
+  top: -10px;
   left: 0;
   right: 0;
   height: 8px;
