@@ -14,6 +14,7 @@ import { openLive, useEngine } from '../../engine';
 import { pipelineSteps, usePipeline } from '../../pipeline';
 import { AppFrame, formatDuration } from '../frame';
 import { PermissionRequests } from '../../studio/PermissionRequests';
+import { useTimeline } from '../../studio/useTimeline';
 
 /** Rough length of an explainer until scenes exist (Phase 6). */
 const EXPLAINER_SECONDS = 20;
@@ -94,7 +95,21 @@ export function StoryboardScreen({ slug }: { slug: string }) {
   /** When the last dry run passed: its step stills are on disk (and cache-busted by it). */
   const shotsAt = st?.history.filter((h) => h.stage === 'dry_run' && h.ok).at(-1)?.endedAt ?? null;
   const reviewing = (st?.status === 'waiting' && st.gate?.kind === 'storyboard') || narrationGate;
-  const cards = plan ? storyboardCards(plan) : [];
+  // Once a take is recorded, the narration that is voiced lives on the timeline's steps (the
+  // post-production agent and the Studio write it there), so show that instead of the plan's.
+  const tl = useTimeline(slug);
+  const recorded = !reviewing && !!tl.timeline?.takes.length;
+  const shown =
+    plan && recorded
+      ? {
+          ...plan,
+          steps: plan.steps.map((s) => {
+            const narration = tl.timeline!.steps.find((x) => x.id === s.id)?.narration.trim();
+            return narration ? { ...s, narration } : s;
+          }),
+        }
+      : plan;
+  const cards = shown ? storyboardCards(shown) : [];
 
   // Each step's time on camera, measured by the latest passing dry run.
   useEffect(() => {
@@ -351,8 +366,11 @@ export function StoryboardScreen({ slug }: { slug: string }) {
                     placeholder={
                       narrationGate
                         ? undefined
-                        : 'Written after the agent has researched and dry-run every step; you review it before the voice-over. Type here to give your own wording.'
+                        : recorded
+                          ? 'No narration for this step yet: it is written in post-production, and you can edit it in the Studio.'
+                          : 'Written after the agent has researched and dry-run every step; you review it before the voice-over. Type here to give your own wording.'
                     }
+                    title={recorded ? 'The narration on the timeline; edit it in the Studio' : undefined}
                     value={drafts[`${c.step.id}:narration`] ?? c.step.narration}
                     onChange={(e) =>
                       edit(`${c.step.id}:narration`, e.target.value, {
