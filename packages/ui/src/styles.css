@@ -52,38 +52,40 @@
 }
 
 /*
- * Dark theme: navy surfaces, light text. Navy-filled states (selected segments, playheads,
- * badges) invert to light fills with dark text, since they use --ui-navy with --ui-white.
+ * Dark theme ("Slate"): blue-grey surfaces, light text. Panels use --ui-white and the page
+ * behind them --ui-gray-50, so panels sit above the page as in the light theme. Navy-filled
+ * states (selected segments, playheads, badges) invert to light fills with dark text, since
+ * they use --ui-navy with --ui-white.
  */
 [data-theme='dark'] {
   color-scheme: dark;
   color: var(--ui-ink);
 
-  --ui-orange-100: #3d2417;
-  --ui-orange-ink: #ff9a5c;
-  --ui-navy: #edf1f7;
-  --ui-navy-900: #f7f9fc;
+  --ui-orange-100: #4d3020;
+  --ui-orange-ink: #ffa56b;
+  --ui-navy: #f7f9fc;
+  --ui-navy-900: #ffffff;
 
-  --ui-white: #101827;
-  --ui-gray-50: #172133;
-  --ui-gray-100: #1c273a;
-  --ui-gray-300: #2d3a50;
-  --ui-gray-500: #7f8ba0;
-  --ui-gray-600: #a6b0c0;
-  --ui-ink: #e3e7ee;
+  --ui-white: #262f3e;
+  --ui-gray-50: #1c2431;
+  --ui-gray-100: #2f3a4b;
+  --ui-gray-300: #455269;
+  --ui-gray-500: #a2acbd;
+  --ui-gray-600: #c8cfdb;
+  --ui-ink: #edf0f5;
 
-  --ui-steel-100: #1a2c41;
-  --ui-steel-300: #3e6184;
-  --ui-steel-ink: #9cc0e0;
-  --ui-green-100: #14302a;
-  --ui-green-ink: #6fd3a3;
+  --ui-steel-100: #2a3d56;
+  --ui-steel-300: #6a90b5;
+  --ui-steel-ink: #a9cbe8;
+  --ui-green-100: #1d3d35;
+  --ui-green-ink: #86e2b6;
   --ui-red: #ef5153;
-  --ui-red-100: #3a1c21;
-  --ui-red-ink: #ff8a8b;
+  --ui-red-100: #4a2328;
+  --ui-red-ink: #ff9c9d;
 
-  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --ui-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --ui-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.5);
+  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --ui-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --ui-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.45);
 }
 
 :root {
