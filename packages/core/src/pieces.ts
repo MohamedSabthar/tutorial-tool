@@ -110,10 +110,8 @@ export function editPiece(
       if (to - from < MIN_PIECE) throw new Error('That leaves the piece too short.');
       const prev = segments.slice(0, index).findLast((x) => x.kind !== 'hold');
       const next = segments.slice(index + 1).find((x) => x.kind !== 'hold');
-      if (prev && from < prev.to - 1e-3)
-        throw new Error('The piece would overlap the one before it.');
-      if (next && to > next.from + 1e-3)
-        throw new Error('The piece would overlap the one after it.');
+      if (prev && from < prev.to - 1e-3) throw new Error('The piece would overlap the one before it.');
+      if (next && to > next.from + 1e-3) throw new Error('The piece would overlap the one after it.');
       if (opts.takeDuration !== undefined && to > opts.takeDuration + 1e-3)
         throw new Error('The piece would run past the end of the recording.');
       return replace({ ...s, from, to, manual: true });

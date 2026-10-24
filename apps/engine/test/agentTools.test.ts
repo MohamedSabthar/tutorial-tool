@@ -321,6 +321,34 @@ describe('studio tools', () => {
     await expect(vo.peaks(slug, '../tutorial.json')).rejects.toThrow(/audio/);
   });
 
+  it('keeps the lines but reports a failed timing fit, and the agent tool says not to call it done', async () => {
+    const slug = ctx.slug;
+    const failing = new Voiceover({
+      store,
+      timelines,
+      tts: vo['deps'].tts,
+      after: async () => {
+        throw new Error('scenes.0.segments.1.rate: Too big');
+      },
+    });
+    const r = await failing.generate(slug, { stepIds: ['s1'] });
+    expect(r.fitError).toMatch(/Too big/);
+    expect(r.lines.map((l) => l.stepId)).toEqual(['s1']);
+    expect((await timelines.get(slug)).timeline.voice.some((v) => v.id === 'vo-s1')).toBe(true);
+
+    const real = ctx.voiceover;
+    ctx.voiceover = failing;
+    try {
+      const out = await call('generate_voiceover', { stepIds: ['s1'] });
+      expect(out.isError).toBe(true);
+      expect(text(out)).toMatch(
+        /saved, but the timing fit .* failed[\s\S]*Don't report the voice-over as done/,
+      );
+    } finally {
+      ctx.voiceover = real;
+    }
+  });
+
   it('adds, rewrites, moves and deletes hand-written voice lines; regenerating keeps them', async () => {
     const slug = ctx.slug;
     // s1 shows from 0 s and s2 from 10 s of output.

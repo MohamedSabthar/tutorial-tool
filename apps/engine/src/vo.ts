@@ -33,6 +33,11 @@ export interface VoiceoverResult {
   seconds: number;
   /** Timing fit run right after (output length before and after). */
   fit?: { before: number; after: number; holds: number; spedUp: number };
+  /**
+   * Set when the lines were saved but the timing fit after them failed: picture and voice are
+   * out of sync until it is fixed.
+   */
+  fitError?: string;
 }
 
 /** Runs after new lines land (the timing fit), in the same undo group. */
@@ -145,13 +150,18 @@ export class Voiceover {
       });
     result.seconds = Math.round(result.lines.reduce((n, l) => n + l.duration, 0) * 100) / 100;
     if (this.deps.after && (fresh.size || freshScenes.size) && timeline.takes.length) {
-      const f = await this.deps.after(slug, { author: opts.author ?? 'user', group: opts.group ?? null });
-      result.fit = {
-        before: f.before,
-        after: f.after,
-        holds: f.steps.filter((s) => s.hold > 0).length,
-        spedUp: f.steps.filter((s) => s.saved > 0.5).length,
-      };
+      try {
+        const f = await this.deps.after(slug, { author: opts.author ?? 'user', group: opts.group ?? null });
+        result.fit = {
+          before: f.before,
+          after: f.after,
+          holds: f.steps.filter((s) => s.hold > 0).length,
+          spedUp: f.steps.filter((s) => s.saved > 0.5).length,
+        };
+      } catch (e) {
+        // The lines are saved; say so, and that the fit (and so the sync) didn't happen.
+        result.fitError = e instanceof Error ? e.message : String(e);
+      }
     }
     return result;
   }

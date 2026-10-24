@@ -185,6 +185,8 @@ export const rpcMethods = {
       fit: z
         .object({ before: z.number(), after: z.number(), holds: z.number(), spedUp: z.number() })
         .optional(),
+      /** The lines were saved but the timing fit after them failed (picture and voice out of sync). */
+      fitError: z.string().optional(),
     }),
   },
   /** A line written by hand, voiced and placed at output time `at`; regenerating the voice-over keeps it. */

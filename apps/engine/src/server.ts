@@ -433,6 +433,11 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         if (ops.length) await timelines.patch(slug, ops, { author: 'auto', group, label: 'Final narration' });
       }
       const r = await voiceover.generate(slug, { author: 'auto', group });
+      // Live shows the item as failed, with why.
+      if (r.fitError)
+        throw new Error(
+          `the ${r.lines.length} lines are saved, but the timing fit failed, so picture and voice are out of sync: ${r.fitError}`,
+        );
       return `Voice-over: ${r.lines.length} lines, ${r.seconds.toFixed(1)} s.`;
     },
     pace: {

@@ -1283,6 +1283,10 @@ function RegenerateVo({ slug }: { slug: string }) {
         onClick={() =>
           run('vo', async () => {
             const r = await client!.call('vo.generate', { slug });
+            if (r.fitError)
+              throw new Error(
+                `Voice-over saved, but the timing fit failed (picture and voice are out of sync): ${r.fitError}`,
+              );
             const cached = r.lines.filter((l) => l.cached).length;
             return [
               `${r.lines.length} line${r.lines.length === 1 ? '' : 's'} · ${r.seconds.toFixed(1)} s`,
