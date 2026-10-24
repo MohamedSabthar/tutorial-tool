@@ -404,6 +404,84 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+/* Seek bar under the preview: a thin track that thickens on hover, with a handle. */
+.seek-bar {
+  position: relative;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  border-radius: var(--ui-radius-sm);
+}
+.seek-bar:focus-visible {
+  outline: 2px solid var(--ui-orange);
+  outline-offset: 2px;
+}
+.seek-bar-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ui-gray-100);
+  transition: height var(--ui-fast) var(--ui-ease);
+}
+.seek-bar:hover .seek-bar-track,
+.seek-bar:focus-visible .seek-bar-track {
+  height: 6px;
+}
+.seek-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--ui-orange);
+}
+.seek-bar-tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ui-navy);
+}
+.seek-bar-handle {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--ui-orange);
+  box-shadow: 0 0 0 2px var(--ui-white);
+  opacity: 0;
+  transition: opacity var(--ui-fast) var(--ui-ease);
+}
+.seek-bar:hover .seek-bar-handle,
+.seek-bar:focus-visible .seek-bar-handle,
+.seek-bar:active .seek-bar-handle {
+  opacity: 1;
+}
+.seek-bar-tip {
+  position: absolute;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--ui-navy);
+  color: var(--ui-white);
+}
+@media (prefers-reduced-motion: reduce) {
+  .seek-bar-track,
+  .seek-bar-handle {
+    transition: none;
+  }
+}
+
 /* Full screen: the preview and its play bar cover the window. */
 .studio-preview-full {
   position: fixed;

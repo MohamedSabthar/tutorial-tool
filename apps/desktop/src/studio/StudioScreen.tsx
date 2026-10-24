@@ -49,6 +49,7 @@ import { Library } from './Library';
 import { VoicePlayer } from './VoicePlayer';
 import { ToolRail, toolForKey, type Tool } from './ToolRail';
 import { useFullscreen } from './fullscreen';
+import { SeekBar } from './SeekBar';
 import { AnnotationLayer, AnnotationsPanel, type Shape } from './Annotations';
 import { AnnotationPopover } from './AnnotationPopover';
 import { screenToStage } from './StageHost';
@@ -830,39 +831,7 @@ export function StudioScreen({ slug }: { slug: string }) {
                   )}
                 </div>
               </div>
-              {/* progress with step ticks */}
-              <div
-                style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--ui-gray-100)' }}
-              >
-                <Timed player={controls}>
-                  {(t) => (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: `${(t / duration) * 100}%`,
-                        background: 'var(--ui-orange)',
-                        borderRadius: 2,
-                      }}
-                    />
-                  )}
-                </Timed>
-                {steps.map((s) => (
-                  <span
-                    key={s.id}
-                    style={{
-                      position: 'absolute',
-                      top: -3,
-                      width: 2,
-                      height: 10,
-                      left: `${(s.start / duration) * 100}%`,
-                      background: 'var(--ui-navy)',
-                    }}
-                  />
-                ))}
-              </div>
+              <SeekBar player={controls} duration={duration} ticks={steps} format={fmt} />
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
                 <IconButton label="Previous step" onClick={() => seekStep(-1)}>
                   <IconPrev size={14} />
