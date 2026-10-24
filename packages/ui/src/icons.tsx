@@ -114,6 +114,29 @@ export const IconRegion = (p: IconProps) => (
     <rect x="4" y="5" width="16" height="14" rx="2" />
   </Svg>
 );
+export const IconPointer = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 3l14 7.5-6.2 1.7L10 18.5z" />
+  </Svg>
+);
+export const IconText = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 6V4h14v2M12 4v16M9 20h6" />
+  </Svg>
+);
+export const IconZoom = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M20 20l-4.4-4.4M11 8.5v5M8.5 11h5" />
+  </Svg>
+);
+/** Blur: a droplet with soft dots. */
+export const IconBlur = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3s-6 6.6-6 11a6 6 0 0 0 12 0c0-4.4-6-11-6-11z" />
+    <path d="M9.5 14h.01M12 16.5h.01M14.5 14h.01M12 11.5h.01" strokeWidth={2.4} />
+  </Svg>
+);
 
 // Pipeline stages ------------------------------------------------------------------------------
 

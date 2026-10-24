@@ -170,6 +170,37 @@
 .tool-rail-toggle {
   color: var(--ui-gray-600);
 }
+/* Hover or focus a tool to see its name and key, to the right of the rail. */
+.tool-rail-btn {
+  position: relative;
+}
+.tool-rail-tip {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 9px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-fill-dark);
+  color: var(--ui-on-fill);
+  font: 500 12px var(--ui-font);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--ui-shadow-md);
+}
+.tool-rail-btn:hover .tool-rail-tip,
+.tool-rail-btn:focus-visible .tool-rail-tip {
+  display: flex;
+}
+.tool-rail-tip kbd {
+  font: 600 11px var(--ui-mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+}
 .tool-rail-btn[aria-pressed='true'] {
   background: var(--ui-orange);
   color: var(--ui-on-fill);
