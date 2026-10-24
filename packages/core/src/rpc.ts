@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { Project, Rect, RecorderEvent, Take, Timeline } from './schemas';
+import { Project, Rect, RecorderEvent, Segment, Take, Timeline } from './schemas';
+import { PieceEdit } from './pieces';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
 import { PipelineGates, PipelineProgress, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
@@ -280,6 +281,20 @@ export const rpcMethods = {
         }),
       ),
     }),
+  },
+  /**
+   * A hand edit to piece `index` of a recording scene: speed, remove (off camera), freeze, back
+   * to automatic, restore a cut. Overlays, captions and annotations follow; later fits keep it.
+   */
+  'timeline.editPiece': {
+    params: z.object({
+      slug: z.string(),
+      sceneId: z.string(),
+      index: z.number().int().nonnegative(),
+      edit: PieceEdit,
+      author: z.enum(['user', 'agent']).default('user'),
+    }),
+    result: z.object({ segments: z.array(Segment) }),
   },
   /** Waveform peaks (0–1) of a project audio file, `rate` per second. */
   'vo.peaks': {

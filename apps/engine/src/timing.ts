@@ -2,11 +2,14 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   buildTimeMap,
+  editPiece,
   outputRemapper,
+  segmentDuration,
   remapOutputItems,
   RecorderEvent,
   RpcError,
   voiceSpans,
+  type PieceEdit,
   type Segment,
   type Step,
   type Timeline,
@@ -116,7 +119,8 @@ function sinceLastAction(events: RecorderEvent[], t: number): number {
  * fast-forwards the rest: product waits down to about WAIT_KEEP seconds each, unnarrated action
  * at 2–4× (the automatic overlays badge it). Lines start at least CLICK_GAP after the previous
  * click. Cuts the user made (the source ranges the scene shows) are kept; earlier holds and speed
- * changes are recomputed.
+ * changes are recomputed, except on pieces edited by hand (`manual`), which stay as they are and
+ * count towards their step's time.
  */
 export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
   const before = buildTimeMap(tl).duration;
@@ -129,38 +133,56 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
   const scenes = tl.scenes.map((scene) => {
     if (scene.kind !== 'recording') return scene;
     const kept = merge(
-      scene.segments.filter((s) => s.kind !== 'hold').map((s) => [s.from, s.to] as Interval),
+      scene.segments.flatMap((s) => (s.kind === 'hold' || s.manual ? [] : [[s.from, s.to] as Interval])),
     );
     const steps = tl.steps.filter((s) => s.take === scene.take).sort((a, b) => a.from - b.from);
     const ownerAt = (t: number): Step | undefined => steps.find((s) => t >= s.from && t < s.to);
 
-    // Pieces of kept source, split at step boundaries.
-    const cuts = [...new Set(steps.flatMap((s) => [s.from, s.to]))];
-    const pieces: { range: Interval; step: Step | undefined }[] = [];
-    for (const [a, b] of kept) {
+    // Pieces of kept source, split at step boundaries. Hand-edited pieces come along as they are
+    // (`fixed`); a hand-made freeze is a piece of no source length at its frame.
+    const freezes = scene.segments.flatMap((s) => (s.kind === 'hold' && s.manual ? [s.at] : []));
+    const cuts = [...new Set([...steps.flatMap((s) => [s.from, s.to]), ...freezes])];
+    type Piece = { range: Interval; step: Step | undefined; fixed?: Segment };
+    const pieces: Piece[] = [];
+    const add = (a: number, b: number, fixed?: Segment) => {
       const inner = cuts.filter((c) => c > a && c < b).sort((x, y) => x - y);
       let from = a;
       for (const c of [...inner, b]) {
-        pieces.push({ range: [from, c], step: ownerAt(from) });
+        const piece: Piece = { range: [from, c], step: ownerAt(from) };
+        if (fixed) piece.fixed = { ...fixed, from: r3(from), to: r3(c) } as Segment;
+        pieces.push(piece);
         from = c;
       }
+    };
+    for (const [a, b] of kept) add(a, b);
+    for (const seg of scene.segments) {
+      if (!seg.manual) continue;
+      if (seg.kind === 'hold') {
+        const step = ownerAt(seg.at) ?? steps.find((s) => Math.abs(s.to - seg.at) < 0.1);
+        pieces.push({ range: [seg.at, seg.at], step, fixed: seg });
+      } else add(seg.from, seg.to, seg);
     }
+    // In take order; a freeze comes before the piece that starts on its frame.
+    pieces.sort(
+      (x, y) =>
+        x.range[0] - y.range[0] || (x.fixed?.kind === 'hold' ? -1 : 0) - (y.fixed?.kind === 'hold' ? -1 : 0),
+    );
 
     const segments: Segment[] = [];
     let i = 0;
     while (i < pieces.length) {
       const step = pieces[i]!.step;
       if (!step) {
-        const [from, to] = pieces[i]!.range;
-        segments.push({ kind: 'src', from: r3(from), to: r3(to) });
+        const { range, fixed } = pieces[i]!;
+        segments.push(fixed ?? { kind: 'src', from: r3(range[0]), to: r3(range[1]) });
         i++;
         continue;
       }
-      const own: Interval[] = [];
-      while (i < pieces.length && pieces[i]!.step === step) own.push(pieces[i++]!.range);
-      const action = own.reduce((n, [a, b]) => n + (b - a), 0);
+      const own: Piece[] = [];
+      while (i < pieces.length && pieces[i]!.step === step) own.push(pieces[i++]!);
+      const action = own.reduce((n, { range: [a, b] }) => n + (b - a), 0);
       const line = lineOf.get(step.id);
-      const leadIn = Math.max(LEAD_IN, CLICK_GAP - sinceLastAction(events, own[0]![0]));
+      const leadIn = Math.max(LEAD_IN, CLICK_GAP - sinceLastAction(events, own[0]!.range[0]));
       leadIns.set(step.id, r3(leadIn));
       const needed = line ? leadIn + line.duration + TAIL : 0;
 
@@ -168,8 +190,15 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
       const voiced = line ? needed + GRACE : Infinity;
       const kept: Interval[] = [];
       const after: Interval[] = [];
+      const fixed: { range: Interval; segment: Segment }[] = [];
       let elapsed = 0;
-      for (const [a, b] of own) {
+      for (const piece of own) {
+        const [a, b] = piece.range;
+        if (piece.fixed) {
+          fixed.push({ range: piece.range, segment: piece.fixed });
+          elapsed += segmentDuration(piece.fixed);
+          continue;
+        }
         const split = Math.min(b, Math.max(a, a + (voiced - elapsed)));
         if (split > a) kept.push([a, split]);
         if (b > split) after.push([split, b]);
@@ -185,31 +214,37 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
         const rate = Math.max(speed, len > WAIT_KEEP * 1.5 ? len / WAIT_KEEP : 1);
         return Math.round(Math.min(MAX_WAIT_SPEED, rate) * 100) / 100;
       };
+      const toSegment = ([from, to]: Interval, rate: number): Segment =>
+        rate > 1
+          ? { kind: 'speed', from: r3(from), to: r3(to), rate }
+          : { kind: 'src', from: r3(from), to: r3(to) };
       const parts = [
-        ...kept.map((range) => ({ range, rate: 1 })),
+        ...kept.map((range) => ({ range, segment: toSegment(range, 1) })),
         ...after.flatMap((r) =>
           splitIdle(r, waits).map((p) => ({
             range: p.range,
-            rate: p.idle ? waitRate(p.range[1] - p.range[0]) : speed,
+            segment: toSegment(p.range, p.idle ? waitRate(p.range[1] - p.range[0]) : speed),
           })),
         ),
-      ].sort((x, y) => x.range[0] - y.range[0]);
-      let fitted = 0;
-      for (const { range, rate } of parts) {
-        const [from, to] = range;
-        if (to - from < 1e-3) continue;
-        fitted += (to - from) / rate;
-        segments.push(
-          rate > 1
-            ? { kind: 'speed', from: r3(from), to: r3(to), rate }
-            : { kind: 'src', from: r3(from), to: r3(to) },
+        ...fixed,
+      ]
+        .filter(({ range: [a, b], segment }) => segment.kind === 'hold' || b - a >= 1e-3)
+        .sort(
+          (x, y) =>
+            x.range[0] - y.range[0] ||
+            (x.segment.kind === 'hold' ? -1 : 0) - (y.segment.kind === 'hold' ? -1 : 0),
         );
+      let fitted = 0;
+      for (const { segment } of parts) {
+        fitted += segmentDuration(segment);
+        segments.push(segment);
       }
+      const last = [...own].reverse().find(({ range: [a, b] }) => b > a)?.range ?? own.at(-1)!.range;
       const hold = line && needed > fitted ? snap(needed - fitted + FRAME / 2) : 0;
       if (hold > 0)
         segments.push({
           kind: 'hold',
-          at: r3(Math.max(own.at(-1)![1] - FRAME, own.at(-1)![0])),
+          at: r3(Math.max(last[1] - FRAME, last[0])),
           duration: r3(hold),
         });
       fits.push({
@@ -250,6 +285,7 @@ function compact(segments: Segment[]): Segment[] {
       last &&
       last.kind !== 'hold' &&
       s.kind === last.kind &&
+      !s.manual === !last.manual &&
       Math.abs(s.from - last.to) < 1e-3 &&
       (s.kind === 'src' || (last.kind === 'speed' && s.rate === last.rate))
     )
@@ -275,6 +311,39 @@ function splitIdle(range: Interval, idle: Interval[]): { range: Interval; idle: 
   return out;
 }
 
+/**
+ * Saves new scene timing as one patch, with what depends on it: user overlays, captions and
+ * annotations follow their moments; automatic overlays are rebuilt from the take's events.
+ */
+async function saveTiming(
+  deps: { store: ProjectStore; timelines: TimelineStore },
+  slug: string,
+  before: Timeline,
+  after: Timeline,
+  events: RecorderEvent[],
+  opts: { author?: Author; group?: string | null; label: string },
+) {
+  const { project } = await deps.store.open(slug);
+  const captioned = withCaptions(remapOutputItems(after, outputRemapper(before, after)));
+  const overlays = withAutoOverlays(captioned, events, { title: project.title }).overlays;
+  const patch: TimelinePatch = [
+    ...after.scenes.flatMap((s, i) =>
+      s.kind === 'recording'
+        ? [{ op: 'replace' as const, path: `/scenes/${i}/segments`, value: s.segments }]
+        : [],
+    ),
+    { op: 'replace', path: '/voice', value: after.voice },
+    { op: 'replace', path: '/captions', value: captioned.captions },
+    { op: 'replace', path: '/annotations', value: captioned.annotations },
+    { op: 'replace', path: '/overlays', value: overlays },
+  ];
+  await deps.timelines.patch(slug, patch, {
+    author: opts.author ?? 'user',
+    group: opts.group ?? null,
+    label: opts.label,
+  });
+}
+
 /** Loads a take's events and applies the fit as one patch. */
 export class TimingFit {
   constructor(private deps: { store: ProjectStore; timelines: TimelineStore }) {}
@@ -286,30 +355,51 @@ export class TimingFit {
     if (!timeline.voice.length) throw new RpcError('There is no voice-over to fit to yet.', 'bad_request');
     const events = await readEvents(this.deps.store.dir(slug), take.events);
     const r = fitTiming(timeline, events);
-    // Automatic overlays are in output time: rebuild them for the new timing.
-    const { project } = await this.deps.store.open(slug);
-    // User overlays and annotations follow their recorded moments through the new timing.
-    const captioned = withCaptions(remapOutputItems(r.timeline, outputRemapper(timeline, r.timeline)));
-    const overlays = withAutoOverlays(captioned, events, { title: project.title }).overlays;
-    const patch: TimelinePatch = [
-      ...r.timeline.scenes.flatMap((s, i) =>
-        s.kind === 'recording'
-          ? [{ op: 'replace' as const, path: `/scenes/${i}/segments`, value: s.segments }]
-          : [],
-      ),
-      { op: 'replace', path: '/voice', value: r.timeline.voice },
-      { op: 'replace', path: '/captions', value: captioned.captions },
-      { op: 'replace', path: '/annotations', value: captioned.annotations },
-      { op: 'replace', path: '/overlays', value: overlays },
-    ];
-    await this.deps.timelines.patch(slug, patch, {
-      author: opts.author ?? 'user',
-      group: opts.group ?? null,
-      label: 'Fit timing',
-    });
+    await saveTiming(this.deps, slug, timeline, r.timeline, events, { ...opts, label: 'Fit timing' });
     return { steps: r.steps, before: r.before, after: r.after };
   }
+
+  /**
+   * A hand edit to one piece of a recording scene (speed, remove, freeze, back to automatic,
+   * restore a cut). The piece is marked so later fits keep it.
+   */
+  async editPiece(
+    slug: string,
+    p: { sceneId: string; index: number; edit: PieceEdit },
+    opts: { author?: Author; group?: string | null } = {},
+  ) {
+    const { timeline } = await this.deps.timelines.get(slug);
+    const si = timeline.scenes.findIndex((s) => s.id === p.sceneId);
+    const scene = timeline.scenes[si];
+    if (!scene || scene.kind !== 'recording')
+      throw new RpcError(`There is no recording scene ${p.sceneId}.`, 'bad_request');
+    let segments: Segment[];
+    try {
+      segments = editPiece(scene.segments, p.index, p.edit);
+    } catch (e) {
+      throw new RpcError(e instanceof Error ? e.message : String(e), 'bad_request');
+    }
+    if (!segments.some((s) => s.kind !== 'hold'))
+      throw new RpcError('That would cut the whole recording out of the scene.', 'bad_request');
+    const after: Timeline = {
+      ...timeline,
+      scenes: timeline.scenes.map((s, i) => (i === si ? { ...scene, segments } : s)),
+    };
+    const take = timeline.takes.find((t) => t.id === scene.take);
+    const events = take ? await readEvents(this.deps.store.dir(slug), take.events) : [];
+    await saveTiming(this.deps, slug, timeline, after, events, { ...opts, label: PIECE_LABEL[p.edit.op] });
+    return { segments };
+  }
 }
+
+const PIECE_LABEL: Record<PieceEdit['op'], string> = {
+  speed: 'Change speed',
+  remove: 'Remove piece',
+  freeze: 'Add freeze',
+  duration: 'Change freeze',
+  auto: 'Automatic timing',
+  restoreCut: 'Restore cut',
+};
 
 export async function readEvents(projectDir: string, rel: string): Promise<RecorderEvent[]> {
   const text = await readFile(path.join(projectDir, rel), 'utf8');

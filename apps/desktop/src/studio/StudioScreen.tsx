@@ -11,6 +11,7 @@ import {
   pointerOverlayInstances,
   sfxCues,
   voiceSpans,
+  type PieceEdit,
   type Segment,
   type TimelinePatch,
 } from '@studio/core';
@@ -43,7 +44,8 @@ import { useLatestTake } from '../useTake';
 import { SfxPlayer } from './SfxPlayer';
 import { resolveTimeline, stepAt } from './resolve';
 import { StageHost } from './StageHost';
-import { TimelinePanel } from './TimelinePanel';
+import { TimelinePanel, type PieceRef } from './TimelinePanel';
+import { PieceInspector } from './PieceInspector';
 import { Inspector } from './Inspector';
 import { Library } from './Library';
 import { VoicePlayer } from './VoicePlayer';
@@ -144,6 +146,7 @@ export function StudioScreen({ slug }: { slug: string }) {
   const [full, setFull] = useFullscreen();
   const [sceneComponent, setSceneComponent] = useState<string>('');
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
+  const [piece, setPiece] = useState<PieceRef | null>(null);
   const jobs = useExplainers(slug).filter(
     (j) => j.status === 'storyboarding' || j.status === 'review' || j.status === 'building',
   );
@@ -290,7 +293,9 @@ export function StudioScreen({ slug }: { slug: string }) {
       else if (e.key === 'x') insertExplainer();
       else if (e.key === 'f' && !mod) setFull(!full);
       else if (!mod && !e.altKey && toolForKey(e.key)) chooseTool(toolForKey(e.key)!);
-      else if ((e.key === 'Backspace' || e.key === 'Delete') && selected && tl.timeline) {
+      else if ((e.key === 'Backspace' || e.key === 'Delete') && piece && !selected) {
+        void editPiece({ op: 'remove' }).catch(() => undefined);
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && selected && tl.timeline) {
         const i = tl.timeline.overlays.findIndex((o) => o.id === selected);
         if (i >= 0)
           void tl.patch([{ op: 'remove', path: `/overlays/${i}` }] as TimelinePatch, {
@@ -300,6 +305,7 @@ export function StudioScreen({ slug }: { slug: string }) {
       } else if (e.key === 'Escape' && full) {
         setFull(false);
       } else if (e.key === 'Escape') {
+        setPiece(null);
         setSelected(null);
         setTool('select');
         closeNote();
@@ -408,6 +414,31 @@ export function StudioScreen({ slug }: { slug: string }) {
   };
 
   const selectedOverlay = tl.timeline?.overlays.find((o) => o.id === selected) ?? null;
+
+  // The recording piece selected on the timeline, edited through the engine so overlays,
+  // captions and annotations follow and later fits keep it.
+  const pieceScene = piece ? tl.timeline?.scenes.find((s) => s.id === piece.sceneId) : undefined;
+  const pieceSegment = pieceScene?.kind === 'recording' ? (pieceScene.segments[piece!.index] ?? null) : null;
+  async function editPiece(edit: PieceEdit) {
+    if (!client || !piece) return;
+    const r = await client.call('timeline.editPiece', {
+      slug,
+      sceneId: piece.sceneId,
+      index: piece.index,
+      edit,
+    });
+    if (edit.op === 'remove' || (edit.op === 'auto' && pieceSegment?.kind === 'hold')) setPiece(null);
+    else if (edit.op === 'freeze') {
+      const hold = r.segments.findIndex((s, i) => i >= piece.index && s.kind === 'hold' && s.manual);
+      if (hold >= 0) setPiece({ sceneId: piece.sceneId, index: hold });
+    }
+  }
+  function pieceTakeTime(): number | null {
+    if (!resolved || !piece || !pieceSegment || pieceSegment.kind === 'hold') return null;
+    const pos = resolved.tm.toSource(now());
+    if (!pos || pos.kind !== 'recording' || pos.sceneId !== piece.sceneId) return null;
+    return pos.takeTime >= pieceSegment.from && pos.takeTime <= pieceSegment.to ? pos.takeTime : null;
+  }
   const selectedInstance = resolved?.instances.find((i) => i.id === selected) ?? null;
   const selectedOnScreen = usePlayerValue(
     controls,
@@ -932,6 +963,15 @@ export function StudioScreen({ slug }: { slug: string }) {
                 />
               ) : null;
             })()}
+          {pieceSegment && (
+            <PieceInspector
+              key={`${piece!.sceneId}:${piece!.index}`}
+              segment={pieceSegment}
+              playheadTake={pieceTakeTime}
+              onEdit={editPiece}
+              onClose={() => setPiece(null)}
+            />
+          )}
           {tl.timeline && (
             <Inspector
               timeline={tl.timeline}
@@ -1017,6 +1057,23 @@ export function StudioScreen({ slug }: { slug: string }) {
                     }}
                   />
                 </>
+              }
+              selectedPiece={piece}
+              onSelectPiece={(p) => {
+                setPiece(p);
+                if (!p) return;
+                setSelected(null);
+                setSelectedScene(null);
+                const span = resolved.tm.segments.find((g) => g.sceneId === p.sceneId && g.index === p.index);
+                if (span && (now() < span.start || now() >= span.end)) controls.seek(span.start + 0.01);
+              }}
+              onRestoreCut={(sceneId, after) =>
+                void client?.call('timeline.editPiece', {
+                  slug,
+                  sceneId,
+                  index: after,
+                  edit: { op: 'restoreCut' },
+                })
               }
               onSelectScene={(id) => {
                 setSelectedScene(id);

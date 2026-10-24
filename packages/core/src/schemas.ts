@@ -40,10 +40,16 @@ export const Take = z.object({
 });
 export type Take = z.infer<typeof Take>;
 
+/**
+ * Set on a piece the user (or the agent, on request) edited by hand: the timing fit keeps it as
+ * it is instead of recomputing its speed or freeze.
+ */
+const manual = z.boolean().optional();
+
 /** Plays take time [from, to) at normal speed. */
-export const SrcSegment = z.object({ kind: z.literal('src'), from: Seconds, to: Seconds });
+export const SrcSegment = z.object({ kind: z.literal('src'), from: Seconds, to: Seconds, manual });
 /** Freezes the frame at take time `at` for `duration` seconds. */
-export const HoldSegment = z.object({ kind: z.literal('hold'), at: Seconds, duration: Seconds });
+export const HoldSegment = z.object({ kind: z.literal('hold'), at: Seconds, duration: Seconds, manual });
 /**
  * Plays take time [from, to) at `rate` (1.5 = 50% faster). Up to 16×: the timing fit plays a
  * product wait (a static screen) that fast, and the preview's video and the export follow it.
@@ -53,6 +59,7 @@ export const SpeedSegment = z.object({
   from: Seconds,
   to: Seconds,
   rate: z.number().min(0.25).max(16),
+  manual,
 });
 
 export const Segment = z

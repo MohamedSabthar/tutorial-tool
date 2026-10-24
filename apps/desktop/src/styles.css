@@ -590,6 +590,99 @@
   white-space: nowrap;
   vertical-align: bottom;
 }
+/* Piece inspector (a recording piece or freeze selected on the timeline). */
+.piece-facts,
+.piece-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.piece-facts {
+  color: var(--ui-gray-600);
+  font-size: 12px;
+}
+.piece-row > input {
+  flex: 1 1 80px;
+  min-width: 0;
+}
+.piece-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.piece-label {
+  font-weight: 600;
+  color: var(--ui-navy);
+}
+.piece-error {
+  margin: 0;
+  color: var(--ui-red-ink);
+}
+/* Recording pieces on the Scenes lane: click to select and edit. */
+.timeline-piece {
+  position: absolute;
+  top: 4px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  font: 11px var(--ui-font);
+  text-align: left;
+  color: var(--ui-navy);
+  background: var(--ui-steel-100);
+  border: 1px solid var(--ui-steel-300);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.timeline-piece[data-kind='hold'] {
+  background: var(--ui-orange-100);
+}
+.timeline-piece[data-kind='speed'] {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--ui-steel-100) 0 6px,
+    color-mix(in srgb, var(--ui-steel-300) 35%, var(--ui-steel-100)) 6px 9px
+  );
+}
+/* Edited by hand: the timing fit leaves it alone. */
+.timeline-piece[data-manual] {
+  border-style: dashed;
+  border-color: var(--ui-steel);
+  font-weight: 600;
+}
+.timeline-piece:hover {
+  border-color: var(--ui-navy);
+}
+.timeline-piece[aria-pressed='true'] {
+  border: 2px solid var(--ui-orange);
+  z-index: 2;
+}
+/* Where recording was cut out: a scissor mark that puts it back. */
+.timeline-cut {
+  position: absolute;
+  top: 1px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-red-ink);
+  color: var(--ui-white);
+  font: 700 9px/14px var(--ui-font);
+  cursor: pointer;
+  z-index: 3;
+}
+.timeline-cut::before {
+  content: '✂';
+}
+.timeline-cut:hover,
+.timeline-cut:focus-visible {
+  transform: scale(1.2);
+}
 .timeline-keys {
   font-size: 11px;
   color: var(--ui-gray-600);

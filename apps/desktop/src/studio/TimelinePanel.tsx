@@ -6,7 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { voiceSpans, type OverlayInstance, type Timeline, type TimelinePatch } from '@studio/core';
+import { cutGaps, voiceSpans, type OverlayInstance, type Timeline, type TimelinePatch } from '@studio/core';
 import { Button, Chip, Eyebrow } from '@studio/ui';
 import { Timed, type Player } from '@studio/stage';
 import type { Resolved } from './resolve';
@@ -46,6 +46,17 @@ interface Props {
   onSelectScene?: (sceneId: string) => void;
   /** Set (component and duration) or remove (null) the transition between two scenes. */
   onTransition?: (between: [string, string], value: { component: string; duration: number } | null) => void;
+  /** The recording piece selected for editing (scene and segment index). */
+  selectedPiece?: PieceRef | null;
+  onSelectPiece?: (piece: PieceRef | null) => void;
+  /** The cut after piece `after` of a scene is clicked: put the recording back. */
+  onRestoreCut?: (sceneId: string, after: number) => void;
+}
+
+/** A piece (segment) of a recording scene. */
+export interface PieceRef {
+  sceneId: string;
+  index: number;
 }
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
@@ -83,6 +94,9 @@ export function TimelinePanel({
   onRemoveScene,
   onSelectScene,
   onTransition,
+  selectedPiece,
+  onSelectPiece,
+  onRestoreCut,
 }: Props) {
   const duration = Math.max(resolved.tm.duration, 1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -311,34 +325,53 @@ export function TimelinePanel({
             />
           );
         }),
-        ...resolved.tm.segments.map((g) => (
-          <div
-            key={`${g.sceneId}-${g.index}`}
-            title={`${g.segment.kind} · ${fmt(g.start)}–${fmt(g.end)}`}
-            style={{
-              position: 'absolute',
-              top: 4,
-              height: LANE_H - 8,
-              left: x(g.start),
-              width: Math.max(x(g.end) - x(g.start), 2),
-              background: g.segment.kind === 'hold' ? 'var(--ui-orange-100)' : 'var(--ui-steel-100)',
-              border: '1px solid var(--ui-steel-300)',
-              borderRadius: 6,
-              boxSizing: 'border-box',
-              fontSize: 11,
-              padding: '0 8px',
-              display: 'flex',
-              alignItems: 'center',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              color: 'var(--ui-navy)',
-            }}
-          >
-            {g.segment.kind === 'src'
-              ? `Recording · ${g.segment.from.toFixed(1)}–${g.segment.to.toFixed(1)} s`
-              : g.segment.kind}
-          </div>
-        )),
+        ...resolved.tm.segments.map((g) => {
+          const seg = g.segment;
+          const on = selectedPiece?.sceneId === g.sceneId && selectedPiece.index === g.index;
+          const label =
+            seg.kind === 'hold'
+              ? `Freeze ${seg.duration.toFixed(1)} s`
+              : seg.kind === 'speed'
+                ? `${seg.rate}× · ${seg.from.toFixed(1)}–${seg.to.toFixed(1)} s`
+                : `Recording · ${seg.from.toFixed(1)}–${seg.to.toFixed(1)} s`;
+          return (
+            <button
+              type="button"
+              key={`${g.sceneId}-${g.index}`}
+              className="timeline-piece"
+              data-kind={seg.kind}
+              data-manual={seg.manual ? '' : undefined}
+              aria-pressed={on}
+              aria-label={`${label}${seg.manual ? ', edited by hand' : ''}. Select to edit`}
+              title={`${label}${seg.manual ? ' · edited by hand' : ''} · ${fmt(g.start)}–${fmt(g.end)}`}
+              onClick={() => onSelectPiece?.(on ? null : { sceneId: g.sceneId, index: g.index })}
+              style={{ left: x(g.start), width: Math.max(x(g.end) - x(g.start), 2), height: LANE_H - 8 }}
+            >
+              {label}
+            </button>
+          );
+        }),
+        // Recording cut out between two pieces: a mark that puts it back.
+        ...timeline.scenes.flatMap((sc) =>
+          sc.kind !== 'recording'
+            ? []
+            : cutGaps(sc.segments).flatMap((gap) => {
+                const span = resolved.tm.segments.find((g) => g.sceneId === sc.id && g.index === gap.after);
+                if (!span) return [];
+                const what = `${gap.from.toFixed(1)}–${gap.to.toFixed(1)} s`;
+                return [
+                  <button
+                    type="button"
+                    key={`cut-${sc.id}-${gap.after}`}
+                    className="timeline-cut"
+                    aria-label={`Restore the cut recording ${what}`}
+                    title={`Cut: ${what} of the recording. Click to put it back.`}
+                    onClick={() => onRestoreCut?.(sc.id, gap.after)}
+                    style={{ left: x(span.end) }}
+                  />,
+                ];
+              }),
+        ),
       ],
     },
     {

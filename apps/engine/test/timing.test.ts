@@ -138,6 +138,28 @@ describe('fitTiming', () => {
     expect(fitTiming(cut, events).steps[0]!.action).toBeCloseTo(8, 3);
   });
 
+  it('keeps pieces edited by hand (speed, freeze, cuts) and fits around them', () => {
+    // s3 (20–30 s) has its first 4 s at 8× by hand and a hand-made 1.5 s freeze at 25 s.
+    const tl = timeline([
+      { kind: 'src', from: 0, to: 20 },
+      { kind: 'speed', from: 20, to: 24, rate: 8, manual: true },
+      { kind: 'src', from: 24, to: 25 },
+      { kind: 'hold', at: 25, duration: 1.5, manual: true },
+      { kind: 'src', from: 25, to: 30 },
+    ]);
+    const once = fitTiming(tl, events).timeline;
+    const segs = once.scenes[0]!.kind === 'recording' ? once.scenes[0]!.segments : [];
+    expect(segs).toContainEqual({ kind: 'speed', from: 20, to: 24, rate: 8, manual: true });
+    expect(segs).toContainEqual({ kind: 'hold', at: 25, duration: 1.5, manual: true });
+    // The freeze still sits between the pieces either side of 25 s.
+    const h = segs.findIndex((s) => s.kind === 'hold' && s.manual);
+    expect(segs[h - 1]).toMatchObject({ to: 25 });
+    expect(segs[h + 1]).toMatchObject({ from: 25 });
+    // Fitting again changes nothing, and the result is a valid timeline.
+    expect(fitTiming(once, events).timeline.scenes).toEqual(once.scenes);
+    expect(() => parseTimeline(JSON.parse(JSON.stringify(once)))).not.toThrow();
+  });
+
   it('leaves steps without a voice line alone', () => {
     const tl = { ...timeline(), voice: [] };
     const r = fitTiming(tl, events);

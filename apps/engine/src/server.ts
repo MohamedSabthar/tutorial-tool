@@ -29,6 +29,7 @@ import {
   type Timeline,
   type ExportSettings,
   type ProgressItem,
+  type PieceEdit,
 } from '@studio/core';
 import { ProjectStore } from './projects';
 import { registerMedia } from './media';
@@ -691,6 +692,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     'timing.fit': async ({ slug }: { slug: string }) =>
       timing.fit(slug, { author: 'user', group: `fit-${Date.now()}` }),
+    'timeline.editPiece': async (p: {
+      slug: string;
+      sceneId: string;
+      index: number;
+      edit: PieceEdit;
+      author: 'user' | 'agent';
+    }) => timing.editPiece(p.slug, p, { author: p.author, group: `piece-${Date.now()}` }),
     'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
     'tts.status': async () => tts.status(),
     'tts.setKey': async ({ apiKey }: { apiKey: string }) => tts.setKey(apiKey),
