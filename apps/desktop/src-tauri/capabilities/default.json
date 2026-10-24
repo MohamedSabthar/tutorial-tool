@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Capabilities for the app windows",
   "windows": ["studio", "studio-*"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-set-theme"]
 }

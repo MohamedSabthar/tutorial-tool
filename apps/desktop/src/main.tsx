@@ -32,6 +32,7 @@ import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
 import { registerSharedModules } from './studio/shared';
+import { useApplyTheme } from './theme';
 
 registerSharedModules();
 
@@ -109,6 +110,8 @@ const match = (path: string, prefix: string) => new RegExp(`^/${prefix}/${SLUG}`
  */
 function App() {
   const path = useHashPath();
+  // The export renderer captures the video, so it stays light.
+  useApplyTheme(!path.startsWith('/render/'));
   const onLive = path.startsWith('/live');
   const liveSlug = onLive ? (match(path, 'live') ?? null) : undefined;
   const [lastLiveSlug, setLastLiveSlug] = useState<string | null>(null);

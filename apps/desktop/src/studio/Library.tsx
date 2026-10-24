@@ -194,7 +194,7 @@ export function Library({
               <span
                 style={{
                   height: 50,
-                  background: 'var(--ui-navy)',
+                  background: 'var(--ui-fill-dark)',
                   display: 'grid',
                   placeItems: 'center',
                   overflow: 'hidden',

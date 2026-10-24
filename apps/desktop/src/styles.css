@@ -113,7 +113,7 @@
 .btn-primary {
   background: var(--ui-orange);
   border-color: var(--ui-orange);
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--ui-orange-bright);
@@ -162,14 +162,14 @@
   display: grid;
   place-items: center;
   font: 700 11px var(--ui-font);
-  background: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--ui-white) 92%, transparent);
   color: var(--ui-navy);
   box-shadow: var(--ui-shadow-sm);
   cursor: pointer;
 }
 .tool-rail-btn[aria-pressed='true'] {
   background: var(--ui-orange);
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
 }
 .annotation-layer {
   position: absolute;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ProductConfig, ProductInfo, Pronunciation, RpcResult } from '@studio/core';
 import { Button, Chip, Field, Input, Panel, Segmented, Select, Switch, Title } from '@studio/ui';
 import { isTauri, useEngine } from '../../engine';
+import { setThemePref, useThemePref, type ThemePref } from '../../theme';
 import { AppFrame } from '../frame';
 import { SetupChecklist } from './SetupChecklist';
 
@@ -17,6 +18,7 @@ export function SettingsScreen() {
         <div className="settings-grid">
           <div className="settings-col">
             <SetupChecklist />
+            <AppearancePanel />
             <KeysPanel />
             <DefaultsPanel />
           </div>
@@ -28,6 +30,27 @@ export function SettingsScreen() {
         </div>
       </div>
     </AppFrame>
+  );
+}
+
+const THEMES: readonly { value: ThemePref; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+/** The app's colour theme. Saved on this Mac only; exported videos are always light. */
+function AppearancePanel() {
+  const theme = useThemePref();
+  return (
+    <Panel title="Appearance">
+      <div className="ui-field">
+        <Segmented label="Theme" options={THEMES} value={theme} onChange={setThemePref} />
+        <span className="ui-field-hint">
+          System follows macOS. Only the app changes: videos and previews keep their own colours.
+        </span>
+      </div>
+    </Panel>
   );
 }
 

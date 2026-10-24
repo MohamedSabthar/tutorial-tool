@@ -321,8 +321,8 @@ export function TimelinePanel({
               height: LANE_H - 8,
               left: x(g.start),
               width: Math.max(x(g.end) - x(g.start), 2),
-              background: g.segment.kind === 'hold' ? '#FFF4E5' : '#E4EAF2',
-              border: '1px solid #B9C6D6',
+              background: g.segment.kind === 'hold' ? 'var(--ui-orange-100)' : 'var(--ui-steel-100)',
+              border: '1px solid var(--ui-steel-300)',
               borderRadius: 6,
               boxSizing: 'border-box',
               fontSize: 11,
@@ -388,7 +388,7 @@ export function TimelinePanel({
             o,
             4 + (rows.get(o.id) ?? 0) * LANE_H,
             o.author === 'auto'
-              ? { bg: 'var(--ui-white)', border: '#B9C6D6', ink: 'var(--ui-navy)' }
+              ? { bg: 'var(--ui-white)', border: 'var(--ui-steel-300)', ink: 'var(--ui-navy)' }
               : { bg: 'var(--ui-orange-100)', border: 'var(--ui-orange)', ink: 'var(--ui-orange-ink)' },
           ),
         ),
@@ -398,7 +398,9 @@ export function TimelinePanel({
       swatch: 'var(--ui-navy)',
       height: LANE_H,
       render: () =>
-        zooms.map((o) => block(o, 4, { bg: '#E4EAF2', border: 'var(--ui-navy)', ink: 'var(--ui-navy)' })),
+        zooms.map((o) =>
+          block(o, 4, { bg: 'var(--ui-steel-100)', border: 'var(--ui-navy)', ink: 'var(--ui-navy)' }),
+        ),
     },
     {
       name: 'Voice-over',

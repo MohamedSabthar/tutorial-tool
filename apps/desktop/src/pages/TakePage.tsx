@@ -256,7 +256,7 @@ function BoxOverlay({
           top: `calc(${(bbox.y / height) * 100}% - 22px)`,
           fontSize: 11,
           background: 'var(--ui-orange)',
-          color: 'var(--ui-white)',
+          color: 'var(--ui-on-fill)',
           padding: '2px 6px',
           borderRadius: 4,
           whiteSpace: 'nowrap',

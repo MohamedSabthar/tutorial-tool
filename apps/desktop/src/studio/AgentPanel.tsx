@@ -83,7 +83,7 @@ function Line({
             alignSelf: 'flex-end',
             maxWidth: '92%',
             background: 'var(--ui-navy)',
-            color: '#fff',
+            color: 'var(--ui-white)',
             borderRadius: 10,
             padding: '6px 10px',
             whiteSpace: 'pre-wrap',

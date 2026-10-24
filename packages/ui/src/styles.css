@@ -1,11 +1,17 @@
 /*
  * WSO2 Tutorial Studio: design tokens and component styles.
- * Light theme from the WSO2 Slides design system. Apps import this file once
- * (`import '@studio/ui/styles.css'`) and use the React components from `@studio/ui`.
+ * Light theme from the WSO2 Slides design system, plus a dark theme for the app chrome.
+ * Apps import this file once (`import '@studio/ui/styles.css'`) and use the React components
+ * from `@studio/ui`. `data-theme="dark"` on <html> switches the colour tokens; anything marked
+ * `data-theme="light"` (the video stage) keeps the light values.
  */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  color: var(--ui-ink);
+
   /* Brand */
   --ui-orange: #ff5800;
   --ui-orange-bright: #ff3900;
@@ -36,6 +42,51 @@
   --ui-red-100: #fde7e7;
   --ui-red-ink: #c0292a;
 
+  /* The same in both themes: text on orange or steel fills, and dark "video" fills. */
+  --ui-on-fill: #ffffff;
+  --ui-fill-dark: #13213b;
+
+  --ui-shadow-sm: 0 1px 2px rgba(19, 33, 59, 0.06);
+  --ui-shadow-md: 0 8px 24px rgba(19, 33, 59, 0.1);
+  --ui-shadow-lg: 0 22px 60px rgba(19, 33, 59, 0.16);
+}
+
+/*
+ * Dark theme: navy surfaces, light text. Navy-filled states (selected segments, playheads,
+ * badges) invert to light fills with dark text, since they use --ui-navy with --ui-white.
+ */
+[data-theme='dark'] {
+  color-scheme: dark;
+  color: var(--ui-ink);
+
+  --ui-orange-100: #3d2417;
+  --ui-orange-ink: #ff9a5c;
+  --ui-navy: #edf1f7;
+  --ui-navy-900: #f7f9fc;
+
+  --ui-white: #101827;
+  --ui-gray-50: #172133;
+  --ui-gray-100: #1c273a;
+  --ui-gray-300: #2d3a50;
+  --ui-gray-500: #7f8ba0;
+  --ui-gray-600: #a6b0c0;
+  --ui-ink: #e3e7ee;
+
+  --ui-steel-100: #1a2c41;
+  --ui-steel-300: #3e6184;
+  --ui-steel-ink: #9cc0e0;
+  --ui-green-100: #14302a;
+  --ui-green-ink: #6fd3a3;
+  --ui-red: #ef5153;
+  --ui-red-100: #3a1c21;
+  --ui-red-ink: #ff8a8b;
+
+  --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ui-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --ui-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.5);
+}
+
+:root {
   /* Type */
   --ui-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ui-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -47,9 +98,6 @@
   --ui-radius-md: 9px;
   --ui-radius-lg: 14px;
   --ui-radius-pill: 999px;
-  --ui-shadow-sm: 0 1px 2px rgba(19, 33, 59, 0.06);
-  --ui-shadow-md: 0 8px 24px rgba(19, 33, 59, 0.1);
-  --ui-shadow-lg: 0 22px 60px rgba(19, 33, 59, 0.16);
 
   /* Motion */
   --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -61,7 +109,6 @@
 
   font-family: var(--ui-font);
   font-size: 13px;
-  color: var(--ui-ink);
   background: var(--ui-white);
 }
 
@@ -219,12 +266,12 @@ select {
   color: var(--ui-navy);
 }
 .ui-panel-dark {
-  background: var(--ui-navy);
-  border-color: var(--ui-navy);
-  color: var(--ui-white);
+  background: var(--ui-fill-dark);
+  border-color: var(--ui-fill-dark);
+  color: var(--ui-on-fill);
 }
 .ui-panel-dark .ui-panel-title {
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
 }
 
 /* Buttons */
@@ -273,7 +320,7 @@ select {
 .ui-btn-primary {
   background: var(--ui-orange);
   border-color: var(--ui-orange);
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
   font-weight: 700;
 }
 .ui-btn-primary:hover:not(:disabled) {
@@ -384,7 +431,7 @@ select {
   height: 20px;
   border-radius: 50% 50% 50% 4px;
   background: var(--ui-steel);
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
   font-family: var(--ui-mono);
   font-size: 11px;
   font-weight: 700;
@@ -497,7 +544,7 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
 }
 .ui-step[data-state='active'] .ui-step-dot {
   background: var(--ui-orange);
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
 }
 .ui-step[data-state='gate'] .ui-step-dot {
   background: var(--ui-steel-100);

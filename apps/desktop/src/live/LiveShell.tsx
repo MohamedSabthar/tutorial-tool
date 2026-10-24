@@ -559,7 +559,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
                       left: `${(action.bbox.x / fw) * 100}%`,
                       top: `calc(${(action.bbox.y / fh) * 100}% - 24px)`,
                       fontSize: 11,
-                      color: 'var(--ui-white)',
+                      color: 'var(--ui-on-fill)',
                       background: 'var(--ui-orange)',
                       padding: '2px 6px',
                       borderRadius: 4,

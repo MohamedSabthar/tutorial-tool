@@ -217,7 +217,7 @@
   right: 10px;
   bottom: 10px;
   font-size: 11px;
-  color: var(--ui-white);
+  color: var(--ui-on-fill);
   background: rgba(12, 21, 38, 0.8);
   border-radius: var(--ui-radius-sm);
   padding: 2px 6px;

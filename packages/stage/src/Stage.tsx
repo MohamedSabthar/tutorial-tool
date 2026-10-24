@@ -71,6 +71,8 @@ export function Stage({
   const surface = (
     <div
       data-stage-surface=""
+      // The video never follows the app's dark theme.
+      data-theme="light"
       style={{
         position: 'relative',
         width,
