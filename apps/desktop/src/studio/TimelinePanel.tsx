@@ -6,7 +6,14 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { cutGaps, voiceSpans, type OverlayInstance, type Timeline, type TimelinePatch } from '@studio/core';
+import {
+  cutGaps,
+  voiceOverlaps,
+  voiceSpans,
+  type OverlayInstance,
+  type Timeline,
+  type TimelinePatch,
+} from '@studio/core';
 import { Button, Chip, Eyebrow } from '@studio/ui';
 import { Timed, type Player } from '@studio/stage';
 import type { Resolved } from './resolve';
@@ -132,6 +139,8 @@ export function TimelinePanel({
     return () => ro.disconnect();
   }, []);
 
+  const lineSpans = useMemo(() => voiceSpans(timeline, resolved.tm), [timeline, resolved]);
+  const lineOverlaps = useMemo(() => voiceOverlaps(lineSpans), [lineSpans]);
   const pps = (Math.max(width - LABEL_W - 16, 200) / duration) * zoom;
   const x = (time: number) => time * pps;
   const trackW = duration * pps;
@@ -452,17 +461,19 @@ export function TimelinePanel({
       height: LANE_H,
       render: () =>
         timeline.voice.length ? (
-          voiceSpans(timeline, resolved.tm).map(({ line, start, end }) => {
+          lineSpans.map(({ line, start, end }) => {
             const shift = lineDrag?.id === line.id ? lineDrag.dt : 0;
+            const over = lineOverlaps.get(line.id);
             return (
               <button
                 type="button"
                 key={line.id}
                 className="timeline-line"
                 data-manual={line.manual ? '' : undefined}
+                data-overlap={over ? '' : undefined}
                 aria-pressed={selectedLine === line.id}
-                aria-label={`Voice line${line.manual ? ' (hand-written)' : ''}: ${line.text}. Select to edit, drag to move`}
-                title={`${line.manual ? 'Hand-written' : line.owner}: ${line.text}`}
+                aria-label={`Voice line${line.manual ? ' (hand-written)' : ''}${over ? ', plays over another line' : ''}: ${line.text}. Select to edit, drag to move`}
+                title={`${over ? '⚠ Plays over another line. ' : ''}${line.manual ? 'Hand-written' : line.owner}: ${line.text}`}
                 style={{ left: x(Math.max(0, start + shift)), width: x(end - start), height: LANE_H - 8 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();

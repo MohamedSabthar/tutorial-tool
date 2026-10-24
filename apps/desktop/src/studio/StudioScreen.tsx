@@ -10,6 +10,7 @@ import {
   buildTimeMap,
   pointerOverlayInstances,
   sfxCues,
+  voiceOverlaps,
   voiceSpans,
   type PieceEdit,
   type Segment,
@@ -442,6 +443,12 @@ export function StudioScreen({ slug }: { slug: string }) {
     ? (tl.timeline?.steps.find((s) => s.id === selLine.owner)?.title ??
       (tl.timeline?.scenes.some((s) => s.id === selLine.owner) ? 'Explainer' : undefined))
     : undefined;
+  const lineOverlapText = useMemo(() => {
+    if (!selLine || !tl.timeline || !resolved) return [];
+    const spans = voiceSpans(tl.timeline, resolved.tm);
+    const ids = voiceOverlaps(spans).get(selLine.id) ?? [];
+    return spans.filter((s) => ids.includes(s.line.id)).map((s) => s.line.text);
+  }, [selLine, tl.timeline, resolved]);
   const selectLine = (id: string | null) => {
     setLineSel(id);
     if (!id) return;
@@ -985,6 +992,7 @@ export function StudioScreen({ slug }: { slug: string }) {
               key={selLine ? `${selLine.id}:${selLine.text}` : 'new'}
               line={selLine ?? null}
               ownerLabel={lineOwner}
+              overlaps={lineOverlapText}
               playhead={now}
               onAdd={async (text, at) => {
                 const r = await client.call('vo.addLine', { slug, text, at });

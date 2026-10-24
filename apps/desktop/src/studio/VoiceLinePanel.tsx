@@ -10,6 +10,7 @@ import { Button, Chip, Field, Panel, TextArea } from '@studio/ui';
 export function VoiceLinePanel({
   line,
   ownerLabel,
+  overlaps = [],
   playhead,
   onAdd,
   onEdit,
@@ -20,6 +21,8 @@ export function VoiceLinePanel({
   line: VoiceLine | null;
   /** The step or explainer the line belongs to. */
   ownerLabel?: string;
+  /** Text of the lines this one plays over. */
+  overlaps?: string[];
   /** Output time of the playhead (read when placing). */
   playhead: () => number;
   onAdd: (text: string, at: number) => Promise<void>;
@@ -68,6 +71,13 @@ export function VoiceLinePanel({
             {line.manual ? 'Hand-written' : 'From narration'}
           </Chip>
         </div>
+      )}
+      {overlaps.length > 0 && (
+        <p className="piece-error" role="status">
+          Plays over {overlaps.length === 1 ? 'another line' : `${overlaps.length} other lines`}: “
+          {overlaps[0]!.length > 60 ? `${overlaps[0]!.slice(0, 60)}…` : overlaps[0]}”. Move one of them, or
+          run Fit timing to make room.
+        </p>
       )}
       <Field
         label="What the voice says"

@@ -71,3 +71,21 @@ export function voiceSpans(
   }
   return out.sort((a, b) => a.start - b.start);
 }
+
+/** Voice lines that play over each other by more than this (seconds) count as overlapping. */
+export const OVERLAP_TOLERANCE = 0.05;
+
+/** For each voice line that plays over another, the ids of the lines it overlaps. */
+export function voiceOverlaps(
+  spans: { line: VoiceLine; start: number; end: number }[],
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  const add = (a: string, b: string) => out.set(a, [...(out.get(a) ?? []), b]);
+  const sorted = [...spans].sort((a, b) => a.start - b.start);
+  for (let i = 0; i < sorted.length; i++)
+    for (let j = i + 1; j < sorted.length && sorted[j]!.start < sorted[i]!.end - OVERLAP_TOLERANCE; j++) {
+      add(sorted[i]!.line.id, sorted[j]!.line.id);
+      add(sorted[j]!.line.id, sorted[i]!.line.id);
+    }
+  return out;
+}

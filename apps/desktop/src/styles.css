@@ -683,6 +683,11 @@
 .timeline-line:hover {
   border-color: var(--ui-green-ink);
 }
+/* Plays over another line: both voices would be heard at once. */
+.timeline-line[data-overlap] {
+  border: 1.5px solid var(--ui-red-ink);
+  background: var(--ui-red-100);
+}
 .timeline-line[aria-pressed='true'] {
   border: 2px solid var(--ui-orange);
   z-index: 2;

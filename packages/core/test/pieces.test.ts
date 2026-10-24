@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { cutGaps, editPiece, editRange, pieceAt, sampleTimeline, splitPieceAt, type Segment } from '../src';
+import {
+  cutGaps,
+  editPiece,
+  editRange,
+  pieceAt,
+  sampleTimeline,
+  splitPieceAt,
+  voiceOverlaps,
+  type Segment,
+} from '../src';
 
 const segs: Segment[] = [
   { kind: 'src', from: 0, to: 10 },
@@ -95,5 +104,21 @@ describe('editing in output time', () => {
   it('finds the piece and take time at an output time', () => {
     expect(pieceAt(sampleTimeline(), 25)).toEqual({ sceneId: 'sc-1', index: 2, takeTime: 23 });
     expect(() => editRange(sampleTimeline(), 8, 8, { op: 'remove' })).toThrow(/end after/);
+  });
+});
+
+describe('voiceOverlaps', () => {
+  const span = (id: string, start: number, end: number) => ({
+    line: { id, owner: 's1', text: id, start: 0, duration: end - start, words: [] },
+    start,
+    end,
+  });
+  it('pairs lines that play over each other, ignoring a touch', () => {
+    const m = voiceOverlaps([span('a', 0, 5), span('b', 4, 8), span('c', 8, 9), span('d', 8.5, 12)]);
+    expect(m.get('a')).toEqual(['b']);
+    expect(m.get('b')).toEqual(['a']);
+    expect(m.get('c')).toEqual(['d']);
+    expect(m.has('e')).toBe(false);
+    expect(voiceOverlaps([span('a', 0, 5), span('b', 4.97, 6)]).size).toBe(0);
   });
 });

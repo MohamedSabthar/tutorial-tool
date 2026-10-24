@@ -379,6 +379,13 @@ describe('studio tools', () => {
     expect((await pieces()).voiceLines).toContainEqual(
       expect.objectContaining({ id: added.line.id, start: 3, manual: true }),
     );
+    // A second line 0.5 s later plays over the first (each is 1.2 s): get_timeline says so.
+    const second = JSON.parse(text(await call('add_voice_line', { text: 'And the path.', at: 3.5 }))) as {
+      line: { id: string };
+    };
+    const both = (await pieces()).voiceLines as unknown as { id: string; playsOver?: string[] }[];
+    expect(both.find((v) => v.id === added.line.id)?.playsOver).toEqual([second.line.id]);
+    await call('remove_voice_line', { id: second.line.id });
     expect(text(await call('edit_voice_line', { id: added.line.id }))).toMatch(/new text/);
     await call('remove_voice_line', { id: added.line.id });
     expect((await pieces()).voiceLines.some((v) => v.id === added.line.id)).toBe(false);

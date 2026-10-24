@@ -7,6 +7,7 @@ import {
   PatchError,
   TimelineError,
   TimelinePatch,
+  voiceOverlaps,
   voiceSpans,
   type OverlayInstance,
   type Timeline,
@@ -34,6 +35,7 @@ export function stepSpans(tl: Timeline) {
 /** A compact view of the timeline: what the agent needs to plan a patch, with array indexes for paths. */
 export function summarize(tl: Timeline, version: number, from?: number, to?: number) {
   const map = buildTimeMap(tl);
+  const lineOverlaps = voiceOverlaps(voiceSpans(tl, map));
   return {
     version,
     duration: round(map.duration),
@@ -82,6 +84,8 @@ export function summarize(tl: Timeline, version: number, from?: number, to?: num
         end: round(v.end),
         text: v.line.text.length > 80 ? `${v.line.text.slice(0, 80)}…` : v.line.text,
         ...(v.line.manual ? { manual: true } : {}),
+        // Lines heard at the same time as this one: move one, or fit the timing.
+        ...(lineOverlaps.has(v.line.id) ? { playsOver: lineOverlaps.get(v.line.id) } : {}),
       })),
     openAnnotations: tl.annotations.filter((a) => a.status !== 'resolved').length,
   };
