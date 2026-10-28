@@ -78,6 +78,7 @@ export async function runProjectScript(
     );
   });
 
+  const { project } = await store.open(slug);
   const takeId = mode === 'record' ? await store.nextTakeId(slug) : null;
   const takePath = takeId ? `recordings/${takeId}` : null;
   const pace = await readPace(dir);
@@ -90,6 +91,7 @@ export async function runProjectScript(
   }
   const result = await runTutorial(mod, {
     mode: mode === 'rehearse' ? 'record' : mode,
+    product: project.product,
     ...(pace ? { pace } : {}),
     ...(mode === 'dry' && full ? { stepShotsDir: shots } : {}),
     ...(opts.until ? { until: opts.until } : {}),

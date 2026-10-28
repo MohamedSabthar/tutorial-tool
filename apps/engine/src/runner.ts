@@ -143,12 +143,14 @@ export class Runner {
     const mod = await loadScript(scriptFile).catch(() => null);
     if (opts.uptoStep && !mod)
       throw new RpcError('this project has no loadable script.spec.ts to replay', 'bad_request');
-    const title = `Inspecting ${(await this.store.open(slug)).project.title}`;
+    const { project } = await this.store.open(slug);
+    const title = `Inspecting ${project.title}`;
     this.busyWith = title;
     const cb = this.liveCallbacks(title, 'dry', slug);
     try {
       cb.onStage('launch');
       const inspector = await openInspector(mod ?? { fixture: DEFAULT_FIXTURE }, {
+        product: project.product,
         ...(opts.uptoStep ? { uptoStep: opts.uptoStep } : {}),
         onProgress: cb.onProgress,
         onFrame: cb.onFrame,
