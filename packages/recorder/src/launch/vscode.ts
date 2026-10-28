@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
-import { lstatSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { existsSync, lstatSync } from 'node:fs';
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -150,6 +150,73 @@ export async function ensureExtensions(
   return dir;
 }
 
+/**
+ * The isolated extensions folder for an installed VS Code-based app. Some apps (WSO2 Agent
+ * Builder) list built-in extensions in product.json without bundling them: the user installs
+ * them into the app's own extensions folder (`~/<dataFolderName>/extensions`). Those are copied
+ * here, so the product loads its UI without the user's other extensions.
+ */
+export async function ensureAppExtensions(
+  executable: string,
+  cacheDir = defaultCacheDir(),
+  onProgress: Progress = () => {},
+  home = os.homedir(),
+): Promise<string> {
+  const app = path.resolve(executable, '..', '..', 'Resources', 'app');
+  const product = JSON.parse(await readFile(path.join(app, 'product.json'), 'utf8')) as {
+    dataFolderName?: string;
+    builtInExtensions?: { name: string }[];
+  };
+  const bundled = new Set<string>();
+  for (const name of await readdir(path.join(app, 'extensions')).catch(() => [])) {
+    const pkg = path.join(app, 'extensions', name, 'package.json');
+    if (!existsSync(pkg)) continue;
+    const j = JSON.parse(await readFile(pkg, 'utf8')) as { publisher?: string; name?: string };
+    bundled.add(`${j.publisher}.${j.name}`.toLowerCase());
+  }
+  const missing = (product.builtInExtensions ?? [])
+    .map((e) => e.name.toLowerCase())
+    .filter((id) => !bundled.has(id));
+  if (!missing.length) return ensureExtensions(executable, [], cacheDir, onProgress);
+
+  const appName = path.basename(path.resolve(executable, '..', '..', '..'), '.app');
+  const source = path.join(home, product.dataFolderName ?? '.vscode', 'extensions');
+  type Entry = { identifier: { id: string }; version: string; relativeLocation: string; metadata?: unknown };
+  const installed = JSON.parse(
+    await readFile(path.join(source, 'extensions.json'), 'utf8').catch(() => '[]'),
+  ) as Entry[];
+  const found = missing.map((id) => installed.find((e) => e.identifier.id.toLowerCase() === id));
+  const absent = missing.filter((_, i) => !found[i]);
+  if (absent.length)
+    throw new Error(
+      `${appName} needs ${absent.join(', ')}, which ${absent.length > 1 ? "aren't" : "isn't"} in the app or in ${source}. Install ${absent.length > 1 ? 'them' : 'it'} in ${appName} first.`,
+    );
+
+  const dir = path.join(
+    cacheDir,
+    'extensions',
+    `app-${(product.dataFolderName ?? appName).replace(/^\.+/, '').replace(/[^a-zA-Z0-9.-]+/g, '_')}`,
+  );
+  await mkdir(dir, { recursive: true });
+  const keep = new Set(found.map((e) => e!.relativeLocation));
+  for (const name of await readdir(dir))
+    if (name !== 'extensions.json' && !keep.has(name))
+      await rm(path.join(dir, name), { recursive: true, force: true });
+  for (const e of found) {
+    if (existsSync(path.join(dir, e!.relativeLocation))) continue;
+    onProgress(`Copying ${e!.identifier.id} ${e!.version} from ${appName}…`);
+    await cp(path.join(source, e!.relativeLocation), path.join(dir, e!.relativeLocation), {
+      recursive: true,
+    });
+  }
+  const entries = found.map((e) => {
+    const p = path.join(dir, e!.relativeLocation);
+    return { ...e!, location: { $mid: 1, path: p, scheme: 'file' } };
+  });
+  await writeFile(path.join(dir, 'extensions.json'), JSON.stringify(entries));
+  return dir;
+}
+
 /** Launches a fresh VS Code profile with the extensions, sized for recording. */
 export async function launchVSCode(opts: VSCodeLaunchOptions): Promise<VSCodeSession> {
   const cacheDir = opts.cacheDir ?? defaultCacheDir();
@@ -159,7 +226,9 @@ export async function launchVSCode(opts: VSCodeLaunchOptions): Promise<VSCodeSes
   const executable =
     opts.executable ?? (await ensureVSCode(opts.version ?? PINNED_VSCODE, cacheDir, progress));
   // An empty, isolated extensions folder still leaves an app's built-in extensions active.
-  const extensionsDir = await ensureExtensions(executable, opts.extensions, cacheDir, progress);
+  const extensionsDir = opts.executable
+    ? await ensureAppExtensions(executable, cacheDir, progress)
+    : await ensureExtensions(executable, opts.extensions, cacheDir, progress);
 
   // A throwaway user profile per launch keeps every recording identical.
   await mkdir(path.join(cacheDir, 'profiles'), { recursive: true });

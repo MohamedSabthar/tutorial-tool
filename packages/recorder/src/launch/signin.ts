@@ -6,6 +6,7 @@ import { getProduct, readAppBundle } from '../products';
 import {
   cleanEnv,
   defaultCacheDir,
+  ensureAppExtensions,
   ensureExtensions,
   ensureVSCode,
   PINNED_VSCODE,
@@ -73,12 +74,10 @@ export async function openSignIn(
       ? readAppBundle(product.appPath).executable
       : await ensureVSCode(PINNED_VSCODE, cacheDir, progress);
   // The same extensions folder recordings use, so the extension's sign-in carries over.
-  const extensionsDir = await ensureExtensions(
-    executable,
-    product.type === 'vscode-app' ? [] : product.extensions,
-    cacheDir,
-    progress,
-  );
+  const extensionsDir =
+    product.type === 'vscode-app'
+      ? await ensureAppExtensions(executable, cacheDir, progress)
+      : await ensureExtensions(executable, product.extensions, cacheDir, progress);
   const dir = signInDir(productId, cacheDir);
   await mkdir(dir, { recursive: true });
   progress(`Opening ${product.name} to sign in…`);
