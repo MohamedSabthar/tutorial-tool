@@ -11,7 +11,7 @@ export function runScriptTools(ctx: ToolContext) {
     tool(
       'run_script',
       [
-        "Run this project's script.spec.ts in WSO2 Integrator on a fresh copy of its fixture; the user watches",
+        "Run this project's script.spec.ts in the project's product on a fresh copy of its fixture; the user watches",
         'it live. mode "dry" checks the script quickly without recording; "record" records a new take and',
         'registers it in the timeline (steps and the recording scene are rebuilt; overlays are kept).',
         'Always pass a dry run before recording. "rehearse" runs at recording pace (pointer moves, typing at',

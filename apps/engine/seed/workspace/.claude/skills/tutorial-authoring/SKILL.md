@@ -27,6 +27,8 @@ click, keystroke and target box to `events.jsonl`, which drives the cursor, zoom
 
 ## Script template
 
+The fixture is the folder the product opens on. Use the one the product skill describes (WSO2 Integrator: `kind: 'bi'`, below). A product without one starts from an empty folder: `{ kind: 'empty', folder: 'tutorial', title: 'Tutorial' }`, with an optional `readyText` the product shows once it has loaded.
+
 ```ts
 import type { ScriptFixture, TutorialScript } from '@studio/recorder/node';
 import { addResource, createHttpService } from '../../.claude/skills/wso2-integrator/pages/http-service';

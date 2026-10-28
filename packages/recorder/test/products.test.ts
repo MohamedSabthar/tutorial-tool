@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { configureProducts, getProduct, listProducts, PRODUCTS } from '../src/products';
+import { defaultFixture } from '../src/script';
 
 describe('product registry', () => {
   afterEach(() => configureProducts([]));
@@ -29,6 +30,16 @@ describe('product registry', () => {
       'wso2-integrator-vscode',
       'choreo-ext',
     ]);
+  });
+
+  it('starts Integrator products from a BI project and new products from an empty folder', () => {
+    configureProducts([
+      { id: 'wso2-integrator', name: 'WSO2 Integrator', app: '/Applications/Other.app' },
+      { id: 'choreo-ext', name: 'Choreo', extensions: ['WSO2.choreo@2.0.0'] },
+    ]);
+    expect(defaultFixture('wso2-integrator').kind).toBe('bi');
+    expect(defaultFixture('wso2-integrator-vscode').kind).toBe('bi');
+    expect(defaultFixture('choreo-ext')).toEqual({ kind: 'empty', folder: 'tutorial', title: 'Tutorial' });
   });
 
   it('goes back to the built-ins', () => {

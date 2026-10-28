@@ -16,6 +16,8 @@ interface ProductBase {
   skill?: string;
   /** CSS selectors hidden on camera: in the workbench, and inside the product's webviews. */
   hide?: { workbench?: string[]; webview?: string[] };
+  /** The fixture a project starts from when its script doesn't name one (default: an empty folder). */
+  fixtureKind?: 'bi' | 'empty';
 }
 
 export interface VSCodeAppProduct extends ProductBase {
@@ -40,6 +42,7 @@ export const PRODUCTS: Record<string, Product> = {
     type: 'vscode-app',
     appPath: process.env.STUDIO_WSO2_INTEGRATOR_APP ?? '/Applications/WSO2 Integrator.app',
     activityBarLabel: /WSO2 Integrator/i,
+    fixtureKind: 'bi',
   },
   'wso2-integrator-vscode': {
     id: 'wso2-integrator-vscode',
@@ -48,6 +51,7 @@ export const PRODUCTS: Record<string, Product> = {
     extensions: ['WSO2.wso2-integrator@1.0.1'],
     activityBarLabel: /WSO2 Integrator/i,
     skill: 'wso2-integrator',
+    fixtureKind: 'bi',
   },
 };
 
@@ -77,6 +81,7 @@ export function configureProducts(
       name: e.name,
       activityBarLabel: label,
       ...(base?.skill ? { skill: base.skill } : {}),
+      ...(base?.fixtureKind ? { fixtureKind: base.fixtureKind } : {}),
       ...(e.hide ? { hide: e.hide } : base?.hide ? { hide: base.hide } : {}),
     };
     if (e.app) next[e.id] = { ...common, type: 'vscode-app', appPath: e.app };

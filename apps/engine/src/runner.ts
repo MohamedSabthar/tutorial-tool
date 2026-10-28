@@ -1,20 +1,12 @@
 import path from 'node:path';
 import type { RecorderEvent } from '@studio/core';
 import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
-import { loadScript, openInspector, type Inspector, type ScriptFixture } from '@studio/recorder/node';
+import { defaultFixture, loadScript, openInspector, type Inspector } from '@studio/recorder/node';
 import type { ProjectStore } from './projects';
 import { runProjectScript, type ProjectRunResult, type RunMode } from './recording';
 import type { Workspace } from './workspace';
 
 type Broadcast = <E extends RpcEvent>(event: E, data: RpcEventData<E>) => void;
-
-/** The fixture `inspect_ui` uses when a project has no script yet (same as the reference tutorial). */
-export const DEFAULT_FIXTURE: ScriptFixture = {
-  kind: 'bi',
-  folder: 'greeting-project',
-  title: 'Greeting Project',
-  integrations: [{ name: 'greeting_service', title: 'Greeting Service' }],
-};
 
 const INSPECT_IDLE_MS = 5 * 60_000;
 
@@ -149,7 +141,7 @@ export class Runner {
     const cb = this.liveCallbacks(title, 'dry', slug);
     try {
       cb.onStage('launch');
-      const inspector = await openInspector(mod ?? { fixture: DEFAULT_FIXTURE }, {
+      const inspector = await openInspector(mod ?? { fixture: defaultFixture(project.product) }, {
         product: project.product,
         ...(opts.uptoStep ? { uptoStep: opts.uptoStep } : {}),
         onProgress: cb.onProgress,

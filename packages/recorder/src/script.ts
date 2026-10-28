@@ -40,7 +40,8 @@ export interface ScriptContext {
 
 export type TutorialScript = (ctx: ScriptContext) => Promise<void>;
 
-export interface ScriptFixture {
+/** A WSO2 Integrator (BI) project with the given integrations. */
+export interface BIFixture {
   kind: 'bi';
   /** Folder name, shown in the title bar ("greeting-project — WSO2 Integrator"). */
   folder: string;
@@ -48,6 +49,30 @@ export interface ScriptFixture {
   integrations: BIIntegration[];
   /** Text visible in the product once the project has loaded. */
   readyText?: string;
+}
+
+/** An empty folder, for products that don't need a project to start from. */
+export interface EmptyFixture {
+  kind: 'empty';
+  /** Folder name, shown in the title bar. */
+  folder: string;
+  title: string;
+  /** Text visible in the product once it has loaded (default: the folder in the window title). */
+  readyText?: string;
+}
+
+export type ScriptFixture = BIFixture | EmptyFixture;
+
+/** The fixture `inspect_ui` opens when a project has no script yet, by the product's fixture kind. */
+export function defaultFixture(productId: string): ScriptFixture {
+  return getProduct(productId).fixtureKind === 'bi'
+    ? {
+        kind: 'bi',
+        folder: 'greeting-project',
+        title: 'Greeting Project',
+        integrations: [{ name: 'greeting_service', title: 'Greeting Service' }],
+      }
+    : { kind: 'empty', folder: 'tutorial', title: 'Tutorial' };
 }
 
 export interface ScriptModule {
@@ -171,7 +196,9 @@ export async function launchFixture(
   const base = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
   const fixtureDir = path.join(base, fixture.folder);
   progress(`Creating the ${fixture.title} fixture…`);
-  await createBIProject(fixtureDir, { title: fixture.title, integrations: fixture.integrations });
+  if (fixture.kind === 'bi')
+    await createBIProject(fixtureDir, { title: fixture.title, integrations: fixture.integrations });
+  else await mkdir(fixtureDir, { recursive: true });
   onLaunch();
   try {
     const session =
@@ -199,6 +226,15 @@ export async function launchFixture(
 /** Waits until the product shows the fixture project, then lets the first screen settle. */
 export async function waitForFixture(page: Page, fixture: ScriptFixture, progress: Progress) {
   progress('Waiting for the project to load…');
+  if (fixture.kind === 'empty') {
+    if (fixture.readyText) await page.getByText(fixture.readyText).first().waitFor({ timeout: 45_000 });
+    else
+      await page.waitForFunction((folder) => document.title.includes(folder), fixture.folder, {
+        timeout: 45_000,
+      });
+    await page.waitForTimeout(1500);
+    return;
+  }
   const ready = fixture.readyText ?? fixture.integrations[0]?.title ?? fixture.title;
   await page.locator('.monaco-list-row', { hasText: ready }).first().waitFor({ timeout: 45_000 });
   // The integration overview opens on its own; let it settle so step 1 starts on a stable screen.
