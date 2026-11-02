@@ -42,7 +42,12 @@ export class SeriesStore {
     return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  async create(input: { topic: string; product: string; brief?: Partial<SeriesBrief> }): Promise<Series> {
+  async create(input: {
+    topic: string;
+    product: string;
+    notes?: string;
+    brief?: Partial<SeriesBrief>;
+  }): Promise<Series> {
     await mkdir(this.root, { recursive: true });
     const title = briefTitle(input.topic).replace('Untitled tutorial', 'Untitled series');
     const slug = await this.uniqueSlug(slugify(title));
@@ -52,6 +57,7 @@ export class SeriesStore {
       title,
       topic: input.topic.trim(),
       product: input.product,
+      notes: input.notes?.trim() ?? '',
       brief: SeriesBrief.parse(input.brief ?? {}),
       createdAt: now,
       updatedAt: now,

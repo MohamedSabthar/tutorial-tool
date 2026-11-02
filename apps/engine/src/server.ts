@@ -1024,7 +1024,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     'series.list': async () => seriesStore.list(),
     'series.get': async ({ slug }: { slug: string }) => seriesStore.get(slug),
-    'series.create': async (p: { topic: string; product: string }) => {
+    'series.create': async (p: { topic: string; product: string; notes?: string }) => {
       await workspace.ensure();
       const settings = await store.readSettings();
       const series = await seriesStore.create({

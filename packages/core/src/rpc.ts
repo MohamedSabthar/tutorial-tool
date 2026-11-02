@@ -359,6 +359,8 @@ export const rpcMethods = {
     params: z.object({
       topic: z.string().trim().min(1).max(2000),
       product: z.string().min(1).default('wso2-integrator'),
+      /** Context the user adds: the series notes every part reads. */
+      notes: z.string().max(4000).optional(),
     }),
     result: Series,
   },

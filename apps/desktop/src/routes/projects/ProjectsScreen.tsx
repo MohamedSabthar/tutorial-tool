@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { briefTitle, type ProjectSummary, type RpcResult, type Series } from '@studio/core';
-import { Button, Chip, IconArrowRight, IconTrash, Rule, Segmented, Select, type ChipTone } from '@studio/ui';
+import {
+  Button,
+  Chip,
+  IconArrowRight,
+  IconTrash,
+  Rule,
+  Segmented,
+  Select,
+  TextArea,
+  type ChipTone,
+} from '@studio/ui';
 import { useEngine } from '../../engine';
 import { GetStarted } from '../settings/SetupChecklist';
 import { AppFrame, formatDuration, navigate } from '../frame';
@@ -79,6 +89,9 @@ export function ProjectsScreen() {
   const [mode, setMode] = useState<Mode>('tutorial');
   const [product, setProduct] = useState('wso2-integrator');
   const [topic, setTopic] = useState('');
+  /** Optional context for the agent: the brief's notes, or the series' notes. */
+  const [context, setContext] = useState('');
+  const [showContext, setShowContext] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The project whose delete is being confirmed. */
@@ -139,13 +152,21 @@ export function ProjectsScreen() {
     setError(null);
     try {
       if (mode === 'series') {
-        const s = await client.call('series.create', { topic: goal, product });
+        const s = await client.call('series.create', {
+          topic: goal,
+          product,
+          ...(context.trim() ? { notes: context.trim() } : {}),
+        });
         // The agent starts on the outline; if it can't (no Claude Code), the Series screen offers it again.
         await client.call('series.plan', { slug: s.slug }).catch(() => undefined);
         navigate(`/series/${s.slug}`);
         return;
       }
-      const p = await client.call('project.create', { title: briefTitle(goal), product, brief: { goal } });
+      const p = await client.call('project.create', {
+        title: briefTitle(goal),
+        product,
+        brief: { goal, ...(context.trim() ? { notes: context.trim() } : {}) },
+      });
       navigate(`/brief/${p.slug}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -209,6 +230,35 @@ export function ProjectsScreen() {
               {busy ? 'Creating…' : mode === 'series' ? 'Plan series' : 'Set up tutorial'}
               <IconArrowRight />
             </button>
+            {showContext ? (
+              <div className="projects-context">
+                <label htmlFor="projects-context">
+                  Context <span>(optional)</span>
+                </label>
+                <TextArea
+                  id="projects-context"
+                  rows={3}
+                  maxLength={4000}
+                  autoFocus
+                  value={context}
+                  placeholder={
+                    mode === 'series'
+                      ? 'Who it is for, what they already know, names and sample data to use in every part, what to leave out…'
+                      : 'Who it is for, what they already know, names and sample data to use, what to leave out…'
+                  }
+                  onChange={(e) => setContext(e.target.value)}
+                />
+                <span className="projects-context-hint">
+                  {mode === 'series'
+                    ? 'The agent reads this when it plans the parts, and every part reads it too. Edit it later in the series notes.'
+                    : 'The agent reads this when it plans. Edit it later in the brief, under Notes for the agent.'}
+                </span>
+              </div>
+            ) : (
+              <button type="button" className="projects-context-toggle" onClick={() => setShowContext(true)}>
+                + Add context
+              </button>
+            )}
           </form>
           <div className="projects-suggestions" role="group" aria-label="Suggestions">
             {(mode === 'series' ? SERIES_SUGGESTIONS : SUGGESTIONS).map((s) => (

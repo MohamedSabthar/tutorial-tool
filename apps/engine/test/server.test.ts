@@ -37,6 +37,14 @@ describe('engine RPC', () => {
       product: 'wso2-integrator',
     });
     expect(s).toMatchObject({ slug: 'build-your-first-integration', title: 'Build your first integration' });
+    // Context typed with the topic becomes the series notes.
+    const withContext = await client.call('series.create', {
+      topic: 'Agents in five parts',
+      product: 'wso2-integrator',
+      notes: '  For Java developers. Use the weather API.  ',
+    });
+    expect(withContext.notes).toBe('For Java developers. Use the weather API.');
+    await client.call('series.delete', { slug: withContext.slug });
     expect(await changed).toBe(s.slug);
 
     await client.call('series.edit', { slug: s.slug, edit: { op: 'addPart', title: 'HTTP service' } });
