@@ -573,7 +573,7 @@ describe('PipelineManager', () => {
   });
 
   it('edits the plan only during the storyboard review, and passes the edits to post-production', async () => {
-    await store.saveBrief(slug, { ...(await store.readBrief(slug)), explainers: false });
+    await store.saveBrief(slug, { ...(await store.readBrief(slug)), explainers: 'off' });
     const { p, sent } = make(
       async (p, stage) => {
         if (stage === 'plan') {

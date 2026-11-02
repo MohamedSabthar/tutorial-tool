@@ -1,4 +1,4 @@
-import { readdir, realpath, stat } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { init, parse } from 'es-module-lexer';
 import { createServer, type Plugin, type ViteDevServer } from 'vite';
@@ -8,6 +8,7 @@ import { createServer, type Plugin, type ViteDevServer } from 'vite';
  *   <workspace>/overlays/<Name>.tsx                 → workspace:<Name>
  *   <workspace>/scenes/<Name>.tsx                   → workspace:<Name> (kind scene)
  *   <workspace>/projects/<slug>/overlays/<Name>.tsx → project:<Name>
+ *   <workspace>/series/<slug>/scenes/<Name>.tsx     → series:<Name> (for every part of the series)
  *
  * Overlays must share the app's React, three.js, GSAP and SDK instances, so imports of those
  * packages are rewritten to read from `globalThis.__STUDIO_SHARED__`, which the app fills in.
@@ -32,7 +33,7 @@ export const SHARED_MODULES = [
 export interface OverlayEntry {
   id: string;
   kind: 'overlay' | 'scene';
-  scope: 'workspace' | 'project';
+  scope: 'workspace' | 'project' | 'series';
   /** Path relative to the workspace, as served (e.g. "projects/demo-http/overlays/Hello.tsx"). */
   path: string;
   mtime: number;
@@ -139,11 +140,17 @@ export async function startOverlayServer(
 
   const idFor = (abs: string): string | null => {
     const rel = path.relative(workspace, abs).split(path.sep).join('/');
-    const m = /^(?:(overlays|scenes)|projects\/[^/]+\/(overlays|scenes))\/([A-Za-z][A-Za-z0-9]*)\.tsx$/.exec(
-      rel,
-    );
+    const m =
+      /^(?:(overlays|scenes)|projects\/[^/]+\/(overlays|scenes)|series\/[^/]+\/(scenes))\/([A-Za-z][A-Za-z0-9]*)\.tsx$/.exec(
+        rel,
+      );
     if (!m) return null;
-    return `${rel.startsWith('projects/') ? 'project' : 'workspace'}:${m[3]}`;
+    const scope = rel.startsWith('projects/')
+      ? 'project'
+      : rel.startsWith('series/')
+        ? 'series'
+        : 'workspace';
+    return `${scope}:${m[4]}`;
   };
   const relevant = (abs: string) => /\/(overlays|scenes)\/[^/]+\.tsx?$/.test(abs.split(path.sep).join('/'));
   for (const event of ['add', 'change', 'unlink'] as const) {
@@ -157,7 +164,7 @@ export async function startOverlayServer(
 
   async function scan(
     dir: string,
-    scope: 'workspace' | 'project',
+    scope: OverlayEntry['scope'],
     kind: 'overlay' | 'scene',
   ): Promise<OverlayEntry[]> {
     const abs = path.join(workspace, dir);
@@ -179,14 +186,32 @@ export async function startOverlayServer(
         ...(await scan('overlays', 'workspace', 'overlay')),
         ...(await scan('scenes', 'workspace', 'scene')),
       ];
-      if (slug)
+      if (slug) {
         all.push(
           ...(await scan(`projects/${slug}/overlays`, 'project', 'overlay')),
           ...(await scan(`projects/${slug}/scenes`, 'project', 'scene')),
         );
+        // A series part also sees the scenes written for its series.
+        const series = await seriesOf(workspace, slug);
+        if (series) all.push(...(await scan(`series/${series}/scenes`, 'series', 'scene')));
+      }
       return all;
     },
     load: (relPath: string) => vite.ssrLoadModule(`/${relPath}`),
     close: () => vite.close(),
   };
+}
+
+/** The series a project belongs to (its project.json), or null. */
+async function seriesOf(workspace: string, slug: string): Promise<string | null> {
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) return null;
+  try {
+    const p = JSON.parse(await readFile(path.join(workspace, 'projects', slug, 'project.json'), 'utf8')) as {
+      series?: { slug?: unknown };
+    };
+    const s = p.series?.slug;
+    return typeof s === 'string' && /^[a-z0-9][a-z0-9-]{0,62}$/.test(s) ? s : null;
+  } catch {
+    return null;
+  }
 }

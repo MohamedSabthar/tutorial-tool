@@ -292,7 +292,7 @@ export function TimelinePanel({
             }}
           />
         ))}
-        {o.component.replace(/^(core|workspace|project):/, '')}
+        {o.component.replace(/^(core|workspace|project|series):/, '')}
       </div>
     );
   }

@@ -23,7 +23,7 @@ export type Point = z.infer<typeof Point>;
 /** A component reference: `core:Zoom`, `workspace:CodeCallout`, `project:RequestFlow`. */
 export const ComponentRef = z
   .string()
-  .regex(/^(core|workspace|project):[A-Za-z][A-Za-z0-9]*$/, 'component refs look like "core:Zoom"');
+  .regex(/^(core|workspace|project|series):[A-Za-z][A-Za-z0-9]*$/, 'component refs look like "core:Zoom"');
 
 // ---------------------------------------------------------------------------
 // Takes and segments

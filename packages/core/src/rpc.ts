@@ -478,7 +478,7 @@ export const rpcMethods = {
       z.object({
         id: z.string(),
         kind: z.enum(['overlay', 'scene']),
-        scope: z.enum(['workspace', 'project']),
+        scope: z.enum(['workspace', 'project', 'series']),
         path: z.string(),
         mtime: z.number(),
       }),

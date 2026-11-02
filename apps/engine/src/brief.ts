@@ -21,9 +21,11 @@ export function renderBrief(md: string, project: Project, brief: Brief): string 
     list.find((o) => o.value === v)?.text ?? v;
   const constraints = [
     `- Starting workspace: ${label(BRIEF_WORKSPACES, brief.workspace)}`,
-    brief.explainers
-      ? '- Explainers: propose them where a concept is easier to show than to click through.'
-      : "- Explainers: don't propose any; the user wants a recording only.",
+    brief.explainers === 'off'
+      ? "- Explainers: don't propose any; the user wants a recording only."
+      : brief.explainers === 'designed'
+        ? '- Explainers: propose them where a concept is easier to show than to click through. Design and code each one for what it explains (explainer-authoring skill, "Designed scenes"); built-in scenes only as parts.'
+        : '- Explainers: propose them where a concept is easier to show than to click through. Use the built-in scenes, filled in with props.',
     ...(brief.notes.trim() ? ['', brief.notes.trim()] : []),
   ].join('\n');
   const references = brief.references.length

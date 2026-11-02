@@ -105,13 +105,13 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 10.3 16:9 recording at 2×
   - [ ] 10.4 Clean product window on every take
   - [ ] 10.5 Final QA of the rendered video
-- [ ] **Phase 11: Tutorial series**
+- [x] **Phase 11: Tutorial series**
   - [x] 11.1 Series model and screens
   - [x] 11.2 The agent writes the series outline
   - [x] 11.3 Series context for each part
   - [x] 11.4 Where each part starts
   - [x] 11.5 Series in the outputs
-  - [ ] 11.6 Explainers designed by the agent
+  - [x] 11.6 Explainers designed by the agent
 
 ---
 
@@ -1025,3 +1025,6 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-24 | feature | `pnpm dmg` (`scripts/build-dmg.mjs`) builds the .app and a .dmg: checks the tools, builds the UI, stages the engine, runs `tauri build --bundles app,dmg`. Ad-hoc signed by default with macOS 11 as the minimum (`tauri.bundle.conf.json`), so it runs on other Macs of the same architecture after Open Anyway; with `APPLE_SIGNING_IDENTITY` it also signs every executable in the engine folder with the hardened runtime (`engine.entitlements`) for notarization. Checked: no links or paths outside the bundle, and the bundled engine starts from a copied app with a bare environment, seeds a workspace and runs its setup checks. New README with requirements, dev modes, file locations, checks, building, signing and troubleshooting | Raised: a script to build a DMG that works on other machines, and a README |
 | 2026-10-24 | change | Claude Code is no longer shipped: the packaging drops the agent SDK's native binary (DMG 180 → 77 MB) and the agent runs the Claude Code the user installed (Settings path, else the PATH, `~/.local/bin`, `~/.claude/local`, Homebrew, `/usr/local/bin`; `claudeCode.ts`). Without one a session fails with install instructions, and the setup checklist has a "Claude Code installed" item. Settings → Agent model gains "Custom models": a model id or alias for research/planning/repairs and one for the rest (`customModels`) | Raised: "don't bundle claude, users install it"; "allow to configure model in the settings" |
 | 2026-11-02 | 11 | Added Phase 11, tutorial series, from UI mockups reviewed first (https://claude.ai/artifact/NBeVxk4EYarK3ZfxbJM54s). Parts are made one at a time, not as an autopilot queue. Each part starts from an earlier part's finished project (by default the previous one) or from a clean project. The part number goes on the existing TitleCard as a new `eyebrow`, and the series name in its `subtitle`. 11.6 makes "Designed by the agent" the default for explainers, in single tutorials as well as series | Raised: "allow generating a tutorial series"; "Part 3 of 5 can go above the main title"; "dynamic explainer slides… agent comes up with it and code it"; "keep designed as default" |
+| 2026-11-02 | 11.6 | Explainers have three modes in the brief: None, Built-in looks, and Designed by the agent (the default). Briefs saved with the old checkbox still load: true reads as designed, false as none. In designed mode an explainer is always a new scene file, with built-ins only as parts inside it. The instructions say this themselves, because existing workspaces keep their copy of the explainer-authoring skill. The seed skill and this repo's workspace both have the new "Designed scenes" section. Series scenes live in `series/<slug>/scenes/` (id `series:<Name>`), are listed for every part, and are copied, not moved, when saved to the library | Raised: "dynamic explainer slides… agent comes up with it and code it"; a first real run picked a built-in until the wording required a new file |
+| 2026-11-02 | 11.6 | Explainer edits that change a scene's length now move what follows it and rebuild the automatic overlays (`editScene`, through `sceneEdit`). Before, later overlays stayed where they were. The end card sits on the last recorded piece, never over an explainer | Found in the UI test: the end card showed over a recap explainer whose narration had made it longer |
+| 2026-11-02 | note | `check_scene` contact sheets and `videoCheck` use ffmpeg's `drawtext`, which this Mac's ffmpeg build lacks. That's why its two `videoCheck` tests fail, and on this machine an explainer review shows "No frame yet". Installing an ffmpeg built with libfreetype fixes both. It isn't caused by Phase 11 | Seen in every test run of the phase |

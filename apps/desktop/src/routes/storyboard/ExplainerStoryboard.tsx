@@ -58,6 +58,26 @@ export function ExplainerStoryboard({
       setBusy(null);
     }
   };
+  const [designed, setDesigned] = useState<{ id: string; path: string; series: boolean } | null>(null);
+  const [promoted, setPromoted] = useState(false);
+  // A scene the agent wrote (not a built-in or library one): its file, for the badge and actions.
+  useEffect(() => {
+    if (!client) return;
+    let live = true;
+    void (async () => {
+      const { timeline } = await client.call('timeline.get', { slug });
+      const scene = timeline.scenes.find((x) => x.id === job.sceneId);
+      const id = scene?.kind === 'explainer' ? scene.component : null;
+      const entry =
+        id && /^(project|series):/.test(id)
+          ? (await client.call('overlays.list', { slug })).find((e) => e.id === id)
+          : undefined;
+      if (live) setDesigned(id && entry ? { id, path: entry.path, series: entry.scope === 'series' } : null);
+    })().catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [client, slug, job.sceneId, job.status, job.frames]);
   const st = STATUS[job.status];
   const sb = job.storyboard;
   return (
@@ -80,6 +100,35 @@ export function ExplainerStoryboard({
         </span>
       )}
       {!sb && <span style={{ fontSize: 12, color: 'var(--ui-gray-600)' }}>“{job.brief}”</span>}
+      {designed && (
+        <div className="xsb-designed">
+          <Chip tone="info">
+            {designed.series ? 'Designed for this series' : 'Designed for this tutorial'}
+          </Chip>
+          <span className="ui-mono xsb-designed-path">{designed.path}</span>
+          <Button
+            size="sm"
+            disabled={!!busy}
+            onClick={() =>
+              void act('code', () => client!.call('project.reveal', { slug, path: `../../${designed.path}` }))
+            }
+          >
+            View code
+          </Button>
+          <Button
+            size="sm"
+            disabled={!!busy || promoted}
+            onClick={() =>
+              void act('promote', async () => {
+                await client!.call('library.promote', { slug, id: designed.id });
+                setPromoted(true);
+              })
+            }
+          >
+            {promoted ? 'In the library' : busy === 'promote' ? 'Checking…' : 'Save to library'}
+          </Button>
+        </div>
+      )}
       {sb && (
         <div className="xsb-cards">
           {sb.beats.map((b, i) => (
@@ -151,6 +200,23 @@ export function ExplainerStoryboard({
           >
             Ask for changes
           </Button>
+          {designed && (
+            <Button
+              disabled={!!busy}
+              onClick={() =>
+                void act('builtin', () =>
+                  client!.call('explainers.revise', {
+                    slug,
+                    sceneId: job.sceneId,
+                    feedback:
+                      'Use a built-in look instead of the designed scene: pick the built-in scene (list_scenes) that shows this idea best, and keep the beats and narration.',
+                  }),
+                )
+              }
+            >
+              Use a built-in look instead
+            </Button>
+          )}
           <Button
             variant="ghost"
             disabled={!!busy}

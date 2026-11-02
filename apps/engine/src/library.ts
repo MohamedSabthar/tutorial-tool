@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { LibraryEntry, RpcError, type TimelinePatch } from '@studio/core';
@@ -69,14 +69,35 @@ export class Library {
    * (check_overlay, or check_scene on an explainer that uses it); a rendered frame becomes the
    * thumbnail, and this project's references switch to `workspace:Name`.
    */
+  /** The series a project belongs to, from its project.json. */
+  private async seriesOf(slug: string): Promise<string | null> {
+    try {
+      const p = JSON.parse(
+        await readFile(path.join(this.deps.workspace, 'projects', slug, 'project.json'), 'utf8'),
+      ) as { series?: { slug?: string } };
+      return p.series?.slug ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async promote(slug: string, id: string): Promise<LibraryEntry> {
-    const m = /^project:([A-Za-z][A-Za-z0-9]*)$/.exec(id);
-    if (!m) throw new RpcError('only project components (project:Name) can be promoted', 'bad_request');
-    const name = m[1]!;
-    const kind: Kind = existsSync(path.join(this.deps.workspace, `projects/${slug}/scenes/${name}.tsx`))
-      ? 'scene'
-      : 'overlay';
-    const rel = `projects/${slug}/${DIR[kind]}/${name}.tsx`;
+    const m = /^(project|series):([A-Za-z][A-Za-z0-9]*)$/.exec(id);
+    if (!m)
+      throw new RpcError(
+        'only project or series components (project:Name, series:Name) can be promoted',
+        'bad_request',
+      );
+    const name = m[2]!;
+    // A series scene stays in the series (other parts use it): the library gets a copy.
+    const series = m[1] === 'series' ? await this.seriesOf(slug) : null;
+    if (m[1] === 'series' && !series)
+      throw new RpcError('this project is not part of a series', 'bad_request');
+    const kind: Kind =
+      series || existsSync(path.join(this.deps.workspace, `projects/${slug}/scenes/${name}.tsx`))
+        ? 'scene'
+        : 'overlay';
+    const rel = series ? `series/${series}/scenes/${name}.tsx` : `projects/${slug}/${DIR[kind]}/${name}.tsx`;
     const src = path.join(this.deps.workspace, rel);
     const destRel = `${DIR[kind]}/${name}.tsx`;
     const dest = path.join(this.deps.workspace, destRel);
@@ -128,7 +149,8 @@ export class Library {
     }
 
     await mkdir(path.dirname(dest), { recursive: true });
-    await rename(src, dest);
+    if (series) await copyFile(src, dest);
+    else await rename(src, dest);
 
     // This project's instances (or explainer scenes) now use the shared component.
     const patch: TimelinePatch =

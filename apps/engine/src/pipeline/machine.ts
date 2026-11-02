@@ -666,7 +666,10 @@ export class PipelineManager {
             slug,
             live,
             'plan',
-            planInstruction({ explainers: brief?.explainers ?? true, series: await this.inSeries(slug) }),
+            planInstruction({
+              explainers: (brief?.explainers ?? 'designed') !== 'off',
+              series: await this.inSeries(slug),
+            }),
           );
           if (!(await this.get(slug)).plan)
             await this.agentStageWithHelp(

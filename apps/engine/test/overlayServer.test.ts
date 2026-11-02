@@ -56,6 +56,24 @@ describe('overlay server', () => {
     expect(list.map((e) => [e.id, e.path])).toEqual([['project:Hello', 'projects/demo/overlays/Hello.tsx']]);
   });
 
+  it("lists a series' scenes for each of its parts", async () => {
+    await mkdir(path.join(ws, 'projects', 'part-two'), { recursive: true });
+    await writeFile(
+      path.join(ws, 'projects', 'part-two', 'project.json'),
+      JSON.stringify({ slug: 'part-two', series: { slug: 'first', part: 'p2' } }),
+    );
+    await mkdir(path.join(ws, 'series', 'first', 'scenes'), { recursive: true });
+    await writeFile(
+      path.join(ws, 'series', 'first', 'scenes', 'BuiltSoFar.tsx'),
+      'export default () => null;\n',
+    );
+    const list = await server.list('part-two');
+    expect(list.map((e) => [e.id, e.scope, e.path])).toEqual([
+      ['series:BuiltSoFar', 'series', 'series/first/scenes/BuiltSoFar.tsx'],
+    ]);
+    expect((await server.list('demo')).some((e) => e.scope === 'series')).toBe(false);
+  });
+
   it('compiles TSX with shared imports and CORS', async () => {
     const res = await fetch(`${server.url}/projects/demo/overlays/Hello.tsx`, {
       headers: { origin: 'tauri://localhost' },

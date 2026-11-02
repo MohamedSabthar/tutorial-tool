@@ -96,6 +96,27 @@ describe('autoOverlays', () => {
       (o) => o.component === 'core:TitleCard',
     );
     expect(both.map((o) => o.id)).toEqual(['auto-title']);
+    // It stays on the last recorded piece, not over an explainer after it.
+    const withExplainer = parseTimeline({
+      ...tl(),
+      scenes: [
+        ...tl().scenes,
+        {
+          id: 'x1',
+          kind: 'explainer',
+          component: 'core:CardDeck',
+          props: {},
+          narration: [],
+          beats: [],
+          duration: 5,
+        },
+      ],
+    });
+    const endOnRecording = autoOverlays(withExplainer, later, {
+      title: 'x',
+      endCard: { title: 'Next' },
+    }).find((o) => o.id === 'auto-end');
+    expect(endOnRecording).toMatchObject({ start: 26.5, end: 30 });
     // No room after the last action: no end card.
     const busy = events.map((e) => (e.kind === 'click' && e.t === 20 ? { ...e, t: 29.5 } : e));
     expect(

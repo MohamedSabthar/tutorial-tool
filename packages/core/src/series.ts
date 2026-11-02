@@ -48,6 +48,8 @@ export const SeriesOutputs = z.object({
   /** A closing card naming the next part ({n} is the next part's number). */
   endCard: z.boolean().default(true),
   endText: z.string().max(120).default('Up next · Part {n} of {total}'),
+  /** A recap explainer opening each part after the first: one series scene, designed once, reused. */
+  recapScene: z.boolean().default(true),
   /** A recap line opening the narration and a lead-in to the next part closing it. */
   recap: z.boolean().default(true),
   /** Previous and next links in each part's tutorial.md. */

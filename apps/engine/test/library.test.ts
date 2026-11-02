@@ -208,6 +208,7 @@ describe('Library.promote', () => {
     await expect(library.promote(slug, 'project:Badge')).rejects.toThrow(
       /already has an overlay named Badge/,
     );
-    await expect(library.promote(slug, 'workspace:Badge')).rejects.toThrow(/only project components/);
+    await expect(library.promote(slug, 'workspace:Badge')).rejects.toThrow(/only project or series components/);
+    await expect(library.promote(slug, 'series:Recap')).rejects.toThrow(/not part of a series/);
   });
 });

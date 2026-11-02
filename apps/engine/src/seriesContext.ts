@@ -17,7 +17,12 @@ const covers = async (part: SeriesPart, summary: PartSummary) => {
 };
 
 /** The "## Series" section of a part's CLAUDE.md: its place, what came before and what comes next. */
-export async function seriesSection(series: Series, partId: string, summary: PartSummary): Promise<string> {
+export async function seriesSection(
+  series: Series,
+  partId: string,
+  summary: PartSummary,
+  opts: { explainers?: boolean } = {},
+): Promise<string> {
   const ctx = partContext(series, partId);
   if (!ctx) return '';
   const lines = [
@@ -46,6 +51,13 @@ export async function seriesSection(series: Series, partId: string, summary: Par
       ? `Next: part ${ctx.number + 1} · ${ctx.next.title}${ctx.next.goal ? ` (${ctx.next.goal.trim()})` : ''}. End with one line that leads into it, without teaching it.`
       : 'This is the last part: close the series with a line on what the viewer can now build.',
   );
+  if (series.outputs.recapScene && opts.explainers !== false)
+    lines.push(
+      '',
+      ctx.number === 1
+        ? `Recap explainer: from part 2 on, each part opens with a short explainer of what the series has built so far. Propose it here only if it helps part 1 too. If you make one, design it as series/${series.slug}/scenes/<Name>.tsx with props for what each part adds, so later parts reuse it.`
+        : `Recap explainer: propose an explainer at the start (after: "start") that recaps what earlier parts built, using the series' recap scene (list_scenes, series:<Name>) with this part's props. If there is none yet, design it as series/${series.slug}/scenes/<Name>.tsx with props for what each part adds, so later parts reuse it. Keep it to 2–3 beats.`,
+    );
   if (series.notes.trim())
     lines.push('', 'Series notes (names, sample data and words every part uses):', '', series.notes.trim());
   return lines.join('\n');
@@ -71,7 +83,7 @@ export class SeriesContext {
   async syncSeries(slug: string): Promise<void> {
     const series = await this.deps.series.get(slug);
     for (const part of series.parts)
-      if (part.project) await this.write(part.project, await seriesSection(series, part.id, this.summary));
+      if (part.project) await this.write(part.project, await this.section(series, part.id, part.project));
   }
 
   /** Rewrites the section of one project, if it belongs to a series. */
@@ -80,7 +92,12 @@ export class SeriesContext {
     if (!p.series) return;
     const series = await this.deps.series.get(p.series.slug).catch(() => null);
     if (!series) return;
-    await this.write(project, await seriesSection(series, p.series.part, this.summary));
+    await this.write(project, await this.section(series, p.series.part, project));
+  }
+
+  private async section(series: Series, partId: string, project: string) {
+    const brief = await this.deps.projects.readBrief(project).catch(() => null);
+    return seriesSection(series, partId, this.summary, { explainers: brief?.explainers !== 'off' });
   }
 
   /** Takes the section out (the project left its series). */

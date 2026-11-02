@@ -345,7 +345,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
    * Applies a scene edit as one patch, then rebuilds what lives in output time and is derived
    * (captions from the voice-over, automatic overlays from the recording).
    */
-  const sceneEdit = async (slug: string, label: string, edit: (tl: Timeline) => Timeline) => {
+  const sceneEdit = async (
+    slug: string,
+    label: string,
+    edit: (tl: Timeline) => Timeline,
+    author: 'user' | 'agent' = 'user',
+  ) => {
     const { timeline } = await timelines.get(slug);
     let next = withCaptions(edit(timeline));
     const take = next.takes.at(-1);
@@ -357,7 +362,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     const patch = keys
       .filter((k) => JSON.stringify(next[k]) !== JSON.stringify(timeline[k]))
       .map((k) => ({ op: 'replace' as const, path: `/${k}`, value: next[k] }));
-    return timelines.patch(slug, patch, { author: 'user', label });
+    return timelines.patch(slug, patch, { author, label });
   };
   /** Inserts an explainer (FreezeMorph in and out next to the recording); returns the new state and its id. */
   const insertScene = async (
@@ -410,6 +415,17 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     catalog: async (slug) => loadCatalog(await overlays(), slug),
     insertScene: async (slug, at, component, props) =>
       (await insertScene(slug, at, component, props)).sceneId,
+    // A scene whose length changes moves what follows it, and the automatic overlays are rebuilt.
+    editScene: (slug, label, edit) =>
+      sceneEdit(
+        slug,
+        label,
+        (tl) => {
+          const next = edit(tl);
+          return remapOutputItems(next, outputRemapper(tl, next));
+        },
+        'agent',
+      ),
     removeScene: async (slug, sceneId) => {
       await sceneEdit(slug, 'Remove explainer', (tl) => removeExplainerScene(tl, sceneId));
     },
@@ -864,7 +880,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'project.reveal': async ({ slug, path: rel }: { slug: string; path: string }) => {
       const dir = store.dir(slug);
       const file = path.resolve(dir, rel);
-      if (!file.startsWith(dir + path.sep) || !existsSync(file))
+      // The project's folder, or (for its series' shared scenes) its series' folder.
+      const series = (await store.open(slug)).project.series;
+      const roots = [dir, ...(series ? [seriesStore.dir(series.slug)] : [])];
+      if (!roots.some((r) => file.startsWith(r + path.sep)) || !existsSync(file))
         throw new RpcError(`no ${rel} in this project`, 'not_found');
       if (process.platform !== 'darwin') return { ok: false };
       await new Promise<void>((resolve, reject) =>

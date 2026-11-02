@@ -39,6 +39,22 @@ export const BRIEF_STYLES = [
   },
   { value: 'demo', label: 'Quick demo', text: 'Quick demo: the shortest path to a working result.' },
 ] as const;
+/** How the agent makes explainers: none, a built-in scene filled in, or a scene it designs and codes. */
+export const BRIEF_EXPLAINERS = [
+  { value: 'off', label: 'None', text: 'A recording only.' },
+  {
+    value: 'builtin',
+    label: 'Built-in looks',
+    text: 'The agent fills in one of the built-in scenes. Quick and consistent.',
+  },
+  {
+    value: 'designed',
+    label: 'Designed by the agent',
+    text: 'The agent designs and codes each explainer for what it explains, using built-ins only as parts.',
+  },
+] as const;
+export type ExplainerMode = (typeof BRIEF_EXPLAINERS)[number]['value'];
+
 /** Starting points the recorder can build (script fixtures). */
 export const BRIEF_WORKSPACES = [
   {
@@ -75,7 +91,10 @@ export const Brief = z.object({
   style: z.enum(values(BRIEF_STYLES)).default('steps'),
   /** ElevenLabs voice id; null until voices are available (4.1). */
   voice: z.string().nullable().default(null),
-  explainers: z.boolean().default(true),
+  /** Briefs saved before the three-way choice stored a boolean: true reads as the default. */
+  explainers: z
+    .preprocess((v) => (v === true ? 'designed' : v === false ? 'off' : v), z.enum(values(BRIEF_EXPLAINERS)))
+    .default('designed'),
   /** Claude Code's auto mode: a safety classifier approves tool calls and asks only when unsure. */
   autoMode: z.boolean().default(true),
   gates: BriefGates.default({ storyboard: false, narration: true, recording: false, export: true }),

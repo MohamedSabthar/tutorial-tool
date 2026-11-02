@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import {
   BRIEF_AUDIENCES,
+  BRIEF_EXPLAINERS,
   BRIEF_LENGTHS,
   BRIEF_STYLES,
   BRIEF_WORKSPACES,
@@ -291,6 +292,7 @@ export function BriefScreen({ slug }: { slug: string }) {
                 ['Audience', BRIEF_AUDIENCES, 'audience'],
                 ['Length', BRIEF_LENGTHS, 'length'],
                 ['Style', BRIEF_STYLES, 'style'],
+                ['Explainers', BRIEF_EXPLAINERS, 'explainers'],
               ] as const
             ).map(([label, options, key]) => (
               <div key={key} className="brief-seg-row">
@@ -301,6 +303,11 @@ export function BriefScreen({ slug }: { slug: string }) {
                   value={brief[key]}
                   onChange={(v) => update({ [key]: v } as Partial<Brief>)}
                 />
+                {key === 'explainers' && (
+                  <span className="series-hint">
+                    {BRIEF_EXPLAINERS.find((o) => o.value === brief.explainers)?.text}
+                  </span>
+                )}
               </div>
             ))}
             <div className="brief-grid">
@@ -340,13 +347,6 @@ export function BriefScreen({ slug }: { slug: string }) {
                   </Select>
                 )}
               </Field>
-              <div style={{ alignSelf: 'end' }}>
-                <Switch
-                  label="Let the agent propose explainers"
-                  checked={brief.explainers}
-                  onChange={(v) => update({ explainers: v })}
-                />
-              </div>
             </div>
             <div className="brief-auto">
               <Switch
@@ -530,7 +530,8 @@ export function BriefScreen({ slug }: { slug: string }) {
           <Panel title="What happens next" tone="dark">
             <ol className="brief-next">
               <li>
-                Research anything new, then plan the steps{brief?.explainers ? ' and propose explainers' : ''}
+                Research anything new, then plan the steps
+                {brief && brief.explainers !== 'off' ? ' and propose explainers' : ''}
               </li>
               {brief?.gates.storyboard && <li>Plan review (your gate)</li>}
               <li>Write the script and dry-run it until every step works</li>

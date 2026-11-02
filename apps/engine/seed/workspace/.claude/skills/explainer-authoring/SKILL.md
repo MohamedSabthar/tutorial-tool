@@ -9,7 +9,13 @@ An explainer is a full-frame scene in the timeline between recorded parts (`kind
 scenes). It has a component, props, narration lines and beats. Its length follows its narration
 (`duration: "auto"`): estimated from the text until it is voiced, then from the voice-over.
 
-## Reuse first
+## Designed or built-in
+
+The brief's Constraints say which (Explainers): **designed** (the default) or **built-in looks**.
+With built-in looks, reuse first (below). With designed, see "Designed scenes": every explainer
+is a new scene file, and the built-ins below are only parts you may use inside it.
+
+## Reuse first (built-in looks)
 
 1. `list_scenes` shows built-in (`core:`), workspace and project scenes with their prop schemas.
 2. Built-ins cover most needs with props alone:
@@ -86,6 +92,35 @@ export default function PathAnatomy({ props }: OverlayProps<Props>) {
   texture) brings a recorded frame into the scene, e.g. the product screen shrinking into a box.
 - Same determinism rules as overlays: no clocks, randomness, timers, network or CSS animation.
 - Imports: as for overlays, plus `@studio/scenes-core` (the built-ins).
+
+## Designed scenes
+
+Design the explainer for what it explains in this tutorial, like a motion designer would:
+start from the idea, not from a template.
+
+1. **The idea in one sentence**, then what changes on screen on each beat. Every beat shows one
+   thing appearing, moving or lighting up, tied to its narration line.
+2. **Draw this tutorial's own things**: its service, resource, connection and record names, the
+   real request and response, the shape of the flow. Labels on a generic template aren't a
+   design.
+3. **Pick a visual form that fits the idea**: a request travelling through stops, a diagram that
+   grows, a record splitting into fields, a before/after, a stack of layers, code next to what it
+   does. Use built-ins (`@studio/scenes-core`) and `RecordingFrame` as parts where they help.
+4. **Write it** as `<Name>.tsx` (PascalCase, named after the idea, e.g. `ContactMapping`) with the
+   module contract above, inside `SceneFrame`, using `sceneType`, `scenePalette` and the Look
+   below. Keep it a pure function of time.
+5. **Check it** with `check_scene` after every change and fix what the frames show: overlapping
+   text, anything outside the safe area, a beat where nothing changes, more than ~12 words on
+   screen.
+
+Where to put it:
+- A single tutorial: `projects/<slug>/scenes/<Name>.tsx`.
+- A series part: a scene the whole series can use (e.g. a "what we've built so far" diagram that
+  gains a box in each part) goes in `series/<series>/scenes/<Name>.tsx`, with props for what
+  changes between parts. Later parts reuse it (`series:<Name>` in `list_scenes`) with their own
+  props instead of drawing a new one. A scene for this part only goes in the project.
+- A scene good enough for other tutorials is promoted to the library from the Studio; don't copy
+  it into `scenes/` yourself.
 
 ## Look
 

@@ -281,15 +281,23 @@ export function autoOverlays(
     .map((a) => out(a.t))
     .filter((t): t is number => t !== undefined)
     .reduce((m, t) => Math.max(m, t), -Infinity);
+  // It sits on the last recorded piece, never over an explainer after it.
+  const lastRec = [...tm.scenes].reverse().find((sc) => sc.kind === 'recording');
+  const recEnd = lastRec?.end ?? tm.duration;
   const titleCard = result.find((o) => o.id === 'auto-title');
-  const endStart = Math.max(tm.duration - 3.5, lastAction + 0.6, titleCard ? titleCard.end + 0.4 : 0);
-  if (opts.endCard && tm.duration - endStart >= 1.5) {
+  const endStart = Math.max(
+    recEnd - 3.5,
+    lastRec?.start ?? 0,
+    lastAction + 0.6,
+    titleCard ? titleCard.end + 0.4 : 0,
+  );
+  if (opts.endCard && recEnd - endStart >= 1.5) {
     const { eyebrow, title, subtitle } = opts.endCard;
     result.push({
       id: 'auto-end',
       component: 'core:TitleCard',
       start: r3(endStart),
-      end: r3(tm.duration),
+      end: r3(recEnd),
       layer: 60,
       props: { title, ...(subtitle ? { subtitle } : {}), ...(eyebrow ? { eyebrow } : {}) },
       author: 'auto',

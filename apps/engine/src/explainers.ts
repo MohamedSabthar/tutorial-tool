@@ -7,6 +7,7 @@ import {
   Storyboard,
   type Beat,
   type ExplainerScene,
+  type Timeline,
   type TimelinePatch,
 } from '@studio/core';
 import type { ProjectStore } from './projects';
@@ -20,6 +21,11 @@ interface Deps {
   /** Inserts an explainer scene at output time `at` (with FreezeMorph in and out); returns its id. */
   insertScene(slug: string, at: number, component: string, props: Record<string, unknown>): Promise<string>;
   removeScene(slug: string, sceneId: string): Promise<void>;
+  /**
+   * Applies a scene change so what follows in output time moves with it and derived overlays are
+   * rebuilt (optional: without it the patch is applied as is).
+   */
+  editScene?(slug: string, label: string, edit: (tl: Timeline) => Timeline): Promise<unknown>;
   /** Sends a user-side message to the project's agent as a new run. */
   send(slug: string, text: string): Promise<void>;
   emit(slug: string): void;
@@ -91,15 +97,33 @@ export class Explainers {
   }
 
   /** The storyboard request (sent as a message, or returned by insert_explainer). */
+  /**
+   * How this project makes explainers: designed (a scene coded for the idea; series parts keep
+   * shared scenes in the series folder) or built-in (a built-in scene's props).
+   */
+  private async approach(slug: string): Promise<{ designed: boolean; where: string }> {
+    const mode = (await this.deps.store.readBrief(slug).catch(() => null))?.explainers ?? 'designed';
+    const series = (await this.deps.store.open(slug).catch(() => null))?.project.series?.slug;
+    const where = series
+      ? `series/${series}/scenes/<Name>.tsx (shared by every part of the series: later parts reuse and extend it) or projects/${slug}/scenes/<Name>.tsx (this part only)`
+      : `projects/${slug}/scenes/<Name>.tsx`;
+    return { designed: mode !== 'builtin', where };
+  }
+
   async storyboardInstruction(slug: string, job: ExplainerJob): Promise<string> {
+    const { designed, where } = await this.approach(slug);
     return [
       `[Explainer · storyboard] Make an explainer scene for: "${job.brief}".${await this.where(slug, job.sceneId)} A placeholder is in the timeline, with FreezeMorph transitions in and out.`,
       job.feedback ? `The user asked for these changes to the last storyboard:\n\n${job.feedback}` : '',
       [
         'Follow the explainer-authoring skill. Storyboard first, nothing detailed yet:',
-        '1. Pick the approach: reuse a built-in or library scene where you can (list_scenes).',
+        designed
+          ? `1. Design a new scene for this idea (the brief asks for designed explainers; "Designed scenes" in the explainer-authoring skill): decide what the viewer sees change on each beat, drawn for this tutorial (its names, its flow, its real request and response), not a template with new labels. It is always a new file, ${where}. Built-in scenes (@studio/scenes-core) and RecordingFrame may be parts inside it, never the explainer itself. Name the file in the approach.`
+          : '1. Pick the approach: reuse a built-in or library scene where you can (list_scenes).',
         `2. save_storyboard({"sceneId": "${job.sceneId}", title, approach, beats: [{id, narration, visual}]}): 3–6 beats, one spoken narration line per beat (about 2.5 words per second).`,
-        `3. set_explainer({"sceneId": "${job.sceneId}", component, props, narration, beats}) to a rough draft, then check_scene({"sceneId": "${job.sceneId}"}) for a rough frame per beat.`,
+        designed
+          ? `3. Write a rough draft of the file (enough to show each beat), set_explainer({"sceneId": "${job.sceneId}", component: "project:<Name>" or "series:<Name>", props, narration, beats}) with it, then check_scene({"sceneId": "${job.sceneId}"}) for a rough frame per beat.`
+          : `3. set_explainer({"sceneId": "${job.sceneId}", component, props, narration, beats}) to a rough draft, then check_scene({"sceneId": "${job.sceneId}"}) for a rough frame per beat.`,
         'Stop there and end your turn: the user reviews the storyboard in the Studio before you build it.',
       ].join('\n'),
     ]
@@ -108,12 +132,15 @@ export class Explainers {
   }
 
   private async buildInstruction(slug: string, job: ExplainerJob): Promise<string> {
+    const { designed, where } = await this.approach(slug);
     return [
       `[Explainer · build] The user approved the storyboard for scene ${job.sceneId} ("${job.brief}").${await this.where(slug, job.sceneId)}`,
       '```json\n' + JSON.stringify(job.storyboard, null, 2) + '\n```',
       [
         'Build it, following the explainer-authoring skill:',
-        `1. set_explainer with the final component, props, narration (the storyboard's lines, as edited) and beats. Write scenes/<Name>.tsx only if no built-in or library scene can show it.`,
+        designed
+          ? `1. Finish the scene file (${where}) from the approved storyboard, following "Designed scenes" in the skill, then set_explainer with it, its props, the narration (the storyboard's lines, as edited) and beats. Don't swap it for a built-in scene.`
+          : `1. set_explainer with the final component, props, narration (the storyboard's lines, as edited) and beats. Write scenes/<Name>.tsx only if no built-in or library scene can show it.`,
         `2. check_scene({"sceneId": "${job.sceneId}"}) until it passes and each beat's frame matches the storyboard.`,
         `3. generate_voiceover({"stepIds": ["${job.sceneId}"]}), then check_scene again (the beats now follow the voice). If the voice-over can't be generated (no voice chosen in the brief, or no ElevenLabs key), skip it: the beats follow the narration text until it is voiced. Say so in the summary.`,
         `Keep the FreezeMorph transitions. Finish with explainer_done({"sceneId": "${job.sceneId}", "summary": "<one or two sentences>"}).`,
@@ -152,6 +179,13 @@ export class Explainers {
     const { timeline } = await this.deps.timelines.get(slug);
     const i = timeline.scenes.findIndex((s) => s.id === sceneId && s.kind === 'explainer');
     if (i < 0) throw new RpcError(`no explainer scene "${sceneId}"`, 'not_found');
+    if (this.deps.editScene) {
+      await this.deps.editScene(slug, 'Edit explainer', (tl) => ({
+        ...tl,
+        scenes: tl.scenes.map((sc, j) => (j === i ? ({ ...sc, ...fields } as typeof sc) : sc)),
+      }));
+      return;
+    }
     const patch: TimelinePatch = Object.entries(fields).map(([k, value]) => ({
       op: 'replace' as const,
       path: `/scenes/${i}/${k}`,

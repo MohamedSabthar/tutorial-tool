@@ -327,3 +327,69 @@ describe('series outputs', () => {
     expect(index).toContain('2. Call an API\n');
   });
 });
+
+describe('designed explainers', () => {
+  it('reads old briefs, renders the mode for the agent, and asks for a designed scene by default', async () => {
+    const { Brief } = await import('@studio/core');
+    const { renderBrief } = await import('../src/brief');
+    const { ProjectStore } = await import('../src/projects');
+    const { Explainers } = await import('../src/explainers');
+    const { TimelineStore } = await import('../src/timeline');
+    expect(Brief.parse({}).explainers).toBe('designed');
+    expect(Brief.parse({ explainers: true }).explainers).toBe('designed');
+    expect(Brief.parse({ explainers: false }).explainers).toBe('off');
+    const project = {
+      slug: 'x',
+      title: 'X',
+      product: 'p',
+      status: 'draft' as const,
+      createdAt: '',
+      updatedAt: '',
+    };
+    expect(renderBrief('', project, Brief.parse({}))).toContain('Design and code each one');
+    expect(renderBrief('', project, Brief.parse({ explainers: 'builtin' }))).toContain(
+      'Use the built-in scenes',
+    );
+    expect(renderBrief('', project, Brief.parse({ explainers: 'off' }))).toContain("don't propose any");
+
+    const projects = new ProjectStore(dir);
+    const timelines = new TimelineStore(projects, () => {});
+    const ex = new Explainers({
+      store: projects,
+      timelines,
+      catalog: async () => ({ entries: [], schemas: new Map() }),
+      insertScene: async () => 'x1',
+      removeScene: async () => {},
+      send: async () => {},
+      emit: () => {},
+    });
+    const job = { sceneId: 'x1', brief: 'What we built so far', status: 'storyboarding' as const } as never;
+    const single = await projects.create({ title: 'Single', product: 'p', brief: { goal: 'g' } });
+    expect(await ex.storyboardInstruction(single.slug, job)).toContain('Design a new scene for this idea');
+    expect(await ex.storyboardInstruction(single.slug, job)).toContain(
+      `projects/${single.slug}/scenes/<Name>.tsx`,
+    );
+    const part = await projects.create({
+      title: 'Part',
+      product: 'p',
+      brief: { goal: 'g' },
+      series: { slug: 'first', part: 'p2' },
+    });
+    expect(await ex.storyboardInstruction(part.slug, job)).toContain('series/first/scenes/<Name>.tsx');
+    await projects.saveBrief(single.slug, Brief.parse({ goal: 'g', explainers: 'builtin' }));
+    expect(await ex.storyboardInstruction(single.slug, job)).toContain('reuse a built-in or library scene');
+  });
+
+  it("asks later parts to reuse the series' recap scene, unless the part has no explainers", async () => {
+    const { seriesSection } = await import('../src/seriesContext');
+    let s = applySeriesPlan(await store.create({ topic: 'x', product: 'p' }), plan);
+    s = { ...s, parts: s.parts.map((p, i) => ({ ...p, project: `proj-${i + 1}` })) };
+    expect(await seriesSection(s, 'p2', async () => null)).toContain("using the series' recap scene");
+    expect(await seriesSection(s, 'p1', async () => null)).toContain('from part 2 on');
+    expect(await seriesSection(s, 'p2', async () => null, { explainers: false })).not.toContain(
+      'Recap explainer',
+    );
+    s = { ...s, outputs: { ...s.outputs, recapScene: false } };
+    expect(await seriesSection(s, 'p2', async () => null)).not.toContain('Recap explainer');
+  });
+});

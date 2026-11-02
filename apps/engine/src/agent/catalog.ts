@@ -4,7 +4,7 @@ import type { OverlayServer } from '../overlayServer';
 export interface CatalogEntry {
   id: string;
   kind: 'overlay' | 'scene';
-  scope: 'core' | 'workspace' | 'project';
+  scope: 'core' | 'workspace' | 'project' | 'series';
   name: string;
   description: string;
   /** JSON Schema of the component's props (input side, so defaults are optional). */

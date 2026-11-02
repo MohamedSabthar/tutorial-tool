@@ -35,7 +35,7 @@ const BRIEF_FIELDS = [
 ] as const;
 
 const OUTPUT_OPTIONS: {
-  key: 'titleCard' | 'endCard' | 'recap' | 'links' | 'index';
+  key: 'titleCard' | 'endCard' | 'recapScene' | 'recap' | 'links' | 'index';
   label: string;
   hint: string;
   text?: 'titleText' | 'endText';
@@ -51,6 +51,11 @@ const OUTPUT_OPTIONS: {
     label: 'End card for the next part',
     hint: 'The same card over the last seconds, naming the next part.',
     text: 'endText',
+  },
+  {
+    key: 'recapScene',
+    label: 'Recap explainer at the start of each part',
+    hint: 'One scene the agent designs once for the series, such as a diagram that grows by one box per part.',
   },
   {
     key: 'recap',
