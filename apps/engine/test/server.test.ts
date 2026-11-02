@@ -50,8 +50,26 @@ describe('engine RPC', () => {
       client.call('series.edit', { slug: s.slug, edit: { op: 'removePart', id: 'p7' } }),
     ).rejects.toThrow(/no part/);
 
+    // Approving makes a draft tutorial per part, linked back to the series, with the shared brief.
+    await client.call('series.edit', { slug: s.slug, edit: { op: 'meta', brief: { style: 'demo' } } });
+    const approved = await client.call('series.approve', { slug: s.slug });
+    expect(approved.outline).toBe('approved');
+    const projectSlug = approved.parts[0]!.project!;
+    const opened = await client.call('project.open', { slug: projectSlug });
+    expect(opened.project.series).toEqual({ slug: s.slug, part: 'p1' });
+    const brief = await client.call('brief.get', { slug: projectSlug });
+    expect(brief).toMatchObject({
+      style: 'demo',
+      goal: 'HTTP service\n\nBy the end, viewers can: Add a resource.',
+    });
+    await expect(
+      client.call('series.edit', { slug: s.slug, edit: { op: 'removePart', id: 'p1' } }),
+    ).rejects.toThrow(/project/);
+
     const r = await client.call('series.delete', { slug: s.slug });
     expect(r.deleted).toBe(true);
+    // The part's tutorial stays, as a single tutorial.
+    expect((await client.call('project.open', { slug: projectSlug })).project.series).toBeUndefined();
     await expect(client.call('series.get', { slug: s.slug })).rejects.toThrow(/no series/);
   });
 

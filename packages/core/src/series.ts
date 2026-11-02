@@ -42,6 +42,13 @@ export const Series = z.object({
   /** Notes for the whole series: sample names, conventions, glossary. Every part's agent reads them. */
   notes: z.string().max(4000).default(''),
   parts: z.array(SeriesPart).max(20).default([]),
+  /**
+   * Where the outline is: written by hand or not yet planned (`draft`), the agent is writing it
+   * (`planning`), waiting for the user (`review`), or approved (each part has a project).
+   */
+  outline: z.enum(['draft', 'planning', 'review', 'approved']).default('draft'),
+  /** Why the last planning run didn't save an outline. */
+  planError: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -140,4 +147,44 @@ export function applySeriesEdit(series: Series, edit: SeriesEdit): Series {
       return { ...series, parts: series.parts.filter((_, j) => j !== i) };
     }
   }
+}
+
+/** The outline the agent saves (`save_series_plan`): it replaces the parts that have no project yet. */
+export const SeriesPlan = z.object({
+  title: z.string().min(1).max(120).optional(),
+  notes: z.string().max(4000).optional(),
+  parts: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(120),
+        goal: z.string().min(1).max(2000),
+        objectives: z.array(z.string().min(1).max(200)).min(1).max(6),
+      }),
+    )
+    .min(2)
+    .max(12),
+});
+export type SeriesPlan = z.infer<typeof SeriesPlan>;
+
+/** Puts a saved plan into the series: new part ids, title and notes when given. */
+export function applySeriesPlan(series: Series, plan: SeriesPlan): Series {
+  if (series.parts.some((p) => p.project))
+    throw new Error('the outline is approved: its parts already have tutorials');
+  const parts: SeriesPart[] = [];
+  for (const p of plan.parts)
+    parts.push(
+      SeriesPart.parse({ id: nextPartId(parts), title: p.title, goal: p.goal, objectives: p.objectives }),
+    );
+  return Series.parse({
+    ...series,
+    ...(plan.title ? { title: plan.title } : {}),
+    ...(plan.notes !== undefined ? { notes: plan.notes } : {}),
+    parts,
+  });
+}
+
+/** The brief goal of a part's tutorial: its goal and what viewers can do after it. */
+export function partGoal(part: SeriesPart): string {
+  const goal = part.goal.trim() || part.title;
+  return part.objectives.length ? `${goal}\n\nBy the end, viewers can: ${part.objectives.join('; ')}.` : goal;
 }

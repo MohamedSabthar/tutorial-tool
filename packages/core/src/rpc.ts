@@ -364,6 +364,14 @@ export const rpcMethods = {
   },
   'series.get': { params: z.object({ slug: z.string() }), result: Series },
   'series.edit': { params: z.object({ slug: z.string(), edit: SeriesEdit }), result: Series },
+  /** The agent writes (or, with feedback, revises) the outline in the background: `series.changed` follows. */
+  'series.plan': {
+    params: z.object({ slug: z.string(), feedback: z.string().max(4000).optional() }),
+    result: Series,
+  },
+  'series.cancelPlan': { params: z.object({ slug: z.string() }), result: Series },
+  /** Creates a draft tutorial for every part without one, with the shared brief and the part's goal. */
+  'series.approve': { params: z.object({ slug: z.string() }), result: Series },
   /** Removes the series; its parts' projects stay, as standalone tutorials. */
   'series.delete': {
     params: z.object({ slug: z.string() }),
@@ -607,6 +615,8 @@ export type RpcResult<M extends RpcMethod> = z.output<(typeof rpcMethods)[M]['re
 export const rpcEvents = {
   'project.changed': z.object({ slug: z.string() }),
   'series.changed': z.object({ slug: z.string() }),
+  /** What the agent is doing while it writes a series outline (one line, e.g. "Read wso2-integrator/SKILL.md"). */
+  'series.activity': z.object({ slug: z.string(), text: z.string() }),
   /** A sign-in window opened or closed. */
   'product.signInChanged': SignInStatus,
   'workspace.changed': z.object({ head: z.string().nullable() }),

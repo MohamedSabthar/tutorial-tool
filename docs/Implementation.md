@@ -107,7 +107,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [ ] 10.5 Final QA of the rendered video
 - [ ] **Phase 11: Tutorial series**
   - [x] 11.1 Series model and screens
-  - [ ] 11.2 The agent writes the series outline
+  - [x] 11.2 The agent writes the series outline
   - [ ] 11.3 Series context for each part
   - [ ] 11.4 Where each part starts
   - [ ] 11.5 Series in the outputs
@@ -790,7 +790,7 @@ The user describes what a series is about. The agent proposes an outline of part
 
 ### 11.2 The agent writes the series outline
 **Goal:** the outline comes from the agent, and the user reviews it.
-- "Plan the series" runs a one-shot agent turn in the workspace. It can read the product skills (read-only tools) and saves the outline with the `save_series_plan` tool: an ordered list of parts with title, goal and learning objectives, plus notes for the whole series.
+- "Plan series" on the Projects screen creates the series and starts the agent at once (`SeriesPlanner`, `apps/engine/src/seriesPlanner.ts`). This is a one-off agent run in the workspace, with the planning model from Settings. It can only read (Read, Glob, Grep: the product skill and the tutorial-authoring skill) and save the outline with `save_series_plan`: 3–8 parts with a title, goal and 2–4 learning objectives each, a better title, and notes for the whole series. Anything else is denied without asking. The Series screen shows what the agent is reading and has a Stop button. The series keeps where its outline is (`outline`: draft, planning, review or approved) and why the last run saved nothing (`planError`). A run cut off by an engine restart goes back to review, with a note.
 - "Revise" sends the user's feedback along with the current outline.
 - "Approve outline" creates a project for each part. Each project gets the shared brief, and the part's goal and objectives become its goal.
 

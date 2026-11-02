@@ -22,7 +22,9 @@ type Mode = 'tutorial' | 'series';
 /** A series part's state for the card's progress bar. */
 function partTone(project: ProjectSummary | undefined): 'done' | 'active' | 'todo' {
   if (!project) return 'todo';
-  return project.status === 'exported' ? 'done' : 'active';
+  if (project.status === 'exported') return 'done';
+  const untouched = project.status === 'draft' && project.pipeline.status === 'idle';
+  return untouched ? 'todo' : 'active';
 }
 
 /** "Part 2 of 5" for a project that belongs to a series. */
@@ -138,6 +140,8 @@ export function ProjectsScreen() {
     try {
       if (mode === 'series') {
         const s = await client.call('series.create', { topic: goal, product });
+        // The agent starts on the outline; if it can't (no Claude Code), the Series screen offers it again.
+        await client.call('series.plan', { slug: s.slug }).catch(() => undefined);
         navigate(`/series/${s.slug}`);
         return;
       }
@@ -238,7 +242,7 @@ export function ProjectsScreen() {
                   part,
                   tone: partTone(projects?.find((p) => p.slug === part.project)),
                 }));
-                const made = parts.filter((x) => x.part.project).length;
+                const started = parts.filter((x) => x.tone !== 'todo').length;
                 const exported = parts.filter((x) => x.tone === 'done').length;
                 const productName = products.find((x) => x.id === s.product)?.name ?? s.product;
                 return (
@@ -246,11 +250,13 @@ export function ProjectsScreen() {
                     <span className="series-card-head">
                       <span className="series-card-title">{s.title}</span>
                       <Chip tone="info">
-                        {made === 0
+                        {s.outline !== 'approved'
                           ? 'Outline'
                           : exported === parts.length
                             ? 'Done'
-                            : `${made} of ${parts.length} started`}
+                            : started === 0
+                              ? 'Ready to make'
+                              : `${started} of ${parts.length} started`}
                       </Chip>
                     </span>
                     {parts.length > 0 && (

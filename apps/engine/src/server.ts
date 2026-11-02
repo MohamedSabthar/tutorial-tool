@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
   RpcError,
+  partGoal,
   RpcRequest,
   rpcMethods,
   TOKEN_HEADER,
@@ -47,7 +48,8 @@ import { TimelineStore, type Author } from './timeline';
 import { AgentManager } from './agent/session';
 import { studioServer } from './agent/mcp';
 import { loadCatalog } from './agent/catalog';
-import { PipelineManager } from './pipeline/machine';
+import { modelFor, PipelineManager } from './pipeline/machine';
+import { SeriesPlanner } from './seriesPlanner';
 import { WorkspaceGit } from './workspaceGit';
 import { knowledgeSummary, skillCoverage } from './brief';
 import { projectCard } from './cards';
@@ -257,6 +259,29 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     emit: (e) => broadcast('agent.event', e),
     state: (s) => broadcast('agent.state', s),
   });
+  const seriesPlanner = new SeriesPlanner({
+    workspace: opts.workspace,
+    series: seriesStore,
+    product: (id) => {
+      const p = products.list().find((x) => x.id === id);
+      return p ? { name: p.name, skill: p.skill } : undefined;
+    },
+    claude: async () => {
+      const s = await store.readSettings();
+      return { executable: s.claudeExecutable ?? (await findClaude()), configDir: s.claudeConfigDir };
+    },
+    model: async () => {
+      const s = await store.readSettings();
+      return modelFor('plan', s.agentModel === 'custom' ? s.customModels : s.agentModel);
+    },
+    skills: async () =>
+      (await readdir(path.join(opts.workspace, '.claude', 'skills'), { withFileTypes: true }))
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name),
+    changed: (slug) => broadcast('series.changed', { slug }),
+    activity: (slug, text) => broadcast('series.activity', { slug, text }),
+  });
+  void seriesPlanner.recover().catch((e: unknown) => console.error(`series: ${String(e)}`));
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
   // The packaged app downloads Chromium on first run (in the background, and before a render
@@ -947,7 +972,43 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       broadcast('series.changed', { slug });
       return series;
     },
+    'series.plan': async ({ slug, feedback }: { slug: string; feedback?: string }) =>
+      seriesPlanner.plan(slug, feedback),
+    'series.cancelPlan': async ({ slug }: { slug: string }) => seriesPlanner.cancel(slug),
+    'series.approve': async ({ slug }: { slug: string }) => {
+      if (seriesPlanner.isRunning(slug))
+        throw new RpcError('The agent is still writing the outline.', 'bad_request');
+      const series = await seriesStore.get(slug);
+      if (!series.parts.length) throw new RpcError('Add at least one part first.', 'bad_request');
+      await workspace.ensure();
+      const parts = [];
+      const created: string[] = [];
+      for (const part of series.parts) {
+        if (part.project) {
+          parts.push(part);
+          continue;
+        }
+        const project = await store.create({
+          title: part.title,
+          product: series.product,
+          brief: { ...series.brief, goal: partGoal(part) },
+        });
+        await store.setSeries(project.slug, { slug, part: part.id });
+        created.push(project.slug);
+        parts.push({ ...part, project: project.slug });
+      }
+      const approved = await seriesStore.save({ ...series, parts, outline: 'approved', planError: null });
+      const head = await workspace.commit(`series: approve ${slug} (${created.length} parts)`, [
+        `series/${slug}`,
+        ...created.map((c) => `projects/${c}`),
+      ]);
+      broadcast('series.changed', { slug });
+      for (const c of created) broadcast('project.changed', { slug: c });
+      broadcast('workspace.changed', { head });
+      return approved;
+    },
     'series.delete': async ({ slug }: { slug: string }) => {
+      if (seriesPlanner.isRunning(slug)) await seriesPlanner.cancel(slug);
       const series = await seriesStore.remove(slug);
       const parts = series.parts.flatMap((p) => (p.project ? [p.project] : []));
       for (const project of parts) await store.setSeries(project, null).catch(() => undefined);

@@ -8,7 +8,19 @@ import {
   type SeriesBrief,
   type SeriesEdit,
 } from '@studio/core';
-import { Button, Chip, Field, IconButton, IconChevron, IconTrash, Input, Select, TextArea } from '@studio/ui';
+import {
+  Button,
+  Chip,
+  Field,
+  GateBanner,
+  IconArrowRight,
+  IconButton,
+  IconChevron,
+  IconTrash,
+  Input,
+  Select,
+  TextArea,
+} from '@studio/ui';
 import { useEngine } from '../../engine';
 import { AppFrame, navigate } from '../frame';
 import { projectChip, projectRoute } from '../projects/ProjectsScreen';
@@ -38,6 +50,9 @@ export function SeriesScreen({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [newPart, setNewPart] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [activity, setActivity] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -59,6 +74,7 @@ export function SeriesScreen({ slug }: { slug: string }) {
     const offs = [
       client.on('series.changed', (d) => d.slug === slug && void load()),
       client.on('project.changed', () => void load()),
+      client.on('series.activity', (d) => d.slug === slug && setActivity(d.text)),
     ];
     return () => offs.forEach((off) => off());
   }, [client, state, slug, load]);
@@ -81,6 +97,34 @@ export function SeriesScreen({ slug }: { slug: string }) {
     setNewPart('');
     await edit({ op: 'addPart', title });
   };
+
+  /** Runs a series action, showing its error. */
+  const act = async (label: string, fn: () => Promise<Series>) => {
+    setBusy(label);
+    setError(null);
+    try {
+      setSeries(await fn());
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  };
+  const plan = (text?: string) =>
+    client &&
+    act('plan', async () => {
+      setActivity('');
+      return client.call('series.plan', { slug, ...(text ? { feedback: text } : {}) });
+    });
+  const revise = async (e: FormEvent) => {
+    e.preventDefault();
+    const text = feedback.trim();
+    if (text && (await plan(text))) setFeedback('');
+  };
+  const approve = () => client && act('approve', () => client.call('series.approve', { slug }));
+  const cancelPlan = () => client && act('cancel', () => client.call('series.cancelPlan', { slug }));
 
   const remove = async () => {
     if (!client) return;
@@ -109,9 +153,30 @@ export function SeriesScreen({ slug }: { slug: string }) {
 
   const project = (s: string | null) => (s ? projects.find((p) => p.slug === s) : undefined);
   const setBrief = (brief: Partial<SeriesBrief>) => void edit({ op: 'meta', brief });
+  const planning = series.outline === 'planning';
+  const unmade = series.parts.filter((p) => !p.project).length;
+
+  const footer =
+    unmade > 0 && !planning ? (
+      <>
+        <span className="series-hint" style={{ marginRight: 'auto' }}>
+          {series.outline === 'approved'
+            ? `${unmade} new part${unmade === 1 ? '' : 's'} without a tutorial yet.`
+            : `Approving creates ${unmade} draft tutorial${unmade === 1 ? '' : 's'}. You make them one at a time.`}
+        </span>
+        <Button variant="primary" disabled={!!busy} onClick={() => void approve()}>
+          {busy === 'approve'
+            ? 'Creating tutorials…'
+            : series.outline === 'approved'
+              ? 'Create their tutorials'
+              : 'Approve outline'}
+          <IconArrowRight />
+        </Button>
+      </>
+    ) : undefined;
 
   return (
-    <AppFrame current="projects">
+    <AppFrame current="projects" footer={footer}>
       <main className="series">
         <section className="series-main" aria-labelledby="series-title">
           <span className="ui-eyebrow">
@@ -136,118 +201,174 @@ export function SeriesScreen({ slug }: { slug: string }) {
               {error}
             </span>
           )}
-
-          {series.parts.length === 0 && (
-            <span className="projects-empty">
-              No parts yet. Add them below. In the next step the agent proposes them for you.
+          {series.planError && !planning && (
+            <span role="alert" className="app-error">
+              {series.planError}
             </span>
           )}
-          <ol className="series-parts">
-            {series.parts.map((part, i) => {
-              const p = project(part.project);
-              const chip = p ? projectChip(p) : null;
-              const last = i === series.parts.length - 1;
-              return (
-                <li key={part.id} className="series-part">
-                  <span className="series-part-n" aria-hidden="true">
-                    {i + 1}
-                  </span>
-                  <div className="series-part-body">
-                    <Field label={`Part ${i + 1} title`}>
-                      {(id) => (
-                        <Input
-                          id={id}
-                          key={`t:${part.title}`}
-                          defaultValue={part.title}
-                          onBlur={(e) => {
-                            const title = e.target.value.trim();
-                            if (title && title !== part.title)
-                              void edit({ op: 'editPart', id: part.id, title });
-                          }}
-                        />
-                      )}
-                    </Field>
-                    <Field label="Goal">
-                      {(id) => (
-                        <TextArea
-                          id={id}
-                          rows={2}
-                          key={`g:${part.goal}`}
-                          defaultValue={part.goal}
-                          placeholder="What this part shows, in a sentence or two"
-                          onBlur={(e) => {
-                            if (e.target.value !== part.goal)
-                              void edit({ op: 'editPart', id: part.id, goal: e.target.value });
-                          }}
-                        />
-                      )}
-                    </Field>
-                    <Field
-                      label="Learning objectives"
-                      hint="One per line: what a viewer can do after this part."
-                    >
-                      {(id) => (
-                        <TextArea
-                          id={id}
-                          rows={Math.max(2, part.objectives.length)}
-                          key={`o:${part.objectives.join('\n')}`}
-                          defaultValue={part.objectives.join('\n')}
-                          onBlur={(e) => {
-                            const objectives = objectiveLines(e.target.value);
-                            if (objectives.join('\n') !== part.objectives.join('\n'))
-                              void edit({ op: 'editPart', id: part.id, objectives });
-                          }}
-                        />
-                      )}
-                    </Field>
-                    {p && chip && (
-                      <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                        <Chip tone={chip.tone}>{chip.label}</Chip>
-                        <a href={`#${projectRoute(p)}`}>Open the tutorial</a>
-                      </span>
-                    )}
-                  </div>
-                  <div className="series-part-actions">
-                    <IconButton
-                      label={`Move part ${i + 1} up`}
-                      disabled={i === 0}
-                      onClick={() => void edit({ op: 'movePart', id: part.id, to: i - 1 })}
-                    >
-                      <IconChevron size={14} style={{ transform: 'rotate(-90deg)' }} />
-                    </IconButton>
-                    <IconButton
-                      label={`Move part ${i + 1} down`}
-                      disabled={last}
-                      onClick={() => void edit({ op: 'movePart', id: part.id, to: i + 1 })}
-                    >
-                      <IconChevron size={14} style={{ transform: 'rotate(90deg)' }} />
-                    </IconButton>
-                    <IconButton
-                      label={`Remove part ${i + 1}`}
-                      disabled={!!part.project}
-                      onClick={() => void edit({ op: 'removePart', id: part.id })}
-                    >
-                      <IconTrash size={14} />
-                    </IconButton>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-          <form className="series-add" onSubmit={(e) => void addPart(e)}>
-            <label htmlFor="new-part" className="ui-sr-only">
-              New part title
-            </label>
-            <Input
-              id="new-part"
-              placeholder="Title of a new part"
-              value={newPart}
-              onChange={(e) => setNewPart(e.target.value)}
+          {planning && (
+            <GateBanner
+              title="The agent is writing the outline…"
+              text={activity || 'Reading the product skill'}
+              actions={
+                <Button size="sm" disabled={!!busy} onClick={() => void cancelPlan()}>
+                  Stop
+                </Button>
+              }
             />
-            <Button type="submit" disabled={!newPart.trim() || series.parts.length >= 20}>
-              + Add a part
-            </Button>
-          </form>
+          )}
+          {series.outline === 'draft' && !planning && (
+            <GateBanner
+              title="Let the agent propose the parts"
+              text="It reads the product skill and splits the topic into parts that build on each other. You can also add parts by hand."
+              actions={
+                <Button variant="primary" size="sm" disabled={!!busy} onClick={() => void plan()}>
+                  {busy === 'plan' ? 'Starting…' : 'Plan with the agent'}
+                </Button>
+              }
+            />
+          )}
+          {series.outline === 'review' && (
+            <GateBanner
+              title={`The agent proposed ${series.parts.length} part${series.parts.length === 1 ? '' : 's'}.`}
+              text="Rename, reorder or remove parts, or ask the agent to change the outline. Nothing is recorded until you approve it."
+            />
+          )}
+
+          {series.parts.length === 0 && !planning && (
+            <span className="projects-empty">
+              No parts yet. Let the agent propose them, or add them below.
+            </span>
+          )}
+          <fieldset className="series-lock" disabled={planning}>
+            <ol className="series-parts">
+              {series.parts.map((part, i) => {
+                const p = project(part.project);
+                const chip = p ? projectChip(p) : null;
+                const last = i === series.parts.length - 1;
+                return (
+                  <li key={part.id} className="series-part">
+                    <span className="series-part-n" aria-hidden="true">
+                      {i + 1}
+                    </span>
+                    <div className="series-part-body">
+                      <Field label={`Part ${i + 1} title`}>
+                        {(id) => (
+                          <Input
+                            id={id}
+                            key={`t:${part.title}`}
+                            defaultValue={part.title}
+                            onBlur={(e) => {
+                              const title = e.target.value.trim();
+                              if (title && title !== part.title)
+                                void edit({ op: 'editPart', id: part.id, title });
+                            }}
+                          />
+                        )}
+                      </Field>
+                      <Field label="Goal">
+                        {(id) => (
+                          <TextArea
+                            id={id}
+                            rows={2}
+                            key={`g:${part.goal}`}
+                            defaultValue={part.goal}
+                            placeholder="What this part shows, in a sentence or two"
+                            onBlur={(e) => {
+                              if (e.target.value !== part.goal)
+                                void edit({ op: 'editPart', id: part.id, goal: e.target.value });
+                            }}
+                          />
+                        )}
+                      </Field>
+                      <Field
+                        label="Learning objectives"
+                        hint="One per line: what a viewer can do after this part."
+                      >
+                        {(id) => (
+                          <TextArea
+                            id={id}
+                            rows={Math.max(2, part.objectives.length)}
+                            key={`o:${part.objectives.join('\n')}`}
+                            defaultValue={part.objectives.join('\n')}
+                            onBlur={(e) => {
+                              const objectives = objectiveLines(e.target.value);
+                              if (objectives.join('\n') !== part.objectives.join('\n'))
+                                void edit({ op: 'editPart', id: part.id, objectives });
+                            }}
+                          />
+                        )}
+                      </Field>
+                      {p && chip && (
+                        <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                          <Chip tone={chip.tone}>{chip.label}</Chip>
+                          <a href={`#${projectRoute(p)}`}>Open the tutorial</a>
+                        </span>
+                      )}
+                    </div>
+                    <div className="series-part-actions">
+                      <IconButton
+                        label={`Move part ${i + 1} up`}
+                        disabled={i === 0}
+                        onClick={() => void edit({ op: 'movePart', id: part.id, to: i - 1 })}
+                      >
+                        <IconChevron size={14} style={{ transform: 'rotate(-90deg)' }} />
+                      </IconButton>
+                      <IconButton
+                        label={`Move part ${i + 1} down`}
+                        disabled={last}
+                        onClick={() => void edit({ op: 'movePart', id: part.id, to: i + 1 })}
+                      >
+                        <IconChevron size={14} style={{ transform: 'rotate(90deg)' }} />
+                      </IconButton>
+                      <IconButton
+                        label={`Remove part ${i + 1}`}
+                        disabled={!!part.project}
+                        onClick={() => void edit({ op: 'removePart', id: part.id })}
+                      >
+                        <IconTrash size={14} />
+                      </IconButton>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+            <form className="series-add" onSubmit={(e) => void addPart(e)}>
+              <label htmlFor="new-part" className="ui-sr-only">
+                New part title
+              </label>
+              <Input
+                id="new-part"
+                placeholder="Title of a new part"
+                value={newPart}
+                onChange={(e) => setNewPart(e.target.value)}
+              />
+              <Button type="submit" disabled={!newPart.trim() || series.parts.length >= 20}>
+                + Add a part
+              </Button>
+            </form>
+          </fieldset>
+          {series.outline !== 'approved' && series.parts.length > 0 && (
+            <form className="series-revise" onSubmit={(e) => void revise(e)}>
+              <Field label="Ask the agent to change the outline">
+                {(id) => (
+                  <TextArea
+                    id={id}
+                    rows={3}
+                    value={feedback}
+                    disabled={planning}
+                    placeholder="e.g. Split part 4 in two, and use the same sample data in every part."
+                    onChange={(e) => setFeedback(e.target.value)}
+                  />
+                )}
+              </Field>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button type="submit" variant="steel" disabled={planning || !!busy || !feedback.trim()}>
+                  Revise outline
+                </Button>
+              </div>
+            </form>
+          )}
         </section>
 
         <aside className="series-side" aria-labelledby="shared-h">

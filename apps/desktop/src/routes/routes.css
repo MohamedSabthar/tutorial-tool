@@ -2101,3 +2101,15 @@
   gap: 8px;
   justify-content: flex-end;
 }
+.series-lock {
+  display: contents;
+}
+.series-revise {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--ui-steel);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-white);
+}
