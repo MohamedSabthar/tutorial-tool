@@ -29,6 +29,14 @@ export const SeriesPart = z.object({
   objectives: z.array(z.string().min(1).max(200)).max(10).default([]),
   /** The part's project once the outline is approved. */
   project: z.string().regex(SLUG_RE).nullable().default(null),
+  /**
+   * Where its recording starts: "previous" (the previous part's project as its recording ended;
+   * the first part starts clean), "clean" (its own fixture) or an earlier part's id.
+   */
+  startFrom: z
+    .string()
+    .regex(/^(previous|clean|p\d{1,3})$/)
+    .default('previous'),
 });
 export type SeriesPart = z.infer<typeof SeriesPart>;
 
@@ -94,6 +102,10 @@ export const SeriesEdit = z.discriminatedUnion('op', [
     title: z.string().min(1).max(120).optional(),
     goal: z.string().max(2000).optional(),
     objectives: z.array(z.string().min(1).max(200)).max(10).optional(),
+    startFrom: z
+      .string()
+      .regex(/^(previous|clean|p\d{1,3})$/)
+      .optional(),
   }),
   z.object({ op: z.literal('movePart'), id: z.string(), to: z.number().int().min(0) }),
   z.object({ op: z.literal('removePart'), id: z.string() }),
@@ -129,6 +141,7 @@ export function applySeriesEdit(series: Series, edit: SeriesEdit): Series {
         ...(e.title !== undefined ? { title: e.title } : {}),
         ...(e.goal !== undefined ? { goal: e.goal } : {}),
         ...(e.objectives !== undefined ? { objectives: e.objectives } : {}),
+        ...(e.startFrom !== undefined ? { startFrom: e.startFrom } : {}),
       };
       parts[i] = SeriesPart.parse({ ...parts[i], ...fields });
       return { ...series, parts };
@@ -188,3 +201,17 @@ export function partGoal(part: SeriesPart): string {
   const goal = part.goal.trim() || part.title;
   return part.objectives.length ? `${goal}\n\nBy the end, viewers can: ${part.objectives.join('; ')}.` : goal;
 }
+
+/** A part's start and recording state (`series.starts`). */
+export const PartStatus = z.object({
+  part: z.string(),
+  /** "clean" or the id of the part it starts from. */
+  start: z.string(),
+  /** When its recording last saved the project as it ended. */
+  recordedAt: z.string().nullable(),
+  /** The part it starts from isn't recorded yet. */
+  blocked: z.boolean(),
+  /** It was recorded from an older (or different) start than the one it has now. */
+  stale: z.boolean(),
+});
+export type PartStatus = z.infer<typeof PartStatus>;

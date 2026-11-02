@@ -171,3 +171,89 @@ describe('series context', () => {
     );
   });
 });
+
+describe('where parts start', () => {
+  it('resolves starts, blocks a part until its start is recorded, and flags out-of-date parts', async () => {
+    const { ProjectStore } = await import('../src/projects');
+    const { SeriesStarts, resolveStart } = await import('../src/seriesStarts');
+    const projects = new ProjectStore(dir);
+    let s = applySeriesPlan(await store.create({ topic: 'x', product: 'wso2-integrator' }), {
+      ...plan,
+      parts: [...plan.parts, { title: 'Three', goal: 'g', objectives: ['o'] }],
+    });
+    const parts = [];
+    for (const part of s.parts) {
+      const p = await projects.create({
+        title: part.title,
+        product: s.product,
+        series: { slug: s.slug, part: part.id },
+      });
+      parts.push({ ...part, project: p.slug });
+    }
+    s = await store.save({ ...s, parts, outline: 'approved' });
+    const starts = new SeriesStarts({ projects, series: store });
+
+    expect(resolveStart(s, 'p1')).toEqual({ kind: 'clean' });
+    expect(resolveStart(s, 'p3')).toMatchObject({ kind: 'part', number: 2 });
+    // An earlier part by id; a reference that isn't earlier falls back to the previous part.
+    expect(
+      resolveStart(
+        { ...s, parts: s.parts.map((p) => (p.id === 'p3' ? { ...p, startFrom: 'p1' } : p)) },
+        'p3',
+      ),
+    ).toMatchObject({ number: 1 });
+    expect(
+      resolveStart(
+        { ...s, parts: s.parts.map((p) => (p.id === 'p2' ? { ...p, startFrom: 'p3' } : p)) },
+        'p2',
+      ),
+    ).toMatchObject({ number: 1 });
+
+    // Part 2 waits for part 1.
+    expect((await starts.status(s.slug)).map((x) => [x.part, x.start, x.blocked])).toEqual([
+      ['p1', 'clean', false],
+      ['p2', 'p1', true],
+      ['p3', 'p2', true],
+    ]);
+    await expect(starts.forRun(parts[1]!.project)).rejects.toThrow(/part 1 .* isn't recorded yet/);
+
+    const one = (await starts.forRun(parts[0]!.project))!;
+    expect(one.startFrom).toBeNull();
+    expect(one.saveEndState).toMatch(/states\/p1\/project$/);
+    await one.recorded();
+    const two = (await starts.forRun(parts[1]!.project))!;
+    expect(two.startFrom).toMatch(/states\/p1\/project$/);
+    await two.recorded();
+    expect((await starts.status(s.slug)).map((x) => [x.blocked, x.stale])).toEqual([
+      [false, false],
+      [false, false],
+      [false, false],
+    ]);
+
+    // Recording part 1 again makes part 2 out of date, until the user keeps it.
+    await new Promise((r) => setTimeout(r, 5));
+    await (await starts.forRun(parts[0]!.project))!.recorded();
+    expect((await starts.status(s.slug))[1]!.stale).toBe(true);
+    await starts.keep(s.slug, 'p2');
+    expect((await starts.status(s.slug))[1]!.stale).toBe(false);
+
+    // Switching part 2 to a clean start also makes its recording out of date.
+    s = await store.save({
+      ...s,
+      parts: s.parts.map((p) => (p.id === 'p2' ? { ...p, startFrom: 'clean' } : p)),
+    });
+    expect((await starts.status(s.slug))[1]).toMatchObject({ start: 'clean', stale: true, blocked: false });
+    expect(await starts.forRun('not-in-a-series').catch(() => 'missing')).toBe('missing');
+  });
+
+  it('tells the agent where a part starts', async () => {
+    const { seriesSection } = await import('../src/seriesContext');
+    let s = applySeriesPlan(await store.create({ topic: 'x', product: 'p' }), plan);
+    s = { ...s, parts: s.parts.map((p, i) => ({ ...p, project: `proj-${i + 1}` })) };
+    expect(await seriesSection(s, 'p2', async () => null)).toContain(
+      "open part 1's project as its recording ended (built by projects/proj-1/script.spec.ts)",
+    );
+    s = { ...s, parts: s.parts.map((p) => (p.id === 'p2' ? { ...p, startFrom: 'clean' } : p)) };
+    expect(await seriesSection(s, 'p2', async () => null)).toContain('its own fixture, a clean project');
+  });
+});

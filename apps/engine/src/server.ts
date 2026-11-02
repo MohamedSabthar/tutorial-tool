@@ -51,6 +51,7 @@ import { loadCatalog } from './agent/catalog';
 import { modelFor, PipelineManager } from './pipeline/machine';
 import { SeriesPlanner } from './seriesPlanner';
 import { SeriesContext } from './seriesContext';
+import { SeriesStarts } from './seriesStarts';
 import { WorkspaceGit } from './workspaceGit';
 import { knowledgeSummary, skillCoverage } from './brief';
 import { projectCard } from './cards';
@@ -160,12 +161,23 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   const pronunciations = new Pronunciations(opts.workspace);
   const store = new ProjectStore(opts.workspace);
   const seriesStore = new SeriesStore(opts.workspace);
+  const seriesStarts = new SeriesStarts({ projects: store, series: seriesStore });
   const workspace = new Workspace(opts.workspace);
   const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
   // Composited frames for check_overlay (and later export); it needs the engine's own address.
   let listening = { port: 0, token };
   const headless = new HeadlessStage(() => listening);
-  const runner = new Runner(store, workspace, (event, data) => broadcast(event, data));
+  const runner = new Runner(
+    store,
+    workspace,
+    (event, data) => broadcast(event, data),
+    seriesStarts,
+    (slug) =>
+      void store.open(slug).then(
+        ({ project }) => project.series && broadcast('series.changed', { slug: project.series.slug }),
+        () => undefined,
+      ),
+  );
   let overlayServer: Promise<OverlayServer> | null = null;
   let overlayVersion = 0;
   const overlays = () =>
@@ -584,6 +596,8 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       gates?: { storyboard?: boolean; narration?: boolean };
     }) => {
       await workspace.ensure();
+      // A series part waits for the part it starts from to be recorded.
+      await seriesStarts.forRun(slug);
       return pipeline.start(slug, gates ?? {});
     },
     'pipeline.approve': async ({ slug }: { slug: string }) => pipeline.approve(slug),
@@ -986,6 +1000,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     'series.plan': async ({ slug, feedback }: { slug: string; feedback?: string }) =>
       seriesPlanner.plan(slug, feedback),
+    'series.starts': async ({ slug }: { slug: string }) => seriesStarts.status(slug),
+    'series.keep': async ({ slug, part }: { slug: string; part: string }) => {
+      await seriesStarts.keep(slug, part);
+      broadcast('series.changed', { slug });
+      return seriesStarts.status(slug);
+    },
     'series.cancelPlan': async ({ slug }: { slug: string }) => seriesPlanner.cancel(slug),
     'series.approve': async ({ slug }: { slug: string }) => {
       if (seriesPlanner.isRunning(slug))

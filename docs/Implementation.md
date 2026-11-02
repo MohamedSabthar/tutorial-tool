@@ -109,7 +109,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 11.1 Series model and screens
   - [x] 11.2 The agent writes the series outline
   - [x] 11.3 Series context for each part
-  - [ ] 11.4 Where each part starts
+  - [x] 11.4 Where each part starts
   - [ ] 11.5 Series in the outputs
   - [ ] 11.6 Explainers designed by the agent
 
@@ -808,7 +808,7 @@ The user describes what a series is about. The agent proposes an outline of part
 **Goal:** a part can continue from an earlier part's project, or start clean.
 - Each part has `startFrom: {kind: 'part', part} | {kind: 'clean'}`. It defaults to the previous part, and the first part is clean. It is picked on the Series screen.
 - After a successful recording, the fixture folder as it ended is saved to `series/<slug>/states/<part>/`.
-- A `{kind: 'snapshot'}` script fixture starts from a copy of it, and the script instruction tells the agent which fixture to use.
+- The script keeps the fixture the earlier part used. The engine (`SeriesStarts`, `apps/engine/src/seriesStarts.ts`) passes the recorder `startFrom`, and `launchFixture` copies the saved folder in as the fixture's folder instead of building it. This applies to dry runs, recordings and `inspect_ui`. The part's Series section tells the agent to export the same `fixture` as that part's script. Saved states leave out build output (`target`, `node_modules`) and are git-ignored (`series/*/states/`).
 - A part whose start isn't recorded yet is blocked. Recording a part again marks the parts that start from it as stale.
 
 **Done when:** part 2's dry run opens on part 1's finished project, a part set to clean opens on an empty one, and re-recording part 1 marks part 2 stale.

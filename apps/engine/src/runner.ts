@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { RecorderEvent } from '@studio/core';
 import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
 import { defaultFixture, loadScript, openInspector, type Inspector } from '@studio/recorder/node';
+import type { SeriesStarts } from './seriesStarts';
 import type { ProjectStore } from './projects';
 import { runProjectScript, type ProjectRunResult, type RunMode } from './recording';
 import type { Workspace } from './workspace';
@@ -23,6 +24,10 @@ export class Runner {
     private store: ProjectStore,
     private workspace: Workspace,
     private broadcast: Broadcast,
+    /** Series parts start from an earlier part's end state and save their own. */
+    private starts?: SeriesStarts,
+    /** A series part's recording saved its end state. */
+    private onPartRecorded?: (project: string) => void,
   ) {}
 
   get busy(): boolean {
@@ -108,12 +113,23 @@ export class Runner {
   /** Runs a project's script.spec.ts (dry run, or record a new take). */
   async runProject(slug: string, mode: RunMode, opts: { until?: string } = {}): Promise<ProjectRunResult> {
     const title = (await this.store.open(slug).catch(() => null))?.project.title ?? slug;
-    return this.exclusive(
+    const start = (await this.starts?.forRun(slug)) ?? null;
+    const result = await this.exclusive(
       title,
       mode === 'record' ? 'record' : 'dry',
-      (cb) => runProjectScript(this.store, this.workspace, slug, mode, cb, opts),
+      (cb) =>
+        runProjectScript(this.store, this.workspace, slug, mode, cb, {
+          ...opts,
+          startFrom: start?.startFrom ?? null,
+          saveEndState: start?.saveEndState ?? null,
+        }),
       slug,
     );
+    if (start && mode === 'record' && result.passed && result.take) {
+      await start.recorded();
+      this.onPartRecorded?.(slug);
+    }
+    return result;
   }
 
   /**
@@ -141,8 +157,10 @@ export class Runner {
     const cb = this.liveCallbacks(title, 'dry', slug);
     try {
       cb.onStage('launch');
+      const startFrom = (await this.starts?.forRun(slug))?.startFrom;
       const inspector = await openInspector(mod ?? { fixture: defaultFixture(project.product) }, {
         product: project.product,
+        ...(startFrom ? { startFrom } : {}),
         ...(opts.uptoStep ? { uptoStep: opts.uptoStep } : {}),
         onProgress: cb.onProgress,
         onFrame: cb.onFrame,

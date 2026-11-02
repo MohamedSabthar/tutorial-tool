@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { partContext, type Series, type SeriesPart } from '@studio/core';
 import { setSections } from './brief';
+import { resolveStart } from './seriesStarts';
 import type { ProjectStore } from './projects';
 import type { SeriesStore } from './series';
 
@@ -30,6 +31,15 @@ export async function seriesSection(series: Series, partId: string, summary: Par
     for (const [i, p] of ctx.previous.entries())
       lines.push(`- Part ${i + 1} · ${p.title}: ${await covers(p, summary)}`);
   } else lines.push('', 'This is the first part: it introduces the series.');
+  const start = resolveStart(series, partId);
+  lines.push(
+    '',
+    start.kind === 'part'
+      ? `Where it starts: the dry runs and the recording open part ${start.number}'s project as its recording ended${start.part.project ? ` (built by projects/${start.part.project}/script.spec.ts)` : ''}. Export the same \`fixture\` as that script, so the product waits for the same project, and don't rebuild what earlier parts made: it's already there.`
+      : ctx.number === 1
+        ? 'Where it starts: its own fixture.'
+        : 'Where it starts: its own fixture, a clean project. Anything earlier parts made that this part needs is rebuilt in setup, off camera.',
+  );
   lines.push(
     '',
     ctx.next

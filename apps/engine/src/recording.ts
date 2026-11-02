@@ -66,7 +66,7 @@ export async function runProjectScript(
   slug: string,
   mode: RunMode,
   cb: RecordCallbacks = {},
-  opts: { until?: string } = {},
+  opts: { until?: string; startFrom?: string | null; saveEndState?: string | null } = {},
 ): Promise<ProjectRunResult> {
   await workspace.ensure();
   const dir = store.dir(slug);
@@ -95,7 +95,9 @@ export async function runProjectScript(
     ...(pace ? { pace } : {}),
     ...(mode === 'dry' && full ? { stepShotsDir: shots } : {}),
     ...(opts.until ? { until: opts.until } : {}),
+    ...(opts.startFrom ? { startFrom: opts.startFrom } : {}),
     ...(takePath ? { takeDir: path.join(dir, takePath), takeId: takeId! } : {}),
+    ...(takePath && opts.saveEndState ? { saveEndState: opts.saveEndState } : {}),
     captureTargets: false,
     ...cb,
   });

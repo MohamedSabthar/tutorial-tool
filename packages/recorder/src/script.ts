@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -159,6 +159,13 @@ export interface RunOptions {
   stepShotsDir?: string;
   /** End the run after this step: the steps after it don't run (a partial run). */
   until?: string;
+  /**
+   * Open a saved project folder (an earlier series part's end state) instead of building the
+   * fixture: it's copied in as the fixture's folder, so the script's fixture still names it.
+   */
+  startFrom?: string;
+  /** After a passing recording, copy the project folder as it ended here (replacing what's there). */
+  saveEndState?: string;
   onEvent?: (e: RecorderEvent) => void;
   onAction?: (a: LiveAction) => void;
   onPointer?: (p: { x: number; y: number; click: boolean }) => void;
@@ -190,15 +197,21 @@ export async function launchFixture(
   productId: string,
   progress: Progress,
   onLaunch: () => void = () => {},
+  startFrom?: string,
 ) {
   const product = getProduct(productId);
   const profile = signedInProfile(product.id);
   const base = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
   const fixtureDir = path.join(base, fixture.folder);
-  progress(`Creating the ${fixture.title} fixture…`);
-  if (fixture.kind === 'bi')
-    await createBIProject(fixtureDir, { title: fixture.title, integrations: fixture.integrations });
-  else await mkdir(fixtureDir, { recursive: true });
+  if (startFrom) {
+    progress(`Opening ${fixture.title} as the earlier part left it…`);
+    await cp(startFrom, fixtureDir, { recursive: true });
+  } else {
+    progress(`Creating the ${fixture.title} fixture…`);
+    if (fixture.kind === 'bi')
+      await createBIProject(fixtureDir, { title: fixture.title, integrations: fixture.integrations });
+    else await mkdir(fixtureDir, { recursive: true });
+  }
   onLaunch();
   try {
     const session =
@@ -216,11 +229,21 @@ export async function launchFixture(
             onProgress: progress,
             ...(profile ? { profile } : {}),
           });
-    return { base, session };
+    return { base, fixtureDir, session };
   } catch (e) {
     await rm(base, { recursive: true, force: true });
     throw e;
   }
+}
+
+/** Build output and dependencies are left out of a saved end state: the product rebuilds them. */
+const NOT_STATE = new Set(['target', 'node_modules', '.git']);
+
+/** Copies a project folder as a run left it, for the next series part to start from. */
+export async function saveProjectState(from: string, to: string): Promise<void> {
+  await rm(to, { recursive: true, force: true });
+  await mkdir(path.dirname(to), { recursive: true });
+  await cp(from, to, { recursive: true, filter: (src) => !NOT_STATE.has(path.basename(src)) });
 }
 
 /** Waits until the product shows the fixture project, then lets the first screen settle. */
@@ -249,7 +272,13 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
   const product = getProduct(opts.product ?? 'wso2-integrator');
   stage('fixture');
 
-  const { base, session } = await launchFixture(mod.fixture, product.id, progress, () => stage('launch'));
+  const { base, fixtureDir, session } = await launchFixture(
+    mod.fixture,
+    product.id,
+    progress,
+    () => stage('launch'),
+    opts.startFrom,
+  );
   const recording = opts.mode === 'record' && !!opts.takeDir;
   let stopped = false;
   const onAbort = () => {
@@ -372,6 +401,10 @@ export async function runTutorial(mod: ScriptModule, opts: RunOptions): Promise<
           id: opts.takeId ?? path.basename(opts.takeDir!),
         });
         progress(`Take saved: ${take.width}×${take.height}, ${take.fps} fps, ${take.duration.toFixed(1)} s`);
+        if (opts.saveEndState) {
+          progress('Saving the project as the recording left it…');
+          await saveProjectState(fixtureDir, opts.saveEndState);
+        }
       }
     }
     stage(stopped ? 'stopped' : failure ? 'failed' : 'done');

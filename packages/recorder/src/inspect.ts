@@ -43,6 +43,8 @@ export interface InspectOptions {
   product?: string;
   /** Replay the script's steps before this one (dry-run pace), then stop. "all" replays everything. */
   uptoStep?: string;
+  /** Open this saved project folder instead of building the fixture (see RunOptions.startFrom). */
+  startFrom?: string;
   onProgress?: Progress;
   onFrame?: (f: ScreencastFrame) => void;
 }
@@ -71,7 +73,13 @@ export async function openInspector(
   opts: InspectOptions = {},
 ): Promise<Inspector> {
   const progress = opts.onProgress ?? (() => {});
-  const { base, session } = await launchFixture(mod.fixture, opts.product ?? 'wso2-integrator', progress);
+  const { base, session } = await launchFixture(
+    mod.fixture,
+    opts.product ?? 'wso2-integrator',
+    progress,
+    undefined,
+    opts.startFrom,
+  );
   let stopScreencast: (() => Promise<void>) | null = null;
   try {
     const { page } = session;

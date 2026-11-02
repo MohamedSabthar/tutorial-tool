@@ -8,7 +8,7 @@ import { TimingFile } from './stepTiming';
 import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
 import { Pronunciation } from './pronounce';
 import { Brief, PlanEdit } from './brief';
-import { Series, SeriesEdit } from './series';
+import { PartStatus, Series, SeriesEdit } from './series';
 import { Run } from './runs';
 import { ExplainerJob } from './explainers';
 import { ExportPlan, ExportSettings, ExportState } from './export';
@@ -370,6 +370,13 @@ export const rpcMethods = {
     result: Series,
   },
   'series.cancelPlan': { params: z.object({ slug: z.string() }), result: Series },
+  /** Where each part starts, whether it waits for an earlier part, and whether its recording is out of date. */
+  'series.starts': { params: z.object({ slug: z.string() }), result: z.array(PartStatus) },
+  /** "It still matches": a part recorded from an older start counts as up to date. */
+  'series.keep': {
+    params: z.object({ slug: z.string(), part: z.string() }),
+    result: z.array(PartStatus),
+  },
   /** Creates a draft tutorial for every part without one, with the shared brief and the part's goal. */
   'series.approve': { params: z.object({ slug: z.string() }), result: Series },
   /** Removes the series; its parts' projects stay, as standalone tutorials. */

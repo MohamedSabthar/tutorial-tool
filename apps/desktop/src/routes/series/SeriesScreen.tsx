@@ -3,6 +3,7 @@ import {
   BRIEF_AUDIENCES,
   BRIEF_LENGTHS,
   BRIEF_STYLES,
+  type PartStatus,
   type ProjectSummary,
   type Series,
   type SeriesBrief,
@@ -32,6 +33,15 @@ const BRIEF_FIELDS = [
   ['Style', BRIEF_STYLES, 'style'],
 ] as const;
 
+/** Under a part's start picker: what its runs open. */
+function startHint(st: PartStatus | undefined, partNumber: (id: string) => number): string {
+  if (!st || st.start === 'clean') return "Its runs open the script's own fixture.";
+  const n = partNumber(st.start);
+  return st.blocked
+    ? `Its runs open part ${n}'s project as its recording ends, once part ${n} is recorded.`
+    : `Its runs open part ${n}'s project as its recording ended.`;
+}
+
 /** Objectives are edited one per line. */
 const objectiveLines = (text: string) =>
   text
@@ -48,6 +58,7 @@ export function SeriesScreen({ slug }: { slug: string }) {
   const { client, state } = useEngine();
   const [series, setSeries] = useState<Series | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [starts, setStarts] = useState<PartStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newPart, setNewPart] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -58,12 +69,14 @@ export function SeriesScreen({ slug }: { slug: string }) {
   const load = useCallback(async () => {
     if (!client) return;
     try {
-      const [s, list] = await Promise.all([
+      const [s, list, st] = await Promise.all([
         client.call('series.get', { slug }),
         client.call('project.list', {}),
+        client.call('series.starts', { slug }),
       ]);
       setSeries(s);
       setProjects(list);
+      setStarts(st);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -160,18 +173,35 @@ export function SeriesScreen({ slug }: { slug: string }) {
   /** The first part whose tutorial hasn't been started: "Make next part" opens its brief. */
   const next = series.parts.findIndex((part) => {
     const p = project(part.project);
-    return p && p.status === 'draft' && p.pipeline.status === 'idle';
+    const recorded = starts.find((x) => x.part === part.id)?.recordedAt;
+    return p && !recorded && p.status === 'draft' && p.pipeline.status === 'idle';
   });
+  const status = (id: string) => starts.find((x) => x.part === id);
+  const partNumber = (id: string) => series.parts.findIndex((x) => x.id === id) + 1;
+  const nextStatus = next >= 0 ? status(series.parts[next]!.id) : undefined;
+  /** The part the next one waits for, when its start isn't recorded yet. */
+  const waitsFor = nextStatus?.blocked ? series.parts.find((x) => x.id === nextStatus.start) : undefined;
+  const waitsForProject = project(waitsFor?.project ?? null);
+  const stale = series.parts.filter((x) => status(x.id)?.stale);
   const footer =
     series.outline === 'approved' && unmade === 0 && next >= 0 ? (
       <>
         <span className="series-hint" style={{ marginRight: 'auto' }}>
-          Parts are made one at a time. Each part's agent knows what the parts before it covered.
+          {waitsFor
+            ? `Part ${next + 1} starts from part ${partNumber(waitsFor.id)} as its recording ends, so part ${partNumber(waitsFor.id)} is recorded first.`
+            : "Parts are made one at a time. Each part's agent knows what the parts before it covered."}
         </span>
-        <LinkButton variant="primary" href={`#/brief/${series.parts[next]!.project!}`}>
-          Make part {next + 1}
-          <IconArrowRight />
-        </LinkButton>
+        {waitsFor && waitsForProject ? (
+          <LinkButton variant="primary" href={`#${projectRoute(waitsForProject)}`}>
+            Finish part {partNumber(waitsFor.id)}
+            <IconArrowRight />
+          </LinkButton>
+        ) : (
+          <LinkButton variant="primary" href={`#/brief/${series.parts[next]!.project!}`}>
+            Make part {next + 1}
+            <IconArrowRight />
+          </LinkButton>
+        )}
       </>
     ) : unmade > 0 && !planning ? (
       <>
@@ -244,6 +274,41 @@ export function SeriesScreen({ slug }: { slug: string }) {
               }
             />
           )}
+          {stale.map((x) => {
+            const st = status(x.id)!;
+            const n = partNumber(st.start);
+            const p = project(x.project);
+            return (
+              <GateBanner
+                key={x.id}
+                title={`Part ${partNumber(x.id)} may be out of date.`}
+                text={`It starts from part ${n}, which was recorded again (or its start changed) after part ${partNumber(x.id)} was recorded, so its recording may no longer match.`}
+                actions={
+                  <>
+                    {p && (
+                      <LinkButton size="sm" href={`#${projectRoute(p)}`}>
+                        Record part {partNumber(x.id)} again
+                      </LinkButton>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        client &&
+                        void client
+                          .call('series.keep', { slug, part: x.id })
+                          .then(setStarts, (e: unknown) =>
+                            setError(e instanceof Error ? e.message : String(e)),
+                          )
+                      }
+                    >
+                      It still matches
+                    </Button>
+                  </>
+                }
+              />
+            );
+          })}
           {series.outline === 'review' && (
             <GateBanner
               title={`The agent proposed ${series.parts.length} part${series.parts.length === 1 ? '' : 's'}.`}
@@ -315,9 +380,36 @@ export function SeriesScreen({ slug }: { slug: string }) {
                           />
                         )}
                       </Field>
+                      {i > 0 && (
+                        <Field label="Starts from" hint={startHint(status(part.id), partNumber)}>
+                          {(id) => (
+                            <Select
+                              id={id}
+                              value={part.startFrom}
+                              onChange={(e) =>
+                                void edit({ op: 'editPart', id: part.id, startFrom: e.target.value })
+                              }
+                            >
+                              <option value="previous">
+                                The previous part's project (part {i}: {series.parts[i - 1]!.title})
+                              </option>
+                              {series.parts.slice(0, i - 1).map((earlier, k) => (
+                                <option key={earlier.id} value={earlier.id}>
+                                  Part {k + 1}'s project ({earlier.title})
+                                </option>
+                              ))}
+                              <option value="clean">A clean project</option>
+                            </Select>
+                          )}
+                        </Field>
+                      )}
                       {p && chip && (
-                        <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <span style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                           <Chip tone={chip.tone}>{chip.label}</Chip>
+                          {status(part.id)?.blocked && (
+                            <Chip tone="info">Waiting for part {partNumber(status(part.id)!.start)}</Chip>
+                          )}
+                          {status(part.id)?.stale && <Chip tone="error">Out of date</Chip>}
                           <a href={`#${projectRoute(p)}`}>Open the tutorial</a>
                         </span>
                       )}
