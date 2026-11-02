@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { PIPELINE_STAGES, type Gate } from '@studio/core';
+import { partContext, PIPELINE_STAGES, type Gate, type ProjectSummary, type Series } from '@studio/core';
 import { Button, LinkButton } from '@studio/ui';
 import { useEngine } from '../engine';
 import { usePipeline } from '../pipeline';
 import { liveRoute } from './frame';
+import { projectRoute } from './projects/ProjectsScreen';
 
 export type ProjectScreen = 'brief' | 'storyboard' | 'live' | 'studio';
 
@@ -33,13 +34,27 @@ export function ProjectBar({ slug, current }: { slug: string; current: ProjectSc
   const { client, state: conn } = useEngine();
   const pipe = usePipeline(slug);
   const [title, setTitle] = useState<string | null>(null);
+  const [series, setSeries] = useState<{ series: Series; part: string; projects: ProjectSummary[] } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!client || conn !== 'open') return;
-    void client.call('project.list', {}).then(
-      (list) => setTitle(list.find((p) => p.slug === slug)?.title ?? null),
-      () => undefined,
-    );
+    let live = true;
+    const load = async () => {
+      const list = await client.call('project.list', {});
+      const p = list.find((x) => x.slug === slug);
+      if (!live) return;
+      setTitle(p?.title ?? null);
+      const s = p?.series ? await client.call('series.get', { slug: p.series.slug }).catch(() => null) : null;
+      if (live) setSeries(s && p?.series ? { series: s, part: p.series.part, projects: list } : null);
+    };
+    void load().catch(() => undefined);
+    const off = client.on('series.changed', () => void load().catch(() => undefined));
+    return () => {
+      live = false;
+      off();
+    };
   }, [client, conn, slug]);
 
   const st = pipe.state;
@@ -65,46 +80,79 @@ export function ProjectBar({ slug, current }: { slug: string; current: ProjectSc
     { key: 'studio', label: 'Studio' },
   ];
 
+  const ctx = series ? partContext(series.series, series.part) : null;
+  /** A neighbouring part: its tutorial's current screen, or the series when it has none. */
+  const partHref = (project: string | null) => {
+    const p = project ? series?.projects.find((x) => x.slug === project) : undefined;
+    return p ? `#${projectRoute(p)}` : `#/series/${series?.series.slug ?? ''}`;
+  };
+
   return (
-    <nav className="project-bar" data-waiting={gate ? 'true' : undefined} aria-label="Project">
-      <strong className="project-bar-title" title={title ?? slug}>
-        {title ?? slug}
-      </strong>
-      <span className="project-bar-links">
-        {screens.map((s) => (
-          <a
-            key={s.key}
-            href={href(s.key, slug)}
-            aria-current={s.key === current ? 'page' : undefined}
-            className="project-bar-link"
-          >
-            {s.label}
-            {needs === s.key && <span className="project-bar-dot" aria-label="needs you" />}
-          </a>
-        ))}
-      </span>
-      {gate ? (
-        <span className="project-bar-gate" role="status">
-          <span className="project-bar-gate-title">{gate.title}</span>
-          {needs !== current && (
-            <LinkButton variant="primary" size="sm" href={href(needs!, slug)}>
-              {GATE_ACTION[gate.kind]} →
-            </LinkButton>
+    <>
+      {series && ctx && (
+        <nav className="series-nav" aria-label="Series">
+          {ctx.prev ? (
+            <a className="series-nav-side" href={partHref(ctx.prev.project)}>
+              ← <span className="series-nav-muted">Part {ctx.number - 1} ·</span> {ctx.prev.title}
+            </a>
+          ) : (
+            <span className="series-nav-side" />
           )}
+          <a className="series-nav-mid" href={`#/series/${series.series.slug}`}>
+            <strong>
+              Part {ctx.number} of {ctx.total}
+            </strong>
+            <span className="series-nav-muted">{series.series.title}</span>
+          </a>
+          {ctx.next ? (
+            <a className="series-nav-side series-nav-next" href={partHref(ctx.next.project)}>
+              <span className="series-nav-muted">Part {ctx.number + 1} ·</span> {ctx.next.title} →
+            </a>
+          ) : (
+            <span className="series-nav-side" />
+          )}
+        </nav>
+      )}
+      <nav className="project-bar" data-waiting={gate ? 'true' : undefined} aria-label="Project">
+        <strong className="project-bar-title" title={title ?? slug}>
+          {title ?? slug}
+        </strong>
+        <span className="project-bar-links">
+          {screens.map((s) => (
+            <a
+              key={s.key}
+              href={href(s.key, slug)}
+              aria-current={s.key === current ? 'page' : undefined}
+              className="project-bar-link"
+            >
+              {s.label}
+              {needs === s.key && <span className="project-bar-dot" aria-label="needs you" />}
+            </a>
+          ))}
         </span>
-      ) : (
-        doing && (
-          <span className="project-bar-doing" role="status">
-            {st?.status === 'running' && <span className="project-bar-pulse" aria-hidden="true" />}
-            {doing}
-            {resumable && (
-              <Button size="sm" disabled={!pipe.ready} onClick={() => void pipe.resume()}>
-                Resume
-              </Button>
+        {gate ? (
+          <span className="project-bar-gate" role="status">
+            <span className="project-bar-gate-title">{gate.title}</span>
+            {needs !== current && (
+              <LinkButton variant="primary" size="sm" href={href(needs!, slug)}>
+                {GATE_ACTION[gate.kind]} →
+              </LinkButton>
             )}
           </span>
-        )
-      )}
-    </nav>
+        ) : (
+          doing && (
+            <span className="project-bar-doing" role="status">
+              {st?.status === 'running' && <span className="project-bar-pulse" aria-hidden="true" />}
+              {doing}
+              {resumable && (
+                <Button size="sm" disabled={!pipe.ready} onClick={() => void pipe.resume()}>
+                  Resume
+                </Button>
+              )}
+            </span>
+          )
+        )}
+      </nav>
+    </>
   );
 }

@@ -44,6 +44,8 @@ import {
 
 export interface PipelineDeps {
   store: ProjectStore;
+  /** Brings the project's series context in CLAUDE.md up to date before the agent plans. */
+  beforePlan?(slug: string): Promise<void>;
   agents: AgentManager;
   runProject(slug: string, mode: 'dry' | 'record'): Promise<ProjectRunResult>;
   stopRun(): void;
@@ -149,6 +151,11 @@ export class PipelineManager {
 
   private file(slug: string) {
     return path.join(this.deps.store.dir(slug), '.studio', 'pipeline.json');
+  }
+
+  /** Whether the project is a part of a series (its CLAUDE.md then has a Series section). */
+  private async inSeries(slug: string): Promise<boolean> {
+    return !!(await this.deps.store.open(slug).catch(() => null))?.project.series;
   }
 
   async get(slug: string): Promise<PipelineState> {
@@ -653,11 +660,12 @@ export class PipelineManager {
       switch (stage) {
         case 'plan': {
           const brief = await this.deps.store.readBrief(slug).catch(() => null);
+          await this.deps.beforePlan?.(slug).catch(() => undefined);
           await this.agentStageWithHelp(
             slug,
             live,
             'plan',
-            planInstruction({ explainers: brief?.explainers ?? true }),
+            planInstruction({ explainers: brief?.explainers ?? true, series: await this.inSeries(slug) }),
           );
           if (!(await this.get(slug)).plan)
             await this.agentStageWithHelp(
@@ -873,7 +881,12 @@ export class PipelineManager {
           // A gate restored after a restart comes back with its decision: don't narrate again.
           const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
           if (!pending)
-            await this.agentStageWithHelp(slug, live, 'narrate', narrateInstruction(first, timing));
+            await this.agentStageWithHelp(
+              slug,
+              live,
+              'narrate',
+              narrateInstruction(first, timing, { series: await this.inSeries(slug) }),
+            );
           const onCamera = timing.reduce((n, s) => n + s.recorded, 0);
           if ((await this.get(slug)).gates.narration) {
             for (;;) {

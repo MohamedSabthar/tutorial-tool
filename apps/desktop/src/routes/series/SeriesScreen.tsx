@@ -18,6 +18,7 @@ import {
   IconChevron,
   IconTrash,
   Input,
+  LinkButton,
   Select,
   TextArea,
 } from '@studio/ui';
@@ -156,8 +157,23 @@ export function SeriesScreen({ slug }: { slug: string }) {
   const planning = series.outline === 'planning';
   const unmade = series.parts.filter((p) => !p.project).length;
 
+  /** The first part whose tutorial hasn't been started: "Make next part" opens its brief. */
+  const next = series.parts.findIndex((part) => {
+    const p = project(part.project);
+    return p && p.status === 'draft' && p.pipeline.status === 'idle';
+  });
   const footer =
-    unmade > 0 && !planning ? (
+    series.outline === 'approved' && unmade === 0 && next >= 0 ? (
+      <>
+        <span className="series-hint" style={{ marginRight: 'auto' }}>
+          Parts are made one at a time. Each part's agent knows what the parts before it covered.
+        </span>
+        <LinkButton variant="primary" href={`#/brief/${series.parts[next]!.project!}`}>
+          Make part {next + 1}
+          <IconArrowRight />
+        </LinkButton>
+      </>
+    ) : unmade > 0 && !planning ? (
       <>
         <span className="series-hint" style={{ marginRight: 'auto' }}>
           {series.outline === 'approved'

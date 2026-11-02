@@ -57,6 +57,8 @@ describe('engine RPC', () => {
     const projectSlug = approved.parts[0]!.project!;
     const opened = await client.call('project.open', { slug: projectSlug });
     expect(opened.project.series).toEqual({ slug: s.slug, part: 'p1' });
+    // A part keeps its title, even though its brief's goal is longer.
+    expect(opened.project.title).toBe('HTTP service');
     const brief = await client.call('brief.get', { slug: projectSlug });
     expect(brief).toMatchObject({
       style: 'demo',

@@ -10,7 +10,15 @@ import { timingLines } from '../stepTiming';
 const done = (stage: string) =>
   `When you have finished, call the studio tool stage_done with {"stage": "${stage}", "summary": "<one or two sentences>"}. If you changed a skill, add "knowledge": "<one line: what you learned>" and don't commit it yourself: the pipeline commits skill changes after each stage. If you cannot finish, call it with "ok": false and say what is blocking you.`;
 
-export function planInstruction(opts: { explainers: boolean } = { explainers: true }): string {
+const SERIES_PLAN =
+  "This tutorial is a part of a series: read the Series section of the project's CLAUDE.md. Don't teach again what earlier parts covered; build on it. Use the names and sample data in its series notes.";
+
+const SERIES_NARRATION =
+  "This tutorial is a part of a series (the Series section of the project's CLAUDE.md). Where it helps, open with one line that recaps what earlier parts built, and close with one line that leads into the next part (or, in the last part, closes the series). Keep both short: they are narration of the first and last steps, not steps of their own.";
+
+export function planInstruction(
+  opts: { explainers: boolean; series?: boolean } = { explainers: true },
+): string {
   return [
     '[Pipeline · plan]',
     "Plan this tutorial. Read the brief in this project's CLAUDE.md (and any files it lists under References) and the product skill, then follow the tutorial-authoring skill to split it into 3–8 steps. Fit the length and style the brief asks for.",
@@ -18,8 +26,11 @@ export function planInstruction(opts: { explainers: boolean } = { explainers: tr
     `Save the plan with the studio tool save_plan: for each step an id (s1, s2, …), a short imperative title, and what happens on screen, naming the controls as they appear. Leave narration empty: it's written after the script has been dry-run, once every step is known. ${opts.explainers ? 'Propose explainers only where a concept is easier to show than to click through.' : "Don't propose explainers: the brief asks for a recording only."}`,
     "Keep the camera on what teaches, without changing what is taught. Build what the brief and the user ask for, the way a developer would (e.g. four tools stay four tools: don't merge them into one to save camera time unless the user asks). When the task repeats a slow flow (several similar tools, endpoints, fields or records), show the first one in full and do the rest as off-camera setup, before recording starts: say so in that step's action (e.g. \"Off camera: setup creates subtract, multiply and divide the same way\"), then show the result. A product flow that takes more than about a minute and isn't the point of the tutorial is setup too.",
     "Don't write or run the script yet; the user reviews the plan first.",
+    opts.series ? SERIES_PLAN : '',
     done('plan'),
-  ].join('\n\n');
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function reviseInstruction(feedback: string): string {
@@ -95,7 +106,11 @@ export function trimInstruction(input: { seconds: number; target: string; timing
  * Voice-first recording: after a passing dry run the agent writes the final narration and ties
  * the script's actions to its words; the pipeline then voices it and records paced to it.
  */
-export function narrateInstruction(plan: Plan, timing: StepTiming[] = []): string {
+export function narrateInstruction(
+  plan: Plan,
+  timing: StepTiming[] = [],
+  opts: { series?: boolean } = {},
+): string {
   return [
     '[Pipeline · narrate]',
     'The dry run passed, so you know what the script does on screen. Write the final narration and tie the actions to it: the pipeline voices this narration before recording, and the recorder paces the take to the voice-over.',
@@ -108,6 +123,7 @@ export function narrateInstruction(plan: Plan, timing: StepTiming[] = []): strin
       "2. In script.spec.ts, give each action the viewer should see happen on a word a cue: `tut.cue('Create')` right before the call (this works before a page-object call too: its first click or key press takes the cue), or the `cue` option of tut.click, tut.type and tut.press. A cue is a word or short phrase copied from that step's narration, usually the control's name as spoken. Cues in a step follow the narration's order. Actions without a cue run at their own pace, and every step lasts at least its line.",
       "3. Don't change what the script does. Don't record: the pipeline voices the narration, then dry-runs the script to check every cue.",
     ].join('\n'),
+    opts.series ? SERIES_NARRATION : '',
     plan.steps.map((s) => `- ${s.id} ${s.title}: ${s.narration || '(none)'}`).join('\n'),
     done('narrate'),
   ]

@@ -111,3 +111,63 @@ describe('series outline', () => {
     );
   });
 });
+
+describe('series context', () => {
+  it("writes each part's place, what came before and what comes next into its CLAUDE.md", async () => {
+    const { ProjectStore } = await import('../src/projects');
+    const { SeriesContext, seriesSection } = await import('../src/seriesContext');
+    const { planInstruction, narrateInstruction } = await import('../src/pipeline/instructions');
+    const projects = new ProjectStore(dir);
+    let s = applySeriesPlan(await store.create({ topic: 'x', product: 'wso2-integrator' }), {
+      ...plan,
+      parts: [...plan.parts, { title: 'Store it in MySQL', goal: 'Insert a row.', objectives: ['Insert'] }],
+    });
+    const parts = [];
+    for (const part of s.parts) {
+      const p = await projects.create({
+        title: part.title,
+        product: s.product,
+        brief: { goal: partGoal(part) },
+      });
+      await projects.setSeries(p.slug, { slug: s.slug, part: part.id });
+      parts.push({ ...part, project: p.slug });
+    }
+    s = await store.save({ ...s, parts, outline: 'approved' });
+
+    const summaries: Record<string, string> = {
+      [parts[0]!.project]: 'Builds greeting_service on port 9090.',
+    };
+    const ctx = new SeriesContext({
+      projects,
+      series: store,
+      planSummary: async (p) => summaries[p] ?? null,
+    });
+    await ctx.syncSeries(s.slug);
+    const { readFile } = await import('node:fs/promises');
+    const md = (slug: string) => readFile(path.join(projects.dir(slug), 'CLAUDE.md'), 'utf8');
+
+    const second = await md(parts[1]!.project);
+    expect(second).toContain('## Series');
+    expect(second).toContain('part 2 of 3 in the series "Your first integration"');
+    // A planned part is summarised by its plan, an unplanned one by its objectives.
+    expect(second).toContain('- Part 1 · Create an HTTP service: Builds greeting_service on port 9090.');
+    expect(second).toContain('Next: part 3 · Store it in MySQL (Insert a row.)');
+    expect(second).toContain('Project: greeting-project.');
+    expect(await md(parts[0]!.project)).toContain('This is the first part');
+    expect(await md(parts[2]!.project)).toContain('This is the last part');
+    expect(await md(parts[2]!.project)).toContain('- Part 2 · Call an API: Add a connection; Handle errors');
+
+    // Saving the brief keeps the section; leaving the series removes it.
+    await projects.saveBrief(parts[1]!.project, await projects.readBrief(parts[1]!.project));
+    expect(await md(parts[1]!.project)).toContain('## Series');
+    await ctx.clear(parts[1]!.project);
+    expect(await md(parts[1]!.project)).not.toContain('## Series');
+    expect(await seriesSection(s, 'p9', async () => null)).toBe('');
+
+    expect(planInstruction({ explainers: true, series: true })).toContain('Series section');
+    expect(planInstruction({ explainers: true })).not.toContain('Series section');
+    expect(narrateInstruction({ summary: '', steps: [], explainers: [] }, [], { series: true })).toContain(
+      'leads into the next part',
+    );
+  });
+});

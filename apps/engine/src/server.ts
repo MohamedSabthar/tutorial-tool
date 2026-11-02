@@ -50,6 +50,7 @@ import { studioServer } from './agent/mcp';
 import { loadCatalog } from './agent/catalog';
 import { modelFor, PipelineManager } from './pipeline/machine';
 import { SeriesPlanner } from './seriesPlanner';
+import { SeriesContext } from './seriesContext';
 import { WorkspaceGit } from './workspaceGit';
 import { knowledgeSummary, skillCoverage } from './brief';
 import { projectCard } from './cards';
@@ -281,6 +282,14 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     changed: (slug) => broadcast('series.changed', { slug }),
     activity: (slug, text) => broadcast('series.activity', { slug, text }),
   });
+  const seriesContext = new SeriesContext({
+    projects: store,
+    series: seriesStore,
+    planSummary: async (project) => (await pipeline.get(project)).plan?.summary ?? null,
+  });
+  /** Series changes reach every part's CLAUDE.md (never fails the change itself). */
+  const syncSeries = (slug: string) =>
+    seriesContext.syncSeries(slug).catch((e: unknown) => console.error(`series ${slug}: ${String(e)}`));
   void seriesPlanner.recover().catch((e: unknown) => console.error(`series: ${String(e)}`));
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
@@ -440,6 +449,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   });
   const pipeline: PipelineManager = new PipelineManager({
     store,
+    beforePlan: (slug) => seriesContext.syncProject(slug),
     agents,
     runProject: (slug, mode) => runner.runProject(slug, mode),
     stopRun: () => runner.stop(),
@@ -944,6 +954,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
             () => null,
           )
         : null;
+      if (unlinked) await syncSeries(unlinked.slug);
       const head = await workspace.commit(`project: delete ${slug}`, [
         `projects/${slug}`,
         ...(unlinked ? [`series/${unlinked.slug}`] : []),
@@ -969,6 +980,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     'series.edit': async ({ slug, edit }: { slug: string; edit: SeriesEdit }) => {
       const series = await seriesStore.edit(slug, edit);
+      await syncSeries(slug);
       broadcast('series.changed', { slug });
       return series;
     },
@@ -992,12 +1004,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           title: part.title,
           product: series.product,
           brief: { ...series.brief, goal: partGoal(part) },
+          series: { slug, part: part.id },
         });
-        await store.setSeries(project.slug, { slug, part: part.id });
         created.push(project.slug);
         parts.push({ ...part, project: project.slug });
       }
       const approved = await seriesStore.save({ ...series, parts, outline: 'approved', planError: null });
+      await syncSeries(slug);
       const head = await workspace.commit(`series: approve ${slug} (${created.length} parts)`, [
         `series/${slug}`,
         ...created.map((c) => `projects/${c}`),
@@ -1011,7 +1024,10 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       if (seriesPlanner.isRunning(slug)) await seriesPlanner.cancel(slug);
       const series = await seriesStore.remove(slug);
       const parts = series.parts.flatMap((p) => (p.project ? [p.project] : []));
-      for (const project of parts) await store.setSeries(project, null).catch(() => undefined);
+      for (const project of parts) {
+        await store.setSeries(project, null).catch(() => undefined);
+        await seriesContext.clear(project).catch(() => undefined);
+      }
       const head = await workspace.commit(`series: delete ${slug}`, [
         `series/${slug}`,
         ...parts.map((p) => `projects/${p}`),

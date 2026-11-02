@@ -2113,3 +2113,39 @@
   border-radius: var(--ui-radius-lg);
   background: var(--ui-white);
 }
+.series-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 20px;
+  background: var(--ui-gray-50);
+  border-bottom: 1px solid var(--ui-gray-300);
+  font-size: 13px;
+}
+.series-nav a {
+  color: var(--ui-navy);
+  text-decoration: none;
+}
+.series-nav a:hover {
+  text-decoration: underline;
+}
+.series-nav-side {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.series-nav-next {
+  text-align: right;
+}
+.series-nav-mid {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.series-nav-muted {
+  color: var(--ui-gray-600);
+}

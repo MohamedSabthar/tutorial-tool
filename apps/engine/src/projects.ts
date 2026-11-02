@@ -50,7 +50,12 @@ export class ProjectStore {
     return projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  async create(input: { title: string; product: string; brief?: Partial<Brief> }): Promise<Project> {
+  async create(input: {
+    title: string;
+    product: string;
+    brief?: Partial<Brief>;
+    series?: Project['series'];
+  }): Promise<Project> {
     await mkdir(this.root, { recursive: true });
     const slug = await this.uniqueSlug(slugify(input.title));
     const now = new Date().toISOString();
@@ -58,6 +63,7 @@ export class ProjectStore {
       slug,
       title: input.title,
       product: input.product,
+      ...(input.series ? { series: input.series } : {}),
       createdAt: now,
       updatedAt: now,
     });
@@ -131,7 +137,11 @@ export class ProjectStore {
     if (brief.voice) await this.setDefaultVoice(brief.voice);
     const mdFile = path.join(dir, 'CLAUDE.md');
     const md = await readFile(mdFile, 'utf8').catch(() => projectClaudeMd(project));
-    const title = project.status === 'draft' && brief.goal.trim() ? briefTitle(brief.goal) : project.title;
+    // A draft takes its title from the goal; a series part keeps its part's title.
+    const title =
+      project.status === 'draft' && !project.series && brief.goal.trim()
+        ? briefTitle(brief.goal)
+        : project.title;
     await writeFile(mdFile, renderBrief(md, { ...project, title }, brief));
     await writeJson(
       path.join(dir, 'project.json'),

@@ -108,7 +108,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
 - [ ] **Phase 11: Tutorial series**
   - [x] 11.1 Series model and screens
   - [x] 11.2 The agent writes the series outline
-  - [ ] 11.3 Series context for each part
+  - [x] 11.3 Series context for each part
   - [ ] 11.4 Where each part starts
   - [ ] 11.5 Series in the outputs
   - [ ] 11.6 Explainers designed by the agent
@@ -798,7 +798,7 @@ The user describes what a series is about. The agent proposes an outline of part
 
 ### 11.3 Series context for each part
 **Goal:** each part's agent knows the series.
-- The part's `CLAUDE.md` gets a "Series" section: "Part N of M", the series notes, what earlier parts covered (their objectives, or their plan summaries once planned), and the next part. It is rebuilt whenever the series changes.
+- The part's `CLAUDE.md` gets a "Series" section (`apps/engine/src/seriesContext.ts`): "Part N of M", what earlier parts covered (their plan summaries once planned, else their objectives), the next part, and the series notes. It is rebuilt for every part when the series is edited or approved, and for the part itself right before its agent plans. It is removed when the series is deleted. A part keeps its part title: saving its brief doesn't retitle it from the goal.
 - The plan and narrate instructions ask for a one-line recap of earlier parts where it helps, and a closing line that leads into the next part.
 - The Series screen shows each part's status and has "Make next part", which opens the first part that isn't made yet. A part's project bar shows "Part N of M" with links to the previous and next parts.
 
