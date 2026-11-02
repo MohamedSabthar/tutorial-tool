@@ -83,6 +83,10 @@ export interface AutoOptions {
   /** Tutorial title for the opening TitleCard (none when empty). */
   title?: string;
   subtitle?: string;
+  /** A small line above the title (a series part's "Part 2 of 5"). */
+  eyebrow?: string;
+  /** A closing TitleCard over the last seconds (a series part's next part). */
+  endCard?: { eyebrow?: string; title: string; subtitle?: string };
 }
 
 /**
@@ -263,7 +267,31 @@ export function autoOverlays(
       start: r3(titleAt + 0.2),
       end: r3(titleEnd),
       layer: 60,
-      props: { title: opts.title, ...(opts.subtitle ? { subtitle: opts.subtitle } : {}) },
+      props: {
+        title: opts.title,
+        ...(opts.subtitle ? { subtitle: opts.subtitle } : {}),
+        ...(opts.eyebrow ? { eyebrow: opts.eyebrow } : {}),
+      },
+      author: 'auto',
+    });
+  }
+
+  // The end card over the last seconds, after the last action so it never covers a click.
+  const lastAction = actions
+    .map((a) => out(a.t))
+    .filter((t): t is number => t !== undefined)
+    .reduce((m, t) => Math.max(m, t), -Infinity);
+  const titleCard = result.find((o) => o.id === 'auto-title');
+  const endStart = Math.max(tm.duration - 3.5, lastAction + 0.6, titleCard ? titleCard.end + 0.4 : 0);
+  if (opts.endCard && tm.duration - endStart >= 1.5) {
+    const { eyebrow, title, subtitle } = opts.endCard;
+    result.push({
+      id: 'auto-end',
+      component: 'core:TitleCard',
+      start: r3(endStart),
+      end: r3(tm.duration),
+      layer: 60,
+      props: { title, ...(subtitle ? { subtitle } : {}), ...(eyebrow ? { eyebrow } : {}) },
       author: 'auto',
     });
   }

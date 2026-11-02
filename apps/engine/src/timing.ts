@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { cardOptions } from './seriesOutputs';
 import {
   buildTimeMap,
   cutGaps,
@@ -336,7 +337,11 @@ async function saveTiming(
 ) {
   const { project } = await deps.store.open(slug);
   const captioned = withCaptions(remapOutputItems(after, outputRemapper(before, after)));
-  const overlays = withAutoOverlays(captioned, events, { title: project.title }).overlays;
+  const overlays = withAutoOverlays(
+    captioned,
+    events,
+    await cardOptions(deps.store.dir(slug), project.title),
+  ).overlays;
   const patch: TimelinePatch = [
     ...after.scenes.flatMap((s, i) =>
       s.kind === 'recording'

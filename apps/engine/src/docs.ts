@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { docSeries, writeSeriesIndex } from './seriesOutputs';
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
@@ -213,10 +214,13 @@ export class DocWriter {
       ...(images.has(s.id) ? { image: images.get(s.id)! } : {}),
     }));
     const video = `${slug}.mp4`;
+    const series = await docSeries(dir);
     await writeFile(
       path.join(out, 'tutorial.md'),
       renderMarkdown({
-        title: (brief.goal.trim() && briefTitle(brief.goal)) || project.title,
+        // A series part keeps its part title; a single tutorial is titled from its goal.
+        title: (!series && brief.goal.trim() && briefTitle(brief.goal)) || project.title,
+        ...(series ? { series } : {}),
         intro: brief.goal.trim(),
         ...(existsSync(path.join(out, video)) ? { video } : {}),
         ...(existsSync(path.join(out, 'captions.vtt')) ? { captions: 'captions.vtt' } : {}),
@@ -224,6 +228,11 @@ export class DocWriter {
       }),
     );
     files.push('output/tutorial.md');
+    const index = await writeSeriesIndex(dir).catch((e: unknown) => {
+      notes.push(`No series index: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    });
+    if (index) files.push(index);
   }
 }
 

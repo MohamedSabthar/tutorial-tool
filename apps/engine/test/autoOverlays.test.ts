@@ -73,6 +73,36 @@ describe('autoOverlays', () => {
     expect(title).toMatchObject({ start: 0.2, end: 3.2, props: { title: 'HTTP service' } });
   });
 
+  it("puts a series part's number above the title, and an end card after the last action", () => {
+    const later = events.map((e) => ('stepId' in e && e.kind !== 'step-start' ? { ...e, t: e.t + 4 } : e));
+    const list = autoOverlays(tl(), later, {
+      title: 'HTTP service',
+      subtitle: 'First integration',
+      eyebrow: 'Part 2 of 5',
+      endCard: { eyebrow: 'Up next · Part 3 of 5', title: 'Map the data', subtitle: 'First integration' },
+    });
+    const [title, end] = list.filter((o) => o.component === 'core:TitleCard');
+    expect(title!.props).toEqual({
+      title: 'HTTP service',
+      subtitle: 'First integration',
+      eyebrow: 'Part 2 of 5',
+    });
+    // The last click is at 24 s of 30: the end card takes the last 3.5 s.
+    expect(end).toMatchObject({ id: 'auto-end', start: 26.5, end: 30, props: { title: 'Map the data' } });
+    // It never overlaps the title card.
+    const short = tl([{ kind: 'src', from: 0, to: 5 }]);
+    const quiet = events.filter((e) => e.kind === 'step-start');
+    const both = autoOverlays(short, quiet, { title: 'x', endCard: { title: 'Next' } }).filter(
+      (o) => o.component === 'core:TitleCard',
+    );
+    expect(both.map((o) => o.id)).toEqual(['auto-title']);
+    // No room after the last action: no end card.
+    const busy = events.map((e) => (e.kind === 'click' && e.t === 20 ? { ...e, t: 29.5 } : e));
+    expect(
+      autoOverlays(tl(), busy, { title: 'x', endCard: { title: 'Next' } }).some((o) => o.id === 'auto-end'),
+    ).toBe(false);
+  });
+
   it('follows the timeline timing and skips actions that were cut', () => {
     const cut = tl([
       { kind: 'src', from: 0, to: 5 },

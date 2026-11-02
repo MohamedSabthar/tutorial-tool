@@ -21,6 +21,7 @@ import {
   Input,
   LinkButton,
   Select,
+  Switch,
   TextArea,
 } from '@studio/ui';
 import { useEngine } from '../../engine';
@@ -32,6 +33,33 @@ const BRIEF_FIELDS = [
   ['Length of each part', BRIEF_LENGTHS, 'length'],
   ['Style', BRIEF_STYLES, 'style'],
 ] as const;
+
+const OUTPUT_OPTIONS: {
+  key: 'titleCard' | 'endCard' | 'recap' | 'links' | 'index';
+  label: string;
+  hint: string;
+  text?: 'titleText' | 'endText';
+}[] = [
+  {
+    key: 'titleCard',
+    label: 'Part number on the title card',
+    hint: 'A small line above the title. The series name is the subtitle.',
+    text: 'titleText',
+  },
+  {
+    key: 'endCard',
+    label: 'End card for the next part',
+    hint: 'The same card over the last seconds, naming the next part.',
+    text: 'endText',
+  },
+  {
+    key: 'recap',
+    label: 'Recap and lead-in in the narration',
+    hint: 'One line on what earlier parts built, and one leading into the next part.',
+  },
+  { key: 'links', label: 'Previous and next links in the docs', hint: "In each part's tutorial.md." },
+  { key: 'index', label: 'Series index', hint: 'README.md listing every part, written with each export.' },
+];
 
 /** Under a part's start picker: what its runs open. */
 function startHint(st: PartStatus | undefined, partNumber: (id: string) => number): string {
@@ -519,6 +547,43 @@ export function SeriesScreen({ slug }: { slug: string }) {
               />
             )}
           </Field>
+          <h2 id="outputs-h" className="series-side-h" style={{ marginTop: 8 }}>
+            In the video and docs
+          </h2>
+          <span className="series-hint">
+            For every part. Cards on parts already recorded update when you change these.
+          </span>
+          {OUTPUT_OPTIONS.map((o) => (
+            <div key={o.key} className="series-output">
+              <Switch
+                label={
+                  <span className="series-output-label">
+                    <strong>{o.label}</strong>
+                    <span className="series-hint">{o.hint}</span>
+                  </span>
+                }
+                checked={series.outputs[o.key]}
+                onChange={(v) => void edit({ op: 'meta', outputs: { [o.key]: v } })}
+              />
+              {o.text && series.outputs[o.key] && (
+                <Field label="Text" hint="{n}, {total}, {series} and {next} are filled in.">
+                  {(id) => (
+                    <Input
+                      id={id}
+                      className="ui-mono"
+                      key={`${o.text}:${series.outputs[o.text!]}`}
+                      defaultValue={series.outputs[o.text!]}
+                      onBlur={(e) => {
+                        const text = e.target.value.trim();
+                        if (text && text !== series.outputs[o.text!])
+                          void edit({ op: 'meta', outputs: { [o.text!]: text } });
+                      }}
+                    />
+                  )}
+                </Field>
+              )}
+            </div>
+          ))}
           {confirmDelete ? (
             <div className="series-confirm" role="alertdialog" aria-label={`Delete ${series.title}?`}>
               <strong>Delete this series?</strong>

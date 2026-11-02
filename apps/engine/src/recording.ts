@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { cardOptions } from './seriesOutputs';
 import { parseTimeline, RecorderEvent, RpcError, withTake, type Take } from '@studio/core';
 import { withAutoOverlays } from './autoOverlays';
 import {
@@ -161,7 +162,7 @@ export async function registerTake(dir: string, take: Take, takePath: string): P
     (t) => (JSON.parse(t) as { title?: string }).title ?? '',
     () => '',
   );
-  const next = withAutoOverlays(withTake(tl, entry, events), events, { title });
+  const next = withAutoOverlays(withTake(tl, entry, events), events, await cardOptions(dir, title));
   await writeFile(file, JSON.stringify(parseTimeline(next), null, 2) + '\n');
 }
 

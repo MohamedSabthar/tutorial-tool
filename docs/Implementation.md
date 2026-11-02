@@ -110,7 +110,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 11.2 The agent writes the series outline
   - [x] 11.3 Series context for each part
   - [x] 11.4 Where each part starts
-  - [ ] 11.5 Series in the outputs
+  - [x] 11.5 Series in the outputs
   - [ ] 11.6 Explainers designed by the agent
 
 ---
@@ -815,8 +815,8 @@ The user describes what a series is about. The agent proposes an outline of part
 
 ### 11.5 Series in the outputs
 **Goal:** the exported parts read as a series.
-- `tutorial.md` gets previous and next links. Exporting any part also writes `series/<slug>/README.md`, with the parts in order and their links.
-- The opening `core:TitleCard` keeps its look and gains an optional `eyebrow` prop: a small orange line above the title showing "Part N of M". Its unused `subtitle` shows the series name. The end card is the same TitleCard over the last few seconds, with the eyebrow "Up next · Part N+1 of M", the next part's title, and the series name as the subtitle. Both can be switched off, and their text changed, in the series settings.
+- `tutorial.md` gets a series line at the top ("Part N of M in <series>", linked to the index) and previous and next links at the end, and keeps the part's title. Exporting any part also writes `series/<slug>/README.md`, with the parts in order and links to the docs and videos already exported (`apps/engine/src/seriesOutputs.ts`).
+- The opening `core:TitleCard` keeps its look and gains an optional `eyebrow` prop: a small orange line above the title showing "Part N of M". Its unused `subtitle` shows the series name. The end card is the same TitleCard over the last few seconds, with the eyebrow "Up next · Part N+1 of M", the next part's title, and the series name as the subtitle. Both can be switched off, and their text changed (`{n}`, `{total}`, `{series}`, `{next}`), on the Series screen under "In the video and docs", along with the recap narration, the doc links and the index. The end card starts after the last action and after the title card, and is left out if there's no room. When the series changes, recorded parts get their cards rebuilt. In v1 these settings apply to the whole series: a part can't override them.
 
 **Done when:** an exported part 2 has the series card, the end card and links to parts 1 and 3, and switching the card off removes it.
 

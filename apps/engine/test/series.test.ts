@@ -257,3 +257,73 @@ describe('where parts start', () => {
     expect(await seriesSection(s, 'p2', async () => null)).toContain('its own fixture, a clean project');
   });
 });
+
+describe('series outputs', () => {
+  it('fills the cards, the doc links and the index from the series', async () => {
+    const { ProjectStore } = await import('../src/projects');
+    const { cardOptions, docSeries, recapNarration, writeSeriesIndex } = await import('../src/seriesOutputs');
+    const { renderMarkdown } = await import('@studio/exporters');
+    const { readFile, mkdir, writeFile } = await import('node:fs/promises');
+    const projects = new ProjectStore(dir);
+    let s = applySeriesPlan(await store.create({ topic: 'Learn integrations', product: 'p' }), {
+      ...plan,
+      parts: [...plan.parts, { title: 'Store it', goal: 'Insert a row.', objectives: ['Insert'] }],
+    });
+    const parts = [];
+    for (const part of s.parts) {
+      const p = await projects.create({
+        title: part.title,
+        product: 'p',
+        series: { slug: s.slug, part: part.id },
+      });
+      parts.push({ ...part, project: p.slug });
+    }
+    s = await store.save({ ...s, parts, outline: 'approved' });
+    const [one, two, three] = parts.map((p) => projects.dir(p.project));
+
+    expect(await cardOptions(two!, 'Call an API')).toEqual({
+      title: 'Call an API',
+      subtitle: 'Your first integration',
+      eyebrow: 'Part 2 of 3',
+      endCard: { eyebrow: 'Up next · Part 3 of 3', title: 'Store it', subtitle: 'Your first integration' },
+    });
+    expect((await cardOptions(three!, 'Store it')).endCard).toBeUndefined();
+    expect(await cardOptions(path.join(dir, 'projects', 'nope'), 'Alone')).toEqual({ title: 'Alone' });
+    expect(await recapNarration(two!)).toBe(true);
+
+    const md = renderMarkdown({ title: 'Call an API', steps: [], series: (await docSeries(two!))! });
+    expect(md.split('\n')[0]).toBe(
+      `> Part 2 of 3 in [Your first integration](../../../series/${s.slug}/README.md)`,
+    );
+    expect(md).toContain(`← [Part 1: Create an HTTP service](../../${parts[0]!.project}/output/tutorial.md)`);
+    expect(md).toContain(`[Part 3: Store it](../../${parts[2]!.project}/output/tutorial.md) →`);
+
+    // Settings turn each off, and change the card text.
+    await store.save({
+      ...s,
+      outputs: {
+        ...s.outputs,
+        titleCard: false,
+        endText: 'Next: {next}',
+        links: false,
+        index: false,
+        recap: false,
+      },
+    });
+    expect(await cardOptions(two!, 'Call an API')).toMatchObject({ endCard: { eyebrow: 'Next: Store it' } });
+    expect((await cardOptions(two!, 'Call an API')).eyebrow).toBeUndefined();
+    expect(await docSeries(two!)).toEqual({ part: 'Part 2 of 3', series: 'Your first integration' });
+    expect(await recapNarration(two!)).toBe(false);
+    expect(await writeSeriesIndex(one!)).toBeNull();
+
+    await store.save(s);
+    await mkdir(path.join(one!, 'output'), { recursive: true });
+    await writeFile(path.join(one!, 'output', 'tutorial.md'), '# x');
+    expect(await writeSeriesIndex(one!)).toBe(`series/${s.slug}/README.md`);
+    const index = await readFile(path.join(dir, 'series', s.slug, 'README.md'), 'utf8');
+    expect(index).toContain(
+      `1. [Create an HTTP service](../../projects/${parts[0]!.project}/output/tutorial.md)`,
+    );
+    expect(index).toContain('2. Call an API\n');
+  });
+});

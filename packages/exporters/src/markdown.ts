@@ -14,6 +14,14 @@ export interface DocInput {
   video?: string;
   captions?: string;
   steps: DocStep[];
+  /** A series part: its place, the series index, and links to the parts around it. */
+  series?: {
+    part: string;
+    series: string;
+    index?: string;
+    prev?: { title: string; href: string };
+    next?: { title: string; href: string };
+  };
 }
 
 /** Markdown-escapes text used inside link or image brackets. */
@@ -23,7 +31,14 @@ const href = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 /** The written tutorial: title, intro, links to the video, then numbered steps with stills. */
 export function renderMarkdown(doc: DocInput): string {
-  const out = [`# ${doc.title.trim()}`, ''];
+  const out: string[] = [];
+  const part = doc.series;
+  if (part)
+    out.push(
+      `> ${part.part} in ${part.index ? `[${bracket(part.series)}](${href(part.index)})` : part.series}`,
+      '',
+    );
+  out.push(`# ${doc.title.trim()}`, '');
   if (doc.intro?.trim()) out.push(doc.intro.trim(), '');
   const links = [
     doc.video ? `[Watch the video](${href(doc.video)})` : '',
@@ -35,6 +50,11 @@ export function renderMarkdown(doc: DocInput): string {
     if (s.instruction.trim()) out.push(s.instruction.trim(), '');
     if (s.image) out.push(`![${bracket(s.title.trim())}](${href(s.image)})`, '');
   });
+  const nav = [
+    part?.prev ? `← [${bracket(part.prev.title)}](${href(part.prev.href)})` : '',
+    part?.next ? `[${bracket(part.next.title)}](${href(part.next.href)}) →` : '',
+  ].filter(Boolean);
+  if (nav.length) out.push('---', '', nav.join(' · '), '');
   return out.join('\n');
 }
 

@@ -52,6 +52,7 @@ import { modelFor, PipelineManager } from './pipeline/machine';
 import { SeriesPlanner } from './seriesPlanner';
 import { SeriesContext } from './seriesContext';
 import { SeriesStarts } from './seriesStarts';
+import { cardOptions } from './seriesOutputs';
 import { WorkspaceGit } from './workspaceGit';
 import { knowledgeSummary, skillCoverage } from './brief';
 import { projectCard } from './cards';
@@ -299,9 +300,29 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     series: seriesStore,
     planSummary: async (project) => (await pipeline.get(project)).plan?.summary ?? null,
   });
-  /** Series changes reach every part's CLAUDE.md (never fails the change itself). */
-  const syncSeries = (slug: string) =>
-    seriesContext.syncSeries(slug).catch((e: unknown) => console.error(`series ${slug}: ${String(e)}`));
+  /** A recorded part's title and end cards follow its series (order, titles, card settings). */
+  const refreshCards = async (seriesSlug: string) => {
+    for (const part of (await seriesStore.get(seriesSlug)).parts) {
+      if (!part.project) continue;
+      const { timeline } = await timelines.get(part.project).catch(() => ({ timeline: null }));
+      const take = timeline?.takes.at(-1);
+      if (!timeline || !take) continue;
+      const events = await readEvents(store.dir(part.project), take.events).catch(() => null);
+      if (!events) continue;
+      const opts = await cardOptions(store.dir(part.project), (await store.open(part.project)).project.title);
+      const next = withAutoOverlays(timeline, events, opts).overlays;
+      if (JSON.stringify(next) === JSON.stringify(timeline.overlays)) continue;
+      await timelines.patch(part.project, [{ op: 'replace', path: '/overlays', value: next }], {
+        author: 'auto',
+        label: 'Series cards',
+      });
+    }
+  };
+  /** Series changes reach every part's CLAUDE.md and cards (never fails the change itself). */
+  const syncSeries = async (slug: string) => {
+    await seriesContext.syncSeries(slug).catch((e: unknown) => console.error(`series ${slug}: ${String(e)}`));
+    await refreshCards(slug).catch((e: unknown) => console.error(`series ${slug} cards: ${String(e)}`));
+  };
   void seriesPlanner.recover().catch((e: unknown) => console.error(`series: ${String(e)}`));
   const knowledge = new WorkspaceGit(opts.workspace);
   const tts = opts.tts ?? new TtsService(secretStore(), (slug) => store.dir(slug));
@@ -330,7 +351,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     const take = next.takes.at(-1);
     if (take)
       next = withAutoOverlays(next, await readEvents(store.dir(slug), take.events), {
-        title: (await store.open(slug)).project.title,
+        ...(await cardOptions(store.dir(slug), (await store.open(slug)).project.title)),
       });
     const keys = ['scenes', 'transitions', 'overlays', 'captions', 'annotations', 'voice'] as const;
     const patch = keys
@@ -643,7 +664,11 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       const take = timeline.takes.at(-1);
       if (!take) throw new RpcError('this project has no take yet', 'bad_request');
       const events = await readEvents(store.dir(slug), take.events);
-      const next = withAutoOverlays(timeline, events, { title: (await store.open(slug)).project.title });
+      const next = withAutoOverlays(
+        timeline,
+        events,
+        await cardOptions(store.dir(slug), (await store.open(slug)).project.title),
+      );
       const r = await timelines.patch(slug, [{ op: 'replace', path: '/overlays', value: next.overlays }], {
         author: 'auto',
         label: 'Automatic overlays',
@@ -744,7 +769,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       const take = timeline.takes.at(-1);
       const overlays = take
         ? withAutoOverlays(next, await readEvents(store.dir(slug), take.events), {
-            title: (await store.open(slug)).project.title,
+            ...(await cardOptions(store.dir(slug), (await store.open(slug)).project.title)),
           }).overlays
         : next.overlays;
       return timelines.patch(
@@ -875,7 +900,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
         .filter(Boolean)
         .map((l) => RecorderEvent.parse(JSON.parse(l)));
       const next = withAutoOverlays(withTake(timeline, take, events), events, {
-        title: (await store.open(slug)).project.title,
+        ...(await cardOptions(store.dir(slug), (await store.open(slug)).project.title)),
       });
       return timelines.patch(
         slug,

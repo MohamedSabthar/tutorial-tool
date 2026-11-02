@@ -19,6 +19,8 @@ import {
 const TitleCardProps = z.object({
   title: z.string().default('Title'),
   subtitle: z.string().default(''),
+  /** A small accent line above the title (e.g. "Part 2 of 5"). */
+  eyebrow: z.string().default(''),
   placement: z.enum(['lower-third', 'center']).default('lower-third'),
 });
 type TitleCardProps = z.infer<typeof TitleCardProps>;
@@ -33,6 +35,7 @@ export const titleCardMeta: OverlayMeta = {
 export function TitleCard({ props, duration }: OverlayProps<TitleCardProps>) {
   const scope = useGsap((tl) => {
     tl.from('.panel', { autoAlpha: 0, x: -40, duration: 0.45, ease: theme.ease.out })
+      .from('.eyebrow', { autoAlpha: 0, y: 6, duration: 0.3 }, 0.15)
       .from('.rule', { width: 0, duration: 0.4, ease: theme.ease.out }, 0.2)
       .from('.sub', { autoAlpha: 0, y: 8, duration: 0.3 }, 0.35)
       .to(
@@ -65,6 +68,20 @@ export function TitleCard({ props, duration }: OverlayProps<TitleCardProps>) {
               textAlign: 'left',
             }}
           >
+            {props.eyebrow && (
+              <div
+                className="eyebrow"
+                style={{
+                  fontSize: 24,
+                  fontWeight: 600,
+                  letterSpacing: '0.04em',
+                  color: theme.color.orange,
+                  marginBottom: 6,
+                }}
+              >
+                {props.eyebrow}
+              </div>
+            )}
             <div
               style={{ fontSize: 56, fontWeight: 700, color: theme.color.white, letterSpacing: '-0.02em' }}
             >

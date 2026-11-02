@@ -40,6 +40,36 @@ export const SeriesPart = z.object({
 });
 export type SeriesPart = z.infer<typeof SeriesPart>;
 
+/** How the series shows in each part's video and docs (Series screen → In the video and docs). */
+export const SeriesOutputs = z.object({
+  /** The part number above the title card's title. */
+  titleCard: z.boolean().default(true),
+  titleText: z.string().max(120).default('Part {n} of {total}'),
+  /** A closing card naming the next part ({n} is the next part's number). */
+  endCard: z.boolean().default(true),
+  endText: z.string().max(120).default('Up next · Part {n} of {total}'),
+  /** A recap line opening the narration and a lead-in to the next part closing it. */
+  recap: z.boolean().default(true),
+  /** Previous and next links in each part's tutorial.md. */
+  links: z.boolean().default(true),
+  /** README.md listing every part, written with each part's export. */
+  index: z.boolean().default(true),
+});
+export type SeriesOutputs = z.infer<typeof SeriesOutputs>;
+
+/** Fills {n}, {total}, {series} and {next} in a card text. */
+export function fillCardText(
+  text: string,
+  v: { n: number; total: number; series: string; next?: string },
+): string {
+  return text
+    .replaceAll('{n}', String(v.n))
+    .replaceAll('{total}', String(v.total))
+    .replaceAll('{series}', v.series)
+    .replaceAll('{next}', v.next ?? '')
+    .trim();
+}
+
 export const Series = z.object({
   slug: z.string().regex(SLUG_RE),
   title: z.string().min(1).max(120),
@@ -49,6 +79,7 @@ export const Series = z.object({
   brief: SeriesBrief.default(SeriesBrief.parse({})),
   /** Notes for the whole series: sample names, conventions, glossary. Every part's agent reads them. */
   notes: z.string().max(4000).default(''),
+  outputs: SeriesOutputs.default(SeriesOutputs.parse({})),
   parts: z.array(SeriesPart).max(20).default([]),
   /**
    * Where the outline is: written by hand or not yet planned (`draft`), the agent is writing it
@@ -90,6 +121,7 @@ export const SeriesEdit = z.discriminatedUnion('op', [
     topic: z.string().max(2000).optional(),
     notes: z.string().max(4000).optional(),
     brief: SeriesBrief.partial().optional(),
+    outputs: SeriesOutputs.partial().optional(),
   }),
   z.object({
     op: z.literal('addPart'),
@@ -128,6 +160,7 @@ export function applySeriesEdit(series: Series, edit: SeriesEdit): Series {
         ...(e.topic !== undefined ? { topic: e.topic } : {}),
         ...(e.notes !== undefined ? { notes: e.notes } : {}),
         brief: { ...series.brief, ...e.brief },
+        outputs: { ...series.outputs, ...e.outputs },
       });
     case 'addPart': {
       if (series.parts.length >= 20) throw new Error('a series has at most 20 parts');

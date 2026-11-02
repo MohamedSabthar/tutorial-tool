@@ -2149,3 +2149,16 @@
 .series-nav-muted {
   color: var(--ui-gray-600);
 }
+.series-output {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-white);
+}
+.series-output-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

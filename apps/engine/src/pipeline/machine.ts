@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { recapNarration } from '../seriesOutputs';
 import path from 'node:path';
 import {
   BRIEF_LENGTHS,
@@ -885,7 +886,7 @@ export class PipelineManager {
               slug,
               live,
               'narrate',
-              narrateInstruction(first, timing, { series: await this.inSeries(slug) }),
+              narrateInstruction(first, timing, { series: await recapNarration(this.deps.store.dir(slug)) }),
             );
           const onCamera = timing.reduce((n, s) => n + s.recorded, 0);
           if ((await this.get(slug)).gates.narration) {
