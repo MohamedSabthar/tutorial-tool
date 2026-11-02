@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { briefTitle, type ProjectSummary, type RpcResult } from '@studio/core';
-import { Button, Chip, IconArrowRight, IconTrash, Rule, Select, type ChipTone } from '@studio/ui';
+import { briefTitle, type ProjectSummary, type RpcResult, type Series } from '@studio/core';
+import { Button, Chip, IconArrowRight, IconTrash, Rule, Segmented, Select, type ChipTone } from '@studio/ui';
 import { useEngine } from '../../engine';
 import { GetStarted } from '../settings/SetupChecklist';
 import { AppFrame, formatDuration, navigate } from '../frame';
@@ -11,6 +11,27 @@ const SUGGESTIONS = [
   'Map JSON to XML with the data mapper',
   'Expose a service as an AI agent tool',
 ];
+
+const SERIES_SUGGESTIONS = [
+  'Build your first integration: an HTTP service that calls an API, maps the data and stores it in MySQL',
+  'From zero to an AI agent that uses your services as tools',
+];
+
+type Mode = 'tutorial' | 'series';
+
+/** A series part's state for the card's progress bar. */
+function partTone(project: ProjectSummary | undefined): 'done' | 'active' | 'todo' {
+  if (!project) return 'todo';
+  return project.status === 'exported' ? 'done' : 'active';
+}
+
+/** "Part 2 of 5" for a project that belongs to a series. */
+export function partLabel(p: ProjectSummary, series: readonly Series[]): string | null {
+  if (!p.series) return null;
+  const s = series.find((x) => x.slug === p.series!.slug);
+  const i = s?.parts.findIndex((x) => x.id === p.series!.part) ?? -1;
+  return s && i >= 0 ? `Part ${i + 1} of ${s.parts.length}` : null;
+}
 
 /** Where a project card leads: the screen for the stage the tutorial is in. */
 export function projectRoute(p: ProjectSummary): string {
@@ -52,6 +73,8 @@ export function ProjectsScreen() {
   const { client, state, info } = useEngine();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [knowledge, setKnowledge] = useState<RpcResult<'knowledge.summary'> | null>(null);
+  const [series, setSeries] = useState<Series[]>([]);
+  const [mode, setMode] = useState<Mode>('tutorial');
   const [product, setProduct] = useState('wso2-integrator');
   const [topic, setTopic] = useState('');
   const [busy, setBusy] = useState(false);
@@ -78,11 +101,13 @@ export function ProjectsScreen() {
   const load = useCallback(async () => {
     if (!client) return;
     try {
-      const [list, summary] = await Promise.all([
+      const [list, summary, seriesList] = await Promise.all([
         client.call('project.list', {}),
         client.call('knowledge.summary', {}),
+        client.call('series.list', {}),
       ]);
       setProjects(list);
+      setSeries(seriesList);
       setKnowledge(summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -95,6 +120,7 @@ export function ProjectsScreen() {
     const offs = [
       client.on('project.changed', () => void load()),
       client.on('pipeline.changed', () => void load()),
+      client.on('series.changed', () => void load()),
     ];
     return () => offs.forEach((off) => off());
   }, [client, state, load]);
@@ -110,6 +136,11 @@ export function ProjectsScreen() {
     setBusy(true);
     setError(null);
     try {
+      if (mode === 'series') {
+        const s = await client.call('series.create', { topic: goal, product });
+        navigate(`/series/${s.slug}`);
+        return;
+      }
       const p = await client.call('project.create', { title: briefTitle(goal), product, brief: { goal } });
       navigate(`/brief/${p.slug}`);
     } catch (err) {
@@ -129,9 +160,19 @@ export function ProjectsScreen() {
             What should we teach today<span className="ui-title-dot">.</span>
           </h1>
           <p className="projects-lede">
-            Describe a task in a WSO2 product. The agent plans the steps, records them in VS Code, and drafts
-            the narration, overlays and explainers for you to refine.
+            {mode === 'series'
+              ? 'Describe what the series should teach. The agent splits it into parts that build on each other, records each one in VS Code, and links them together.'
+              : 'Describe a task in a WSO2 product. The agent plans the steps, records them in VS Code, and drafts the narration, overlays and explainers for you to refine.'}
           </p>
+          <Segmented<Mode>
+            label="What to make"
+            options={[
+              { value: 'tutorial', label: 'Single tutorial' },
+              { value: 'series', label: 'Series' },
+            ]}
+            value={mode}
+            onChange={setMode}
+          />
           <form className="projects-prompt" onSubmit={(e) => void submit(e)}>
             <Select
               aria-label="Product"
@@ -146,9 +187,13 @@ export function ProjectsScreen() {
               ))}
             </Select>
             <input
-              aria-label="Tutorial topic"
+              aria-label={mode === 'series' ? 'What the series is about' : 'Tutorial topic'}
               className="projects-topic"
-              placeholder="Create an HTTP service with a GET /greeting resource and try it"
+              placeholder={
+                mode === 'series'
+                  ? 'Build your first integration: a service that calls an API and stores the result'
+                  : 'Create an HTTP service with a GET /greeting resource and try it'
+              }
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
@@ -157,12 +202,12 @@ export function ProjectsScreen() {
               className="ui-btn ui-btn-primary ui-btn-lg"
               disabled={!topic.trim() || busy || !client}
             >
-              {busy ? 'Creating…' : 'Set up tutorial'}
+              {busy ? 'Creating…' : mode === 'series' ? 'Plan series' : 'Set up tutorial'}
               <IconArrowRight />
             </button>
           </form>
           <div className="projects-suggestions" role="group" aria-label="Suggestions">
-            {SUGGESTIONS.map((s) => (
+            {(mode === 'series' ? SERIES_SUGGESTIONS : SUGGESTIONS).map((s) => (
               <button key={s} type="button" className="projects-suggestion" onClick={() => setTopic(s)}>
                 {s}
               </button>
@@ -176,6 +221,59 @@ export function ProjectsScreen() {
         </section>
 
         <GetStarted />
+
+        {series.length > 0 && (
+          <section className="projects-recent" aria-labelledby="series-heading">
+            <div className="projects-recent-head">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <h2 id="series-heading" className="projects-h2">
+                  Series
+                </h2>
+                <Rule width={40} />
+              </div>
+            </div>
+            <div className="series-grid">
+              {series.map((s) => {
+                const parts = s.parts.map((part) => ({
+                  part,
+                  tone: partTone(projects?.find((p) => p.slug === part.project)),
+                }));
+                const made = parts.filter((x) => x.part.project).length;
+                const exported = parts.filter((x) => x.tone === 'done').length;
+                const productName = products.find((x) => x.id === s.product)?.name ?? s.product;
+                return (
+                  <a key={s.slug} href={`#/series/${s.slug}`} className="series-card">
+                    <span className="series-card-head">
+                      <span className="series-card-title">{s.title}</span>
+                      <Chip tone="info">
+                        {made === 0
+                          ? 'Outline'
+                          : exported === parts.length
+                            ? 'Done'
+                            : `${made} of ${parts.length} started`}
+                      </Chip>
+                    </span>
+                    {parts.length > 0 && (
+                      <span
+                        className="series-bar"
+                        aria-label={`${exported} of ${parts.length} parts exported`}
+                        style={{ gridTemplateColumns: `repeat(${parts.length}, minmax(0, 1fr))` }}
+                      >
+                        {parts.map((x) => (
+                          <span key={x.part.id} className={`series-bar-seg series-bar-${x.tone}`} />
+                        ))}
+                      </span>
+                    )}
+                    <span className="series-card-meta">
+                      {parts.length} part{parts.length === 1 ? '' : 's'} · {exported} exported · {productName}{' '}
+                      · {shortDate(s.updatedAt)}
+                    </span>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="projects-recent" aria-labelledby="recent-heading">
           <div className="projects-recent-head">
@@ -222,6 +320,7 @@ export function ProjectsScreen() {
                           </>
                         )}
                         <span className="project-len ui-mono">{formatDuration(p.duration)}</span>
+                        {partLabel(p, series) && <span className="project-part">{partLabel(p, series)}</span>}
                       </div>
                       <div className="project-body">
                         <span className="project-title">{p.title}</span>

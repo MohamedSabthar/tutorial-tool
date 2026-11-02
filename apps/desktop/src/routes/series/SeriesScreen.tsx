@@ -1,0 +1,317 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import {
+  BRIEF_AUDIENCES,
+  BRIEF_LENGTHS,
+  BRIEF_STYLES,
+  type ProjectSummary,
+  type Series,
+  type SeriesBrief,
+  type SeriesEdit,
+} from '@studio/core';
+import { Button, Chip, Field, IconButton, IconChevron, IconTrash, Input, Select, TextArea } from '@studio/ui';
+import { useEngine } from '../../engine';
+import { AppFrame, navigate } from '../frame';
+import { projectChip, projectRoute } from '../projects/ProjectsScreen';
+
+const BRIEF_FIELDS = [
+  ['Audience', BRIEF_AUDIENCES, 'audience'],
+  ['Length of each part', BRIEF_LENGTHS, 'length'],
+  ['Style', BRIEF_STYLES, 'style'],
+] as const;
+
+/** Objectives are edited one per line. */
+const objectiveLines = (text: string) =>
+  text
+    .split('\n')
+    .map((l) => l.replace(/^\s*[-•*]\s*/, '').trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+/**
+ * A series: its title and topic, the parts in order (each editable, reorderable and removable),
+ * and the brief and notes every part shares.
+ */
+export function SeriesScreen({ slug }: { slug: string }) {
+  const { client, state } = useEngine();
+  const [series, setSeries] = useState<Series | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [newPart, setNewPart] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!client) return;
+    try {
+      const [s, list] = await Promise.all([
+        client.call('series.get', { slug }),
+        client.call('project.list', {}),
+      ]);
+      setSeries(s);
+      setProjects(list);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [client, slug]);
+
+  useEffect(() => {
+    if (!client || state !== 'open') return;
+    void Promise.resolve().then(load);
+    const offs = [
+      client.on('series.changed', (d) => d.slug === slug && void load()),
+      client.on('project.changed', () => void load()),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [client, state, slug, load]);
+
+  const edit = async (e: SeriesEdit) => {
+    if (!client) return;
+    setError(null);
+    try {
+      setSeries(await client.call('series.edit', { slug, edit: e }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const addPart = async (e: FormEvent) => {
+    e.preventDefault();
+    const title = newPart.trim();
+    if (!title) return;
+    // Clear at once, so a title typed while this one saves isn't wiped.
+    setNewPart('');
+    await edit({ op: 'addPart', title });
+  };
+
+  const remove = async () => {
+    if (!client) return;
+    try {
+      await client.call('series.delete', { slug });
+      navigate('/projects');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  if (!series)
+    return (
+      <AppFrame current="projects">
+        <main className="series">
+          {error ? (
+            <span role="alert" className="app-error">
+              {error}
+            </span>
+          ) : (
+            <span className="projects-empty">Loading…</span>
+          )}
+        </main>
+      </AppFrame>
+    );
+
+  const project = (s: string | null) => (s ? projects.find((p) => p.slug === s) : undefined);
+  const setBrief = (brief: Partial<SeriesBrief>) => void edit({ op: 'meta', brief });
+
+  return (
+    <AppFrame current="projects">
+      <main className="series">
+        <section className="series-main" aria-labelledby="series-title">
+          <span className="ui-eyebrow">
+            Series · {series.parts.length} part{series.parts.length === 1 ? '' : 's'}
+          </span>
+          <label htmlFor="series-title" className="ui-sr-only">
+            Series title
+          </label>
+          <Input
+            id="series-title"
+            key={`title:${series.title}`}
+            className="series-title-input"
+            defaultValue={series.title}
+            onBlur={(e) => {
+              const title = e.target.value.trim();
+              if (title && title !== series.title) void edit({ op: 'meta', title });
+            }}
+          />
+          {series.topic && <p className="series-topic">{series.topic}</p>}
+          {error && (
+            <span role="alert" className="app-error">
+              {error}
+            </span>
+          )}
+
+          {series.parts.length === 0 && (
+            <span className="projects-empty">
+              No parts yet. Add them below. In the next step the agent proposes them for you.
+            </span>
+          )}
+          <ol className="series-parts">
+            {series.parts.map((part, i) => {
+              const p = project(part.project);
+              const chip = p ? projectChip(p) : null;
+              const last = i === series.parts.length - 1;
+              return (
+                <li key={part.id} className="series-part">
+                  <span className="series-part-n" aria-hidden="true">
+                    {i + 1}
+                  </span>
+                  <div className="series-part-body">
+                    <Field label={`Part ${i + 1} title`}>
+                      {(id) => (
+                        <Input
+                          id={id}
+                          key={`t:${part.title}`}
+                          defaultValue={part.title}
+                          onBlur={(e) => {
+                            const title = e.target.value.trim();
+                            if (title && title !== part.title)
+                              void edit({ op: 'editPart', id: part.id, title });
+                          }}
+                        />
+                      )}
+                    </Field>
+                    <Field label="Goal">
+                      {(id) => (
+                        <TextArea
+                          id={id}
+                          rows={2}
+                          key={`g:${part.goal}`}
+                          defaultValue={part.goal}
+                          placeholder="What this part shows, in a sentence or two"
+                          onBlur={(e) => {
+                            if (e.target.value !== part.goal)
+                              void edit({ op: 'editPart', id: part.id, goal: e.target.value });
+                          }}
+                        />
+                      )}
+                    </Field>
+                    <Field
+                      label="Learning objectives"
+                      hint="One per line: what a viewer can do after this part."
+                    >
+                      {(id) => (
+                        <TextArea
+                          id={id}
+                          rows={Math.max(2, part.objectives.length)}
+                          key={`o:${part.objectives.join('\n')}`}
+                          defaultValue={part.objectives.join('\n')}
+                          onBlur={(e) => {
+                            const objectives = objectiveLines(e.target.value);
+                            if (objectives.join('\n') !== part.objectives.join('\n'))
+                              void edit({ op: 'editPart', id: part.id, objectives });
+                          }}
+                        />
+                      )}
+                    </Field>
+                    {p && chip && (
+                      <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <Chip tone={chip.tone}>{chip.label}</Chip>
+                        <a href={`#${projectRoute(p)}`}>Open the tutorial</a>
+                      </span>
+                    )}
+                  </div>
+                  <div className="series-part-actions">
+                    <IconButton
+                      label={`Move part ${i + 1} up`}
+                      disabled={i === 0}
+                      onClick={() => void edit({ op: 'movePart', id: part.id, to: i - 1 })}
+                    >
+                      <IconChevron size={14} style={{ transform: 'rotate(-90deg)' }} />
+                    </IconButton>
+                    <IconButton
+                      label={`Move part ${i + 1} down`}
+                      disabled={last}
+                      onClick={() => void edit({ op: 'movePart', id: part.id, to: i + 1 })}
+                    >
+                      <IconChevron size={14} style={{ transform: 'rotate(90deg)' }} />
+                    </IconButton>
+                    <IconButton
+                      label={`Remove part ${i + 1}`}
+                      disabled={!!part.project}
+                      onClick={() => void edit({ op: 'removePart', id: part.id })}
+                    >
+                      <IconTrash size={14} />
+                    </IconButton>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <form className="series-add" onSubmit={(e) => void addPart(e)}>
+            <label htmlFor="new-part" className="ui-sr-only">
+              New part title
+            </label>
+            <Input
+              id="new-part"
+              placeholder="Title of a new part"
+              value={newPart}
+              onChange={(e) => setNewPart(e.target.value)}
+            />
+            <Button type="submit" disabled={!newPart.trim() || series.parts.length >= 20}>
+              + Add a part
+            </Button>
+          </form>
+        </section>
+
+        <aside className="series-side" aria-labelledby="shared-h">
+          <h2 id="shared-h" className="series-side-h">
+            Shared brief
+          </h2>
+          <span className="series-hint">
+            Every part starts with these. A part can change them in its own brief.
+          </span>
+          {BRIEF_FIELDS.map(([label, options, key]) => (
+            <Field key={key} label={label}>
+              {(id) => (
+                <Select
+                  id={id}
+                  value={series.brief[key]}
+                  onChange={(e) => setBrief({ [key]: e.target.value } as Partial<SeriesBrief>)}
+                >
+                  {options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          ))}
+          <Field
+            label="Series notes"
+            hint="Names, sample data and words to use. Every part's agent reads these."
+          >
+            {(id) => (
+              <TextArea
+                id={id}
+                rows={5}
+                key={`n:${series.notes}`}
+                defaultValue={series.notes}
+                onBlur={(e) => {
+                  if (e.target.value !== series.notes) void edit({ op: 'meta', notes: e.target.value });
+                }}
+              />
+            )}
+          </Field>
+          {confirmDelete ? (
+            <div className="series-confirm" role="alertdialog" aria-label={`Delete ${series.title}?`}>
+              <strong>Delete this series?</strong>
+              <span>
+                The outline is removed. Tutorials already made for its parts stay, as single tutorials.
+              </span>
+              <div className="series-confirm-actions">
+                <Button size="sm" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" variant="danger" autoFocus onClick={() => void remove()}>
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+              Delete series
+            </Button>
+          )}
+        </aside>
+      </main>
+    </AppFrame>
+  );
+}

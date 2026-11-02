@@ -30,6 +30,31 @@ afterAll(async () => {
 });
 
 describe('engine RPC', () => {
+  it('creates, edits and deletes a series, and unlinks its parts', async () => {
+    const changed = new Promise<string>((resolve) => client.on('series.changed', (d) => resolve(d.slug)));
+    const s = await client.call('series.create', {
+      topic: 'Build your first integration. It calls an API and stores the result.',
+      product: 'wso2-integrator',
+    });
+    expect(s).toMatchObject({ slug: 'build-your-first-integration', title: 'Build your first integration' });
+    expect(await changed).toBe(s.slug);
+
+    await client.call('series.edit', { slug: s.slug, edit: { op: 'addPart', title: 'HTTP service' } });
+    const edited = await client.call('series.edit', {
+      slug: s.slug,
+      edit: { op: 'editPart', id: 'p1', objectives: ['Add a resource'] },
+    });
+    expect(edited.parts).toMatchObject([{ id: 'p1', title: 'HTTP service', objectives: ['Add a resource'] }]);
+    expect((await client.call('series.list', {})).map((x) => x.slug)).toContain(s.slug);
+    await expect(
+      client.call('series.edit', { slug: s.slug, edit: { op: 'removePart', id: 'p7' } }),
+    ).rejects.toThrow(/no part/);
+
+    const r = await client.call('series.delete', { slug: s.slug });
+    expect(r.deleted).toBe(true);
+    await expect(client.call('series.get', { slug: s.slug })).rejects.toThrow(/no series/);
+  });
+
   it('answers ping', async () => {
     const r = await client.call('ping', { sentAt: 42 });
     expect(r).toMatchObject({ sentAt: 42, workspace });

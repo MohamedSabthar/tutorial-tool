@@ -14,6 +14,7 @@ import {
   type Pronunciation,
   type StudioSettings,
   type Brief,
+  type SeriesEdit,
   type PlanEdit,
   type RpcMethod,
   type RpcParams,
@@ -32,6 +33,7 @@ import {
   type PieceEdit,
 } from '@studio/core';
 import { ProjectStore } from './projects';
+import { SeriesStore } from './series';
 import { findClaude } from './claudeCode';
 import { registerMedia } from './media';
 import { isUiPath, registerUi, resolveUiUrl } from './ui';
@@ -154,6 +156,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
   await products.load();
   const pronunciations = new Pronunciations(opts.workspace);
   const store = new ProjectStore(opts.workspace);
+  const seriesStore = new SeriesStore(opts.workspace);
   const workspace = new Workspace(opts.workspace);
   const timelines = new TimelineStore(store, (e) => broadcast('timeline.changed', e));
   // Composited frames for check_overlay (and later export); it needs the engine's own address.
@@ -890,7 +893,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     },
     'project.open': async ({ slug }: { slug: string }) => store.open(slug),
     'project.delete': async ({ slug }: { slug: string }) => {
-      await store.open(slug);
+      const { project: deleting } = await store.open(slug);
       // Nothing may still be writing into the folder.
       if (runner.session?.slug === slug)
         throw new RpcError('A run of this project is streaming to Live. Stop it first.', 'bad_request');
@@ -904,8 +907,56 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       await agents.remove(slug);
       await store.remove(slug);
       timelines.invalidate(slug);
-      const head = await workspace.commit(`project: delete ${slug}`, [`projects/${slug}`]);
+      // A series part whose project is deleted goes back to being an outline entry.
+      const link = deleting.series;
+      const unlinked = link
+        ? await seriesStore.get(link.slug).then(
+            (s) =>
+              seriesStore.save({
+                ...s,
+                parts: s.parts.map((p) => (p.project === slug ? { ...p, project: null } : p)),
+              }),
+            () => null,
+          )
+        : null;
+      const head = await workspace.commit(`project: delete ${slug}`, [
+        `projects/${slug}`,
+        ...(unlinked ? [`series/${unlinked.slug}`] : []),
+      ]);
       broadcast('project.changed', { slug });
+      if (unlinked) broadcast('series.changed', { slug: unlinked.slug });
+      broadcast('workspace.changed', { head });
+      return { deleted: true, commit: head };
+    },
+    'series.list': async () => seriesStore.list(),
+    'series.get': async ({ slug }: { slug: string }) => seriesStore.get(slug),
+    'series.create': async (p: { topic: string; product: string }) => {
+      await workspace.ensure();
+      const settings = await store.readSettings();
+      const series = await seriesStore.create({
+        ...p,
+        brief: { voice: settings.defaultVoice, autoMode: settings.autoMode },
+      });
+      const head = await workspace.commit(`series: create ${series.slug}`, [`series/${series.slug}`]);
+      broadcast('series.changed', { slug: series.slug });
+      broadcast('workspace.changed', { head });
+      return series;
+    },
+    'series.edit': async ({ slug, edit }: { slug: string; edit: SeriesEdit }) => {
+      const series = await seriesStore.edit(slug, edit);
+      broadcast('series.changed', { slug });
+      return series;
+    },
+    'series.delete': async ({ slug }: { slug: string }) => {
+      const series = await seriesStore.remove(slug);
+      const parts = series.parts.flatMap((p) => (p.project ? [p.project] : []));
+      for (const project of parts) await store.setSeries(project, null).catch(() => undefined);
+      const head = await workspace.commit(`series: delete ${slug}`, [
+        `series/${slug}`,
+        ...parts.map((p) => `projects/${p}`),
+      ]);
+      broadcast('series.changed', { slug });
+      for (const project of parts) broadcast('project.changed', { slug: project });
       broadcast('workspace.changed', { head });
       return { deleted: true, commit: head };
     },

@@ -279,6 +279,8 @@ export const Project = z.object({
   title: z.string().min(1),
   product: z.string().min(1),
   status: ProjectStatus.default('draft'),
+  /** The series this tutorial is a part of (its place comes from the series' part order). */
+  series: z.object({ slug: z.string(), part: z.string() }).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

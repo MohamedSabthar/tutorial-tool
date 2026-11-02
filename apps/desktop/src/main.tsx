@@ -23,6 +23,7 @@ import { TimelineSyncPage } from './pages/TimelineSyncPage';
 import { VoicePage } from './pages/VoicePage';
 import { ProjectsScreen } from './routes/projects/ProjectsScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
+import { SeriesScreen } from './routes/series/SeriesScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { RenderScreen } from './render/RenderScreen';
 import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
@@ -134,6 +135,8 @@ function Screen({ path }: { path: string }) {
     return <GuideScreen section={new URLSearchParams(path.split('?')[1] ?? '').get('s')} />;
   const studio = match(path, 'studio');
   if (studio) return <StudioScreen key={studio} slug={studio} />;
+  const series = match(path, 'series');
+  if (series) return <SeriesScreen key={series} slug={series} />;
   const brief = match(path, 'brief');
   if (brief) return <BriefScreen key={brief} slug={brief} />;
   const fix = match(path, 'agentfix');

@@ -12,6 +12,7 @@ export * from './derive';
 export * from './agent';
 export * from './pipeline';
 export * from './brief';
+export * from './series';
 export * from './voice';
 export * from './pace';
 export * from './settings';

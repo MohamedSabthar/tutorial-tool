@@ -105,6 +105,13 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 10.3 16:9 recording at 2×
   - [ ] 10.4 Clean product window on every take
   - [ ] 10.5 Final QA of the rendered video
+- [ ] **Phase 11: Tutorial series**
+  - [x] 11.1 Series model and screens
+  - [ ] 11.2 The agent writes the series outline
+  - [ ] 11.3 Series context for each part
+  - [ ] 11.4 Where each part starts
+  - [ ] 11.5 Series in the outputs
+  - [ ] 11.6 Explainers designed by the agent
 
 ---
 
@@ -768,6 +775,65 @@ It fixes what it can with timeline patches and reports the rest.
 
 **Done when:** the QA report lists each check per step, and a planted problem (an overlay over the click target) is found and fixed.
 
+## Phase 11: Tutorial series
+
+The user describes what a series is about. The agent proposes an outline of parts, the user edits it, and then the parts are made one at a time with the usual pipeline. Each part knows its place in the series: what came before, what comes next, and where its project starts.
+
+### 11.1 Series model and screens
+**Goal:** a series can be created, listed and edited by hand.
+- `Series` in `packages/core/src/series.ts`: `{slug, title, topic, product, brief (shared brief fields), parts: [{id, title, goal, objectives, project: slug | null}], createdAt, updatedAt}`, stored at `workspace/series/<slug>/series.json`. `Project` gains an optional `series: {slug, part}`.
+- `SeriesStore` (`apps/engine/src/series.ts`) and `series.list | create | get | edit | delete` RPCs. Deleting a series leaves its parts' projects as single tutorials; deleting a part's project turns the part back into an outline entry.
+- The Projects screen has "Tutorial · Series" on the prompt. A series opens `#/series/<slug>`, and series cards are listed above the recent tutorials.
+- The Series screen shows the title and topic, and the parts in order. Parts can be added, renamed, reordered and removed.
+
+**Done when:** a series created on the Projects screen shows as a card, opens on its screen, and part edits are kept after a reload.
+
+### 11.2 The agent writes the series outline
+**Goal:** the outline comes from the agent, and the user reviews it.
+- "Plan the series" runs a one-shot agent turn in the workspace. It can read the product skills (read-only tools) and saves the outline with the `save_series_plan` tool: an ordered list of parts with title, goal and learning objectives, plus notes for the whole series.
+- "Revise" sends the user's feedback along with the current outline.
+- "Approve outline" creates a project for each part. Each project gets the shared brief, and the part's goal and objectives become its goal.
+
+**Done when:** a topic gives an outline of 3 to 8 parts, feedback changes it, and approving it creates the parts as draft projects linked from the Series screen.
+
+### 11.3 Series context for each part
+**Goal:** each part's agent knows the series.
+- The part's `CLAUDE.md` gets a "Series" section: "Part N of M", the series notes, what earlier parts covered (their objectives, or their plan summaries once planned), and the next part. It is rebuilt whenever the series changes.
+- The plan and narrate instructions ask for a one-line recap of earlier parts where it helps, and a closing line that leads into the next part.
+- The Series screen shows each part's status and has "Make next part", which opens the first part that isn't made yet. A part's project bar shows "Part N of M" with links to the previous and next parts.
+
+**Done when:** part 2's `CLAUDE.md` names part 1's objectives and part 3, and "Make next part" opens part 2's brief.
+
+### 11.4 Where each part starts
+**Goal:** a part can continue from an earlier part's project, or start clean.
+- Each part has `startFrom: {kind: 'part', part} | {kind: 'clean'}`. It defaults to the previous part, and the first part is clean. It is picked on the Series screen.
+- After a successful recording, the fixture folder as it ended is saved to `series/<slug>/states/<part>/`.
+- A `{kind: 'snapshot'}` script fixture starts from a copy of it, and the script instruction tells the agent which fixture to use.
+- A part whose start isn't recorded yet is blocked. Recording a part again marks the parts that start from it as stale.
+
+**Done when:** part 2's dry run opens on part 1's finished project, a part set to clean opens on an empty one, and re-recording part 1 marks part 2 stale.
+
+### 11.5 Series in the outputs
+**Goal:** the exported parts read as a series.
+- `tutorial.md` gets previous and next links. Exporting any part also writes `series/<slug>/README.md`, with the parts in order and their links.
+- The opening `core:TitleCard` keeps its look and gains an optional `eyebrow` prop: a small orange line above the title showing "Part N of M". Its unused `subtitle` shows the series name. The end card is the same TitleCard over the last few seconds, with the eyebrow "Up next · Part N+1 of M", the next part's title, and the series name as the subtitle. Both can be switched off, and their text changed, in the series settings.
+
+**Done when:** an exported part 2 has the series card, the end card and links to parts 1 and 3, and switching the card off removes it.
+
+### 11.6 Explainers designed by the agent
+**Goal:** explainers are designed for what they explain, not only picked from the seven built-in scenes. This applies to single tutorials and to series.
+- **Brief:** the explainers checkbox becomes a choice of None, Built-in looks, or Designed by the agent (the default). It is part of the series' shared brief too.
+- **Designed mode:**
+  - The storyboard and build instructions (`explainers.ts`) and the explainer-authoring skill ask the agent to design and code a scene for the idea: `scenes/<Name>.tsx`, built on `SceneFrame`, the theme and the type scale, with built-ins used only as parts.
+  - Built-in looks mode keeps today's "reuse first" rule.
+  - The existing checks still apply: `check_scene` (frames for each beat, determinism) and the overlay lint rules.
+- **Explainer review:** a designed scene shows a "Designed for this tutorial" badge with its file, plus "View code", "Save to library" (the 5.5 promotion) and "Use a built-in look instead".
+- **Series:**
+  - Scenes the agent writes for a series go in `series/<slug>/scenes/`, so later parts can reuse and extend them. The scene catalog lists them for every part.
+  - An optional recap explainer at the start of each part (a series setting): one scene, designed once, such as a system diagram that gains a box per part.
+
+**Done when:** in Designed mode a new explainer comes with its own scene file that passes `check_scene`, Built-in looks still picks a built-in, and in a series part 2's recap explainer reuses the scene part 1 wrote.
+
 ---
 
 ## Cross-cutting checklists
@@ -958,3 +1024,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-10-24 | feature | The guide's "How it's built" section (for the curious): a three-column diagram of the app, the engine and the outside services over the workspace; an SVG of the agent loop (stage in, think / call a studio tool / read the result until done, and what each tool group touches); an SVG of the pipeline with its loops (revise at the gates, repair, silent-stretch polish, QA, and the learning loop from the retrospective to the next plan); the stage table; and a "Built with" list of the stack by package. Diagrams are inline SVG coloured from the theme tokens | Raised: an architecture explainer with the agent's loops, for developers curious how it is built |
 | 2026-10-24 | feature | `pnpm dmg` (`scripts/build-dmg.mjs`) builds the .app and a .dmg: checks the tools, builds the UI, stages the engine, runs `tauri build --bundles app,dmg`. Ad-hoc signed by default with macOS 11 as the minimum (`tauri.bundle.conf.json`), so it runs on other Macs of the same architecture after Open Anyway; with `APPLE_SIGNING_IDENTITY` it also signs every executable in the engine folder with the hardened runtime (`engine.entitlements`) for notarization. Checked: no links or paths outside the bundle, and the bundled engine starts from a copied app with a bare environment, seeds a workspace and runs its setup checks. New README with requirements, dev modes, file locations, checks, building, signing and troubleshooting | Raised: a script to build a DMG that works on other machines, and a README |
 | 2026-10-24 | change | Claude Code is no longer shipped: the packaging drops the agent SDK's native binary (DMG 180 → 77 MB) and the agent runs the Claude Code the user installed (Settings path, else the PATH, `~/.local/bin`, `~/.claude/local`, Homebrew, `/usr/local/bin`; `claudeCode.ts`). Without one a session fails with install instructions, and the setup checklist has a "Claude Code installed" item. Settings → Agent model gains "Custom models": a model id or alias for research/planning/repairs and one for the rest (`customModels`) | Raised: "don't bundle claude, users install it"; "allow to configure model in the settings" |
+| 2026-11-02 | 11 | Added Phase 11, tutorial series, from UI mockups reviewed first (https://claude.ai/artifact/NBeVxk4EYarK3ZfxbJM54s). Parts are made one at a time, not as an autopilot queue. Each part starts from an earlier part's finished project (by default the previous one) or from a clean project. The part number goes on the existing TitleCard as a new `eyebrow`, and the series name in its `subtitle`. 11.6 makes "Designed by the agent" the default for explainers, in single tutorials as well as series | Raised: "allow generating a tutorial series"; "Part 3 of 5 can go above the main title"; "dynamic explainer slides… agent comes up with it and code it"; "keep designed as default" |

@@ -228,6 +228,19 @@ export class ProjectStore {
     return project;
   }
 
+  /** Links a project to its series part, or unlinks it (null). */
+  async setSeries(slug: string, series: Project['series'] | null): Promise<Project> {
+    const current: Partial<Project> = { ...(await this.readProject(slug)) };
+    delete current.series;
+    const project = Project.parse({
+      ...current,
+      ...(series ? { series } : {}),
+      updatedAt: new Date().toISOString(),
+    });
+    await writeJson(path.join(this.dir(slug), 'project.json'), project);
+    return project;
+  }
+
   async open(slug: string): Promise<{ project: Project; timeline: Timeline }> {
     const project = await this.readProject(slug);
     const raw = JSON.parse(await readFile(path.join(this.dir(slug), 'tutorial.json'), 'utf8')) as unknown;

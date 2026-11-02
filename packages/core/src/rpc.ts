@@ -8,6 +8,7 @@ import { TimingFile } from './stepTiming';
 import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
 import { Pronunciation } from './pronounce';
 import { Brief, PlanEdit } from './brief';
+import { Series, SeriesEdit } from './series';
 import { Run } from './runs';
 import { ExplainerJob } from './explainers';
 import { ExportPlan, ExportSettings, ExportState } from './export';
@@ -352,6 +353,22 @@ export const rpcMethods = {
     params: z.object({ slug: z.string() }),
     result: z.object({ project: Project, timeline: Timeline }),
   },
+  'series.list': { params: z.object({}), result: z.array(Series) },
+  /** Creates a series from what the user typed; the title comes from the topic's first sentence. */
+  'series.create': {
+    params: z.object({
+      topic: z.string().trim().min(1).max(2000),
+      product: z.string().min(1).default('wso2-integrator'),
+    }),
+    result: Series,
+  },
+  'series.get': { params: z.object({ slug: z.string() }), result: Series },
+  'series.edit': { params: z.object({ slug: z.string(), edit: SeriesEdit }), result: Series },
+  /** Removes the series; its parts' projects stay, as standalone tutorials. */
+  'series.delete': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({ deleted: z.boolean(), commit: z.string().nullable() }),
+  },
   'workspace.status': { params: z.object({}), result: WorkspaceStatus },
   'workspace.init': { params: z.object({}), result: WorkspaceStatus },
   'workspace.tree': { params: z.object({}), result: z.array(z.string()) },
@@ -589,6 +606,7 @@ export type RpcResult<M extends RpcMethod> = z.output<(typeof rpcMethods)[M]['re
 
 export const rpcEvents = {
   'project.changed': z.object({ slug: z.string() }),
+  'series.changed': z.object({ slug: z.string() }),
   /** A sign-in window opened or closed. */
   'product.signInChanged': SignInStatus,
   'workspace.changed': z.object({ head: z.string().nullable() }),
