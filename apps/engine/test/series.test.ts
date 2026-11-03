@@ -63,6 +63,51 @@ describe('series outline', () => {
     expect(text).toContain('Add MySQL');
   });
 
+  it("treats the user's words as instructions and keeps hand-written parts", async () => {
+    let s = await store.create({ topic: 'x', product: 'p', notes: 'Exactly 4 parts: A, B, C, D' });
+    const product = { name: 'WSO2 Integrator', skill: 'wso2-integrator' };
+    expect(seriesPlanInstruction(s, product)).toContain('Exactly 4 parts: A, B, C, D');
+    expect(seriesPlanInstruction(s, product)).toContain('same count, same titles');
+    s = await store.edit(s.slug, { op: 'addPart', title: 'Mine' });
+    const text = seriesPlanInstruction(s, product);
+    expect(text).toContain('complete the outline');
+    expect(text).toContain('"id": "p1"');
+    expect(seriesPlanInstruction(s, product, 'Fill in the goals')).toContain(
+      'Change only what the user asks for',
+    );
+  });
+
+  it("keeps the ids, starts and title of parts the agent keeps, and the user's notes", async () => {
+    let s = await store.create({ topic: 'x', product: 'p', notes: 'Use the name greeter.' });
+    s = applySeriesPlan(s, { ...plan, parts: [...plan.parts, { ...plan.parts[0]!, title: 'Third' }] });
+    expect(s.notes).toContain('Use the name greeter.');
+    expect(s.notes).toContain('Project: greeting-project.');
+    s = {
+      ...s,
+      title: 'My title',
+      parts: s.parts.map((p) => (p.id === 'p3' ? { ...p, startFrom: 'p1' } : p)),
+    };
+    // Revised: p2 dropped, p3 kept with a new goal, a new part added; notes rewritten by the agent.
+    const next = applySeriesPlan(s, {
+      title: 'Agent title',
+      notes: 'Sample data: names.csv',
+      parts: [
+        { id: 'p1', title: 'Create an HTTP service', goal: 'g', objectives: ['o'] },
+        { id: 'p3', title: 'Third', goal: 'New goal', objectives: ['o'] },
+        { title: 'New', goal: 'g', objectives: ['o'] },
+      ],
+    });
+    expect(next.title).toBe('My title');
+    expect(next.parts.map((p) => [p.id, p.startFrom])).toEqual([
+      ['p1', 'previous'],
+      ['p3', 'p1'],
+      ['p4', 'previous'],
+    ]);
+    expect(next.notes).toContain('Use the name greeter.');
+    expect(next.notes).toContain('Sample data: names.csv');
+    expect(next.notes).not.toContain('greeting-project');
+  });
+
   it('saves an outline from the agent, replacing the parts', async () => {
     const s = await store.create({ topic: 'x', product: 'wso2-integrator' });
     const { p, changes } = planner();

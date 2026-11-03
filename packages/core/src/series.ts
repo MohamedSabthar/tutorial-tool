@@ -204,30 +204,76 @@ export const SeriesPlan = z.object({
   parts: z
     .array(
       z.object({
+        /** An existing part's id to keep that part (its start and place in links); omit for a new part. */
+        id: z
+          .string()
+          .regex(/^p\d{1,3}$/)
+          .optional(),
         title: z.string().min(1).max(120),
         goal: z.string().min(1).max(2000),
         objectives: z.array(z.string().min(1).max(200)).min(1).max(6),
       }),
     )
     .min(2)
-    .max(12),
+    .max(20),
 });
 export type SeriesPlan = z.infer<typeof SeriesPlan>;
 
-/** Puts a saved plan into the series: new part ids, title and notes when given. */
+/** The line that starts the agent's shared names in the series notes; what's above it is the user's. */
+export const AGENT_NOTES_MARK = '--- Shared across the parts (from the agent) ---';
+
+/** The user's part of the series notes (without the agent's shared names). */
+export function userNotes(notes: string): string {
+  const i = notes.indexOf(AGENT_NOTES_MARK);
+  return (i < 0 ? notes : notes.slice(0, i)).trim();
+}
+
+/**
+ * Puts a saved plan into the series. Parts that name an existing id keep it (and where they start
+ * from); the others get new ids. The agent's notes never replace the user's: they go below them.
+ */
 export function applySeriesPlan(series: Series, plan: SeriesPlan): Series {
   if (series.parts.some((p) => p.project))
     throw new Error('the outline is approved: its parts already have tutorials');
+  const existing = new Map(series.parts.map((p) => [p.id, p]));
+  const kept = new Set<string>();
   const parts: SeriesPart[] = [];
-  for (const p of plan.parts)
+  for (const p of plan.parts) {
+    const old = p.id && !kept.has(p.id) ? existing.get(p.id) : undefined;
+    if (old) kept.add(old.id);
+    // New ids never reuse one in the current outline, so a dropped part's id can't come back.
+    const id = old?.id ?? nextPartId([...series.parts, ...parts]);
     parts.push(
-      SeriesPart.parse({ id: nextPartId(parts), title: p.title, goal: p.goal, objectives: p.objectives }),
+      SeriesPart.parse({
+        id,
+        title: p.title,
+        goal: p.goal,
+        objectives: p.objectives,
+        startFrom: old?.startFrom ?? 'previous',
+      }),
     );
+  }
+  // A part that started from one that is gone, or now comes after it, goes back to the previous part.
+  const fixed = parts.map((p, i) =>
+    /^p\d/.test(p.startFrom) && !parts.slice(0, i).some((q) => q.id === p.startFrom)
+      ? { ...p, startFrom: 'previous' }
+      : p,
+  );
+  let notes = series.notes;
+  if (plan.notes !== undefined) {
+    const mine = userNotes(series.notes);
+    const theirs = plan.notes.trim();
+    notes = [mine, theirs ? `${AGENT_NOTES_MARK}\n${theirs}` : '']
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 4000);
+  }
   return Series.parse({
     ...series,
-    ...(plan.title ? { title: plan.title } : {}),
-    ...(plan.notes !== undefined ? { notes: plan.notes } : {}),
-    parts,
+    // The agent names the series only in its first outline; after that the title is the user's.
+    ...(plan.title && !series.parts.length ? { title: plan.title } : {}),
+    notes,
+    parts: fixed,
   });
 }
 
