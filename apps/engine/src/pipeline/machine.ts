@@ -300,7 +300,7 @@ export class PipelineManager {
         await this.set(p.slug, {
           resumeOnStart: false,
           error:
-            'The engine restarted again while this stage ran (code being changed?). Resume when it has settled.',
+            'The engine restarted again while this stage ran: a file it loads changed. The "[tsx] change in" line in ~/.tutorial-studio/logs/engine-dev.log names it. Resume when it has settled.',
         });
         continue;
       }

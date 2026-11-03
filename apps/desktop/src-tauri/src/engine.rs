@@ -7,7 +7,7 @@
 //! engine (`pnpm package:engine`) from the app's resources, with its own Node runtime, and keep
 //! the workspace, downloads and logs in `~/.tutorial-studio`.
 
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -95,6 +95,9 @@ impl EngineState {
 
         let stdout = child.stdout.take().expect("piped stdout");
         let ready = Arc::clone(&self.ready);
+        // Dev builds also keep the engine's stdout in a log, so a `tsx watch` restart ("[tsx]
+        // change in ./<file> Restarting...") can be traced after the terminal has scrolled.
+        let mut dev_log = if packaged.is_none() { dev_log() } else { None };
         std::thread::spawn(move || {
             let mut announced = false;
             for line in BufReader::new(stdout).lines().map_while(Result::ok) {
@@ -106,6 +109,13 @@ impl EngineState {
                     }
                 }
                 println!("[engine] {line}");
+                if let Some(f) = dev_log.as_mut() {
+                    let secs = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    let _ = writeln!(f, "{secs} {line}");
+                }
             }
             if !announced {
                 *ready.lock().unwrap() = Some(Err(
@@ -146,6 +156,22 @@ impl ReadyHandle {
             std::thread::sleep(Duration::from_millis(50));
         }
     }
+}
+
+/// `~/.tutorial-studio/logs/engine-dev.log`, appended to (dev builds).
+fn dev_log() -> Option<std::fs::File> {
+    let logs = studio_home().join("logs");
+    std::fs::create_dir_all(&logs).ok()?;
+    let file = logs.join("engine-dev.log");
+    // Keep it small: start over once it passes 5 MB.
+    let big = std::fs::metadata(&file).map(|m| m.len() > 5_000_000).unwrap_or(false);
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(!big)
+        .write(true)
+        .truncate(big)
+        .open(file)
+        .ok()
 }
 
 /// The repo's engine under `tsx watch`, with `node` from the PATH.
