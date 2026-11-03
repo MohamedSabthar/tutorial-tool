@@ -12,6 +12,7 @@ import {
 } from '@studio/core';
 import { Button, Chip, Field, Input, Panel, Segmented, Select, Switch, TextArea, Title } from '@studio/ui';
 import { isTauri, useEngine } from '../../engine';
+import { appendContext, ContextFiles } from '../ContextFiles';
 import { AppFrame, navigate } from '../frame';
 import { ProductSignIn } from './ProductSignIn';
 
@@ -383,13 +384,16 @@ export function BriefScreen({ slug }: { slug: string }) {
             </fieldset>
             <Field label="Notes for the agent">
               {(id) => (
-                <TextArea
-                  id={id}
-                  rows={2}
-                  value={brief.notes}
-                  placeholder="Use port 9090. Blur the workspace path in the title bar."
-                  onChange={(e) => update({ notes: e.target.value })}
-                />
+                <>
+                  <TextArea
+                    id={id}
+                    rows={brief.notes.length > 400 ? 8 : 2}
+                    value={brief.notes}
+                    placeholder="Use port 9090. Blur the workspace path in the title bar."
+                    onChange={(e) => update({ notes: e.target.value })}
+                  />
+                  <ContextFiles onText={(text) => update({ notes: appendContext(brief.notes, text) })} />
+                </>
               )}
             </Field>
           </form>

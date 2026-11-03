@@ -2217,3 +2217,33 @@
 .projects-context-toggle:hover {
   color: var(--ui-navy);
 }
+
+/* "+ Add .md files" next to a context or notes field. */
+.context-files {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.context-files-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+.context-files-btn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-steel-ink);
+  cursor: pointer;
+  padding: 2px 0;
+}
+.context-files-btn:hover {
+  color: var(--ui-navy);
+}
+.context-files-input:focus-visible + .context-files-btn {
+  outline: 2px solid var(--ui-steel);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

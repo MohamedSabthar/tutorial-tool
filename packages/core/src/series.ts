@@ -80,7 +80,7 @@ export const Series = z.object({
   product: z.string().min(1),
   brief: SeriesBrief.default(SeriesBrief.parse({})),
   /** Notes for the whole series: sample names, conventions, glossary. Every part's agent reads them. */
-  notes: z.string().max(4000).default(''),
+  notes: z.string().default(''),
   outputs: SeriesOutputs.default(SeriesOutputs.parse({})),
   parts: z.array(SeriesPart).max(20).default([]),
   /**
@@ -121,7 +121,7 @@ export const SeriesEdit = z.discriminatedUnion('op', [
     op: z.literal('meta'),
     title: z.string().min(1).max(120).optional(),
     topic: z.string().max(2000).optional(),
-    notes: z.string().max(4000).optional(),
+    notes: z.string().optional(),
     brief: SeriesBrief.partial().optional(),
     outputs: SeriesOutputs.partial().optional(),
   }),
@@ -200,7 +200,7 @@ export function applySeriesEdit(series: Series, edit: SeriesEdit): Series {
 /** The outline the agent saves (`save_series_plan`): it replaces the parts that have no project yet. */
 export const SeriesPlan = z.object({
   title: z.string().min(1).max(120).optional(),
-  notes: z.string().max(4000).optional(),
+  notes: z.string().optional(),
   parts: z
     .array(
       z.object({
@@ -263,10 +263,7 @@ export function applySeriesPlan(series: Series, plan: SeriesPlan): Series {
   if (plan.notes !== undefined) {
     const mine = userNotes(series.notes);
     const theirs = plan.notes.trim();
-    notes = [mine, theirs ? `${AGENT_NOTES_MARK}\n${theirs}` : '']
-      .filter(Boolean)
-      .join('\n\n')
-      .slice(0, 4000);
+    notes = [mine, theirs ? `${AGENT_NOTES_MARK}\n${theirs}` : ''].filter(Boolean).join('\n\n');
   }
   return Series.parse({
     ...series,

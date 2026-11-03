@@ -25,6 +25,7 @@ import {
   TextArea,
 } from '@studio/ui';
 import { useEngine } from '../../engine';
+import { appendContext, ContextFiles } from '../ContextFiles';
 import { AppFrame, navigate } from '../frame';
 import { projectChip, projectRoute } from '../projects/ProjectsScreen';
 
@@ -552,6 +553,9 @@ export function SeriesScreen({ slug }: { slug: string }) {
               />
             )}
           </Field>
+          <ContextFiles
+            onText={(text) => void edit({ op: 'meta', notes: appendContext(series.notes, text) })}
+          />
           <h2 id="outputs-h" className="series-side-h" style={{ marginTop: 8 }}>
             In the video and docs
           </h2>

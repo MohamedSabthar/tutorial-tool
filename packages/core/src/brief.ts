@@ -98,7 +98,7 @@ export const Brief = z.object({
   /** Claude Code's auto mode: a safety classifier approves tool calls and asks only when unsure. */
   autoMode: z.boolean().default(true),
   gates: BriefGates.default({ storyboard: false, narration: true, recording: false, export: true }),
-  notes: z.string().max(4000).default(''),
+  notes: z.string().default(''),
   references: z.array(BriefReference).max(30).default([]),
 });
 export type Brief = z.infer<typeof Brief>;

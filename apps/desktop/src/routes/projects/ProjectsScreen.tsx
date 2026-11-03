@@ -14,6 +14,7 @@ import {
 import { useEngine } from '../../engine';
 import { GetStarted } from '../settings/SetupChecklist';
 import { AppFrame, formatDuration, navigate } from '../frame';
+import { appendContext, ContextFiles } from '../ContextFiles';
 
 const SUGGESTIONS = [
   'Create an HTTP service with a GET /greeting resource and try it',
@@ -237,8 +238,7 @@ export function ProjectsScreen() {
                 </label>
                 <TextArea
                   id="projects-context"
-                  rows={3}
-                  maxLength={4000}
+                  rows={context.length > 400 ? 8 : 3}
                   autoFocus
                   value={context}
                   placeholder={
@@ -248,6 +248,7 @@ export function ProjectsScreen() {
                   }
                   onChange={(e) => setContext(e.target.value)}
                 />
+                <ContextFiles onText={(text) => setContext((c) => appendContext(c, text))} />
                 <span className="projects-context-hint">
                   {mode === 'series'
                     ? 'The agent reads this when it plans the parts, and every part reads it too. Edit it later in the series notes.'

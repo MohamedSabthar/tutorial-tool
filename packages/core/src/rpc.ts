@@ -360,7 +360,7 @@ export const rpcMethods = {
       topic: z.string().trim().min(1).max(2000),
       product: z.string().min(1).default('wso2-integrator'),
       /** Context the user adds: the series notes every part reads. */
-      notes: z.string().max(4000).optional(),
+      notes: z.string().optional(),
     }),
     result: Series,
   },
@@ -368,7 +368,7 @@ export const rpcMethods = {
   'series.edit': { params: z.object({ slug: z.string(), edit: SeriesEdit }), result: Series },
   /** The agent writes (or, with feedback, revises) the outline in the background: `series.changed` follows. */
   'series.plan': {
-    params: z.object({ slug: z.string(), feedback: z.string().max(4000).optional() }),
+    params: z.object({ slug: z.string(), feedback: z.string().optional() }),
     result: Series,
   },
   'series.cancelPlan': { params: z.object({ slug: z.string() }), result: Series },
@@ -542,7 +542,7 @@ export const rpcMethods = {
   'pipeline.approve': { params: z.object({ slug: z.string() }), result: PipelineState },
   /** Sends feedback for the waiting gate; the agent revises and the gate opens again. */
   'pipeline.revise': {
-    params: z.object({ slug: z.string(), feedback: z.string().min(1).max(4000) }),
+    params: z.object({ slug: z.string(), feedback: z.string().min(1) }),
     result: PipelineState,
   },
   'pipeline.stop': { params: z.object({ slug: z.string() }), result: PipelineState },
