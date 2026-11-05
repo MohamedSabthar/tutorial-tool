@@ -18,16 +18,17 @@ export const GUIDE_SECTIONS = [
   ['setup', '1', 'Before you start'],
   ['start', '2', 'Start a tutorial'],
   ['brief', '3', 'Write the brief'],
-  ['storyboard', '4', 'Review the storyboard'],
-  ['live', '5', 'Watch it on Live'],
-  ['studio', '6', 'The Studio'],
-  ['recording', '7', 'Edit the recording'],
-  ['voice', '8', 'Edit the voice-over'],
-  ['overlays', '9', 'Overlays and notes'],
-  ['explainers', '10', 'Explainers'],
-  ['agent', '11', 'Work with the agent'],
-  ['export', '12', 'Export'],
-  ['how', '13', "How it's built"],
+  ['demo', '4', 'Demo it yourself'],
+  ['storyboard', '5', 'Review the storyboard'],
+  ['live', '6', 'Watch it on Live'],
+  ['studio', '7', 'The Studio'],
+  ['recording', '8', 'Edit the recording'],
+  ['voice', '9', 'Edit the voice-over'],
+  ['overlays', '10', 'Overlays and notes'],
+  ['explainers', '11', 'Explainers'],
+  ['agent', '12', 'Work with the agent'],
+  ['export', '13', 'Export'],
+  ['how', '14', "How it's built"],
   ['keys', '⌨', 'Keyboard shortcuts'],
 ] as const;
 type SectionId = (typeof GUIDE_SECTIONS)[number][0];
@@ -176,6 +177,12 @@ export function GuideScreen({ section }: { section: string | null }) {
                 <b>What should the viewer learn?</b> The goal, in your words.
               </li>
               <li>
+                <b>How.</b> <Ui>Agent explores</Ui>: the agent researches the product and writes the script.{' '}
+                <Ui>I'll demo it</Ui>: you click through once and the script comes from your clicks (see{' '}
+                <a href="#/guide?s=demo">Demo it yourself</a>). Demoing is much faster for flows the agent
+                hasn't seen before.
+              </li>
+              <li>
                 <b>Starting workspace.</b> The project the recording starts from.
               </li>
               <li>
@@ -197,7 +204,8 @@ export function GuideScreen({ section }: { section: string | null }) {
               </li>
             </ul>
             <p>
-              Click <Ui>Plan and record</Ui> to start, or <Ui>Save draft</Ui>.
+              Click <Ui>Plan and record</Ui> to start (<Ui>Demo it</Ui> when you'll demo it), or{' '}
+              <Ui>Save draft</Ui>.
             </p>
             <p className="guide-tip" data-tone="warn">
               <b>Choose a voice before you start.</b> With a voice, the take is recorded paced to the
@@ -209,6 +217,49 @@ export function GuideScreen({ section }: { section: string | null }) {
               alt="The tutorial brief form with goal, product, workspace, audience, length, style, voice and references"
               caption="The brief. The right column shows references, what the agent already knows, and what happens next."
             />
+          </Section>
+
+          <Section id="demo">
+            <p>
+              In feed mode you show the tutorial once in the product, and the agent turns what you did into
+              steps and a script, without researching. Set <Ui>How</Ui> to <Ui>I'll demo it</Ui> on the brief
+              and click <Ui>Demo it</Ui>.
+            </p>
+            <ol>
+              <li>
+                The product opens on the tutorial's starting project (a series part starts where the part
+                before it ended). It isn't kept on top, so you can switch back to the Studio.
+              </li>
+              <li>
+                Click through the tutorial at any pace. Everything is captured: clicks (with double- and
+                right-clicks), typing, keys, the pointer resting on something, scrolls and drags. Password
+                values are never captured.
+              </li>
+              <li>
+                Each action appears in the list with a picture of the screen just before it: the target in a
+                blue box and your pointer as an orange dot. If the dot is outside the box, the agent will find
+                the right element from the picture. Hovers and scrolls are shown fainter; the agent keeps only
+                those that matter.
+              </li>
+              <li>
+                Remove misclicks with ×. <Ui>Start over</Ui> demos again from a fresh project.
+              </li>
+              <li>
+                Click <Ui>Finish and make steps</Ui>. The agent splits your actions into titled steps, tidies
+                the script and opens the Storyboard. Then the dry run, narration, voice-over and recording run
+                as usual.
+              </li>
+            </ol>
+            <p>
+              A saved demo stays with the tutorial: open the Capture screen again to remove actions or{' '}
+              <Ui>Make steps from this demo</Ui> without capturing it again. Restarting a demoed tutorial
+              starts from its demo, not from research.
+            </p>
+            <p className="guide-tip">
+              <b>Demo the path you want viewers to see.</b> Avoid detours: anything you do is a candidate
+              step. If the dry run fails on a step, the agent repairs it as usual and asks you after one
+              repair.
+            </p>
           </Section>
 
           <Section id="storyboard">

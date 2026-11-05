@@ -633,12 +633,19 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     }: {
       slug: string;
       gates?: { storyboard?: boolean; narration?: boolean };
-      entry: PipelineEntry;
+      entry?: PipelineEntry;
     }) => {
       await workspace.ensure();
       // A series part waits for the part it starts from to be recorded.
       await seriesStarts.forRun(slug);
-      return pipeline.start(slug, gates ?? {}, entry);
+      // Restart from the storyboard or the Studio keeps a feed-mode tutorial on its demo.
+      const from =
+        entry ??
+        ((await store.readBrief(slug).catch(() => null))?.mode === 'feed' &&
+        (await runner.captureStatus(slug)).actions.length > 0
+          ? 'from_capture'
+          : 'plan');
+      return pipeline.start(slug, gates ?? {}, from);
     },
     'pipeline.approve': async ({ slug }: { slug: string }) => pipeline.approve(slug),
     'pipeline.revise': async ({ slug, feedback }: { slug: string; feedback: string }) =>

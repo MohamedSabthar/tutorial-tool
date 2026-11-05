@@ -18,3 +18,4 @@ export * from './launch/signin';
 export * from './camera';
 export * from './capture/codegen';
 export * from './capture/session';
+export * from './capture/attach';

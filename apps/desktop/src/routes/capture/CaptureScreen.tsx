@@ -139,16 +139,21 @@ export function CaptureScreen({ slug }: { slug: string }) {
   }, [count]);
 
   const open = status?.state === 'capturing' || status?.state === 'ended';
+  /** A demo saved earlier: steps can be made from it without capturing again. */
+  const savedDemo = status?.state === 'idle' && count > 0;
   const remove = (id: string) =>
     void run('remove', async () => {
       setStatus(await client!.call('capture.remove', { slug, ids: [id] }));
     });
-  // Saves the capture, then the agent turns it into steps and a script; the storyboard shows it.
+  // Saves the capture (unless it's a saved one), then the agent turns it into steps and a
+  // script; the storyboard shows it.
   const finish = () =>
     void run('finish', async () => {
-      const r = await client!.call('capture.finish', { slug });
-      setStatus(r.status);
-      setSaved(r.scriptPath);
+      if (!savedDemo) {
+        const r = await client!.call('capture.finish', { slug });
+        setStatus(r.status);
+        setSaved(r.scriptPath);
+      }
       const brief = await client!.call('brief.get', { slug });
       await client!.call('pipeline.start', {
         slug,
@@ -157,9 +162,10 @@ export function CaptureScreen({ slug }: { slug: string }) {
       });
       navigate(`/storyboard/${slug}`);
     });
+  // Closes an open capture without saving; a saved demo stays as it is.
   const cancel = () =>
     void run('cancel', async () => {
-      await client!.call('capture.discard', { slug });
+      if (open || status?.state === 'launching') await client!.call('capture.discard', { slug });
       navigate(`/brief/${slug}`);
     });
 
@@ -181,8 +187,17 @@ export function CaptureScreen({ slug }: { slug: string }) {
           <Button size="lg" disabled={!!busy || status?.state === 'launching'} onClick={() => void start()}>
             {busy === 'start' ? 'Opening…' : 'Start over'}
           </Button>
-          <Button size="lg" variant="primary" disabled={!!busy || !open || count === 0} onClick={finish}>
-            {busy === 'finish' ? 'Saving…' : 'Finish and make steps'}
+          <Button
+            size="lg"
+            variant="primary"
+            disabled={!!busy || !(open || savedDemo) || count === 0}
+            onClick={finish}
+          >
+            {busy === 'finish'
+              ? 'Saving…'
+              : savedDemo
+                ? 'Make steps from this demo'
+                : 'Finish and make steps'}
           </Button>
         </>
       }
@@ -199,7 +214,9 @@ export function CaptureScreen({ slug }: { slug: string }) {
             <span>
               {saved
                 ? `Saved ${count} action${count === 1 ? '' : 's'} and a draft script.`
-                : (status?.message ?? (conn === 'open' ? 'Loading…' : 'Waiting for the engine…'))}
+                : savedDemo && !status.message
+                  ? `A saved demo of ${count} action${count === 1 ? '' : 's'}. Make steps from it, remove what you don't want, or Start over to demo again.`
+                  : (status?.message ?? (conn === 'open' ? 'Loading…' : 'Waiting for the engine…'))}
             </span>
           </p>
           {saved && (
@@ -227,7 +244,7 @@ export function CaptureScreen({ slug }: { slug: string }) {
                   a={a}
                   index={i}
                   shotUrl={shotUrl(a)}
-                  onRemove={open && !busy ? () => remove(a.id) : null}
+                  onRemove={(open || savedDemo) && !busy ? () => remove(a.id) : null}
                 />
               ))}
             </ol>

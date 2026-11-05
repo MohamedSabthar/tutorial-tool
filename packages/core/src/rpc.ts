@@ -563,8 +563,11 @@ export const rpcMethods = {
     params: z.object({
       slug: z.string(),
       gates: PipelineGates.partial().optional(),
-      /** `from_capture` starts from the user's captured demo (feed mode) instead of planning. */
-      entry: PipelineEntry.default('plan'),
+      /**
+       * `from_capture` starts from the user's captured demo (feed mode) instead of planning.
+       * Left out, it follows the brief: feed mode with a saved demo starts from the demo.
+       */
+      entry: PipelineEntry.optional(),
     }),
     result: PipelineState,
   },

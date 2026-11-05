@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { CaptureAction, CaptureStatus, RecorderEvent } from '@studio/core';
+import { CaptureAction, type CaptureStatus, type RecorderEvent } from '@studio/core';
 import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
 import {
   captureToScript,
@@ -245,8 +245,8 @@ export class Runner {
   async captureStatus(slug: string): Promise<CaptureStatus> {
     if (this.capture?.slug === slug) return this.capture.status;
     const actions = await readFile(path.join(this.captureDir(slug), 'trace.json'), 'utf8')
-      .then((t) => JSON.parse(t) as { actions: CaptureAction[] })
-      .then((t) => t.actions)
+      // Parsed, so captures saved before a field existed get its default.
+      .then((t) => CaptureAction.array().parse((JSON.parse(t) as { actions: unknown }).actions))
       .catch(() => [] as CaptureAction[]);
     return { slug, state: 'idle', message: null, actions };
   }
@@ -357,15 +357,50 @@ export class Runner {
     this.emitSession({ state: 'stopped', title: 'Capture', mode: 'dry', frame: null, slug: null });
   }
 
-  removeCaptured(slug: string, ids: string[]): CaptureStatus {
+  /** Drops captured actions: from the open capture, or from the saved one (its trace and draft). */
+  async removeCaptured(slug: string, ids: string[]): Promise<CaptureStatus> {
     const c = this.capture;
-    if (c?.slug !== slug) throw new RpcError('no capture is open for this project', 'bad_request');
+    if (c?.slug !== slug) return this.removeSaved(slug, ids);
     if (c.session) c.session.remove(ids);
     else {
       const drop = new Set(ids);
       this.setCapture({ actions: c.status.actions.filter((a) => !drop.has(a.id)) });
     }
     return c.status;
+  }
+
+  private async removeSaved(slug: string, ids: string[]): Promise<CaptureStatus> {
+    const dir = this.captureDir(slug);
+    const text = await readFile(path.join(dir, 'trace.json'), 'utf8').catch(() => null);
+    if (!text) throw new RpcError('this project has no captured demo', 'not_found');
+    const trace = JSON.parse(text) as { capturedAt: string; fixture: ScriptFixture; actions: unknown };
+    const drop = new Set(ids);
+    const actions = CaptureAction.array()
+      .parse(trace.actions)
+      .filter((a) => !drop.has(a.id));
+    await this.saveCapture(slug, trace.fixture, actions, trace.capturedAt);
+    const status: CaptureStatus = { slug, state: 'idle', message: null, actions };
+    this.broadcast('capture.changed', status);
+    return status;
+  }
+
+  /** Writes the capture's trace.json and the draft script generated from it. */
+  private async saveCapture(
+    slug: string,
+    fixture: ScriptFixture,
+    actions: CaptureAction[],
+    capturedAt: string,
+  ) {
+    const { project } = await this.store.open(slug);
+    const dir = this.captureDir(slug);
+    await writeFile(
+      path.join(dir, 'trace.json'),
+      `${JSON.stringify({ capturedAt, fixture, actions }, null, 2)}\n`,
+    );
+    await writeFile(
+      path.join(dir, 'draft.spec.ts'),
+      captureToScript(actions, fixture, { title: project.title, capturedAt }),
+    );
   }
 
   /** Closes the product and saves the capture and a draft script from it. */
@@ -376,17 +411,7 @@ export class Runner {
     c.session = null;
     this.capture = null;
     this.releaseCapture();
-    const { project } = await this.store.open(slug);
-    const dir = this.captureDir(slug);
-    const capturedAt = new Date().toISOString().slice(0, 10);
-    await writeFile(
-      path.join(dir, 'trace.json'),
-      `${JSON.stringify({ capturedAt, fixture: c.fixture, actions }, null, 2)}\n`,
-    );
-    await writeFile(
-      path.join(dir, 'draft.spec.ts'),
-      captureToScript(actions, c.fixture, { title: project.title, capturedAt }),
-    );
+    await this.saveCapture(slug, c.fixture, actions, new Date().toISOString().slice(0, 10));
     const status: CaptureStatus = {
       slug,
       state: 'idle',

@@ -117,6 +117,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 12.2 The `from_capture` stage
   - [ ] 12.3 Polish
   - [x] 12.4 Every interaction, with marked shots
+  - [x] 12.5 Saved demos, restarts and a real-browser test
 
 ---
 
@@ -886,6 +887,16 @@ Researching the product and writing the script are the slowest stages. In feed m
 
 **Done when:** a demo with a hover-only button, a scroll and a double-click shows each in the list with a marked thumbnail, and the agent keeps the hover the button needs and drops the incidental ones.
 
+### 12.5 Saved demos, restarts and a real-browser test
+- **Saved demo:** reopening the Capture screen after Finish shows the saved demo. You can remove actions from it with × (`capture.remove` rewrites `trace.json` and the draft) or **Make steps from this demo** without capturing again. Cancel leaves a saved demo as it is.
+- **Restart stays in feed mode:** `pipeline.start` without `entry` follows the brief, so Restart on the Storyboard or in the Studio starts a feed-mode tutorial with a saved demo from the demo, not from research. Saved traces are parsed with the schema, so older captures get new fields' defaults.
+- **Typing order:** typing in one frame is sent when its field loses focus, which happens after the press that moves focus to another frame. That click is put back after the typing.
+- **First action's shot:** the first action gets a marked shot even when nothing has painted since the capture began; it falls back to a screenshot taken right away.
+- **`attachCapture(page)`** holds the capture logic, and `openCapture` launches the product and attaches it. `captureBrowser.test.ts` drives headless Chromium with a workbench page, a webview host frame and its content frame, using real mouse and keyboard input. It checks clicks, webview typing (in order, and with window-space boxes), hovers, scrolls, drags, double-clicks, keys and the marked shots.
+- **Guide:** a new "Demo it yourself" section, and the brief section explains the How row.
+
+**Done when:** the browser test passes, and a saved demo can be trimmed and turned into steps from the Capture screen without opening the product.
+
 ---
 
 ## Cross-cutting checklists
@@ -1086,3 +1097,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-11-05 | 12.1 | Added Phase 12, feed mode. The user demonstrates the tutorial and a draft script is generated from it, skipping research. Targets are named on mousedown, in the page, because menus and quick picks act and disappear before a click or a probe from Node could see them. Locator uniqueness is counted with an approximation of Playwright's role and name rules; the dry run and the 12.2 agent pass catch where they differ. The agent splits the steps after capture rather than the user marking them while recording. The capture window is not kept on top, so the user can come back to Studio to finish | Raised: "recording and exploring takes more time… feed the clicks so it generates the Playwright script"; chose codegen plus an agent tidy pass, with the agent splitting the steps |
 | 2026-11-05 | 12.2 | Feed mode is stored on the run (`PipelineState.entry`), not read from the brief each time. A resumed run, or a storyboard revision, stays in feed mode and doesn't research, even if the brief changes meanwhile; this was planned for 12.3. The engine copies the draft into `script.spec.ts` before the stage, unless the agent has written it since, and the agent rewrites that file in place. `from_capture` runs on the writing model (Sonnet by default), not the deep one: it splits and tidies, it doesn't research. The capture locators were reworked after the first real demo in the WSO2 webviews: CSS paths stopped at shadow roots and left out generated classes, stable ids ranked high, a web component counted once, and positions used when nothing else is unique | Raised: the first UI test showed icon buttons sharing one wrong "unique" locator |
 | 2026-11-05 | 12.4 | Feed mode captures every interaction, not only clicks, and the agent cleans up. Pointer movement isn't stored as a stream: a hover is recorded only when the pointer rests (0.7 s) on something with a locator, and a scroll once per gesture, so the list stays readable. Drags and double-clicks are turned into actions from the click before them, because the target has to be named on mousedown. Marked shots come from the screencast frame that arrived before the action, since a screenshot taken at that moment already shows the click's effect. They are drawn with ffmpeg's `drawbox` (this Mac's ffmpeg has it, though not `drawtext`), so there are no labels on the image; the id is in the file name | Raised: "are we attaching screenshots with pointers?"; "capture all screen interaction… later agent can clean up" |
+| 2026-11-05 | 12.5 | The capture is tested in headless Chromium, not in the product: launching the product from tests could touch the macOS Keychain, and a page with nested iframes reproduces what matters (trusted input, frame depth, webview offsets, the screencast). The end-to-end check of 12.3 (demo to exported video) stays with a manual run in the app | Raised: "complete the feature" |
