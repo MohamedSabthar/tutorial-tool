@@ -10,12 +10,14 @@
  */
 
 export interface RawLocator {
-  /** 'role' | 'label' | 'placeholder' | 'text' | 'testid' | 'css' */
+  /** 'role' | 'nth' | 'id' | 'label' | 'placeholder' | 'testid' | 'text' | 'css' */
   by: string;
-  /** For 'role', the role; otherwise the value. */
+  /** For 'role' and 'nth', the role; otherwise the value. */
   value: string;
-  /** For 'role', the accessible name. */
+  /** For 'role' and 'nth', the accessible name. */
   name?: string;
+  /** For 'nth', the index among the role + name matches. */
+  nth?: number;
   count: number;
 }
 
@@ -177,23 +179,45 @@ export function installCapture(): void {
     return els[0] ?? null;
   };
 
-  const cssPath = (el: Element): string => {
-    if (el.id && !/\d{3,}/.test(el.id)) return `#${CSS.escape(el.id)}`;
+  /** Generated names that change from build to build (CSS-in-JS hashes, CodeMirror's ͼ classes, counters). */
+  const generated = (c: string) =>
+    /^(css|sc|jsx|emotion|svelte)-|^ͼ|\d{2,}|focused|selected|hover|active/.test(c);
+  /** An id a person wrote (functionName), not one generated per render (list_id_3_12, :r5:). */
+  const stableId = (id: string) => !!id && !/\d{2,}|[:_-]\d|^[a-f0-9-]{8,}$/.test(id);
+
+  /** The outermost element in the light DOM: CSS selectors (and the count of their matches) can't see into shadow roots. */
+  const lightOf = (el: Element): Element => {
+    let cur = el;
+    for (let root = cur.getRootNode(); root instanceof ShadowRoot; root = cur.getRootNode()) cur = root.host;
+    return cur;
+  };
+
+  /** A short CSS path from stable ids and classes, ending at the element (or its shadow host). */
+  const cssPath = (target: Element): string => {
+    const el = lightOf(target);
+    if (stableId(el.id)) return `#${CSS.escape(el.id)}`;
     const parts: string[] = [];
     let cur: Element | null = el;
     while (cur && parts.length < 4 && cur.tagName !== 'BODY') {
+      if (cur !== el && stableId(cur.id)) {
+        parts.unshift(`#${CSS.escape(cur.id)}`);
+        break;
+      }
       const classes = Array.from(cur.classList)
-        .filter((c) => !/\d{2,}|focused|selected|hover|active/.test(c))
+        .filter((c) => !generated(c))
         .slice(0, 2)
         .map((c) => `.${CSS.escape(c)}`)
         .join('');
-      parts.unshift(`${cur.tagName.toLowerCase()}${classes}`);
-      if (cur.id && !/\d{3,}/.test(cur.id)) {
-        parts[0] = `#${CSS.escape(cur.id)}`;
-        break;
-      }
-      cur = cur.parentElement ?? ((cur.getRootNode() as ShadowRoot).host || null);
+      // Plain tags with no stable class say little: keep only the element's own and those with a class.
+      if (cur === el || classes) parts.unshift(`${cur.tagName.toLowerCase()}${classes}`);
+      cur = cur.parentElement;
     }
+    // An icon-only button is told apart by its icon.
+    const icon = [target, el]
+      .flatMap((root) => Array.from(root.querySelectorAll('[class*="codicon-"]')))
+      .flatMap((i) => Array.from(i.classList))
+      .find((c) => /^codicon-[a-z-]+$/.test(c));
+    if (icon) parts[parts.length - 1] += `:has(.${icon})`;
     return parts.join(' ');
   };
 
@@ -201,18 +225,26 @@ export function installCapture(): void {
     const els = all();
     const role = roleOf(el);
     const name = nameOf(el);
-    const locators: { by: string; value: string; name?: string; count: number }[] = [];
+    const locators: RawLocator[] = [];
     const add = (by: string, value: string, count: number, nm?: string) => {
       if (!value || count < 1 || locators.some((l) => l.by === by)) return;
       locators.push({ by, value, count, ...(nm !== undefined ? { name: nm } : {}) });
     };
-    if (role && name)
-      add(
-        'role',
-        role,
-        els.filter((e) => roleOf(e) === role && nameOf(e) === name && visible(e)).length,
-        name,
-      );
+    if (role && name) {
+      const same = els.filter((e) => roleOf(e) === role && nameOf(e) === name && visible(e));
+      // A web component and the input in its shadow root are one control, not two.
+      const hostIn = (e: Element) => {
+        const r = e.getRootNode();
+        return r instanceof ShadowRoot && same.includes(r.host);
+      };
+      const matches = same.filter((e) => !hostIn(e));
+      add('role', role, matches.length, name);
+      // Not unique: its position among them, right for this screen.
+      const at = matches.indexOf(el);
+      if (matches.length > 1 && at >= 0) locators.push({ by: 'nth', value: role, name, nth: at, count: 1 });
+    }
+    if (stableId(el.id) && el.getRootNode() === document)
+      add('id', `#${CSS.escape(el.id)}`, document.querySelectorAll(`#${CSS.escape(el.id)}`).length);
     const label = labelText(el) || norm(el.getAttribute('aria-label'));
     if (label && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT'))
       add(
@@ -225,7 +257,7 @@ export function installCapture(): void {
     const testid = el.getAttribute('data-testid');
     if (testid) add('testid', testid, els.filter((e) => e.getAttribute('data-testid') === testid).length);
     const text = norm(el.textContent);
-    if (text && text.length <= 60 && !el.matches('input,textarea'))
+    if (text && text.length <= 60 && !el.matches('input,textarea') && !(el as HTMLElement).isContentEditable)
       add(
         'text',
         text,
@@ -239,13 +271,14 @@ export function installCapture(): void {
       );
     const css = cssPath(el);
     if (css) {
-      let count = 1;
+      // Unknown (a selector the engine rejects) counts as many, never as unique.
+      let count: number;
       try {
-        count = Math.max(document.querySelectorAll(css).length, 1);
+        count = document.querySelectorAll(css).length || 99;
       } catch {
-        // An odd class name the selector engine rejects: keep the locator, count unknown.
+        count = 99;
       }
-      add('css', css, count);
+      if (!locators.some((l) => l.by === 'id' && `${l.value}` === css)) add('css', css, count);
     }
     const r = el.getBoundingClientRect();
     // Frames inside webviews report boxes relative to themselves; Node offsets them.
@@ -273,7 +306,12 @@ export function installCapture(): void {
       if (el.classList.contains('inputarea')) return null;
       return (el as HTMLInputElement).value;
     }
-    if ((el as HTMLElement).isContentEditable) return norm(el.textContent);
+    if ((el as HTMLElement).isContentEditable) {
+      // Leave out placeholder text drawn inside the editor (CodeMirror's .cm-placeholder).
+      const copy = el.cloneNode(true) as Element;
+      copy.querySelectorAll('[class*="placeholder"],[aria-hidden="true"]').forEach((n) => n.remove());
+      return norm(copy.textContent);
+    }
     return null;
   };
 
@@ -323,6 +361,8 @@ export function installCapture(): void {
     if (typing?.el === field) return;
     flush();
     const monaco = field.classList.contains('inputarea') || !!field.closest('.monaco-editor');
+    // Code editors (Monaco, CodeMirror) auto-close brackets: their text is entered in one go.
+    const code = monaco || !!field.closest('.cm-editor');
     const target = describeTarget(monaco ? (field.closest('.monaco-editor') ?? field) : hostOf(field));
     typing = {
       el: field,
@@ -330,7 +370,7 @@ export function installCapture(): void {
       initial: valueOf(field) ?? '',
       keys: '',
       secret: (field as HTMLInputElement).type === 'password',
-      insert: monaco,
+      insert: code,
     };
   };
 
@@ -408,7 +448,7 @@ export function installCapture(): void {
       send({
         kind: 'click',
         button: e.button === 2 ? 'right' : 'left',
-        ...describeTarget(field ? hostOf(field) : el),
+        ...describeTarget(hostOf(field ?? el)),
       });
     },
     true,

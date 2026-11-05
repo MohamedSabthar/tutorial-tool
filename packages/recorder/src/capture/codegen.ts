@@ -12,6 +12,10 @@ export function locatorCode(l: RawLocator): string {
   switch (l.by) {
     case 'role':
       return `getByRole(${q(l.value)}, { name: ${q(l.name ?? '')}, exact: true })`;
+    case 'nth':
+      return `getByRole(${q(l.value)}, { name: ${q(l.name ?? '')}, exact: true }).nth(${l.nth ?? 0})`;
+    case 'id':
+      return `locator(${q(l.value)})`;
     case 'label':
       return `getByLabel(${q(l.value)}, { exact: true })`;
     case 'placeholder':
@@ -25,9 +29,16 @@ export function locatorCode(l: RawLocator): string {
   }
 }
 
+/**
+ * How much a unique locator is preferred: what the user reads (role and name) first, then
+ * stable ids and labels, then text; a position (nth) or a CSS path only when nothing else is.
+ */
+const RANK = ['role', 'id', 'label', 'placeholder', 'testid', 'text', 'nth', 'css'];
+const rank = (l: RawLocator) => (RANK.includes(l.by) ? RANK.indexOf(l.by) : RANK.length);
+
 /** Candidate locators as code, those matching exactly one element first (in preference order). */
 export function toCaptureLocators(raw: RawLocator[]): CaptureLocator[] {
-  const unique = raw.filter((l) => l.count === 1);
+  const unique = raw.filter((l) => l.count === 1).sort((a, b) => rank(a) - rank(b));
   const rest = raw.filter((l) => l.count !== 1).sort((a, b) => a.count - b.count);
   return [...unique, ...rest].map((l) => ({ code: locatorCode(l), count: l.count }));
 }

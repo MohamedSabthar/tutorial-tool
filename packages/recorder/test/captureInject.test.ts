@@ -93,6 +93,50 @@ describe('injected capture listener', () => {
   });
 });
 
+describe('locators in WSO2-style webviews', () => {
+  it('names a web component by its host, counts it once, and tells same-named buttons apart by position', () => {
+    document.body.innerHTML =
+      '<div class="css-1qcscwo"><vscode-button aria-label="Icon Button"></vscode-button><vscode-button aria-label="Icon Button"></vscode-button></div>';
+    const hosts = Array.from(document.querySelectorAll('vscode-button'));
+    for (const h of hosts) h.attachShadow({ mode: 'open' }).innerHTML = '<button class="control">x</button>';
+    mousedown(hosts[1]!.shadowRoot!.querySelector('button')!);
+    const a = sent[0]!;
+    if (a.kind !== 'click') throw new Error('expected click');
+    expect(a.label).toBe('button "Icon Button"');
+    const role = a.locators.find((l) => l.by === 'role')!;
+    expect(role.count).toBe(2);
+    expect(a.locators.find((l) => l.by === 'nth')).toMatchObject({ nth: 1, count: 1 });
+    const css = a.locators.find((l) => l.by === 'css')!;
+    // The host, not the shadow button, and no generated class names.
+    expect(css.value).toBe('vscode-button');
+    expect(css.count).toBe(2);
+  });
+
+  it('prefers a stable id and skips generated ones', () => {
+    document.body.innerHTML =
+      '<div class="css-8qbxp2"><input id="functionName" aria-label="Name"></div><input id="list_id_3_12" aria-label="Other">';
+    mousedown(document.querySelector('#functionName')!);
+    mousedown(document.querySelector('#list_id_3_12')!);
+    const [a, b] = sent;
+    if (a?.kind !== 'click' || b?.kind !== 'click') throw new Error('expected clicks');
+    expect(a.locators.find((l) => l.by === 'id')).toMatchObject({ value: '#functionName', count: 1 });
+    expect(b.locators.some((l) => l.by === 'id')).toBe(false);
+    expect(b.locators.find((l) => l.by === 'css')!.value).not.toContain('list_id');
+  });
+
+  it('ignores placeholder text in code editors and enters their text in one go', () => {
+    document.body.innerHTML =
+      '<div class="cm-editor"><div class="cm-content" contenteditable="true"><span class="cm-placeholder">e.g., Sales Advisor</span></div></div>';
+    const ed = document.querySelector('.cm-content')!;
+    // jsdom has no isContentEditable.
+    Object.defineProperty(ed, 'isContentEditable', { value: true });
+    for (const ch of 'Tutor') key(ed, ch);
+    ed.innerHTML = 'Tutor';
+    mousedown(document.body);
+    expect(sent[0]).toMatchObject({ kind: 'type', text: 'Tutor', clear: false, insert: true });
+  });
+});
+
 describe('capture source', () => {
   it('runs as a plain string, with no helpers from the bundler', () => {
     const w = window as unknown as Record<string, unknown>;
