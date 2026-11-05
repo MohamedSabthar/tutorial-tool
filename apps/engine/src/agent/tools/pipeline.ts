@@ -11,12 +11,15 @@ export function pipelineTools(ctx: ToolContext) {
       {
         summary: z.string().max(600).optional(),
         steps: z.array(
-          z.object({
-            id: z.string(),
-            title: z.string(),
-            action: z.string().optional(),
-            narration: z.string().optional(),
-          }),
+          z
+            .object({
+              id: z.string(),
+              title: z.string(),
+              /** Unknown keys are refused, not dropped: an "onScreen" field once left every action empty. */
+              action: z.string().optional().describe('What happens on screen, naming the controls.'),
+              narration: z.string().optional(),
+            })
+            .strict(),
         ),
         explainers: z.array(z.object({ after: z.string(), idea: z.string() })).optional(),
       },

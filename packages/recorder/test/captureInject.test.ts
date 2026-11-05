@@ -158,6 +158,22 @@ describe('code editor fields', () => {
   });
 });
 
+describe('links inside test-id containers', () => {
+  it('records the clicked link inside its row, not the whole row', () => {
+    document.body.innerHTML =
+      '<div data-testid="agent-add-trigger"><span>No trigger yet</span> · <a class="link">Add Trigger</a></div>';
+    mousedown(document.querySelector('a')!);
+    const a = sent[0]!;
+    if (a.kind !== 'click') throw new Error('expected click');
+    expect(a.locators.find((l) => l.by === 'scoped')).toMatchObject({
+      value: 'agent-add-trigger',
+      name: 'Add Trigger',
+      count: 1,
+    });
+    expect(a.label).toBe('"Add Trigger"');
+  });
+});
+
 describe('capture source', () => {
   it('runs as a plain string, with no helpers from the bundler', () => {
     const w = window as unknown as Record<string, unknown>;

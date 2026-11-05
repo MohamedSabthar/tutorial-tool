@@ -10,11 +10,11 @@
  */
 
 export interface RawLocator {
-  /** 'role' | 'nth' | 'id' | 'label' | 'placeholder' | 'testid' | 'text' | 'css' | 'cssnth' */
+  /** 'role' | 'nth' | 'scoped' | 'id' | 'label' | 'placeholder' | 'testid' | 'text' | 'css' | 'cssnth' */
   by: string;
   /** For 'role' and 'nth', the role; otherwise the value. */
   value: string;
-  /** For 'role' and 'nth', the accessible name. */
+  /** For 'role' and 'nth', the accessible name; for 'scoped', the clicked text inside the test id `value`. */
   name?: string;
   /** For 'nth' and 'cssnth', the index among the matches. */
   nth?: number;
@@ -160,23 +160,36 @@ export function installCapture(): void {
   };
 
   /** The element the user meant: the nearest interactive one on the event path. */
-  const pick = (path: EventTarget[]): Element | null => {
+  /**
+   * The element the user meant, and the test-id container it sits in when that's all that marks
+   * it as clickable. A row like "No trigger yet · Add Trigger" carries the test id, but only its
+   * "Add Trigger" link acts: a click anywhere else in the row's box does nothing.
+   */
+  const pick = (path: EventTarget[]): { el: Element; scope: Element | null } | null => {
     const els = path.filter((n): n is Element => n instanceof Element);
-    for (const el of els) {
+    for (const [i, el] of els.entries()) {
       if (el.tagName === 'BODY' || el.tagName === 'HTML') break;
       const role = roleOf(el);
-      if (INTERACTIVE.has(role)) return el;
+      if (INTERACTIVE.has(role)) return { el, scope: null };
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable)
-        return el;
-      if (el.hasAttribute('data-testid') || (el as HTMLElement).onclick) return el;
+        return { el, scope: null };
+      if (el.hasAttribute('data-testid') || (el as HTMLElement).onclick) {
+        const own = norm(el.textContent);
+        // The innermost element under the pointer with a short text that is only part of the container's.
+        const inner = els.slice(0, i).find((x) => {
+          const t = norm(x.textContent);
+          return t && t.length <= 40 && t !== own;
+        });
+        return inner ? { el: inner, scope: el } : { el, scope: null };
+      }
     }
     // Nothing interactive: the innermost element with a short text of its own.
     for (const el of els) {
       if (el.tagName === 'BODY') break;
       const t = norm(el.textContent);
-      if (t && t.length <= 60) return el;
+      if (t && t.length <= 60) return { el, scope: null };
     }
-    return els[0] ?? null;
+    return els[0] ? { el: els[0], scope: null } : null;
   };
 
   /** Generated names that change from build to build (CSS-in-JS hashes, CodeMirror's ͼ classes, counters). */
@@ -251,7 +264,7 @@ export function installCapture(): void {
     return css;
   };
 
-  const describeTarget = (el: Element) => {
+  const describeTarget = (el: Element, scope: Element | null = null) => {
     const els = all();
     const role = roleOf(el);
     const name = nameOf(el);
@@ -260,6 +273,18 @@ export function installCapture(): void {
       if (!value || count < 1 || locators.some((l) => l.by === by)) return;
       locators.push({ by, value, count, ...(nm !== undefined ? { name: nm } : {}) });
     };
+    // The text that was clicked, inside its test-id container.
+    const scopeId = scope?.getAttribute('data-testid');
+    const innerText = norm(el.textContent);
+    if (scope && scopeId && innerText) {
+      const within = Array.from(scope.querySelectorAll('*')).filter(
+        (e) =>
+          norm(e.textContent) === innerText &&
+          !Array.from(e.children).some((c) => norm(c.textContent) === innerText),
+      ).length;
+      const scopes = els.filter((e) => e.getAttribute('data-testid') === scopeId).length;
+      add('scoped', scopeId, scopes === 1 ? within : Math.max(within, scopes), innerText);
+    }
     if (role && name) {
       const same = els.filter((e) => roleOf(e) === role && nameOf(e) === name && visible(e));
       // A web component and the input in its shadow root are one control, not two.
@@ -477,8 +502,9 @@ export function installCapture(): void {
     (e) => {
       if (!trusted(e) || (e.button !== 0 && e.button !== 2)) return;
       const path = e.composedPath();
-      const el = pick(path);
-      if (!el) return;
+      const picked = pick(path);
+      if (!picked) return;
+      const { el, scope } = picked;
       // Dragging the window by its title bar isn't part of the tutorial.
       if (el.closest('.part.titlebar') && !INTERACTIVE.has(roleOf(el))) return;
       const field = fieldOf(path);
@@ -486,7 +512,7 @@ export function installCapture(): void {
       send({
         kind: 'click',
         button: e.button === 2 ? 'right' : 'left',
-        ...describeTarget(hostOf(field ?? el)),
+        ...describeTarget(hostOf(field ?? el), field ? null : scope),
       });
     },
     true,
