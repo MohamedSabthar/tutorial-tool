@@ -82,6 +82,7 @@ const ran = (history: PipelineState['history'], stage: string) => history.some((
 /** Each stage's icon in the stepper. */
 const STAGE_ICON: Record<PipelineStage, (p: { size?: number }) => StepperStep['icon']> = {
   plan: IconPlan,
+  from_capture: IconPlan,
   storyboard_gate: IconReview,
   script: IconScript,
   dry_run: IconDryRun,
@@ -97,14 +98,20 @@ const STAGE_ICON: Record<PipelineStage, (p: { size?: number }) => StepperStep['i
 
 export function pipelineSteps(state: PipelineState | null): StepperStep[] {
   const history = state?.history ?? [];
+  // Feed mode plans and scripts from the demo in one stage; the agent's flow has both.
+  const feed = state?.entry === 'from_capture';
   return PIPELINE_STAGES.filter((s) =>
-    s.stage === 'repair'
-      ? ran(history, 'repair')
-      : s.stage === 'narrate' || s.stage === 'voice' || s.stage === 'align'
-        ? ran(history, s.stage) || state?.status !== 'done'
-        : s.stage === 'storyboard_gate'
-          ? ran(history, s.stage) || !!state?.gates.storyboard
-          : true,
+    s.stage === 'plan' || s.stage === 'script'
+      ? !feed
+      : s.stage === 'from_capture'
+        ? feed
+        : s.stage === 'repair'
+          ? ran(history, 'repair')
+          : s.stage === 'narrate' || s.stage === 'voice' || s.stage === 'align'
+            ? ran(history, s.stage) || state?.status !== 'done'
+            : s.stage === 'storyboard_gate'
+              ? ran(history, s.stage) || !!state?.gates.storyboard
+              : true,
   ).map(({ stage, label }) => {
     const runs = history.filter((h) => h.stage === stage);
     const last = runs.at(-1);

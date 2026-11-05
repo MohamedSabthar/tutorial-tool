@@ -258,11 +258,16 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
   // While the agent plans or narrates, the steps and lines it has saved so far.
   const planProgress = ((): PipelineProgress | null => {
     const plan = pipe.state?.plan;
-    if (!plan || !pipeSlug || (pipeStage !== 'plan' && pipeStage !== 'narrate')) return null;
-    if (pipeStage === 'plan')
+    if (
+      !plan ||
+      !pipeSlug ||
+      (pipeStage !== 'plan' && pipeStage !== 'from_capture' && pipeStage !== 'narrate')
+    )
+      return null;
+    if (pipeStage === 'plan' || pipeStage === 'from_capture')
       return {
         slug: pipeSlug,
-        stage: 'plan',
+        stage: pipeStage,
         message: `Planned ${plan.steps.length} step${plan.steps.length === 1 ? '' : 's'}`,
         items: plan.steps.map((st) => ({
           id: st.id,

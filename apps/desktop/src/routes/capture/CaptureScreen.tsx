@@ -117,11 +117,19 @@ export function CaptureScreen({ slug }: { slug: string }) {
     void run('remove', async () => {
       setStatus(await client!.call('capture.remove', { slug, ids: [id] }));
     });
+  // Saves the capture, then the agent turns it into steps and a script; the storyboard shows it.
   const finish = () =>
     void run('finish', async () => {
       const r = await client!.call('capture.finish', { slug });
       setStatus(r.status);
       setSaved(r.scriptPath);
+      const brief = await client!.call('brief.get', { slug });
+      await client!.call('pipeline.start', {
+        slug,
+        entry: 'from_capture',
+        gates: { storyboard: brief.gates.storyboard, narration: brief.gates.narration },
+      });
+      navigate(`/storyboard/${slug}`);
     });
   const cancel = () =>
     void run('cancel', async () => {
@@ -148,7 +156,7 @@ export function CaptureScreen({ slug }: { slug: string }) {
             {busy === 'start' ? 'Opening…' : 'Start over'}
           </Button>
           <Button size="lg" variant="primary" disabled={!!busy || !open || count === 0} onClick={finish}>
-            {busy === 'finish' ? 'Saving…' : 'Finish'}
+            {busy === 'finish' ? 'Saving…' : 'Finish and make steps'}
           </Button>
         </>
       }
@@ -201,7 +209,11 @@ export function CaptureScreen({ slug }: { slug: string }) {
                 Click through the tutorial once, at any pace. Leave out anything you don&rsquo;t want shown.
               </li>
               <li>Remove misclicks here with ×.</li>
-              <li>Press Finish. Your clicks become a draft script; passwords are never captured.</li>
+              <li>
+                Press Finish. The agent splits your clicks into steps and tidies the script, without
+                researching. Passwords are never captured.
+              </li>
+              <li>Then the dry run, narration, voice-over and recording, as usual.</li>
             </ol>
           </Panel>
         </aside>

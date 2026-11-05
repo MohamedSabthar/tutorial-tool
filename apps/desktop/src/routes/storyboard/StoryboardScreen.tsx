@@ -223,13 +223,17 @@ export function StoryboardScreen({ slug }: { slug: string }) {
           <span className="storyboard-pulse" aria-hidden="true" />
           <span>
             <strong>
-              {st.stage === 'plan'
+              {st.stage === 'plan' || st.stage === 'from_capture'
                 ? plan
                   ? 'The agent is revising the storyboard…'
-                  : 'The agent is planning the steps…'
+                  : st.stage === 'from_capture'
+                    ? 'The agent is turning your demo into steps…'
+                    : 'The agent is planning the steps…'
                 : `Approved. ${stageLabel}…`}
             </strong>{' '}
-            {st.stage === 'plan' ? 'The storyboard appears here for your review.' : 'You can watch it live.'}
+            {st.stage === 'plan' || st.stage === 'from_capture'
+              ? 'The storyboard appears here for your review.'
+              : 'You can watch it live.'}
           </span>
           <span style={{ flex: 1 }} />
           <Button size="sm" onClick={() => openLive(slug)}>

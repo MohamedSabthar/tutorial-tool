@@ -572,6 +572,69 @@ describe('PipelineManager', () => {
     await until(() => last().status === 'stopped');
   });
 
+  it('feed mode: makes the steps from the captured demo, skips the script stage, revises in feed mode', async () => {
+    const dir = path.join(store.dir(slug), '.studio', 'capture');
+    await mkdir(dir, { recursive: true });
+    const actions = [
+      {
+        kind: 'click',
+        id: 'a1',
+        t: 1.2,
+        frame: 'webview',
+        label: 'button "Create"',
+        bbox: null,
+        button: 'left',
+        locators: [{ code: "getByRole('button', { name: 'Create', exact: true })", count: 1 }],
+      },
+      { kind: 'press', id: 'a2', t: 2, key: 'Enter' },
+    ];
+    await writeFile(path.join(dir, 'trace.json'), JSON.stringify({ actions }));
+    await writeFile(path.join(dir, 'draft.spec.ts'), '// draft');
+    const { p, sent, modes } = make(
+      async (p, stage) => {
+        if (stage === 'steps from the demo' || stage === 'storyboard revision') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'from_capture');
+        } else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true],
+    );
+    await p.start(slug, { storyboard: true }, 'from_capture');
+    await until(() => last().status === 'waiting');
+    expect(last()).toMatchObject({ entry: 'from_capture', stage: 'storyboard_gate' });
+    // The agent starts from the draft, with every action and its locator.
+    expect(await readFile(path.join(store.dir(slug), 'script.spec.ts'), 'utf8')).toBe('// draft');
+    const first = sent.find((t) => t.startsWith('[Pipeline · steps from the demo]'))!;
+    expect(first).toContain(
+      "a1 (1.2 s) · Click button \"Create\" · webview · webview().getByRole('button', { name: 'Create', exact: true })",
+    );
+    expect(first).toContain('a2 (2.0 s) · Press Enter');
+    expect(sent.some((t) => t.includes('[Pipeline · plan]') || t.includes('[Pipeline · script]'))).toBe(
+      false,
+    );
+
+    await p.revise(slug, 'Merge the two steps');
+    await until(() => last().status === 'waiting' && last().gate?.title === 'Review the revised storyboard');
+    expect(sent.find((t) => t.includes('Merge the two steps'))).toContain('[Pipeline · storyboard revision]');
+
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'record']);
+    expect(
+      last()
+        .history.map((h) => h.stage)
+        .slice(0, 5),
+    ).toEqual(['from_capture', 'storyboard_gate', 'from_capture', 'storyboard_gate', 'dry_run']);
+  });
+
+  it('feed mode fails clearly when nothing was captured', async () => {
+    const { p } = make(() => {}, []);
+    await p.start(slug, {}, 'from_capture');
+    await until(() => last().status === 'failed');
+    expect(last().error).toContain('no captured demo');
+  });
+
   it('edits the plan only during the storyboard review, and passes the edits to post-production', async () => {
     await store.saveBrief(slug, { ...(await store.readBrief(slug)), explainers: 'off' });
     const { p, sent } = make(

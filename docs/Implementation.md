@@ -114,7 +114,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 11.6 Explainers designed by the agent
 - [ ] **Phase 12: Feed mode (record from the user's clicks)**
   - [x] 12.1 Capture and codegen
-  - [ ] 12.2 The `from_capture` stage
+  - [x] 12.2 The `from_capture` stage
   - [ ] 12.3 Polish
 
 ---
@@ -864,7 +864,6 @@ Researching the product and writing the script are the slowest stages. In feed m
 **Done when:** Finish leads to a storyboard with steps the agent split, and the dry run passes.
 
 ### 12.3 Polish
-- The pipeline remembers feed mode, so Resume and Restart do not research.
 - Secrets in the draft come from the fixture or a prompt, not a TODO.
 - Live and the Projects card show "Capturing".
 
@@ -1068,3 +1067,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-11-03 | fix | The series outline agent follows the user: the topic, notes and revision feedback are instructions (exact part count, titles and order; 3 to 8 parts only when unsaid). With parts on the outline, planning keeps them: the agent sees each part's id, changes only what is asked (or only fills gaps when there's no feedback), and `save_series_plan` takes an `id` per part so kept parts keep their id and start (a start from a dropped or later part goes back to the previous part). The agent's notes go below the user's after a `--- Shared across the parts (from the agent) ---` line and never replace them; the agent names the series only in its first outline. Outlines hold up to 20 parts (was 12, which made it merge topics) | Raised: the agent ignored a requested number of parts and titles, and a revision replaced parts added by hand |
 | 2026-11-03 | change | No length cap on context: the Projects context, the brief's notes, the series notes (and the agent's notes added to them) and outline/gate revision feedback have no 4000-character limit. "+ Add .md files" (`routes/ContextFiles.tsx`) next to the Projects context, the brief's Notes for the agent and the series notes reads Markdown or text files in the window and adds their text to the field, one file after another | Raised: "why put a cap on context? allow to upload md files no context cap" |
 | 2026-11-05 | 12.1 | Added Phase 12, feed mode. The user demonstrates the tutorial and a draft script is generated from it, skipping research. Targets are named on mousedown, in the page, because menus and quick picks act and disappear before a click or a probe from Node could see them. Locator uniqueness is counted with an approximation of Playwright's role and name rules; the dry run and the 12.2 agent pass catch where they differ. The agent splits the steps after capture rather than the user marking them while recording. The capture window is not kept on top, so the user can come back to Studio to finish | Raised: "recording and exploring takes more time… feed the clicks so it generates the Playwright script"; chose codegen plus an agent tidy pass, with the agent splitting the steps |
+| 2026-11-05 | 12.2 | Feed mode is stored on the run (`PipelineState.entry`), not read from the brief each time. A resumed run, or a storyboard revision, stays in feed mode and doesn't research, even if the brief changes meanwhile; this was planned for 12.3. The engine copies the draft into `script.spec.ts` before the stage, unless the agent has written it since, and the agent rewrites that file in place. `from_capture` runs on the writing model (Sonnet by default), not the deep one: it splits and tidies, it doesn't research. The capture locators were reworked after the first real demo in the WSO2 webviews: CSS paths stopped at shadow roots and left out generated classes, stable ids ranked high, a web component counted once, and positions used when nothing else is unique | Raised: the first UI test showed icon buttons sharing one wrong "unique" locator |

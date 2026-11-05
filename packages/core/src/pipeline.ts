@@ -7,6 +7,8 @@ import { z } from 'zod';
  */
 export const PipelineStage = z.enum([
   'plan',
+  /** Feed mode: the agent turns the user's captured demo into steps and a script. */
+  'from_capture',
   'storyboard_gate',
   'script',
   'dry_run',
@@ -23,6 +25,7 @@ export type PipelineStage = z.infer<typeof PipelineStage>;
 
 export const PIPELINE_STAGES: { stage: PipelineStage; label: string }[] = [
   { stage: 'plan', label: 'Research and plan' },
+  { stage: 'from_capture', label: 'Steps from your demo' },
   { stage: 'storyboard_gate', label: 'Plan review' },
   { stage: 'script', label: 'Write the script' },
   { stage: 'dry_run', label: 'Dry run' },
@@ -116,6 +119,9 @@ export const PipelineGates = z.object({
   narration: z.boolean().default(true),
 });
 
+export const PipelineEntry = z.enum(['plan', 'from_capture']);
+export type PipelineEntry = z.infer<typeof PipelineEntry>;
+
 export const PipelineState = z.object({
   slug: z.string(),
   status: PipelineStatus,
@@ -124,6 +130,11 @@ export const PipelineState = z.object({
   startedAt: z.number().nullable(),
   endedAt: z.number().nullable(),
   gates: PipelineGates.default({ storyboard: false, narration: true }),
+  /**
+   * Where the run started: `plan` (the agent researches and plans) or `from_capture` (feed
+   * mode: the steps and script come from the user's demo, and there is no script stage).
+   */
+  entry: PipelineEntry.default('plan'),
   gate: Gate.nullable(),
   plan: Plan.nullable(),
   history: z.array(StageRecord).default([]),

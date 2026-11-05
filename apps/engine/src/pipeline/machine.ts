@@ -1,9 +1,10 @@
 import { writeFileSync } from 'node:fs';
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { recapNarration } from '../seriesOutputs';
 import path from 'node:path';
 import {
   BRIEF_LENGTHS,
+  CaptureAction,
   idlePipeline,
   Plan,
   PipelineState,
@@ -15,6 +16,7 @@ import {
   type PipelineProgress,
   type ProgressItem,
   type PipelineStage,
+  type PipelineEntry,
   type Project,
   type Silence,
 } from '@studio/core';
@@ -28,6 +30,8 @@ import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
 import {
   alignInstruction,
+  captureReviseInstruction,
+  fromCaptureInstruction,
   narrateInstruction,
   trimInstruction,
   nudge,
@@ -197,7 +201,11 @@ export class PipelineManager {
     return state;
   }
 
-  async start(slug: string, gates: Partial<PipelineState['gates']> = {}): Promise<PipelineState> {
+  async start(
+    slug: string,
+    gates: Partial<PipelineState['gates']> = {},
+    entry: PipelineEntry = 'plan',
+  ): Promise<PipelineState> {
     await this.deps.store.open(slug);
     const cur = await this.get(slug);
     if (this.live.has(slug)) throw new RpcError('the pipeline is already running', 'bad_request');
@@ -208,9 +216,10 @@ export class PipelineManager {
       runId: `run-${Date.now().toString(36)}`,
       startedAt: Date.now(),
       gates: { ...cur.gates, ...gates },
+      entry,
       costAtStart: agent.costUsd,
     });
-    this.launch(slug, 'plan');
+    this.launch(slug, entry);
     return state;
   }
 
@@ -312,6 +321,24 @@ export class PipelineManager {
   /** Forgets a deleted project's pipeline (stop it first). */
   forget(slug: string): void {
     this.states.delete(slug);
+  }
+
+  /**
+   * Feed mode: the captured demo, with its draft copied into script.spec.ts for the agent to
+   * rewrite. Fails when nothing was captured.
+   */
+  private async capturedActions(slug: string): Promise<CaptureAction[]> {
+    const dir = path.join(this.deps.store.dir(slug), '.studio', 'capture');
+    const trace = await readFile(path.join(dir, 'trace.json'), 'utf8').catch(() => null);
+    if (!trace) throw new Error('there is no captured demo: open Demo it on the brief first');
+    const actions = CaptureAction.array().parse((JSON.parse(trace) as { actions: unknown }).actions);
+    if (!actions.length) throw new Error('the captured demo has no actions');
+    // A resumed stage keeps what the agent already wrote.
+    const script = path.join(this.deps.store.dir(slug), 'script.spec.ts');
+    const draft = path.join(dir, 'draft.spec.ts');
+    const [s, d] = await Promise.all([stat(script).catch(() => null), stat(draft)]);
+    if (!s || s.mtimeMs < d.mtimeMs) await copyFile(draft, script);
+    return actions;
   }
 
   /** `save_plan` from the agent. */
@@ -681,10 +708,37 @@ export class PipelineManager {
           stage = 'storyboard_gate';
           break;
         }
+        case 'from_capture': {
+          const brief = await this.deps.store.readBrief(slug).catch(() => null);
+          const actions = await this.capturedActions(slug);
+          await this.set(slug, { paced: false });
+          await this.deps.pace?.clear(slug);
+          await this.agentStageWithHelp(
+            slug,
+            live,
+            'from_capture',
+            fromCaptureInstruction({
+              actions,
+              explainers: (brief?.explainers ?? 'designed') !== 'off',
+              series: await this.inSeries(slug),
+            }),
+          );
+          if (!(await this.get(slug)).plan)
+            await this.agentStageWithHelp(
+              slug,
+              live,
+              'from_capture',
+              'You finished without saving the steps. Save them with save_plan, update script.spec.ts to match, then call stage_done.',
+            );
+          stage = 'storyboard_gate';
+          break;
+        }
         case 'storyboard_gate': {
           const state = await this.get(slug);
+          // Feed mode has no script stage: the script came with the steps.
+          const next = state.entry === 'from_capture' ? 'dry_run' : 'script';
           if (!state.gates.storyboard && !pending) {
-            stage = 'script';
+            stage = next;
             break;
           }
           let revised = false;
@@ -705,10 +759,12 @@ export class PipelineManager {
               break;
             }
             await this.end(slug, true, `Changes requested: ${d.feedback}`);
-            await this.agentStageWithHelp(slug, live, 'plan', reviseInstruction(d.feedback));
+            if (state.entry === 'from_capture')
+              await this.agentStageWithHelp(slug, live, 'from_capture', captureReviseInstruction(d.feedback));
+            else await this.agentStageWithHelp(slug, live, 'plan', reviseInstruction(d.feedback));
             revised = true;
           }
-          stage = 'script';
+          stage = next;
           break;
         }
         case 'script': {

@@ -3,7 +3,14 @@ import { Project, Rect, RecorderEvent, Segment, Take, Timeline, VoiceLine } from
 import { PieceEdit } from './pieces';
 import { TimelinePatch } from './patch';
 import { AgentEvent, AgentStatus } from './agent';
-import { PipelineGates, PipelineProgress, PipelineStage, PipelineState, PipelineStatus } from './pipeline';
+import {
+  PipelineEntry,
+  PipelineGates,
+  PipelineProgress,
+  PipelineStage,
+  PipelineState,
+  PipelineStatus,
+} from './pipeline';
 import { TimingFile } from './stepTiming';
 import { ClaudeSignIn, ProductConfig, ProductInfo, SetupItem, StudioSettings } from './settings';
 import { Pronunciation } from './pronounce';
@@ -551,7 +558,12 @@ export const rpcMethods = {
   'pipeline.get': { params: z.object({ slug: z.string() }), result: PipelineState },
   /** Starts (or restarts) the pipeline from the brief in the project's CLAUDE.md. */
   'pipeline.start': {
-    params: z.object({ slug: z.string(), gates: PipelineGates.partial().optional() }),
+    params: z.object({
+      slug: z.string(),
+      gates: PipelineGates.partial().optional(),
+      /** `from_capture` starts from the user's captured demo (feed mode) instead of planning. */
+      entry: PipelineEntry.default('plan'),
+    }),
     result: PipelineState,
   },
   /** Approves the waiting gate; the pipeline continues. */
