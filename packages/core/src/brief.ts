@@ -55,6 +55,21 @@ export const BRIEF_EXPLAINERS = [
 ] as const;
 export type ExplainerMode = (typeof BRIEF_EXPLAINERS)[number]['value'];
 
+/** How the steps are found: the agent explores the product, or the user demonstrates them (feed mode). */
+export const BRIEF_MODES = [
+  {
+    value: 'agent',
+    label: 'Agent explores',
+    text: 'The agent researches the product, plans the steps and writes the script.',
+  },
+  {
+    value: 'feed',
+    label: "I'll demo it",
+    text: 'You click through the tutorial once; the script is generated from your clicks.',
+  },
+] as const;
+export type BriefMode = (typeof BRIEF_MODES)[number]['value'];
+
 /** Starting points the recorder can build (script fixtures). */
 export const BRIEF_WORKSPACES = [
   {
@@ -89,6 +104,7 @@ export const Brief = z.object({
   audience: z.enum(values(BRIEF_AUDIENCES)).default('developer'),
   length: z.enum(values(BRIEF_LENGTHS)).default('medium'),
   style: z.enum(values(BRIEF_STYLES)).default('steps'),
+  mode: z.enum(values(BRIEF_MODES)).default('agent'),
   /** ElevenLabs voice id; null until voices are available (4.1). */
   voice: z.string().nullable().default(null),
   /** Briefs saved before the three-way choice stored a boolean: true reads as the default. */

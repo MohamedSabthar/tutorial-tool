@@ -23,6 +23,7 @@ import { TimelineSyncPage } from './pages/TimelineSyncPage';
 import { VoicePage } from './pages/VoicePage';
 import { ProjectsScreen } from './routes/projects/ProjectsScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
+import { CaptureScreen } from './routes/capture/CaptureScreen';
 import { SeriesScreen } from './routes/series/SeriesScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { RenderScreen } from './render/RenderScreen';
@@ -139,6 +140,8 @@ function Screen({ path }: { path: string }) {
   if (series) return <SeriesScreen key={series} slug={series} />;
   const brief = match(path, 'brief');
   if (brief) return <BriefScreen key={brief} slug={brief} />;
+  const capture = match(path, 'capture');
+  if (capture) return <CaptureScreen key={capture} slug={capture} />;
   const fix = match(path, 'agentfix');
   if (fix) {
     const run = Number(new URLSearchParams(path.split('?')[1] ?? '').get('run')) || null;

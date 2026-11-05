@@ -1,0 +1,211 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { describeAction, type CaptureAction, type CaptureStatus } from '@studio/core';
+import { Button, Chip, Panel, Title } from '@studio/ui';
+import { useEngine } from '../../engine';
+import { AppFrame, navigate } from '../frame';
+
+const time = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+function ActionRow({
+  a,
+  index,
+  onRemove,
+}: {
+  a: CaptureAction;
+  index: number;
+  onRemove: (() => void) | null;
+}) {
+  const best = 'locators' in a ? a.locators[0] : undefined;
+  return (
+    <li className="capture-action">
+      <span className="capture-action-n ui-mono">{index + 1}</span>
+      <span className="capture-action-main">
+        <span className="capture-action-text">{describeAction(a)}</span>
+        {best && (
+          <span className="capture-action-code ui-mono" title="The locator the draft script uses">
+            {a.kind !== 'press' && a.frame === 'webview' ? 'webview().' : 'page.'}
+            {best.code}
+          </span>
+        )}
+      </span>
+      <span className="capture-action-meta">
+        {'frame' in a && a.frame === 'webview' && <Chip tone="info">webview</Chip>}
+        {best && best.count > 1 && (
+          <Chip
+            tone="active"
+            title={`This locator matched ${best.count} elements; the agent will make it unique.`}
+          >
+            {best.count} matches
+          </Chip>
+        )}
+        {'locators' in a && !best && <Chip tone="active">no locator</Chip>}
+        <span className="ui-mono capture-action-t">{time(a.t)}</span>
+        {onRemove && (
+          <button
+            type="button"
+            className="capture-remove"
+            aria-label={`Remove step ${index + 1}`}
+            onClick={onRemove}
+          >
+            ×
+          </button>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * Feed mode: the product opens on the project's fixture and the user clicks through the
+ * tutorial; each action appears here as it's captured. Finish saves the capture and a draft
+ * script generated from it.
+ */
+export function CaptureScreen({ slug }: { slug: string }) {
+  const { client, state: conn } = useEngine();
+  const [status, setStatus] = useState<CaptureStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  const started = useRef(false);
+  const list = useRef<HTMLOListElement>(null);
+
+  const run = useCallback(async (what: string, fn: () => Promise<void>) => {
+    setBusy(what);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+
+  const start = useCallback(
+    () =>
+      run('start', async () => {
+        if (!client) return;
+        setSaved(null);
+        setStatus(await client.call('capture.start', { slug }));
+      }),
+    [client, run, slug],
+  );
+
+  useEffect(() => {
+    if (!client || conn !== 'open') return;
+    const off = client.on('capture.changed', (s) => {
+      if (s.slug === slug) setStatus(s);
+    });
+    void client.call('capture.get', { slug }).then((s) => {
+      setStatus(s);
+      // Opened from the brief's "Demo it": start right away, unless a capture is already saved.
+      if (s.state === 'idle' && s.actions.length === 0 && !started.current) {
+        started.current = true;
+        void start();
+      }
+    });
+    return off;
+  }, [client, conn, slug, start]);
+
+  const count = status?.actions.length ?? 0;
+  useEffect(() => {
+    list.current?.lastElementChild?.scrollIntoView({ block: 'nearest' });
+  }, [count]);
+
+  const open = status?.state === 'capturing' || status?.state === 'ended';
+  const remove = (id: string) =>
+    void run('remove', async () => {
+      setStatus(await client!.call('capture.remove', { slug, ids: [id] }));
+    });
+  const finish = () =>
+    void run('finish', async () => {
+      const r = await client!.call('capture.finish', { slug });
+      setStatus(r.status);
+      setSaved(r.scriptPath);
+    });
+  const cancel = () =>
+    void run('cancel', async () => {
+      await client!.call('capture.discard', { slug });
+      navigate(`/brief/${slug}`);
+    });
+
+  return (
+    <AppFrame
+      current="projects"
+      slug={slug}
+      project="brief"
+      footer={
+        <>
+          {error && (
+            <span role="alert" className="app-error" style={{ marginRight: 'auto' }}>
+              {error}
+            </span>
+          )}
+          <Button size="lg" variant="ghost" disabled={!!busy} onClick={cancel}>
+            Cancel
+          </Button>
+          <Button size="lg" disabled={!!busy || status?.state === 'launching'} onClick={() => void start()}>
+            {busy === 'start' ? 'Opening…' : 'Start over'}
+          </Button>
+          <Button size="lg" variant="primary" disabled={!!busy || !open || count === 0} onClick={finish}>
+            {busy === 'finish' ? 'Saving…' : 'Finish'}
+          </Button>
+        </>
+      }
+    >
+      <div className="brief capture">
+        <div className="brief-form capture-main">
+          <Title size={30} dot={false}>
+            Demo the tutorial
+          </Title>
+          <p className="capture-status" role="status">
+            {status?.state === 'launching' && <Chip tone="info">Opening</Chip>}
+            {status?.state === 'capturing' && <Chip tone="ok">Capturing</Chip>}
+            {status?.state === 'ended' && <Chip>Window closed</Chip>}
+            <span>
+              {saved
+                ? `Saved ${count} action${count === 1 ? '' : 's'} and a draft script.`
+                : (status?.message ?? (conn === 'open' ? 'Loading…' : 'Waiting for the engine…'))}
+            </span>
+          </p>
+          {saved && (
+            <div className="capture-saved">
+              <span className="ui-mono">{saved}</span>
+              <Button
+                size="sm"
+                onClick={() => void client?.call('project.reveal', { slug, path: saved }).catch(() => {})}
+              >
+                Show in Finder
+              </Button>
+            </div>
+          )}
+          {count === 0 ? (
+            <p className="capture-empty">
+              {status?.state === 'capturing'
+                ? 'Your clicks, typing and shortcuts appear here as you make them.'
+                : 'Nothing captured yet.'}
+            </p>
+          ) : (
+            <ol className="capture-list" ref={list} aria-label="Captured actions">
+              {status!.actions.map((a, i) => (
+                <ActionRow key={a.id} a={a} index={i} onRemove={open && !busy ? () => remove(a.id) : null} />
+              ))}
+            </ol>
+          )}
+        </div>
+        <aside className="brief-side">
+          <Panel title="How it works" tone="dark">
+            <ol className="brief-next">
+              <li>The product opens on the tutorial&rsquo;s starting project.</li>
+              <li>
+                Click through the tutorial once, at any pace. Leave out anything you don&rsquo;t want shown.
+              </li>
+              <li>Remove misclicks here with ×.</li>
+              <li>Press Finish. Your clicks become a draft script; passwords are never captured.</li>
+            </ol>
+          </Panel>
+        </aside>
+      </div>
+    </AppFrame>
+  );
+}

@@ -112,6 +112,10 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 11.4 Where each part starts
   - [x] 11.5 Series in the outputs
   - [x] 11.6 Explainers designed by the agent
+- [ ] **Phase 12: Feed mode (record from the user's clicks)**
+  - [x] 12.1 Capture and codegen
+  - [ ] 12.2 The `from_capture` stage
+  - [ ] 12.3 Polish
 
 ---
 
@@ -836,6 +840,38 @@ The user describes what a series is about. The agent proposes an outline of part
 
 ---
 
+## Phase 12: Feed mode (record from the user's clicks)
+Researching the product and writing the script are the slowest stages. In feed mode the user demonstrates the tutorial once in the product, and the script comes from what they did. The brief chooses: **Agent explores** (as now) or **I'll demo it**.
+
+### 12.1 Capture and codegen
+- **Brief:** a "How" row with Agent explores / I'll demo it (`brief.mode`, default `agent`). In feed mode the start button is **Demo it**, the "What the agent already knows" panel is hidden and "What happens next" describes the feed flow.
+- **Capture** (`packages/recorder/src/capture/`):
+  - `openCapture` opens the product on the project's fixture (or a series part's start) through `launchFixture`, without keeping it on top.
+  - A listener injected into every frame (`inject.ts`, through `exposeBinding` and `addInitScript`) reports mousedowns, typing and special keys and chords. For each target it gives candidate locators (role and name, label, placeholder, test id, text, CSS) with their match counts, taken in the page while the element is still there.
+  - Typing into a field becomes one action when the user moves on. It is marked `clear` when it replaced text and `insert` for Monaco. Password values are never sent.
+  - Webview targets are tagged `webview` and their boxes moved into window space. A screenshot is taken after each action.
+- **Codegen** (`codegen.ts`): `captureToScript` writes a draft `script.spec.ts`. All the actions go in one step, using the best locator (`.first()` and a comment when it wasn't unique). A click straight before typing into the same field is dropped.
+- **Engine:** `Runner.startCapture/removeCaptured/finishCapture/discardCapture` hold the product window like a run does. RPC `capture.start|get|remove|finish|discard`, event `capture.changed`. Finish saves `.studio/capture/{trace.json,draft.spec.ts,shots/}`.
+- **Capture screen** (`#/capture/<slug>`): opens the product right away and lists each action live, with its locator, a webview or "N matches" chip and × to remove it. Footer buttons: Cancel, Start over, Finish. After Finish it shows the draft's path and a "Show in Finder" button.
+
+**Done when:** Demo it opens the product, each click and typed value appears in the list as it happens, × removes one, and Finish writes the trace and a draft script that loads.
+
+### 12.2 The `from_capture` stage
+- `pipeline.start` takes `entry: 'plan' | 'from_capture'`. The new `from_capture` stage gives the agent the capture (actions, draft and screenshots). The agent splits the actions into titled steps (`save_plan`) and rewrites the draft with the skill's page objects, keeping the step ids, then calls `stage_done`. It researches nothing except a single `inspect_ui` probe for a locator that fails.
+- `script` is skipped. Next comes `storyboard_gate` if it is on, otherwise `dry_run`; `repair` handles what fails.
+- Finish on the Capture screen starts the pipeline and goes to the storyboard.
+
+**Done when:** Finish leads to a storyboard with steps the agent split, and the dry run passes.
+
+### 12.3 Polish
+- The pipeline remembers feed mode, so Resume and Restart do not research.
+- Secrets in the draft come from the fixture or a prompt, not a TODO.
+- Live and the Projects card show "Capturing".
+
+**Done when:** a feed-mode tutorial goes from Demo it to an exported video with no research turn.
+
+---
+
 ## Cross-cutting checklists
 
 **Every step:**
@@ -1031,3 +1067,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-11-02 | feature | Context with the title: "+ Add context" under the Projects prompt opens an optional field (up to 4000 characters) for both modes. A single tutorial saves it as the brief's "Notes for the agent" (rendered into Constraints in CLAUDE.md). A series saves it as its notes, which the outline agent reads and every part's Series section carries (`series.create` takes `notes`). Both can be edited later in the same places | Raised: "Allow to add context, with the title, for series and normal project" |
 | 2026-11-03 | fix | The series outline agent follows the user: the topic, notes and revision feedback are instructions (exact part count, titles and order; 3 to 8 parts only when unsaid). With parts on the outline, planning keeps them: the agent sees each part's id, changes only what is asked (or only fills gaps when there's no feedback), and `save_series_plan` takes an `id` per part so kept parts keep their id and start (a start from a dropped or later part goes back to the previous part). The agent's notes go below the user's after a `--- Shared across the parts (from the agent) ---` line and never replace them; the agent names the series only in its first outline. Outlines hold up to 20 parts (was 12, which made it merge topics) | Raised: the agent ignored a requested number of parts and titles, and a revision replaced parts added by hand |
 | 2026-11-03 | change | No length cap on context: the Projects context, the brief's notes, the series notes (and the agent's notes added to them) and outline/gate revision feedback have no 4000-character limit. "+ Add .md files" (`routes/ContextFiles.tsx`) next to the Projects context, the brief's Notes for the agent and the series notes reads Markdown or text files in the window and adds their text to the field, one file after another | Raised: "why put a cap on context? allow to upload md files no context cap" |
+| 2026-11-05 | 12.1 | Added Phase 12, feed mode. The user demonstrates the tutorial and a draft script is generated from it, skipping research. Targets are named on mousedown, in the page, because menus and quick picks act and disappear before a click or a probe from Node could see them. Locator uniqueness is counted with an approximation of Playwright's role and name rules; the dry run and the 12.2 agent pass catch where they differ. The agent splits the steps after capture rather than the user marking them while recording. The capture window is not kept on top, so the user can come back to Studio to finish | Raised: "recording and exploring takes more time… feed the clicks so it generates the Playwright script"; chose codegen plus an agent tidy pass, with the agent splitting the steps |

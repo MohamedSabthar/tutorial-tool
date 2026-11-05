@@ -3,6 +3,7 @@ import {
   BRIEF_AUDIENCES,
   BRIEF_EXPLAINERS,
   BRIEF_LENGTHS,
+  BRIEF_MODES,
   BRIEF_STYLES,
   BRIEF_WORKSPACES,
   Brief,
@@ -193,6 +194,16 @@ export function BriefScreen({ slug }: { slug: string }) {
       navigate(`/storyboard/${slug}`);
     });
 
+  // Feed mode: the user demonstrates the tutorial; the pipeline starts from the capture.
+  const demo = () =>
+    run('start', async () => {
+      if (!client || !brief) return;
+      if (!brief.goal.trim()) throw new Error('Say what the viewer should learn first.');
+      await persist();
+      navigate(`/capture/${slug}`);
+    });
+  const feed = brief?.mode === 'feed';
+
   const relevant = coverage?.items.filter((i) => i.relevant) ?? [];
   const productName = products.find((p) => p.id === project?.product)?.name ?? project?.product ?? '';
 
@@ -232,9 +243,9 @@ export function BriefScreen({ slug }: { slug: string }) {
             size="lg"
             variant="primary"
             disabled={!brief || !!busy}
-            onClick={() => void planAndRecord()}
+            onClick={() => void (feed ? demo() : planAndRecord())}
           >
-            {busy === 'start' ? 'Starting…' : 'Plan and record'}
+            {busy === 'start' ? 'Starting…' : feed ? 'Demo it' : 'Plan and record'}
           </Button>
         </>
       }
@@ -290,6 +301,7 @@ export function BriefScreen({ slug }: { slug: string }) {
             </div>
             {(
               [
+                ['How', BRIEF_MODES, 'mode'],
                 ['Audience', BRIEF_AUDIENCES, 'audience'],
                 ['Length', BRIEF_LENGTHS, 'length'],
                 ['Style', BRIEF_STYLES, 'style'],
@@ -308,6 +320,9 @@ export function BriefScreen({ slug }: { slug: string }) {
                   <span className="series-hint">
                     {BRIEF_EXPLAINERS.find((o) => o.value === brief.explainers)?.text}
                   </span>
+                )}
+                {key === 'mode' && (
+                  <span className="series-hint">{BRIEF_MODES.find((o) => o.value === brief.mode)?.text}</span>
                 )}
               </div>
             ))}
@@ -489,56 +504,74 @@ export function BriefScreen({ slug }: { slug: string }) {
             )}
           </Panel>
 
-          <Panel title="What the agent already knows">
-            {!coverage ? (
-              <span className="brief-muted">Checking the knowledge base…</span>
-            ) : !coverage.skill ? (
-              <span className="brief-muted">
-                There is no skill for this product yet. The agent will research every step.
-              </span>
-            ) : (
-              <>
-                {coverage.items.length === 0 && (
-                  <span className="brief-muted">The {coverage.skill} skill has no component notes yet.</span>
-                )}
-                <ul className="brief-coverage">
-                  {coverage.items.map((c) => (
-                    <li key={c.name} data-relevant={c.relevant ? 'true' : undefined}>
-                      <span className="ui-mono" title={c.title}>
-                        {c.name}
-                      </span>
-                      <span style={{ display: 'flex', gap: 6 }}>
-                        {c.relevant && <Chip tone="info">likely used</Chip>}
-                        {c.lastVerified ? (
-                          <Chip tone="ok" title={`Last verified ${c.lastVerified}`}>
-                            verified
-                          </Chip>
-                        ) : (
-                          <Chip>unverified</Chip>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <span className={relevant.length ? 'brief-coverage-ok' : 'brief-muted'}>
-                  {!goal.trim()
-                    ? 'Describe the goal to see which notes apply.'
-                    : relevant.length
-                      ? `${relevant.length} note${relevant.length === 1 ? ' matches' : 's match'} this goal. Steps outside ${relevant.length === 1 ? 'it' : 'them'} are researched in the product before planning.`
-                      : 'No notes match this goal yet. The agent researches it in the product before planning.'}
+          {!feed && (
+            <Panel title="What the agent already knows">
+              {!coverage ? (
+                <span className="brief-muted">Checking the knowledge base…</span>
+              ) : !coverage.skill ? (
+                <span className="brief-muted">
+                  There is no skill for this product yet. The agent will research every step.
                 </span>
-              </>
-            )}
-          </Panel>
+              ) : (
+                <>
+                  {coverage.items.length === 0 && (
+                    <span className="brief-muted">
+                      The {coverage.skill} skill has no component notes yet.
+                    </span>
+                  )}
+                  <ul className="brief-coverage">
+                    {coverage.items.map((c) => (
+                      <li key={c.name} data-relevant={c.relevant ? 'true' : undefined}>
+                        <span className="ui-mono" title={c.title}>
+                          {c.name}
+                        </span>
+                        <span style={{ display: 'flex', gap: 6 }}>
+                          {c.relevant && <Chip tone="info">likely used</Chip>}
+                          {c.lastVerified ? (
+                            <Chip tone="ok" title={`Last verified ${c.lastVerified}`}>
+                              verified
+                            </Chip>
+                          ) : (
+                            <Chip>unverified</Chip>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <span className={relevant.length ? 'brief-coverage-ok' : 'brief-muted'}>
+                    {!goal.trim()
+                      ? 'Describe the goal to see which notes apply.'
+                      : relevant.length
+                        ? `${relevant.length} note${relevant.length === 1 ? ' matches' : 's match'} this goal. Steps outside ${relevant.length === 1 ? 'it' : 'them'} are researched in the product before planning.`
+                        : 'No notes match this goal yet. The agent researches it in the product before planning.'}
+                  </span>
+                </>
+              )}
+            </Panel>
+          )}
 
           <Panel title="What happens next" tone="dark">
             <ol className="brief-next">
-              <li>
-                Research anything new, then plan the steps
-                {brief && brief.explainers !== 'off' ? ' and propose explainers' : ''}
-              </li>
+              {feed ? (
+                <>
+                  <li>You click through the tutorial once in {productName || 'the product'}</li>
+                  <li>
+                    The agent splits your clicks into steps
+                    {brief && brief.explainers !== 'off' ? ' and proposes explainers' : ''}
+                  </li>
+                </>
+              ) : (
+                <li>
+                  Research anything new, then plan the steps
+                  {brief && brief.explainers !== 'off' ? ' and propose explainers' : ''}
+                </li>
+              )}
               {brief?.gates.storyboard && <li>Plan review (your gate)</li>}
-              <li>Write the script and dry-run it until every step works</li>
+              <li>
+                {feed
+                  ? 'Turn your clicks into the script and dry-run it until every step works'
+                  : 'Write the script and dry-run it until every step works'}
+              </li>
               <li>Narration{brief?.gates.narration ? ', then the storyboard review (your gate)' : ''}</li>
               <li>Voice-over, then the script is aligned to it</li>
               <li>Record, paced to the voice-over</li>

@@ -12,6 +12,7 @@ import { PartStatus, Series, SeriesEdit } from './series';
 import { Run } from './runs';
 import { ExplainerJob } from './explainers';
 import { ExportPlan, ExportSettings, ExportState } from './export';
+import { CaptureStatus } from './capture';
 
 /** A component in the shared overlay library (`overlays/index.json`). */
 export const LibraryEntry = z.object({
@@ -473,6 +474,21 @@ export const rpcMethods = {
     }),
   },
   'recorder.stop': { params: z.object({}), result: z.object({ stopping: z.boolean() }) },
+  /** Feed mode: opens the product on the project's fixture and captures what the user does there. */
+  'capture.start': { params: z.object({ slug: z.string() }), result: CaptureStatus },
+  'capture.get': { params: z.object({ slug: z.string() }), result: CaptureStatus },
+  /** Drops captured actions (misclicks). */
+  'capture.remove': {
+    params: z.object({ slug: z.string(), ids: z.array(z.string()).min(1) }),
+    result: CaptureStatus,
+  },
+  /** Closes the product and saves the capture and a draft script.spec.ts. */
+  'capture.finish': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({ status: CaptureStatus, scriptPath: z.string() }),
+  },
+  /** Closes the product and forgets the capture. */
+  'capture.discard': { params: z.object({ slug: z.string() }), result: CaptureStatus },
   'overlays.info': { params: z.object({}), result: z.object({ url: z.string() }) },
   'overlays.list': {
     params: z.object({ slug: z.string().optional() }),
@@ -670,6 +686,8 @@ export const rpcEvents = {
   /** Item-by-item progress of the running stage (the voice-over's lines, post-production). */
   'pipeline.progress': PipelineProgress,
   'live.session': LiveSession,
+  /** Feed mode: the capture's state and actions so far. */
+  'capture.changed': CaptureStatus,
 } as const;
 export type RpcEvent = keyof typeof rpcEvents;
 export type RpcEventData<E extends RpcEvent> = z.output<(typeof rpcEvents)[E]>;

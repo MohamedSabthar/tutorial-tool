@@ -16,3 +16,5 @@ export * from './script';
 export * from './inspect';
 export * from './launch/signin';
 export * from './camera';
+export * from './capture/codegen';
+export * from './capture/session';

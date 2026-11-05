@@ -27,3 +27,4 @@ export * from './stepTiming';
 export * from './sfx';
 export * from './pieces';
 export * from './silences';
+export * from './capture';

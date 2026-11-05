@@ -1,7 +1,17 @@
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { RecorderEvent } from '@studio/core';
+import type { CaptureAction, CaptureStatus, RecorderEvent } from '@studio/core';
 import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
-import { defaultFixture, loadScript, openInspector, type Inspector } from '@studio/recorder/node';
+import {
+  captureToScript,
+  defaultFixture,
+  loadScript,
+  openCapture,
+  openInspector,
+  type CaptureSession,
+  type Inspector,
+  type ScriptFixture,
+} from '@studio/recorder/node';
 import type { SeriesStarts } from './seriesStarts';
 import type { ProjectStore } from './projects';
 import { runProjectScript, type ProjectRunResult, type RunMode } from './recording';
@@ -19,6 +29,14 @@ export class Runner {
   private busyWith: string | null = null;
   private abort: AbortController | null = null;
   private inspector: { slug: string; inspector: Inspector; timer: NodeJS.Timeout } | null = null;
+  /** Feed mode: the open capture. It holds the product window until finished or discarded. */
+  private capture: {
+    slug: string;
+    title: string;
+    fixture: ScriptFixture;
+    status: CaptureStatus;
+    session: CaptureSession | null;
+  } | null = null;
 
   constructor(
     private store: ProjectStore,
@@ -200,8 +218,168 @@ export class Runner {
     return true;
   }
 
+  // ---- Feed mode: capture -----------------------------------------------------------------
+
+  /** Where a project's capture lives: trace.json, draft.spec.ts and shots/. */
+  captureDir(slug: string): string {
+    return path.join(this.store.dir(slug), '.studio', 'capture');
+  }
+
+  private setCapture(patch: Partial<CaptureStatus>) {
+    const c = this.capture;
+    if (!c) return;
+    c.status = { ...c.status, ...patch };
+    this.broadcast('capture.changed', c.status);
+  }
+
+  /** The project's capture: the open one, or what the last finished capture saved. */
+  async captureStatus(slug: string): Promise<CaptureStatus> {
+    if (this.capture?.slug === slug) return this.capture.status;
+    const actions = await readFile(path.join(this.captureDir(slug), 'trace.json'), 'utf8')
+      .then((t) => JSON.parse(t) as { actions: CaptureAction[] })
+      .then((t) => t.actions)
+      .catch(() => [] as CaptureAction[]);
+    return { slug, state: 'idle', message: null, actions };
+  }
+
+  /**
+   * Opens the product on the project's fixture (or a series part's start) and captures what
+   * the user does. Returns once the window is up; actions arrive as `capture.changed`.
+   */
+  async startCapture(slug: string): Promise<CaptureStatus> {
+    if (this.capture?.slug === slug && this.capture.status.state !== 'ended') return this.capture.status;
+    if (this.capture) await this.discardCapture(this.capture.slug);
+    if (this.busyWith) throw new RpcError(`the recorder is busy (${this.busyWith})`, 'bad_request');
+    await this.closeInspector();
+    const { project } = await this.store.open(slug);
+    const mod = await loadScript(path.join(this.store.dir(slug), 'script.spec.ts')).catch(() => null);
+    const fixture = mod?.fixture ?? defaultFixture(project.product);
+    const title = `Capturing ${project.title}`;
+    const dir = this.captureDir(slug);
+    await rm(dir, { recursive: true, force: true });
+    await mkdir(dir, { recursive: true });
+    this.busyWith = title;
+    this.capture = {
+      slug,
+      title,
+      fixture,
+      session: null,
+      status: { slug, state: 'launching', message: 'Opening the product…', actions: [] },
+    };
+    this.broadcast('capture.changed', this.capture.status);
+    const cb = this.liveCallbacks(title, 'dry', slug);
+    try {
+      cb.onStage('launch');
+      const startFrom = (await this.starts?.forRun(slug))?.startFrom;
+      const session = await openCapture(fixture, {
+        product: project.product,
+        ...(startFrom ? { startFrom } : {}),
+        shotsDir: path.join(dir, 'shots'),
+        onProgress: (message) => {
+          cb.onProgress(message);
+          if (this.capture?.slug === slug && this.capture.status.state === 'launching')
+            this.setCapture({ message });
+        },
+        onFrame: cb.onFrame,
+        onChange: (actions) => {
+          if (this.capture?.slug === slug) this.setCapture({ actions });
+        },
+        onClosed: () => {
+          if (this.capture?.slug !== slug) return;
+          this.setCapture({ state: 'ended', message: 'The product window was closed.' });
+          this.capture.session = null;
+          this.releaseCapture();
+        },
+      });
+      if (this.capture?.slug !== slug) {
+        // Discarded while it opened.
+        await session.close();
+        throw new RpcError('the capture was cancelled', 'bad_request');
+      }
+      this.capture.session = session;
+      cb.onStage('run');
+      this.setCapture({
+        state: 'capturing',
+        message: `${project.title} is open: click through the tutorial, then come back and press Finish.`,
+      });
+      return this.capture.status;
+    } catch (e) {
+      cb.onStage('failed');
+      if (this.capture?.slug === slug) this.capture = null;
+      this.releaseCapture();
+      this.broadcast('capture.changed', {
+        slug,
+        state: 'idle',
+        message: e instanceof Error ? e.message : String(e),
+        actions: [],
+      });
+      throw e;
+    }
+  }
+
+  private releaseCapture() {
+    if (this.busyWith?.startsWith('Capturing')) this.busyWith = null;
+    this.abort = null;
+    this.emitSession({ state: 'stopped', title: 'Capture', mode: 'dry', frame: null, slug: null });
+  }
+
+  removeCaptured(slug: string, ids: string[]): CaptureStatus {
+    const c = this.capture;
+    if (c?.slug !== slug) throw new RpcError('no capture is open for this project', 'bad_request');
+    if (c.session) c.session.remove(ids);
+    else {
+      const drop = new Set(ids);
+      this.setCapture({ actions: c.status.actions.filter((a) => !drop.has(a.id)) });
+    }
+    return c.status;
+  }
+
+  /** Closes the product and saves the capture and a draft script from it. */
+  async finishCapture(slug: string): Promise<{ status: CaptureStatus; scriptPath: string }> {
+    const c = this.capture;
+    if (c?.slug !== slug) throw new RpcError('no capture is open for this project', 'bad_request');
+    const actions = c.session ? await c.session.finish() : c.status.actions;
+    c.session = null;
+    this.capture = null;
+    this.releaseCapture();
+    const { project } = await this.store.open(slug);
+    const dir = this.captureDir(slug);
+    const capturedAt = new Date().toISOString().slice(0, 10);
+    await writeFile(
+      path.join(dir, 'trace.json'),
+      `${JSON.stringify({ capturedAt, fixture: c.fixture, actions }, null, 2)}\n`,
+    );
+    await writeFile(
+      path.join(dir, 'draft.spec.ts'),
+      captureToScript(actions, c.fixture, { title: project.title, capturedAt }),
+    );
+    const status: CaptureStatus = {
+      slug,
+      state: 'idle',
+      message: `Saved ${actions.length} action${actions.length === 1 ? '' : 's'}.`,
+      actions,
+    };
+    this.broadcast('capture.changed', status);
+    return { status, scriptPath: '.studio/capture/draft.spec.ts' };
+  }
+
+  async discardCapture(slug: string): Promise<CaptureStatus> {
+    const c = this.capture;
+    const status: CaptureStatus = { slug, state: 'idle', message: null, actions: [] };
+    if (c?.slug === slug) {
+      this.capture = null;
+      await c.session?.close().catch(() => {});
+      this.releaseCapture();
+      await rm(this.captureDir(slug), { recursive: true, force: true });
+    }
+    this.broadcast('capture.changed', status);
+    return status;
+  }
+
   async close(): Promise<void> {
     this.stop();
     await this.closeInspector().catch(() => {});
+    await this.capture?.session?.close().catch(() => {});
+    this.capture = null;
   }
 }

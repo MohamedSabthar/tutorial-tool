@@ -957,6 +957,12 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return { opened };
     },
     'recorder.stop': async () => ({ stopping: runner.stop() || (await runner.closeInspector()) }),
+    'capture.start': async ({ slug }: { slug: string }) => runner.startCapture(slug),
+    'capture.get': async ({ slug }: { slug: string }) => runner.captureStatus(slug),
+    'capture.remove': async ({ slug, ids }: { slug: string; ids: string[] }) =>
+      runner.removeCaptured(slug, ids),
+    'capture.finish': async ({ slug }: { slug: string }) => runner.finishCapture(slug),
+    'capture.discard': async ({ slug }: { slug: string }) => runner.discardCapture(slug),
     ping: async ({ sentAt }: { sentAt: number }) => ({
       sentAt,
       engineVersion: ENGINE_VERSION,
