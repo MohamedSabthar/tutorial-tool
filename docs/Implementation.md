@@ -864,8 +864,9 @@ Researching the product and writing the script are the slowest stages. In feed m
 **Done when:** Finish leads to a storyboard with steps the agent split, and the dry run passes.
 
 ### 12.3 Polish
-- Secrets in the draft come from the fixture or a prompt, not a TODO.
-- Live and the Projects card show "Capturing".
+- A password field's value is never captured. The `from_capture` instruction has the agent use the fixture's or the skill's test credentials, or ask the user (`stage_done` with `ok: false`), instead of leaving a TODO.
+- The project card shows "Capturing your demo" and opens the Capture screen while a capture is open (`ProjectSummary.capturing`). Live labels the run stage "Capture your demo".
+- (Done in 12.2: the run keeps `entry`, so Resume and storyboard revisions stay in feed mode.)
 
 **Done when:** a feed-mode tutorial goes from Demo it to an exported video with no research turn.
 

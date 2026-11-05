@@ -18,6 +18,7 @@ export async function projectCard(
   dir: string,
   timeline: Timeline | null,
   pipeline: PipelineState,
+  capturing = false,
 ): Promise<ProjectSummary> {
   const take = timeline?.takes.at(-1) ?? null;
   // Projects recorded before scenes were derived from takes have an empty timeline: use the take.
@@ -46,5 +47,6 @@ export async function projectCard(
     duration: duration && duration > 0 ? duration : null,
     poster: poster && `/media/${project.slug}/${poster}`,
     pipeline: { status: pipeline.status, stage: pipeline.stage },
+    capturing,
   };
 }

@@ -220,6 +220,12 @@ export class Runner {
 
   // ---- Feed mode: capture -----------------------------------------------------------------
 
+  /** The project has a capture open (launching or capturing). */
+  capturing(slug: string): boolean {
+    const c = this.capture;
+    return c?.slug === slug && (c.status.state === 'launching' || c.status.state === 'capturing');
+  }
+
   /** Where a project's capture lives: trace.json, draft.spec.ts and shots/. */
   captureDir(slug: string): string {
     return path.join(this.store.dir(slug), '.studio', 'capture');
@@ -228,8 +234,11 @@ export class Runner {
   private setCapture(patch: Partial<CaptureStatus>) {
     const c = this.capture;
     if (!c) return;
+    const was = c.status.state;
     c.status = { ...c.status, ...patch };
     this.broadcast('capture.changed', c.status);
+    // The Projects card shows "Capturing" while it lasts.
+    if (c.status.state !== was) this.broadcast('project.changed', { slug: c.slug });
   }
 
   /** The project's capture: the open one, or what the last finished capture saved. */
@@ -360,6 +369,7 @@ export class Runner {
       actions,
     };
     this.broadcast('capture.changed', status);
+    this.broadcast('project.changed', { slug });
     return { status, scriptPath: '.studio/capture/draft.spec.ts' };
   }
 
@@ -373,6 +383,7 @@ export class Runner {
       await rm(this.captureDir(slug), { recursive: true, force: true });
     }
     this.broadcast('capture.changed', status);
+    this.broadcast('project.changed', { slug });
     return status;
   }
 

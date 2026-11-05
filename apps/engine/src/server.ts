@@ -982,6 +982,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
               () => null,
             ),
             await pipeline.get(p.slug),
+            runner.capturing(p.slug),
           ),
         ),
       ),

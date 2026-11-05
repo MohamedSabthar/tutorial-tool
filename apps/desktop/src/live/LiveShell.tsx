@@ -338,8 +338,10 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
     await client.call('agent.send', { slug: agent.slug, text }).catch(() => {});
   }
 
+  // Feed mode: the user is driving the product, not a script.
+  const capturing = session?.title.startsWith('Capturing') ?? false;
   const pipelineSteps = PIPELINE.map((p) => ({
-    label: p.label,
+    label: capturing && p.stage === 'run' ? 'Capture your demo' : p.label,
     sub:
       p.stage === 'encode' && session?.mode === 'dry'
         ? 'skipped in dry runs'

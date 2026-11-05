@@ -56,6 +56,8 @@ export const ProjectSummary = Project.extend({
   /** Poster URL path on the engine (needs the token), null before the first take. */
   poster: z.string().nullable(),
   pipeline: z.object({ status: PipelineStatus, stage: PipelineStage.nullable() }),
+  /** Feed mode: the product is open and capturing the user's demo for this project. */
+  capturing: z.boolean().default(false),
 });
 export type ProjectSummary = z.infer<typeof ProjectSummary>;
 

@@ -48,6 +48,7 @@ export function partLabel(p: ProjectSummary, series: readonly Series[]): string 
 
 /** Where a project card leads: the screen for the stage the tutorial is in. */
 export function projectRoute(p: ProjectSummary): string {
+  if (p.capturing) return `/capture/${p.slug}`;
   if (p.pipeline.status === 'running' || p.pipeline.status === 'waiting') return `/storyboard/${p.slug}`;
   if (p.duration !== null) return `/studio/${p.slug}`;
   if (p.status === 'draft') return `/brief/${p.slug}`;
@@ -55,6 +56,7 @@ export function projectRoute(p: ProjectSummary): string {
 }
 
 export function projectChip(p: ProjectSummary): { label: string; tone: ChipTone } {
+  if (p.capturing) return { label: 'Capturing your demo', tone: 'info' };
   if (p.pipeline.status === 'waiting' && p.pipeline.stage === 'storyboard_gate')
     return { label: 'Storyboard review', tone: 'info' };
   if (p.pipeline.status === 'waiting' && p.pipeline.stage === 'narrate')
