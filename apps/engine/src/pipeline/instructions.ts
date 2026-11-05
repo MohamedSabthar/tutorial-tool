@@ -1,5 +1,6 @@
 import {
   describeAction,
+  needsReview,
   type CaptureAction,
   type Pace,
   type Plan,
@@ -40,20 +41,25 @@ export function planInstruction(
     .join('\n\n');
 }
 
-/** One line per captured action for the agent: what, where, the locator used, and its screenshot. */
+/**
+ * One line per captured action for the agent: what, where, the locator used, its marked shot,
+ * and REVIEW when it needs judging (hovers, scrolls, drags, weak locators).
+ */
 export function captureLines(actions: CaptureAction[]): string {
   return actions
     .map((a) => {
       const parts = [`${a.id} (${a.t.toFixed(1)} s) · ${describeAction(a)}`];
-      if (a.kind !== 'press') {
+      if ('locators' in a) {
         const best = a.locators[0];
         parts.push(a.frame);
-        if (best)
-          parts.push(
-            `${a.frame === 'webview' ? 'webview().' : 'page.'}${best.code}${best.count > 1 ? ` (matched ${best.count})` : ''}`,
-          );
-        else parts.push('no locator');
+        parts.push(
+          best
+            ? `${a.frame === 'webview' ? 'webview().' : 'page.'}${best.code}${best.count > 1 ? ` (matched ${best.count})` : ''}`
+            : 'no locator',
+        );
       }
+      if (a.shot) parts.push(`shots/${a.shot}`);
+      if (needsReview(a)) parts.push('REVIEW');
       return `- ${parts.join(' · ')}`;
     })
     .join('\n');
@@ -70,7 +76,8 @@ export function fromCaptureInstruction(input: {
 }): string {
   return [
     '[Pipeline · steps from the demo]',
-    "The user demonstrated this tutorial in the product instead of having you research it (feed mode). Their actions, in order, are below. script.spec.ts in this project is a draft generated from them: every action in one step, with the locators as captured. Each action's screenshot, taken just after it, is `.studio/capture/shots/<id>.png`; look at them to see what each action did. The full capture is `.studio/capture/trace.json`.",
+    'The user demonstrated this tutorial in the product instead of having you research it (feed mode). Their actions, in order, are below. script.spec.ts in this project is a draft generated from them: every action in one step, with the locators as captured. Every interaction was captured, including hovers, scrolls, drags and keys typed outside fields, so some are incidental. For each action there are two shots in `.studio/capture/shots/`: `<id>-marked.jpg`, the screen just before it with the target in a steel-blue box and the pointer as an orange dot, and `<id>.png`, the screen just after it. Open the marked shot of every action marked REVIEW: if the dot is outside the box, the locator points at the wrong element, so locate what is under the dot instead. The full capture is `.studio/capture/trace.json`.',
+    "Clean up the interactions before scripting: keep a hover only when it reveals what the next action uses (a hover-only button, a menu) or shows the viewer something; keep a scroll only when the viewer should see it (clicks scroll to their targets themselves); keep drags and keys typed outside fields unless they're clearly accidental. Say what you dropped in your summary.",
     "Don't research the product: the demo is the research. Use inspect_ui only to check a locator you can't trust from the capture and the screenshots (one marked \"matched N\", or a CSS path), with probe, and don't explore beyond that.",
     "1. Split the actions into 3–8 steps, following the tutorial-authoring skill and the brief in this project's CLAUDE.md. Save them with save_plan: for each step `id` (s1, s2, …), `title` (short and imperative) and `action` (what happens on screen, naming the controls as they appear; the storyboard shows it). Leave `narration` empty: it's written after the dry run.",
     `   ${input.explainers ? 'Propose explainers only where a concept is easier to show than to click through.' : "Don't propose explainers: the brief asks for a recording only."}`,

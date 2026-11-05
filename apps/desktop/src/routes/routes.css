@@ -2293,6 +2293,28 @@
 .capture-action:first-child {
   border-top: none;
 }
+.capture-action[data-incidental] .capture-action-text {
+  color: var(--ui-gray-600);
+}
+.capture-thumb {
+  flex: none;
+  width: 96px;
+  height: 54px;
+  border: 1px solid var(--ui-gray-300);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-gray-50);
+  overflow: hidden;
+}
+.capture-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+a.capture-thumb:focus-visible,
+a.capture-thumb:hover {
+  border-color: var(--ui-navy);
+}
 .capture-action-n {
   width: 24px;
   flex: none;

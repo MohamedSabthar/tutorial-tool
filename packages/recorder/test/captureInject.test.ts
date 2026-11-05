@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CAPTURE_SOURCE, installCapture, type RawAction } from '../src/capture/inject';
 
 const sent: RawAction[] = [];
@@ -84,12 +84,15 @@ describe('injected capture listener', () => {
     expect(c).toEqual({ kind: 'press', key: 'Enter' });
   });
 
-  it('records chords and ignores plain letters outside fields', () => {
+  it('records chords, and letters outside fields as keys', () => {
     document.body.innerHTML = '<div tabindex="0">x</div>';
     const d = document.querySelector('div')!;
     key(d, 'a');
     key(d, 'p', { metaKey: true, shiftKey: true });
-    expect(sent).toEqual([{ kind: 'press', key: 'Meta+Shift+P' }]);
+    expect(sent).toEqual([
+      { kind: 'keys', text: 'a' },
+      { kind: 'press', key: 'Meta+Shift+P' },
+    ]);
   });
 });
 
@@ -171,6 +174,77 @@ describe('links inside test-id containers', () => {
       count: 1,
     });
     expect(a.label).toBe('"Add Trigger"');
+  });
+});
+
+describe('every interaction', () => {
+  afterEach(() => vi.useRealTimers());
+  const mouse = (el: Element, type: string, x: number, y: number, init: MouseEventInit = {}) =>
+    el.dispatchEvent(
+      new MouseEvent(type, { bubbles: true, composed: true, clientX: x, clientY: y, ...init }),
+    );
+
+  it('records where a click was pressed', () => {
+    document.body.innerHTML = '<button>Run</button>';
+    mouse(document.querySelector('button')!, 'mousedown', 12, 34);
+    expect(sent[0]).toMatchObject({ kind: 'click', point: { x: 12, y: 34 } });
+  });
+
+  it('turns a press and a release far away into a drag, and reports a double-click', () => {
+    document.body.innerHTML = '<button>A</button><button>B</button>';
+    const [a, b] = Array.from(document.querySelectorAll('button'));
+    mouse(a!, 'mousedown', 10, 10);
+    mouse(b!, 'mouseup', 200, 10);
+    expect(sent.map((x) => x.kind)).toEqual(['click', 'dragend']);
+    expect(sent[1]).toMatchObject({ to: { label: 'button "B"' }, point: { x: 200, y: 10 } });
+    sent.length = 0;
+    mouse(a!, 'mousedown', 10, 10);
+    mouse(a!, 'mouseup', 11, 10);
+    mouse(a!, 'dblclick', 11, 10);
+    expect(sent.map((x) => x.kind)).toEqual(['click', 'dblclick']);
+  });
+
+  it('reports the pointer resting on something once, after a moment', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div role="treeitem" aria-label="main.bal">main.bal</div>';
+    const item = document.querySelector('div')!;
+    mouse(item, 'mousemove', 5, 5);
+    vi.advanceTimersByTime(300);
+    mouse(item, 'mousemove', 6, 5);
+    vi.advanceTimersByTime(300);
+    expect(sent).toHaveLength(0);
+    vi.advanceTimersByTime(500);
+    mouse(item, 'mousemove', 7, 5);
+    vi.advanceTimersByTime(1000);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ kind: 'hover', label: 'treeitem "main.bal"', point: { x: 6, y: 5 } });
+  });
+
+  it('sends one scroll per gesture over the scrolled container', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div class="list" style="overflow-y: auto"><div class="row">x</div></div>';
+    const list = document.querySelector('.list')!;
+    Object.defineProperty(list, 'scrollHeight', { value: 1000 });
+    Object.defineProperty(list, 'clientHeight', { value: 200 });
+    const row = document.querySelector('.row')!;
+    for (let k = 0; k < 3; k++)
+      row.dispatchEvent(
+        new WheelEvent('wheel', { bubbles: true, composed: true, deltaY: 100, clientX: 4, clientY: 4 }),
+      );
+    vi.advanceTimersByTime(500);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ kind: 'scroll', dy: 300, dx: 0 });
+  });
+
+  it('sends letters typed outside a field as one keys action before the next action', () => {
+    document.body.innerHTML = '<div role="tree" tabindex="0"></div><button>Go</button>';
+    const tree = document.querySelector('[role="tree"]')!;
+    for (const ch of 'mai') key(tree, ch);
+    key(tree, 'Enter');
+    expect(sent).toEqual([
+      { kind: 'keys', text: 'mai' },
+      { kind: 'press', key: 'Enter' },
+    ]);
   });
 });
 

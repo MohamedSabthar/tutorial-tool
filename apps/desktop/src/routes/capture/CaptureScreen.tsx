@@ -1,29 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { describeAction, type CaptureAction, type CaptureStatus } from '@studio/core';
+import { describeAction, needsReview, type CaptureAction, type CaptureStatus } from '@studio/core';
 import { Button, Chip, Panel, Title } from '@studio/ui';
 import { useEngine } from '../../engine';
 import { AppFrame, navigate } from '../frame';
 
 const time = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
+/** Hovers and scrolls are often incidental: shown quieter, for the agent to judge. */
+const INCIDENTAL = new Set<CaptureAction['kind']>(['hover', 'scroll']);
+
 function ActionRow({
   a,
   index,
+  shotUrl,
   onRemove,
 }: {
   a: CaptureAction;
   index: number;
+  /** The marked shot (target boxed, pointer dotted), when it's ready. */
+  shotUrl: string | null;
   onRemove: (() => void) | null;
 }) {
   const best = 'locators' in a ? a.locators[0] : undefined;
   return (
-    <li className="capture-action">
+    <li className="capture-action" data-incidental={INCIDENTAL.has(a.kind) ? 'true' : undefined}>
       <span className="capture-action-n ui-mono">{index + 1}</span>
+      {shotUrl ? (
+        <a
+          className="capture-thumb"
+          href={shotUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open the screen before step ${index + 1}, with its target marked`}
+        >
+          <img src={shotUrl} alt="" loading="lazy" />
+        </a>
+      ) : (
+        <span className="capture-thumb" aria-hidden="true" />
+      )}
       <span className="capture-action-main">
         <span className="capture-action-text">{describeAction(a)}</span>
         {best && (
           <span className="capture-action-code ui-mono" title="The locator the draft script uses">
-            {a.kind !== 'press' && a.frame === 'webview' ? 'webview().' : 'page.'}
+            {'frame' in a && a.frame === 'webview' ? 'webview().' : 'page.'}
             {best.code}
           </span>
         )}
@@ -39,6 +58,9 @@ function ActionRow({
           </Chip>
         )}
         {'locators' in a && !best && <Chip tone="active">no locator</Chip>}
+        {needsReview(a) && (best?.count ?? 0) <= 1 && 'locators' in a && !INCIDENTAL.has(a.kind) && (
+          <Chip title="The agent checks this one against its marked shot.">review</Chip>
+        )}
         <span className="ui-mono capture-action-t">{time(a.t)}</span>
         {onRemove && (
           <button
@@ -61,7 +83,11 @@ function ActionRow({
  * script generated from it.
  */
 export function CaptureScreen({ slug }: { slug: string }) {
-  const { client, state: conn } = useEngine();
+  const { client, state: conn, info } = useEngine();
+  const shotUrl = (a: CaptureAction) =>
+    info && a.shot
+      ? `http://127.0.0.1:${info.port}/media/${slug}/.studio/capture/shots/${a.shot}?token=${encodeURIComponent(info.token)}`
+      : null;
   const [status, setStatus] = useState<CaptureStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -196,7 +222,13 @@ export function CaptureScreen({ slug }: { slug: string }) {
           ) : (
             <ol className="capture-list" ref={list} aria-label="Captured actions">
               {status!.actions.map((a, i) => (
-                <ActionRow key={a.id} a={a} index={i} onRemove={open && !busy ? () => remove(a.id) : null} />
+                <ActionRow
+                  key={a.id}
+                  a={a}
+                  index={i}
+                  shotUrl={shotUrl(a)}
+                  onRemove={open && !busy ? () => remove(a.id) : null}
+                />
               ))}
             </ol>
           )}
@@ -208,7 +240,14 @@ export function CaptureScreen({ slug }: { slug: string }) {
               <li>
                 Click through the tutorial once, at any pace. Leave out anything you don&rsquo;t want shown.
               </li>
-              <li>Remove misclicks here with ×.</li>
+              <li>
+                Everything is captured: clicks, typing, keys, hovers, scrolls and drags. Each gets a picture
+                of the screen just before it, with the target boxed and your pointer dotted.
+              </li>
+              <li>
+                Remove misclicks here with ×. Hovers and scrolls are shown fainter; the agent keeps only those
+                that matter.
+              </li>
               <li>
                 Press Finish. The agent splits your clicks into steps and tidies the script, without
                 researching. Passwords are never captured.

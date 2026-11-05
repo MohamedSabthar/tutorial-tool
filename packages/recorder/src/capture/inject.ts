@@ -27,10 +27,23 @@ export interface RawTarget {
   bbox: { x: number; y: number; w: number; h: number } | null;
 }
 
+/** CSS pixels in the reporting frame (Node moves webview points into window space). */
+export interface RawPoint {
+  x: number;
+  y: number;
+}
+
 export type RawAction =
-  | ({ kind: 'click'; button: 'left' | 'right' } & RawTarget)
+  | ({ kind: 'click'; button: 'left' | 'right'; point: RawPoint } & RawTarget)
   | ({ kind: 'type'; text: string; clear: boolean; insert: boolean; secret: boolean } & RawTarget)
-  | { kind: 'press'; key: string };
+  | { kind: 'press'; key: string }
+  | { kind: 'keys'; text: string }
+  | ({ kind: 'hover'; point: RawPoint } & RawTarget)
+  | ({ kind: 'scroll'; point: RawPoint; dx: number; dy: number } & RawTarget)
+  /** The button came up away from where it went down: the click just sent was a drag. */
+  | { kind: 'dragend'; to: RawTarget; point: RawPoint }
+  /** The click just sent was the second of a double-click. */
+  | { kind: 'dblclick' };
 
 export const BINDING = '__tutCapture';
 export const FLUSH = '__tutCaptureFlush';
@@ -39,9 +52,21 @@ export function installCapture(): void {
   const w = window as unknown as Record<string, unknown>;
   if (w.__tutCaptureInstalled) return;
   w.__tutCaptureInstalled = true;
-  const send = (a: unknown) => {
+  const post = (a: unknown) => {
     const fn = w.__tutCapture as ((a: unknown) => Promise<void>) | undefined;
     if (typeof fn === 'function') void fn(a).catch(() => {});
+  };
+  // Keys typed outside a text field, sent as one action when something else happens.
+  let keys = '';
+  const flushKeys = () => {
+    if (!keys) return;
+    const text = keys;
+    keys = '';
+    post({ kind: 'keys', text });
+  };
+  const send = (a: RawAction) => {
+    if (a.kind !== 'keys') flushKeys();
+    post(a);
   };
   // Only the user's own input counts, not events the product or a script dispatches. Tests
   // (jsdom can't make trusted events) set __tutCaptureTest.
@@ -400,7 +425,10 @@ export function installCapture(): void {
       secret: t.secret,
     });
   };
-  w.__tutCaptureFlush = flush;
+  w.__tutCaptureFlush = () => {
+    flush();
+    flushKeys();
+  };
 
   const fieldOf = (path: EventTarget[]): Element | null => {
     for (const n of path) {
@@ -437,20 +465,6 @@ export function installCapture(): void {
     };
   };
 
-  const SPECIAL = new Set([
-    'Enter',
-    'Escape',
-    'Tab',
-    'ArrowUp',
-    'ArrowDown',
-    'ArrowLeft',
-    'ArrowRight',
-    'Delete',
-    'F1',
-    'F2',
-    'F5',
-  ]);
-
   document.addEventListener(
     'keydown',
     (e) => {
@@ -469,7 +483,12 @@ export function installCapture(): void {
         return;
       }
       if (/^(Meta|Control|Alt|Shift|CapsLock)$/.test(e.key)) return;
-      if (!chord && !SPECIAL.has(e.key) && !/^F\d+$/.test(e.key)) return;
+      // Letters outside a field: keyboard navigation or type-to-search in a list or tree.
+      if (!chord && e.key.length === 1) {
+        flush();
+        keys += e.key;
+        return;
+      }
       flush();
       const mods = [
         e.metaKey && 'Meta',
@@ -496,11 +515,13 @@ export function installCapture(): void {
   );
 
   // Pressed, not clicked: menus and quick picks often act (and vanish) on mousedown, so the
-  // target is named while it's still there.
+  // target is named while it's still there. A release away from it turns the click into a drag.
+  let down: { x: number; y: number } | null = null;
   document.addEventListener(
     'mousedown',
     (e) => {
       if (!trusted(e) || (e.button !== 0 && e.button !== 2)) return;
+      clearTimeout(hover.timer);
       const path = e.composedPath();
       const picked = pick(path);
       if (!picked) return;
@@ -509,13 +530,121 @@ export function installCapture(): void {
       if (el.closest('.part.titlebar') && !INTERACTIVE.has(roleOf(el))) return;
       const field = fieldOf(path);
       if (typing && typing.el !== field) flush();
+      down = e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
       send({
         kind: 'click',
         button: e.button === 2 ? 'right' : 'left',
+        point: { x: e.clientX, y: e.clientY },
         ...describeTarget(hostOf(field ?? el), field ? null : scope),
       });
     },
     true,
+  );
+
+  document.addEventListener(
+    'mouseup',
+    (e) => {
+      if (!trusted(e) || !down) return;
+      const from = down;
+      down = null;
+      if (Math.hypot(e.clientX - from.x, e.clientY - from.y) < 8) return;
+      const picked = pick(e.composedPath());
+      send({
+        kind: 'dragend',
+        to: picked
+          ? describeTarget(hostOf(picked.el), picked.scope)
+          : { label: 'empty space', locators: [], bbox: null },
+        point: { x: e.clientX, y: e.clientY },
+      });
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'dblclick',
+    (e) => {
+      if (trusted(e)) send({ kind: 'dblclick' });
+    },
+    true,
+  );
+
+  // The pointer resting on something for a moment: a hover the tutorial may need (menus,
+  // tooltips, buttons that only show on hover). Once per element until the pointer leaves it.
+  const hover: { el: Element | null; sent: Element | null; timer?: ReturnType<typeof setTimeout> } = {
+    el: null,
+    sent: null,
+  };
+  document.addEventListener(
+    'mousemove',
+    (e) => {
+      if (!trusted(e) || e.buttons) return;
+      const picked = pick(e.composedPath());
+      const el = picked?.el ?? null;
+      if (el !== hover.el) {
+        hover.el = el;
+        hover.sent = null;
+      }
+      clearTimeout(hover.timer);
+      if (!el || !picked || hover.sent === el || el.tagName === 'BODY' || el.tagName === 'HTML') return;
+      const point = { x: e.clientX, y: e.clientY };
+      hover.timer = setTimeout(() => {
+        if (hover.el !== el || !el.isConnected) return;
+        const target = describeTarget(hostOf(el), picked.scope);
+        if (!target.locators.length) return;
+        hover.sent = el;
+        send({ kind: 'hover', point, ...target });
+      }, 700);
+    },
+    { capture: true, passive: true },
+  );
+
+  // A scroll gesture: wheel turns over one container, sent once they stop.
+  const scrollable = (el: Element) => {
+    const st = getComputedStyle(el);
+    return (
+      (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll|overlay)/.test(st.overflowY)) ||
+      (el.scrollWidth > el.clientWidth + 1 && /(auto|scroll|overlay)/.test(st.overflowX))
+    );
+  };
+  const wheel: {
+    el: Element | null;
+    dx: number;
+    dy: number;
+    point: { x: number; y: number };
+    timer?: ReturnType<typeof setTimeout>;
+  } = { el: null, dx: 0, dy: 0, point: { x: 0, y: 0 } };
+  const flushWheel = () => {
+    clearTimeout(wheel.timer);
+    const el = wheel.el;
+    if (!el || (!wheel.dx && !wheel.dy)) return;
+    send({
+      kind: 'scroll',
+      point: wheel.point,
+      dx: Math.round(wheel.dx),
+      dy: Math.round(wheel.dy),
+      ...describeTarget(el),
+    });
+    wheel.el = null;
+    wheel.dx = 0;
+    wheel.dy = 0;
+  };
+  document.addEventListener(
+    'wheel',
+    (e) => {
+      if (!trusted(e)) return;
+      const path = e.composedPath().filter((n): n is Element => n instanceof Element);
+      const el = path.find(scrollable) ?? pick(path)?.el ?? null;
+      if (!el) return;
+      if (wheel.el && wheel.el !== el) flushWheel();
+      if (!wheel.el) wheel.point = { x: e.clientX, y: e.clientY };
+      wheel.el = el;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1;
+      wheel.dx += e.deltaX * unit;
+      wheel.dy += e.deltaY * unit;
+      clearTimeout(wheel.timer);
+      wheel.timer = setTimeout(flushWheel, 400);
+    },
+    { capture: true, passive: true },
   );
 
   window.addEventListener('blur', flush, true);

@@ -218,7 +218,10 @@ export class Tut {
   }
 
   /** Moves to the target along a human path and clicks it. `cue` lands the click on that narration word. */
-  async click(target: Target, opts: { description?: string; cue?: string } = {}): Promise<void> {
+  async click(
+    target: Target,
+    opts: { description?: string; cue?: string; button?: 'left' | 'right'; double?: boolean } = {},
+  ): Promise<void> {
     const stepId = this.stepId();
     const cue = this.takeCue(opts.cue);
     const box = await this.boxOf(target, opts.description);
@@ -247,7 +250,10 @@ export class Tut {
     }
     await this.moveTo(p, ms);
     if (cue) await this.until(cue.at);
-    await this.opts.page.mouse.click(p.x, p.y);
+    await this.opts.page.mouse.click(p.x, p.y, {
+      ...(opts.button === 'right' ? { button: 'right' as const } : {}),
+      ...(opts.double ? { clickCount: 2 } : {}),
+    });
     this.opts.onPointer?.({ x: this.px(p.x), y: this.px(p.y), click: true });
     await this.emit({
       kind: 'click',
@@ -322,6 +328,39 @@ export class Tut {
   /** Hides notifications again after showToasts(). */
   async hideToasts(): Promise<void> {
     await this.opts.camera?.toasts(false);
+  }
+
+  /** Moves onto the target and rests there: hover menus, tooltips, buttons that show only on hover. */
+  async hover(target: Target, opts: { description?: string } = {}): Promise<void> {
+    this.stepId();
+    const box = await this.boxOf(target, opts.description);
+    await this.moveTo(clickPoint(box, this.random));
+    await this.pause(600);
+  }
+
+  /** Scrolls the container under the target by `dy` (and `dx`) CSS pixels, in a few wheel turns. */
+  async scroll(target: Target, dy: number, opts: { dx?: number; description?: string } = {}): Promise<void> {
+    this.stepId();
+    const box = await this.boxOf(target, opts.description);
+    await this.moveTo(clickPoint(box, this.random));
+    const turns = this.opts.mode === 'dry' ? 1 : Math.max(1, Math.min(12, Math.round(Math.abs(dy) / 120)));
+    for (let i = 0; i < turns; i++) {
+      await this.opts.page.mouse.wheel((opts.dx ?? 0) / turns, dy / turns);
+      if (turns > 1) await sleep(40);
+    }
+    await this.pause(400);
+  }
+
+  /** Presses on `from`, moves along a human path and releases on `to`. */
+  async drag(from: Target, to: Target, opts: { description?: string } = {}): Promise<void> {
+    this.stepId();
+    const a = await this.boxOf(from, opts.description);
+    const b = await this.boxOf(to, opts.description);
+    await this.moveTo(clickPoint(a, this.random));
+    await this.opts.page.mouse.down();
+    await this.moveTo(clickPoint(b, this.random), this.opts.mode === 'dry' ? undefined : 600);
+    await this.opts.page.mouse.up();
+    await this.pause(350);
   }
 
   /** Holds still so the viewer can take something in (skipped in dry runs). */

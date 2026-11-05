@@ -116,6 +116,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 12.1 Capture and codegen
   - [x] 12.2 The `from_capture` stage
   - [ ] 12.3 Polish
+  - [x] 12.4 Every interaction, with marked shots
 
 ---
 
@@ -870,6 +871,21 @@ Researching the product and writing the script are the slowest stages. In feed m
 
 **Done when:** a feed-mode tutorial goes from Demo it to an exported video with no research turn.
 
+### 12.4 Every interaction, with marked shots
+- **More of what you do is captured:** besides clicks, typing and special keys, the capture now records:
+  - where each click was pressed;
+  - double-clicks and right-clicks;
+  - drags (a press with the release 8 px or more away);
+  - hovers (the pointer still for 0.7 s on something with a locator; once per element);
+  - scrolls (one per gesture over the scrolled container);
+  - letters typed outside a text field (`keys`).
+- **`tut` replays them:** `tut.hover`, `tut.scroll` and `tut.drag`, and `tut.click` takes `button: 'right'` and `double: true`. They move the pointer along human paths like clicks do.
+- **Marked shots:** the newest screencast frame before each action is saved as `shots/<id>-marked.jpg`, with the target boxed in steel blue and the pointer as an orange dot with a dark ring (ffmpeg `drawbox`; without ffmpeg the plain frame is kept). The after shot `<id>.png` is kept for clicks, typing and keys.
+- **What the agent sees:** the draft keeps every action except clicks that typing or a click makes redundant. Actions that need judging are flagged `review` (`needsReview`: hovers, scrolls, drags, and targets found only by a CSS path, a position or several matches). The `from_capture` instruction lists each action's marked shot, has the agent open every REVIEW shot and locate what's under the dot when it's outside the box, and says when to keep hovers and scrolls.
+- **Capture screen:** a thumbnail of the marked shot per action, which opens full size; hovers and scrolls are shown fainter.
+
+**Done when:** a demo with a hover-only button, a scroll and a double-click shows each in the list with a marked thumbnail, and the agent keeps the hover the button needs and drops the incidental ones.
+
 ---
 
 ## Cross-cutting checklists
@@ -1069,3 +1085,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-11-03 | change | No length cap on context: the Projects context, the brief's notes, the series notes (and the agent's notes added to them) and outline/gate revision feedback have no 4000-character limit. "+ Add .md files" (`routes/ContextFiles.tsx`) next to the Projects context, the brief's Notes for the agent and the series notes reads Markdown or text files in the window and adds their text to the field, one file after another | Raised: "why put a cap on context? allow to upload md files no context cap" |
 | 2026-11-05 | 12.1 | Added Phase 12, feed mode. The user demonstrates the tutorial and a draft script is generated from it, skipping research. Targets are named on mousedown, in the page, because menus and quick picks act and disappear before a click or a probe from Node could see them. Locator uniqueness is counted with an approximation of Playwright's role and name rules; the dry run and the 12.2 agent pass catch where they differ. The agent splits the steps after capture rather than the user marking them while recording. The capture window is not kept on top, so the user can come back to Studio to finish | Raised: "recording and exploring takes more time… feed the clicks so it generates the Playwright script"; chose codegen plus an agent tidy pass, with the agent splitting the steps |
 | 2026-11-05 | 12.2 | Feed mode is stored on the run (`PipelineState.entry`), not read from the brief each time. A resumed run, or a storyboard revision, stays in feed mode and doesn't research, even if the brief changes meanwhile; this was planned for 12.3. The engine copies the draft into `script.spec.ts` before the stage, unless the agent has written it since, and the agent rewrites that file in place. `from_capture` runs on the writing model (Sonnet by default), not the deep one: it splits and tidies, it doesn't research. The capture locators were reworked after the first real demo in the WSO2 webviews: CSS paths stopped at shadow roots and left out generated classes, stable ids ranked high, a web component counted once, and positions used when nothing else is unique | Raised: the first UI test showed icon buttons sharing one wrong "unique" locator |
+| 2026-11-05 | 12.4 | Feed mode captures every interaction, not only clicks, and the agent cleans up. Pointer movement isn't stored as a stream: a hover is recorded only when the pointer rests (0.7 s) on something with a locator, and a scroll once per gesture, so the list stays readable. Drags and double-clicks are turned into actions from the click before them, because the target has to be named on mousedown. Marked shots come from the screencast frame that arrived before the action, since a screenshot taken at that moment already shows the click's effect. They are drawn with ffmpeg's `drawbox` (this Mac's ffmpeg has it, though not `drawtext`), so there are no labels on the image; the id is in the file name | Raised: "are we attaching screenshots with pointers?"; "capture all screen interaction… later agent can clean up" |

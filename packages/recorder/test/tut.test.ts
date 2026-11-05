@@ -89,4 +89,36 @@ describe('Tut pacing (voice-first recording)', () => {
     });
     expect(at(tut.events, 'click')[0]!.cue).toBeUndefined();
   });
+
+  it('hovers, scrolls, drags, double- and right-clicks with the real mouse', async () => {
+    const calls: string[] = [];
+    const page = fakePage();
+    const m = page.mouse as unknown as Record<string, (...a: unknown[]) => Promise<void>>;
+    m.move = async () => {};
+    m.click = async (_x, _y, o) => void calls.push(`click ${JSON.stringify(o)}`);
+    m.wheel = async (dx, dy) => void calls.push(`wheel ${String(dx)} ${String(dy)}`);
+    m.down = async () => void calls.push('down');
+    m.up = async () => void calls.push('up');
+    const tut = new Tut({ page, mode: 'dry', scale: 1 });
+    await tut.start({
+      product: 'p',
+      version: '1',
+      viewport: { width: 1200, height: 800, scale: 1 },
+      fixture: 'f',
+    });
+    await tut.step('s1', 'All', async () => {
+      await tut.hover(button(10));
+      await tut.scroll(button(10), 480);
+      await tut.drag(button(10), button(300));
+      await tut.click(button(10), { double: true });
+      await tut.click(button(10), { button: 'right' });
+    });
+    expect(calls).toEqual([
+      'wheel 0 480',
+      'down',
+      'up',
+      'click {"clickCount":2}',
+      'click {"button":"right"}',
+    ]);
+  });
 });
