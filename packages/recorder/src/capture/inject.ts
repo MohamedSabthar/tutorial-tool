@@ -10,13 +10,13 @@
  */
 
 export interface RawLocator {
-  /** 'role' | 'nth' | 'id' | 'label' | 'placeholder' | 'testid' | 'text' | 'css' */
+  /** 'role' | 'nth' | 'id' | 'label' | 'placeholder' | 'testid' | 'text' | 'css' | 'cssnth' */
   by: string;
   /** For 'role' and 'nth', the role; otherwise the value. */
   value: string;
   /** For 'role' and 'nth', the accessible name. */
   name?: string;
-  /** For 'nth', the index among the role + name matches. */
+  /** For 'nth' and 'cssnth', the index among the matches. */
   nth?: number;
   count: number;
 }
@@ -221,6 +221,36 @@ export function installCapture(): void {
     return parts.join(' ');
   };
 
+  /**
+   * The text a person sees next to an unnamed field: the nearest label-like element before it
+   * in its form row (WSO2 forms label code editors this way, without an aria link).
+   */
+  const nearbyLabel = (el: Element): string => {
+    let cur: Element | null = lightOf(el);
+    for (let up = 0; cur && up < 4; up++, cur = cur.parentElement) {
+      const parent: Element | null = cur.parentElement;
+      if (!parent) break;
+      const before = Array.from(
+        parent.querySelectorAll('label, [class*="label" i], [class*="title" i]'),
+      ).filter(
+        (l) => l.compareDocumentPosition(lightOf(el)) & Node.DOCUMENT_POSITION_FOLLOWING && !l.contains(el),
+      );
+      const t = norm(before.at(-1)?.textContent);
+      if (t && t.length <= 60) return t;
+    }
+    return '';
+  };
+
+  /** A short human label for an action's target. */
+  const labelFor = (el: Element, role: string, name: string, css: string): string => {
+    const n = name || (role === 'textbox' || role === 'combobox' ? nearbyLabel(el) : '');
+    if (role) return `${role}${n ? ` "${n.slice(0, 60)}"` : ''}`;
+    if (n) return `"${n.slice(0, 60)}"`;
+    const testid = el.getAttribute('data-testid');
+    if (testid) return `[${testid}]`;
+    return css;
+  };
+
   const describeTarget = (el: Element) => {
     const els = all();
     const role = roleOf(el);
@@ -279,11 +309,16 @@ export function installCapture(): void {
         count = 99;
       }
       if (!locators.some((l) => l.by === 'id' && `${l.value}` === css)) add('css', css, count);
+      // Not unique: its position among the matches, right for this screen.
+      if (count > 1 && count < 99) {
+        const at = Array.from(document.querySelectorAll(css)).indexOf(lightOf(el));
+        if (at >= 0) locators.push({ by: 'cssnth', value: css, nth: at, count: 1 });
+      }
     }
     const r = el.getBoundingClientRect();
     // Frames inside webviews report boxes relative to themselves; Node offsets them.
     return {
-      label: role ? `${role}${name ? ` "${name.slice(0, 60)}"` : ''}` : name ? `"${name.slice(0, 60)}"` : css,
+      label: labelFor(el, role, name, css),
       locators,
       bbox: r.width || r.height ? { x: r.x, y: r.y, w: r.width, h: r.height } : null,
     };
@@ -345,7 +380,10 @@ export function installCapture(): void {
   const fieldOf = (path: EventTarget[]): Element | null => {
     for (const n of path) {
       if (!(n instanceof Element)) continue;
-      if (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA' || (n as HTMLElement).isContentEditable) return n;
+      if (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') return n;
+      // The editable root, not the line inside it that was clicked (CodeMirror's .cm-line).
+      if ((n as HTMLElement).isContentEditable)
+        return n.closest('[contenteditable]:not([contenteditable="false"])') ?? n;
     }
     return null;
   };

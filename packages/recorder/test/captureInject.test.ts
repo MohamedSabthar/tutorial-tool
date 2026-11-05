@@ -137,6 +137,27 @@ describe('locators in WSO2-style webviews', () => {
   });
 });
 
+describe('code editor fields', () => {
+  it('targets the editor, not the clicked line, and tells two editors apart', () => {
+    document.body.innerHTML = ['Agent name', 'Instructions']
+      .map(
+        (l) =>
+          `<div class="row"><span class="field-label">${l}</span><div class="cm-editor"><div class="cm-content" contenteditable="true" role="textbox"><div class="cm-line"></div></div></div></div>`,
+      )
+      .join('');
+    const lines = Array.from(document.querySelectorAll('.cm-line'));
+    for (const n of document.querySelectorAll('[contenteditable]'))
+      Object.defineProperty(n, 'isContentEditable', { value: true });
+    for (const n of lines) Object.defineProperty(n, 'isContentEditable', { value: true });
+    mousedown(lines[1]!);
+    const a = sent[0]!;
+    if (a.kind !== 'click') throw new Error('expected click');
+    expect(a.label).toBe('textbox "Instructions"');
+    expect(a.locators.find((l) => l.by === 'cssnth')).toMatchObject({ nth: 1, count: 1 });
+    expect(a.locators.find((l) => l.by === 'css')!.count).toBe(2);
+  });
+});
+
 describe('capture source', () => {
   it('runs as a plain string, with no helpers from the bundler', () => {
     const w = window as unknown as Record<string, unknown>;

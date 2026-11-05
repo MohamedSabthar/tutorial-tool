@@ -16,6 +16,8 @@ export function locatorCode(l: RawLocator): string {
       return `getByRole(${q(l.value)}, { name: ${q(l.name ?? '')}, exact: true }).nth(${l.nth ?? 0})`;
     case 'id':
       return `locator(${q(l.value)})`;
+    case 'cssnth':
+      return `locator(${q(l.value)}).nth(${l.nth ?? 0})`;
     case 'label':
       return `getByLabel(${q(l.value)}, { exact: true })`;
     case 'placeholder':
@@ -33,7 +35,7 @@ export function locatorCode(l: RawLocator): string {
  * How much a unique locator is preferred: what the user reads (role and name) first, then
  * stable ids and labels, then text; a position (nth) or a CSS path only when nothing else is.
  */
-const RANK = ['role', 'id', 'label', 'placeholder', 'testid', 'text', 'nth', 'css'];
+const RANK = ['role', 'id', 'label', 'placeholder', 'testid', 'text', 'nth', 'css', 'cssnth'];
 const rank = (l: RawLocator) => (RANK.includes(l.by) ? RANK.indexOf(l.by) : RANK.length);
 
 /** Candidate locators as code, those matching exactly one element first (in preference order). */
