@@ -47,4 +47,13 @@ describe('product registry', () => {
     configureProducts([]);
     expect(listProducts()).toEqual(Object.values(PRODUCTS));
   });
+
+  it('lets products.json say what a product starts from', () => {
+    configureProducts([
+      { id: 'agent-builder', name: 'Agent Builder', app: '/Applications/WSO2 Agent Builder.app' },
+      { id: 'agent-builder-2', name: 'Agent Builder 2', app: '/Applications/X.app', fixture: 'bi' },
+    ]);
+    expect(defaultFixture('agent-builder').kind).toBe('empty');
+    expect(defaultFixture('agent-builder-2').kind).toBe('bi');
+  });
 });

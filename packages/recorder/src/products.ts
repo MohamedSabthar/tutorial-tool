@@ -70,6 +70,7 @@ export function configureProducts(
     app?: string;
     extensions?: string[];
     hide?: { workbench?: string[]; webview?: string[] };
+    fixture?: 'bi' | 'empty';
   }[],
 ): void {
   const next: Record<string, Product> = { ...PRODUCTS };
@@ -81,12 +82,22 @@ export function configureProducts(
       name: e.name,
       activityBarLabel: label,
       ...(base?.skill ? { skill: base.skill } : {}),
-      ...(base?.fixtureKind ? { fixtureKind: base.fixtureKind } : {}),
+      ...(e.fixture
+        ? { fixtureKind: e.fixture }
+        : base?.fixtureKind
+          ? { fixtureKind: base.fixtureKind }
+          : {}),
       ...(e.hide ? { hide: e.hide } : base?.hide ? { hide: base.hide } : {}),
     };
     if (e.app) next[e.id] = { ...common, type: 'vscode-app', appPath: e.app };
     else if (e.extensions?.length) next[e.id] = { ...common, type: 'vscode', extensions: e.extensions };
-    else if (base) next[e.id] = { ...base, name: e.name, ...(e.hide ? { hide: e.hide } : {}) };
+    else if (base)
+      next[e.id] = {
+        ...base,
+        name: e.name,
+        ...(e.hide ? { hide: e.hide } : {}),
+        ...(e.fixture ? { fixtureKind: e.fixture } : {}),
+      };
   }
   registry = next;
 }

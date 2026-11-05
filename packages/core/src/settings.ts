@@ -40,6 +40,11 @@ export const ProductConfig = z
     extensions: z.array(z.string().min(1)).optional(),
     /** The workspace skill with its page objects (defaults to the id). */
     skill: z.string().optional(),
+    /**
+     * What a tutorial starts from when no script says otherwise (feed mode's capture, inspect_ui
+     * before a script): a Ballerina (BI) project, or an empty folder.
+     */
+    fixture: z.enum(['bi', 'empty']).optional(),
     /** CSS selectors hidden on camera, in the workbench and inside the product's webviews. */
     hide: z
       .object({ workbench: z.array(z.string()).optional(), webview: z.array(z.string()).optional() })

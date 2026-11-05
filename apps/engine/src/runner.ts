@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { CaptureAction, CaptureStatus, RecorderEvent } from '@studio/core';
 import { RpcError, type LiveSession, type RpcEvent, type RpcEventData } from '@studio/core';
@@ -261,8 +261,7 @@ export class Runner {
     if (this.busyWith) throw new RpcError(`the recorder is busy (${this.busyWith})`, 'bad_request');
     await this.closeInspector();
     const { project } = await this.store.open(slug);
-    const mod = await loadScript(path.join(this.store.dir(slug), 'script.spec.ts')).catch(() => null);
-    const fixture = mod?.fixture ?? defaultFixture(project.product);
+    const fixture = await this.captureFixture(slug, project.product);
     const title = `Capturing ${project.title}`;
     const dir = this.captureDir(slug);
     await rm(dir, { recursive: true, force: true });
@@ -324,6 +323,32 @@ export class Runner {
       });
       throw e;
     }
+  }
+
+  /**
+   * What a capture starts from: the project's own script's fixture, else the one the newest
+   * script for the same product uses (what the agent found works for it), else the product's
+   * default. A product added in products.json without `fixture` would otherwise open an empty
+   * folder, which a Ballerina-based product rejects.
+   */
+  private async captureFixture(slug: string, product: string): Promise<ScriptFixture> {
+    const own = await loadScript(path.join(this.store.dir(slug), 'script.spec.ts')).catch(() => null);
+    if (own) return own.fixture;
+    const others = await Promise.all(
+      (await this.store.list())
+        .filter((p) => p.product === product && p.slug !== slug)
+        .map(async (p) => {
+          const file = path.join(this.store.dir(p.slug), 'script.spec.ts');
+          const s = await stat(file).catch(() => null);
+          return s ? { file, at: s.mtimeMs } : null;
+        }),
+    );
+    const newest = others.filter((o) => o !== null).sort((a, b) => b.at - a.at);
+    for (const o of newest.slice(0, 5)) {
+      const mod = await loadScript(o.file).catch(() => null);
+      if (mod) return mod.fixture;
+    }
+    return defaultFixture(product);
   }
 
   private releaseCapture() {
