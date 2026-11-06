@@ -647,7 +647,19 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           : 'plan');
       return pipeline.start(slug, gates ?? {}, from);
     },
-    'pipeline.approve': async ({ slug }: { slug: string }) => pipeline.approve(slug),
+    'pipeline.approve': async ({
+      slug,
+      choice,
+      remember,
+    }: {
+      slug: string;
+      choice?: string;
+      remember?: boolean;
+    }) =>
+      pipeline.approve(slug, {
+        ...(choice !== undefined ? { choice } : {}),
+        ...(remember ? { remember } : {}),
+      }),
     'pipeline.revise': async ({ slug, feedback }: { slug: string; feedback: string }) =>
       pipeline.revise(slug, feedback),
     'pipeline.stop': async ({ slug }: { slug: string }) => pipeline.stop(slug),

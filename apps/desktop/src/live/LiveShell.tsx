@@ -18,6 +18,7 @@ import {
 } from '@studio/ui';
 import { useEngine } from '../engine';
 import { ProjectBar } from '../routes/ProjectBar';
+import { cueGateSummary, GateChoices, LateCueList } from '../studio/GateChoices';
 import { StageProgress } from './StageProgress';
 import { appHrefs, HeaderStatus } from '../routes/frame';
 import { elapsed as runElapsed, pipelineSteps as agentPipelineSteps, usePipeline } from '../pipeline';
@@ -428,16 +429,26 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
               {pipe.state.gate && (
                 <GateBanner
                   title={pipe.state.gate.title}
-                  text={pipe.state.gate.text}
+                  text={cueGateSummary(pipe.state.gate) ?? pipe.state.gate.text}
                   actions={
-                    <Button size="sm" variant="primary" onClick={() => void pipe.approve()}>
-                      {pipe.state.gate.kind === 'storyboard'
-                        ? 'Approve'
-                        : pipe.state.gate.kind === 'knowledge'
-                          ? 'Commit'
-                          : 'Try again'}
-                    </Button>
+                    pipe.state.gate.choices?.length ? undefined : (
+                      <Button size="sm" variant="primary" onClick={() => void pipe.approve()}>
+                        {pipe.state.gate.kind === 'storyboard'
+                          ? 'Approve'
+                          : pipe.state.gate.kind === 'knowledge'
+                            ? 'Commit'
+                            : 'Try again'}
+                      </Button>
+                    )
                   }
+                />
+              )}
+              {pipe.state.gate?.cues && <LateCueList cues={pipe.state.gate.cues} />}
+              {pipe.state.gate && (
+                <GateChoices
+                  gate={pipe.state.gate}
+                  ready={pipe.ready}
+                  onChoose={(choice, remember) => void pipe.approve({ choice, remember })}
                 />
               )}
               <span className="ui-eyebrow" style={{ marginTop: 4 }}>

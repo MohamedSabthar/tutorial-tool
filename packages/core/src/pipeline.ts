@@ -74,16 +74,48 @@ export const StageRecord = z.object({
 });
 export type StageRecord = z.infer<typeof StageRecord>;
 
+/**
+ * A cued action of a paced take that landed after its word, and what the edit can do about it:
+ * speed up the wait before it (`rate`), leaving `left` seconds late (0 when fully fixed).
+ */
+export const LateCueFix = z.object({
+  stepId: z.string(),
+  word: z.string(),
+  /** Seconds after its word the action landed. */
+  late: z.number(),
+  /** The previous action in the step (or "the step start"), and how many seconds before. */
+  after: z.string(),
+  gap: z.number(),
+  /** Speed the wait before it plays at in the edit; null when there is no wait to speed up. */
+  rate: z.number().nullable(),
+  /** Seconds it is still late after the edit. */
+  left: z.number(),
+});
+export type LateCueFix = z.infer<typeof LateCueFix>;
+
+/** What to do when a paced take's actions land after their words. */
+export const LateCuePolicy = z.enum(['ask', 'edit', 'retake']);
+export type LateCuePolicy = z.infer<typeof LateCuePolicy>;
+
+/** A choice at a gate besides approving: the id is sent back with `pipeline.approve`. */
+export const GateChoice = z.object({ id: z.string(), label: z.string() });
+
 export const Gate = z.object({
   /** The stage that is waiting. */
   stage: PipelineStage,
-  kind: z.enum(['storyboard', 'narration', 'help', 'knowledge']),
+  kind: z.enum(['storyboard', 'narration', 'help', 'knowledge', 'cues']),
   title: z.string(),
   text: z.string(),
   /** For knowledge gates: the uncommitted changes to CLAUDE.md and skills (unified diff). */
   diff: z.string().optional(),
   /** Project-relative picture for the user (a failed run's screenshot). */
   image: z.string().optional(),
+  /** Choices shown as buttons, the first one primary (approving without a choice picks it). */
+  choices: z.array(GateChoice).optional(),
+  /** Whether the user can save the choice for the project's later runs ("Don't ask again"). */
+  remember: z.boolean().optional(),
+  /** For cue gates: the actions that landed late and what the edit does with each. */
+  cues: z.array(LateCueFix).optional(),
 });
 export type Gate = z.infer<typeof Gate>;
 
@@ -117,6 +149,11 @@ export const PipelineGates = z.object({
   storyboard: z.boolean().default(false),
   /** Stop after the final narration so the user can review and tune it before the voice-over. */
   narration: z.boolean().default(true),
+  /**
+   * When a paced take's actions land after their words: ask (a gate), fix them in the edit, or
+   * fix the script and record again (once). Saved by "Don't ask again" at the gate.
+   */
+  lateCues: LateCuePolicy.default('ask'),
 });
 
 export const PipelineEntry = z.enum(['plan', 'from_capture']);
@@ -129,7 +166,7 @@ export const PipelineState = z.object({
   runId: z.string().nullable(),
   startedAt: z.number().nullable(),
   endedAt: z.number().nullable(),
-  gates: PipelineGates.default({ storyboard: false, narration: true }),
+  gates: PipelineGates.default({ storyboard: false, narration: true, lateCues: 'ask' }),
   /**
    * Where the run started: `plan` (the agent researches and plans) or `from_capture` (feed
    * mode: the steps and script come from the user's demo, and there is no script stage).

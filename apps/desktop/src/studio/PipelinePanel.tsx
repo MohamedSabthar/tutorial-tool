@@ -14,6 +14,7 @@ import { PIPELINE_STAGES, type PipelineStatus } from '@studio/core';
 import { useEngine } from '../engine';
 import { pipelineSteps, usePipeline } from '../pipeline';
 import { DiffView } from './DiffView';
+import { cueGateSummary, GateChoices, LateCueList } from './GateChoices';
 
 const STATUS: Record<PipelineStatus, { label: string; tone: ChipTone }> = {
   idle: { label: 'Not started', tone: 'neutral' },
@@ -50,7 +51,8 @@ export function PipelinePanel({ slug }: { slug: string }) {
 
       {s?.gate && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <GateBanner title={s.gate.title} text={s.gate.text} />
+          <GateBanner title={s.gate.title} text={cueGateSummary(s.gate) ?? s.gate.text} />
+          {s.gate.cues && <LateCueList cues={s.gate.cues} />}
           {s.gate.image && info && (
             <img
               src={`http://127.0.0.1:${info.port}/media/${slug}/${s.gate.image}?token=${encodeURIComponent(info.token)}&v=${s.history.at(-1)?.endedAt ?? 0}`}
@@ -94,14 +96,21 @@ export function PipelinePanel({ slug }: { slug: string }) {
             placeholder="What should the agent change?"
             onChange={(e) => setFeedback(e.target.value)}
           />
+          <GateChoices
+            gate={s.gate}
+            ready={p.ready}
+            onChoose={(choice, remember) => void p.approve({ choice, remember })}
+          />
           <div style={{ display: 'flex', gap: 6 }}>
-            <Button size="sm" variant="primary" disabled={!p.ready} onClick={() => void p.approve()}>
-              {s.gate.kind === 'storyboard' || s.gate.kind === 'narration'
-                ? 'Approve'
-                : s.gate.kind === 'knowledge'
-                  ? 'Commit'
-                  : 'Try again'}
-            </Button>
+            {!s.gate.choices?.length && (
+              <Button size="sm" variant="primary" disabled={!p.ready} onClick={() => void p.approve()}>
+                {s.gate.kind === 'storyboard' || s.gate.kind === 'narration'
+                  ? 'Approve'
+                  : s.gate.kind === 'knowledge'
+                    ? 'Commit'
+                    : 'Try again'}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="steel"
@@ -111,7 +120,11 @@ export function PipelinePanel({ slug }: { slug: string }) {
                 setFeedback('');
               }}
             >
-              {s.gate.kind === 'help' ? 'Send suggestion' : 'Revise with agent'}
+              {s.gate.kind === 'help'
+                ? 'Send suggestion'
+                : s.gate.kind === 'cues'
+                  ? 'Record again with notes'
+                  : 'Revise with agent'}
             </Button>
             {s.gate.kind === 'knowledge' && (
               <Button size="sm" variant="ghost" disabled={!p.ready} onClick={() => void p.revise('discard')}>

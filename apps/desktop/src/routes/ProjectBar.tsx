@@ -14,12 +14,14 @@ const GATE_SCREEN: Record<Gate['kind'], ProjectScreen> = {
   narration: 'storyboard',
   help: 'studio',
   knowledge: 'studio',
+  cues: 'live',
 };
 const GATE_ACTION: Record<Gate['kind'], string> = {
   storyboard: 'Review the plan',
   narration: 'Review the narration',
   help: 'Help the agent',
   knowledge: 'Review what the agent learned',
+  cues: 'Choose how to fix late actions',
 };
 
 const href = (screen: ProjectScreen, slug: string) =>

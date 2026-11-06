@@ -299,9 +299,8 @@ describe('PipelineManager', () => {
     expect(last().paced).toBe(true);
   });
 
-  it('aligns the script to the word timings, and fixes late cues before recording again, once', async () => {
-    const sent: string[] = [];
-    const modes: string[] = [];
+  /** A paced pipeline whose first take has "Open" 0.4 s late and whose second lands on it. */
+  function lateTake(sent: string[], modes: string[]) {
     const bbox = { x: 0, y: 0, w: 1, h: 1 };
     const click = (t: number, at: number) => ({
       kind: 'click',
@@ -314,7 +313,7 @@ describe('PipelineManager', () => {
       cue: { word: 'Open', at },
     });
     let records = 0;
-    const { p } = make(
+    return make(
       async (p, stage, text) => {
         sent.push(text);
         if (stage === 'plan') {
@@ -349,16 +348,38 @@ describe('PipelineManager', () => {
         },
         runProject: async (_slug, mode) => {
           modes.push(mode);
-          // The first take misses its cue by 0.4 s; the second lands on it.
           const events =
             mode === 'record'
-              ? [click(++records === 1 ? 1.4 : 1.02, 1), { kind: 'step-end' }]
+              ? [
+                  { kind: 'step-start', t: 0, stepId: 's1', title: 'One' },
+                  click(++records === 1 ? 1.4 : 1.02, 1),
+                  { kind: 'step-end' },
+                ]
               : [{ kind: 'step-end' }];
           return { passed: true, events, failure: null, take: null } as never;
         },
       },
     );
+  }
+
+  it('asks what to do about late cues: record again fixes the script first, once', async () => {
+    const sent: string[] = [];
+    const modes: string[] = [];
+    const { p } = lateTake(sent, modes);
     await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().gate?.kind === 'cues');
+    expect(last().gate).toMatchObject({
+      stage: 'align',
+      title: '1 action landed after its word',
+      choices: [
+        { id: 'edit', label: 'Fix in the edit' },
+        { id: 'retake', label: 'Record again' },
+      ],
+      remember: true,
+      cues: [{ stepId: 's1', word: 'Open', late: 0.4 }],
+    });
+    await expect(p.approve(slug, { choice: 'nope' })).rejects.toThrow(/not a choice/);
+    await p.approve(slug, { choice: 'retake' });
     await until(() => last().status === 'done');
     // The late take goes back to the agent, is dry-run again, then recorded again.
     expect(modes).toEqual(['dry', 'dry', 'record', 'dry', 'record']);
@@ -371,6 +392,55 @@ describe('PipelineManager', () => {
         .history.filter((h) => h.stage === 'record')
         .map((h) => h.summary),
     ).toEqual([expect.stringContaining('0 of 1 cues on time'), expect.stringContaining('1 cue on time')]);
+    expect(last().gates.lateCues).toBe('ask');
+  });
+
+  it('fixes late cues in the edit without recording again, and can remember that', async () => {
+    const sent: string[] = [];
+    const modes: string[] = [];
+    const { p } = lateTake(sent, modes);
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().gate?.kind === 'cues');
+    await p.approve(slug, { choice: 'edit', remember: true });
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'dry', 'record']);
+    expect(sent.some((t) => t.includes('late cues]'))).toBe(false);
+    expect(last().history.find((h) => h.stage === 'record')?.summary).toContain('1 action late');
+    expect(last().gates.lateCues).toBe('edit');
+
+    // The next run doesn't ask.
+    modes.length = 0;
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'done');
+    expect(states.some((s) => s.gate?.kind === 'cues' && s.runId === last().runId)).toBe(false);
+    expect(modes).toEqual(['dry', 'dry', 'record']);
+  });
+
+  it('continues from a late-cue gate after an engine restart', async () => {
+    const sent: string[] = [];
+    const modes: string[] = [];
+    await lateTake(sent, modes).p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().gate?.kind === 'cues');
+    // A new engine (the first is left waiting): the gate is restored from disk with its cues.
+    const again = lateTake(sent, modes).p;
+    expect((await again.get(slug)).gate?.cues).toHaveLength(1);
+    await again.approve(slug, { choice: 'edit' });
+    await until(() => last().status === 'done');
+    expect(modes).toEqual(['dry', 'dry', 'record']);
+    expect(last().history.some((h) => h.summary.includes('fixed in the edit'))).toBe(true);
+  });
+
+  it("records again with the user's notes from the late-cue gate", async () => {
+    const sent: string[] = [];
+    const modes: string[] = [];
+    const { p } = lateTake(sent, modes);
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().gate?.kind === 'cues');
+    await p.revise(slug, 'Wait for the build log before clicking Open.');
+    await until(() => last().status === 'done');
+    const fix = sent.find((t) => t.startsWith('[Pipeline · align, late cues]'));
+    expect(fix).toContain('The user chose to record again and adds:\n\nWait for the build log');
+    expect(modes).toEqual(['dry', 'dry', 'record', 'dry', 'record']);
   });
 
   it('stops for the narration review: edits make the agent re-match cues, feedback revises', async () => {

@@ -26,6 +26,7 @@ import type { Author, TimelineStore } from './timeline';
 import { LEAD_IN } from './vo';
 import { withAutoOverlays } from './autoOverlays';
 import { withCaptions } from './captions';
+import { planCueFixes, type CueOp } from './cueFix';
 
 /** Fastest unnarrated action (clicking, typing) is played after a line ends; it shows a badge. */
 export const MAX_SPEED = 4;
@@ -125,13 +126,16 @@ function sinceLastAction(events: RecorderEvent[], t: number): number {
  * at 2–4× (the automatic overlays badge it). Lines start at least CLICK_GAP after the previous
  * click. Cuts the user made (the source ranges the scene shows) are kept; earlier holds and speed
  * changes are recomputed, except on pieces edited by hand (`manual`), which stay as they are and
- * count towards their step's time.
+ * count towards their step's time. In a paced take, an action that landed after its word (the
+ * product kept the script waiting) is brought onto it by speeding up the wait before it, and a
+ * freeze before the next action keeps that one on its word (`planCueFixes`).
  */
 export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
   const before = buildTimeMap(tl).duration;
   const linesOf = new Map<string, VoiceLine[]>();
   for (const v of tl.voice) linesOf.set(v.owner, [...(linesOf.get(v.owner) ?? []), v]);
   const busy = busyIntervals(events);
+  const cueOps = planCueFixes(events, busy).ops;
   const fits: StepFit[] = [];
   const leadIns = new Map<string, number>();
 
@@ -196,8 +200,21 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
         ? Math.max(...lines.map((v) => (v.manual ? v.start : leadIn) + v.duration)) + TAIL
         : 0;
 
-      // What runs on after the line (and a moment of grace) is fast-forwarded.
-      const voiced = line ? needed + GRACE : Infinity;
+      // Late actions brought onto their words: only retimings inside one piece of untouched
+      // recording apply (a cut or a hand edit in the way leaves that action as recorded).
+      const ops = (line ? (cueOps.get(step.id) ?? []) : []).filter((o) =>
+        own.some(
+          ({ range: [a, b], fixed }) =>
+            !fixed && (o.kind === 'speed' ? o.from >= a - 1e-6 && o.to <= b + 1e-6 : o.at >= a && o.at < b),
+        ),
+      );
+      const saved = ops.reduce(
+        (n, o) => n + (o.kind === 'speed' ? (o.to - o.from) * (1 - 1 / o.rate) : -o.duration),
+        0,
+      );
+      // What runs on after the line (and a moment of grace) is fast-forwarded. The voiced part
+      // is measured in recorded seconds, so the time the retimings save is added to it.
+      const voiced = line ? needed + GRACE + saved : Infinity;
       const kept: Interval[] = [];
       const after: Interval[] = [];
       const fixed: { range: Interval; segment: Segment }[] = [];
@@ -229,7 +246,7 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
           ? { kind: 'speed', from: r3(from), to: r3(to), rate }
           : { kind: 'src', from: r3(from), to: r3(to) };
       const parts = [
-        ...kept.map((range) => ({ range, segment: toSegment(range, 1) })),
+        ...kept.flatMap((range) => retimed(range, ops)),
         ...after.flatMap((r) =>
           splitIdle(r, waits).map((p) => ({
             range: p.range,
@@ -286,6 +303,38 @@ export function fitTiming(tl: Timeline, events: RecorderEvent[]): FitResult {
     if (ends.length) f.overrun = r3(Math.max(0, Math.max(...ends) - next));
   }
   return { timeline, steps: fits, before: r3(before), after: r3(tm.duration) };
+}
+
+/** A voiced range as recorded, with the late-action retimings that fall inside it. */
+function retimed(range: Interval, ops: CueOp[]): { range: Interval; segment: Segment }[] {
+  const start = (o: CueOp) => (o.kind === 'speed' ? o.from : o.at);
+  const inside = ops
+    .filter((o) =>
+      o.kind === 'speed'
+        ? o.from >= range[0] - 1e-6 && o.to <= range[1] + 1e-6
+        : o.at >= range[0] && o.at < range[1],
+    )
+    .sort((x, y) => start(x) - start(y) || (x.kind === 'hold' ? -1 : 0) - (y.kind === 'hold' ? -1 : 0));
+  const out: { range: Interval; segment: Segment }[] = [];
+  const src = (a: number, b: number) => {
+    if (b - a >= 1e-3) out.push({ range: [a, b], segment: { kind: 'src', from: r3(a), to: r3(b) } });
+  };
+  let cur = range[0];
+  for (const o of inside) {
+    src(cur, start(o));
+    if (o.kind === 'hold') {
+      out.push({ range: [o.at, o.at], segment: { kind: 'hold', at: r3(o.at), duration: r3(o.duration) } });
+      cur = Math.max(cur, o.at);
+    } else {
+      out.push({
+        range: [o.from, o.to],
+        segment: { kind: 'speed', from: r3(o.from), to: r3(o.to), rate: o.rate },
+      });
+      cur = o.to;
+    }
+  }
+  src(cur, range[1]);
+  return out;
 }
 
 /** Joins back-to-back pieces of the same kind and rate (step boundaries split them). */

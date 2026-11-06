@@ -571,8 +571,18 @@ export const rpcMethods = {
     }),
     result: PipelineState,
   },
-  /** Approves the waiting gate; the pipeline continues. */
-  'pipeline.approve': { params: z.object({ slug: z.string() }), result: PipelineState },
+  /**
+   * Approves the waiting gate. `choice` picks one of the gate's choices (default the first);
+   * `remember` saves it for the project's later runs where the gate allows it.
+   */
+  'pipeline.approve': {
+    params: z.object({
+      slug: z.string(),
+      choice: z.string().max(40).optional(),
+      remember: z.boolean().optional(),
+    }),
+    result: PipelineState,
+  },
   /** Sends feedback for the waiting gate; the agent revises and the gate opens again. */
   'pipeline.revise': {
     params: z.object({ slug: z.string(), feedback: z.string().min(1) }),

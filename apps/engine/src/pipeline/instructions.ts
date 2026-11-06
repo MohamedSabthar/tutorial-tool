@@ -218,6 +218,8 @@ export function alignInstruction(
   pace: Pace,
   timing: StepTiming[] = [],
   late: LateCue[] = [],
+  /** The user's notes at the late-cue gate. */
+  feedback?: string,
 ): string {
   const steps = plan.steps
     .map((s) => {
@@ -238,7 +240,10 @@ export function alignInstruction(
           'The take was recorded, but these actions landed after their words:',
           lateCueLines(late),
           "The recorder waits for each cue's word, but it can't make the product faster. Recording again as it is would land them late again, so fix the script first: cue an action that depends on a slow screen on a later word, one spoken after the screen is ready. If no later word fits, the line needs more words before the action: change that step's narration with save_plan (the pipeline voices it again). The pipeline then dry-runs the script and records again.",
-        ].join('\n')
+          feedback ? `The user chose to record again and adds:\n\n${feedback}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
       : '',
     `The narration is approved and voiced. Each line below has its length and ElevenLabs' word timings (word@seconds from the start of the line; the line starts ${pace.leadIn} s into its step). The recorder lands a cued action as its word starts, and each step lasts at least its line plus ${pace.tail} s.`,
     steps,

@@ -12,6 +12,7 @@ import {
   type AgentEvent,
   type PlanEdit,
   type Gate,
+  type LateCueFix,
   type Pace,
   type PipelineProgress,
   type ProgressItem,
@@ -22,7 +23,9 @@ import {
 } from '@studio/core';
 import type { AgentManager } from '../agent/session';
 import type { ProjectStore } from '../projects';
-import { cueDrift, driftLine, lateCues, leftoversLine, type LateCue } from '../pace';
+import { cueDrift, driftLine, leftoversLine } from '../pace';
+import { busyIntervals } from '../timing';
+import { cueFixLine, planCueFixes } from '../cueFix';
 import { readTimings } from '../stepTiming';
 import { outlineChanges, scriptOutline } from './scriptOutline';
 import { cueProblems, DRY_SCRIPT, normalizeScript } from './cueCheck';
@@ -93,7 +96,8 @@ export interface PipelineDeps {
   onCommit?(): void;
 }
 
-type Decision = { kind: 'approve' } | { kind: 'revise'; feedback: string };
+type Decision =
+  { kind: 'approve'; choice?: string; remember?: boolean } | { kind: 'revise'; feedback: string };
 
 class Stopped extends Error {}
 
@@ -111,6 +115,25 @@ export function modelFor(stage: PipelineStage, choice: ModelChoice): string {
   if (choice === 'sonnet') return SONNET;
   const { deep, writing } = choice === 'balanced' ? { deep: OPUS, writing: SONNET } : choice;
   return DEEP_STAGES.has(stage) ? deep : writing;
+}
+
+type LateCueNext = { stage: 'post' | 'align'; feedback?: string };
+
+/** A late action this close to its word after the edit counts as fixed. */
+const CUE_SLACK = 0.15;
+
+const lateCount = (cues: LateCueFix[]) => `${cues.length} action${cues.length === 1 ? '' : 's'}`;
+
+/** What the edit does with late actions, for the stage summary. */
+function editSummary(cues: LateCueFix[]): string {
+  const fixed = cues.filter((c) => c.rate !== null && c.left <= CUE_SLACK);
+  const parts = [
+    fixed.length
+      ? `${fixed.length} fixed in the edit (${fixed.map((c) => `${c.stepId} ${c.rate}×`).join(', ')})`
+      : '',
+    cues.length > fixed.length ? `${cues.length - fixed.length} still late` : '',
+  ].filter(Boolean);
+  return parts.join(', ');
 }
 
 /** A stage resumes by itself after a reload at most once in this long. */
@@ -223,8 +246,16 @@ export class PipelineManager {
     return state;
   }
 
-  async approve(slug: string): Promise<PipelineState> {
-    return this.decide(slug, { kind: 'approve' });
+  async approve(slug: string, opts: { choice?: string; remember?: boolean } = {}): Promise<PipelineState> {
+    const state = await this.get(slug);
+    const choices = state.gate?.choices;
+    if (opts.choice !== undefined && !choices?.some((c) => c.id === opts.choice))
+      throw new RpcError(`"${opts.choice}" is not a choice at this gate`, 'bad_request');
+    return this.decide(slug, {
+      kind: 'approve',
+      ...(opts.choice !== undefined ? { choice: opts.choice } : {}),
+      ...(opts.remember && state.gate?.remember ? { remember: true } : {}),
+    });
   }
 
   async revise(slug: string, feedback: string): Promise<PipelineState> {
@@ -667,6 +698,58 @@ export class PipelineManager {
     return 'record';
   }
 
+  /**
+   * After a paced recording with late actions: asks the user (unless the project has a saved
+   * choice) whether to fix them in the edit (post-production, as usual) or fix the script and
+   * record again (align, with the user's notes if they gave any).
+   */
+  private async lateCueChoice(slug: string, live: Live, cues: LateCueFix[]): Promise<LateCueNext> {
+    const policy = (await this.get(slug)).gates.lateCues;
+    const fixable = cues.filter((c) => c.rate !== null && c.left <= CUE_SLACK).length;
+    const d: Decision =
+      policy === 'edit'
+        ? { kind: 'approve', choice: 'edit' }
+        : policy === 'retake'
+          ? { kind: 'approve', choice: 'retake' }
+          : await this.gate(slug, live, {
+              // Align: a decision restored after a restart continues from there.
+              stage: 'align',
+              kind: 'cues',
+              title: `${lateCount(cues)} landed after ${cues.length === 1 ? 'its word' : 'their words'}`,
+              text: [
+                cues.map((c) => `- ${cueFixLine(c)}`).join('\n'),
+                fixable === cues.length
+                  ? 'The edit can put every one on its word by speeding up the wait before it (later actions in the step get a short freeze so they stay on theirs).'
+                  : `The edit can put ${fixable} of ${cues.length} on ${fixable === 1 ? 'its word' : 'their words'}; the rest stay late. Recording again fixes the script first so they land on time.`,
+                'Fix in the edit to carry on to post-production, or record again. To change what is recorded again, ask the agent.',
+              ].join('\n\n'),
+              choices: [
+                { id: 'edit', label: 'Fix in the edit' },
+                { id: 'retake', label: 'Record again' },
+              ],
+              remember: true,
+              cues,
+            });
+    return this.lateCueDecision(slug, d, cues);
+  }
+
+  /** Acts on the late-cue decision: post-production (fixed in the edit) or align (record again). */
+  private async lateCueDecision(slug: string, d: Decision, cues: LateCueFix[]): Promise<LateCueNext> {
+    if (d.kind === 'approve' && d.remember && (d.choice === 'edit' || d.choice === 'retake')) {
+      const state = await this.get(slug);
+      await this.set(slug, { gates: { ...state.gates, lateCues: d.choice } });
+    }
+    if (d.kind === 'approve' && (d.choice ?? 'edit') === 'edit') {
+      await this.annotate(slug, `${lateCount(cues)} late: ${editSummary(cues)}`);
+      return { stage: 'post' };
+    }
+    await this.annotate(
+      slug,
+      `${lateCount(cues)} late: fixing the script before recording again${d.kind === 'revise' ? ' (with your notes)' : ''}`,
+    );
+    return { stage: 'align', ...(d.kind === 'revise' ? { feedback: d.feedback } : {}) };
+  }
+
   private async run(slug: string, live: Live, from: PipelineStage, decision?: Decision): Promise<void> {
     let stage: PipelineStage | 'done' = from;
     let pending = decision;
@@ -678,9 +761,13 @@ export class PipelineManager {
       shot?: string | null;
     } | null = null;
     let helpFeedback: string | undefined;
-    /** A paced take with late cues goes back to the agent to fix the script, then is recorded again, once. */
+    /**
+     * A paced take with late cues: the user chooses (or has chosen for the project) between
+     * fixing them in the edit and fixing the script to record again, once.
+     */
     let retaken = false;
-    let late: LateCue[] = [];
+    let late: LateCueFix[] = [];
+    let lateFeedback: string | undefined;
     /** A script well over the brief's length is sent back to be shortened, once. */
     let trimmed = false;
     while (stage !== 'done') {
@@ -823,16 +910,19 @@ export class PipelineManager {
             // Repairs count until a take is recorded: a passing dry run followed by a failing
             // recording of the same step mustn't start the count again (that loops).
             if (mode === 'record') await this.set(slug, { repairAttempts: 0 });
-            if (mode === 'record' && paced && !retaken) {
-              late = lateCues(r.events);
-              if (late.length) {
-                retaken = true;
-                await this.annotate(
-                  slug,
-                  `${late.length} cue${late.length === 1 ? '' : 's'} late: fixing the script before recording again`,
-                );
-                stage = 'align';
-                break;
+            if (mode === 'record' && paced) {
+              const cues = planCueFixes(r.events, busyIntervals(r.events)).cues;
+              if (cues.length && retaken) {
+                // Recorded again already: the edit fixes what it can.
+                await this.annotate(slug, `${lateCount(cues)} late again: ${editSummary(cues)}`);
+              } else if (cues.length) {
+                const next = await this.lateCueChoice(slug, live, cues);
+                if (next.stage === 'align') {
+                  late = cues;
+                  lateFeedback = next.feedback;
+                  stage = 'align';
+                  break;
+                }
               }
             }
             if (mode === 'dry' && !paced && !trimmed) {
@@ -1007,13 +1097,32 @@ export class PipelineManager {
           break;
         }
         case 'align': {
+          // A late-cue gate restored after a restart comes back here with its decision.
+          const restored = (await this.get(slug)).gate;
+          if (pending && restored?.kind === 'cues') {
+            late = restored.cues ?? [];
+            const d = pending;
+            pending = undefined;
+            const next = await this.lateCueDecision(slug, d, late);
+            if (next.stage !== 'align') {
+              stage = next.stage;
+              break;
+            }
+            lateFeedback = next.feedback;
+          }
+          if (late.length) retaken = true;
           const plan = (await this.get(slug)).plan;
           const pace = (await this.deps.pace?.read?.(slug).catch(() => null)) ?? null;
           const timing = (await readTimings(this.deps.store.dir(slug)))?.steps ?? [];
           const script = path.join(this.deps.store.dir(slug), 'script.spec.ts');
           const before = scriptOutline(await readFile(script, 'utf8').catch(() => ''));
           if (plan && pace)
-            await this.agentStageWithHelp(slug, live, 'align', alignInstruction(plan, pace, timing, late));
+            await this.agentStageWithHelp(
+              slug,
+              live,
+              'align',
+              alignInstruction(plan, pace, timing, late, lateFeedback),
+            );
           // What the agent changed, in the stage's summary.
           const changed = outlineChanges(
             before,
@@ -1025,6 +1134,7 @@ export class PipelineManager {
           const rewritten =
             late.length > 0 && plan && after?.steps.some((s, i) => s.narration !== plan.steps[i]?.narration);
           late = [];
+          lateFeedback = undefined;
           stage = rewritten ? 'voice' : 'dry_run';
           break;
         }

@@ -65,7 +65,8 @@ export function usePipeline(slug: string | null) {
     ready: !!client && conn === 'open' && !!target,
     start: (gates?: { storyboard?: boolean; narration?: boolean }) =>
       act(() => client!.call('pipeline.start', { slug: target!, ...(gates ? { gates } : {}) })),
-    approve: () => act(() => client!.call('pipeline.approve', { slug: target! })),
+    approve: (opts: { choice?: string; remember?: boolean } = {}) =>
+      act(() => client!.call('pipeline.approve', { slug: target!, ...opts })),
     revise: (feedback: string) => act(() => client!.call('pipeline.revise', { slug: target!, feedback })),
     stop: () => act(() => client!.call('pipeline.stop', { slug: target! })),
     resume: () => act(() => client!.call('pipeline.resume', { slug: target! })),
