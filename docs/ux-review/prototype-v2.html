@@ -148,6 +148,17 @@ select.tf{appearance:none;padding-right:30px;background-image:linear-gradient(45
 .thumb{width:96px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;position:relative;flex:none;background:#fff;container-type:inline-size}
 .row .meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .row .meta b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowwrap{display:flex;align-items:center;gap:4px;padding-right:6px}
+.rowwrap .row{flex:1;min-width:0}
+.series{border-radius:16px}
+.series.open{background:var(--f04)}
+.stack{position:relative;width:110px;height:54px;flex:none}
+.stack .thumb{position:absolute;width:86px;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.stack .thumb:nth-child(1){left:0;top:0}.stack .thumb:nth-child(2){left:10px;top:3px}.stack .thumb:nth-child(3){left:20px;top:6px}
+.eps{display:flex;flex-direction:column;gap:2px;padding:0 0 4px}
+.row.ep{padding-left:12px}
+.epn{width:22px;height:22px;border-radius:7px;background:var(--f08);font-size:11.5px;font-weight:600;display:grid;place-items:center;flex:none}
+.ctxpill{display:inline-flex}
 .notice{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 12px}
 
 /* MAKING */
@@ -381,7 +392,14 @@ const S={view:'home',goal:'',how:'agent',
  agent:{state:'idle',text:'',acts:[],label:'',started:0,result:null,approval:null,target:null,notes:[]},
  mk:{title:'Creating an AI Agent',stage:0,pct:0,acts:[],need:null,done:false,open:{},started:Date.now()},
  ex:{state:'idle',p:0,res:'1080p',outs:{video:true,captions:true,doc:true,script:false}},
- sheet:false,pop:null,toasts:[],notif:null,keyMissing:true};
+ sheet:false,pop:null,toasts:[],notif:null,keyMissing:true,mode:'single',ctx:null,outline:null,
+ lib:[
+  {kind:'series',id:'ser1',title:'Build an AI math tutor',open:true,eps:[
+   {title:'Creating an AI Agent',status:'ready',meta:'3:20 · edited today',at:171},
+   {title:'Give the agent tools',status:'check',meta:'Waiting 10 min',at:66},
+   {title:'Trace and test the tutor',status:'rec',meta:'About 6 min left',at:150}]},
+  {kind:'one',title:'Connect to a MySQL database',status:'ready',meta:'2:41 · last week',at:9},
+  {kind:'one',title:'Map JSON to XML with the data mapper',status:'ready',meta:'3:05 · 2 weeks ago',at:30}]};
 STEPS0.forEach(s=>S.orig[s.id]=s.line);
 
 // ---------------- helpers ----------------
@@ -422,6 +440,7 @@ const P={ // inline filled icons
  folder:'<path d="M2.5 5.5A2 2 0 0 1 4.5 3.5h3.3a2 2 0 0 1 1.4.6l1 1h5.3a2 2 0 0 1 2 2v7.4a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V5.5Z"/>',
  film:'<path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-11ZM5 5v2h2V5H5Zm8 0v2h2V5h-2ZM5 9v2h2V9H5Zm8 0v2h2V9h-2Zm-8 4v2h2v-2H5Zm8 0v2h2v-2h-2Z"/>',
  gear:'<path d="M8.6 2.2a1.4 1.4 0 0 1 2.8 0l.2.9a6 6 0 0 1 1.4.8l.9-.3a1.4 1.4 0 0 1 1.7.6l.7 1.2c.4.6.2 1.4-.3 1.8l-.7.6a6 6 0 0 1 0 1.6l.7.6c.5.4.7 1.2.3 1.8l-.7 1.2a1.4 1.4 0 0 1-1.7.6l-.9-.3a6 6 0 0 1-1.4.8l-.2.9a1.4 1.4 0 0 1-2.8 0l-.2-.9a6 6 0 0 1-1.4-.8l-.9.3a1.4 1.4 0 0 1-1.7-.6l-.7-1.2a1.4 1.4 0 0 1 .3-1.8l.7-.6a6 6 0 0 1 0-1.6l-.7-.6a1.4 1.4 0 0 1-.3-1.8l.7-1.2a1.4 1.4 0 0 1 1.7-.6l.9.3a6 6 0 0 1 1.4-.8l.2-.9ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/>',
+ dots:'<circle cx="4.5" cy="10" r="1.7"/><circle cx="10" cy="10" r="1.7"/><circle cx="15.5" cy="10" r="1.7"/>',
  plus:'<path d="M10 3.5a1 1 0 0 1 1 1V9h4.5a1 1 0 1 1 0 2H11v4.5a1 1 0 1 1-2 0V11H4.5a1 1 0 1 1 0-2H9V4.5a1 1 0 0 1 1-1Z"/>',
  trash:'<path d="M8 2.5h4a1 1 0 0 1 1 1V4h3a1 1 0 1 1 0 2h-.6l-.7 9.6a2 2 0 0 1-2 1.9H7.3a2 2 0 0 1-2-1.9L4.6 6H4a1 1 0 0 1 0-2h3v-.5a1 1 0 0 1 1-1Z"/>',
  lock:'<path d="M6 8V6.5a4 4 0 1 1 8 0V8h.5A1.5 1.5 0 0 1 16 9.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16.5v-7A1.5 1.5 0 0 1 5.5 8H6Zm2 0h4V6.5a2 2 0 1 0-4 0V8Z"/>',
@@ -455,35 +474,85 @@ function screen(t,mini){
 }
 
 // ---------------- chrome ----------------
-function proto(){const v=[['home','Start'],['making','Making'],['check','Check the script'],['studio','Edit'],['export','Export']];const cur=S.view==='making'&&S.mk.need==='script'?'check':S.view;
+function proto(){const v=[['home','Start'],['series','Series outline'],['making','Making'],['check','Check the script'],['studio','Edit'],['export','Export']];const cur=S.view==='making'&&S.mk.need==='script'?'check':S.view;
  return `<div class="proto gut" role="navigation" aria-label="Prototype screens"><b>Prototype</b>${v.map(([k,l])=>`<button data-a="jump" data-v="${k}" ${cur===k?'aria-current="page"':''}>${l}</button>`).join('')}<span class="grow"></span><span class="s12">The app UI is TUFFUI-style. The video keeps the WSO2 look.</span></div>`;}
 function topbar(){return `<header class="bar gut"><button class="logo" data-a="go" data-v="home"><span class="m">${ic('film','sm')}</span>Tutorial Studio</button><span class="grow"></span><button class="b quiet" data-a="toast" data-m="Settings: accounts, spending limit, what the agent learned.">${ic('gear','sm')}Settings</button><button class="b quiet" data-a="toast" data-m="Help opens a 3-step guide: make, check the script, edit.">Help</button></header>`;}
 
 // ---------------- HOME ----------------
-function vHome(){
+const ST={ready:['pos','check','Ready to edit'],check:['warn','warn','Your turn: check the script'],rec:['brand',null,'Recording'],queued:['',null,'Queued'],making:['brand',null,'Making']};
+function statusPill(s){const [tone,icn,txt]=ST[s];return `<span class="pill ${tone}">${icn?ic(icn,'sm'):tone==='brand'?'<span class="dots"><i></i><i></i><i></i></span>':ic('clock','sm')}${txt}</span>`;}
+function vHome(){const ser=S.mode==='series';
+ const nItems=S.lib.reduce((a,x)=>a+(x.kind==='series'?1:1),0);
  return topbar()+`<main class="home gut">
- <div style="display:flex;flex-direction:column;gap:10px"><h1>What should the viewer learn?</h1><p class="muted" style="font-size:16px;max-width:58ch">Describe it once. The agent plans it, tries it in the product and records a narrated video. You check the script, then polish it.</p></div>
+ <div style="display:flex;flex-direction:column;gap:10px"><h1>${ser?'What should the series teach?':'What should the viewer learn?'}</h1><p class="muted" style="font-size:16px;max-width:58ch">${ser?'Describe the whole journey. The agent splits it into short episodes that build on each other. You approve the outline once, then each episode is made like any tutorial.':'Describe it once. The agent plans it, tries it in the product and records a narrated video. You check the script, then polish it.'}</p></div>
  ${S.keyMissing?`<div class="shell"><div class="panel notice"><span class="tile warn">${ic('mic')}</span><div class="grow"><b style="font-weight:500">Add a voice-over key to give the video a narrator</b><p class="s13 muted">You can start without it. The voice-over waits until it's added.</p></div><button class="b pri" data-a="addkey">Add key</button></div></div>`:''}
+ <div class="seg" role="group" aria-label="What to make" style="align-self:flex-start"><button type="button" data-a="mode" data-v="single" aria-pressed="${!ser}">One tutorial</button><button type="button" data-a="mode" data-v="series" aria-pressed="${ser}">A series</button></div>
  <form class="shell composer" data-f="make"><div class="panel">
-  <label class="sr" for="goal">What should the viewer learn?</label>
-  <textarea id="goal" placeholder="Create an HTTP service with a GET /greeting resource and try it">${esc(S.goal)}</textarea>
+  <label class="sr" for="goal">${ser?'What should the series teach?':'What should the viewer learn?'}</label>
+  <textarea id="goal" placeholder="${ser?'Build an AI math tutor: create the agent, give it tools, then trace and test it':'Create an HTTP service with a GET /greeting resource and try it'}">${esc(S.goal)}</textarea>
   <div class="crow"><label class="sr" for="prod">Product</label><select id="prod" class="tf" style="width:auto;height:32px;padding:0 30px 0 12px;border-radius:999px;font-size:13px"><option>WSO2 Integrator</option><option>Micro Integrator</option><option>Ballerina</option></select>
-   <div class="seg" role="group" aria-label="Who clicks through it"><button type="button" data-a="how" data-v="agent" aria-pressed="${S.how==='agent'}">The agent clicks through</button><button type="button" data-a="how" data-v="me" aria-pressed="${S.how==='me'}">I'll show it once</button></div>
-   <span class="grow"></span><button class="send" type="submit" aria-label="Make tutorial">${ic('send','lg')}</button></div>
+   ${ser?`<label class="sr" for="neps">Episodes</label><select id="neps" class="tf" style="width:auto;height:32px;padding:0 30px 0 12px;border-radius:999px;font-size:13px"><option>Let the agent decide</option><option>3 episodes</option><option>4 episodes</option><option>5 episodes</option></select>`:`<div class="seg" role="group" aria-label="Who clicks through it"><button type="button" data-a="how" data-v="agent" aria-pressed="${S.how==='agent'}">The agent clicks through</button><button type="button" data-a="how" data-v="me" aria-pressed="${S.how==='me'}">I'll show it once</button></div>`}
+   <span class="grow"></span><button class="send" type="submit" aria-label="${ser?'Draft the series outline':'Make tutorial'}">${ic('send','lg')}</button></div>
   <details class="disc"><summary><svg class="ico sm car" viewBox="0 0 20 20" fill="currentColor">${P.next}</svg>Length, voice and notes</summary><div class="cust">
-   <div class="field"><span class="lbl">Length</span><div class="seg" role="group" aria-label="Length"><button type="button" aria-pressed="false">~1 min</button><button type="button" aria-pressed="true">2–5 min</button><button type="button" aria-pressed="false">Longer</button></div></div>
+   <div class="field"><span class="lbl">${ser?'Length of each episode':'Length'}</span><div class="seg" role="group" aria-label="Length"><button type="button" aria-pressed="false">~1 min</button><button type="button" aria-pressed="true">2–5 min</button><button type="button" aria-pressed="false">Longer</button></div></div>
    <div class="field"><label class="lbl" for="voice">Voice</label><select id="voice" class="tf"><option>Rachel (default)</option><option>Adam</option></select></div>
    <div class="field" style="grid-column:1/-1"><label class="lbl" for="notes">Notes for the agent</label><textarea id="notes" class="tf" rows="2" placeholder="Anything to show, skip or say. Drop docs or links here."></textarea></div>
    <label class="check"><input type="checkbox"><span>Let me check the steps before it records</span></label>
    <label class="check"><input type="checkbox" checked><span>Add short explainers for concepts</span></label></div></details>
- </div><div class="cfoot"><span>${ic('clock','sm')}</span><span>About <b>25 min</b> · about <b>$2</b></span><span>·</span><span>You'll check the script once, then it records</span></div></form>
- <div class="sugg" aria-label="Examples">${['Create an HTTP service and try it','Connect to a MySQL database','Map JSON to XML with the data mapper','Expose a service as an AI agent tool'].map(s=>`<button data-a="sugg" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
- <section class="shell"><div class="shead"><span class="tile">${ic('film')}</span><div class="grow"><h3>Your tutorials</h3></div><span class="s13 muted">3</span></div><div class="panel rows" style="padding:6px">
-  ${row('Creating an AI Agent','<span class="pill pos">'+ic('check','sm')+'Ready to edit</span>','3:20 · edited today','studio',171)}
-  ${row('Connect to a MySQL database','<span class="pill warn">'+ic('warn','sm')+'Your turn: check the script</span>','Waiting 10 min','check',9)}
-  ${row('Expose a service as an AI agent tool','<span class="pill brand"><span class="dots"><i></i><i></i><i></i></span>Recording</span>','About 6 min left','rec',66)}
+ </div><div class="cfoot"><span>${ic('clock','sm')}</span>${ser?`<span>First, the agent drafts an outline <b>(about 1 min, free)</b>. Nothing is recorded until you approve it.</span>`:`<span>About <b>25 min</b> · about <b>$2</b></span><span>·</span><span>You'll check the script once, then it records</span>`}</div></form>
+ <div class="sugg" aria-label="Examples">${(ser?['Build an AI math tutor, start to finish','Integrations 101: services, connectors, data mapping','From HTTP service to deployed API']:['Create an HTTP service and try it','Connect to a MySQL database','Map JSON to XML with the data mapper','Expose a service as an AI agent tool']).map(s=>`<button data-a="sugg" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+ <section class="shell"><div class="shead"><span class="tile">${ic('film')}</span><div class="grow"><h3>Your tutorials</h3><p>Each tutorial is its own project. A series groups them in order.</p></div><span class="s13 muted">${nItems}</span></div><div class="panel rows" style="padding:6px">
+  ${S.lib.map((x,li)=>x.kind==='series'?seriesRow(x,li):singleRow(x,li)).join('')}
  </div></section></main>`;}
-function row(t,pill,meta,dest,at){return `<button class="row" data-a="card" data-d="${dest}" data-t="${esc(t)}"><span class="thumb">${screen(at,true)}</span><span class="meta"><b>${esc(t)}</b><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill}<span class="s12 muted">${meta}</span></span></span>${ic('next','sm')}</button>`;}
+function singleRow(x,li){return `<div class="rowwrap"><button class="row" data-a="card" data-li="${li}"><span class="thumb">${screen(x.at,true)}</span><span class="meta"><b>${esc(x.title)}</b><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${statusPill(x.status)}<span class="s12 muted">${x.meta}</span></span></span></button><span style="position:relative"><button class="b quiet icon" data-a="pop" data-p="row${li}" aria-label="More for ${esc(x.title)}" aria-expanded="${S.pop==='row'+li}">${ic('dots')}</button>${S.pop==='row'+li?`<div class="pop" style="right:0;top:38px;min-width:260px"><div class="panel hist"><span class="lbl" style="padding:6px 8px 2px">Add to series</span>${S.lib.filter(s=>s.kind==='series').map(s=>`<button class="hrow" style="border:0;background:none;cursor:pointer;text-align:left" data-a="addto" data-li="${li}" data-sid="${s.id}">${ic('film','sm')}<span class="grow">${esc(s.title)}</span><span class="s12 muted">as episode ${s.eps.length+1}</span></button>`).join('')}<button class="hrow" style="border:0;background:none;cursor:pointer;text-align:left" data-a="newseries" data-li="${li}">${ic('plus','sm')}<span class="grow">New series starting with this</span></button><hr style="border:0;border-top:1px solid var(--f08);margin:4px 0"><button class="hrow" style="border:0;background:none;cursor:pointer;text-align:left" data-a="toast" data-m="Opens the tutorial folder.">${ic('folder','sm')}<span class="grow">Show in Finder</span></button></div></div>`:''}</span></div>`;}
+function seriesRow(x,li){const c={};x.eps.forEach(e=>c[e.status]=(c[e.status]||0)+1);
+ return `<div class="series ${x.open?'open':''}"><button class="row" data-a="sertog" data-li="${li}" aria-expanded="${!!x.open}"><span class="stack">${x.eps.slice(0,3).map((e,i)=>`<span class="thumb" style="z-index:${3-i}">${screen(e.at,true)}</span>`).join('')}</span><span class="meta"><b>${esc(x.title)}</b><span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="pill brand">${ic('film','sm')}Series · ${x.eps.length} episodes</span>${c.check?`<span class="pill warn">${c.check} needs you</span>`:''}${c.rec||c.making?`<span class="pill brand">${(c.rec||0)+(c.making||0)} in progress</span>`:''}${c.ready?`<span class="pill pos">${c.ready} ready</span>`:''}${c.queued?`<span class="pill">${c.queued} queued</span>`:''}</span></span><svg class="ico sm car" viewBox="0 0 20 20" fill="currentColor" style="transform:rotate(${x.open?90:0}deg)">${P.next}</svg></button>
+ ${x.open?`<div class="eps">${x.eps.map((e,ei)=>`<button class="row ep enter" data-a="epopen" data-li="${li}" data-ei="${ei}"><span class="epn">${ei+1}</span><span class="thumb">${screen(e.at,true)}</span><span class="meta"><b>${esc(e.title)}</b><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${statusPill(e.status)}<span class="s12 muted">${e.meta}</span></span></span>${ic('next','sm')}</button>`).join('')}<div style="display:flex;gap:8px;padding:6px 8px 8px 44px;flex-wrap:wrap"><button class="b sm" data-a="seredit" data-li="${li}">${ic('plus','sm')}Add an episode</button><button class="b sm quiet" data-a="seredit" data-li="${li}">Edit outline</button><button class="b sm quiet" data-a="toast" data-m="Export series: each episode's video, a playlist order and an index page linking the step-by-step docs.">${ic('upload','sm')}Export series</button></div></div>`:''}</div>`;}
+
+function ctxPill(){const c=S.ctx;return c?`<span class="pill brand">${ic('film','sm')}Episode ${c.ep} of ${c.of} · ${esc(c.series)}</span>`:'';}
+function openItem(x,ctx){S.ctx=ctx||null;S.title=x.title;
+ if(x.status==='ready'){go('studio');return;}
+ if(x.status==='check'){Object.assign(S.mk,{title:x.title,stage:2,need:'script',done:false,asked:true,acts:[...STAGES[0].acts,...STAGES[1].acts].map(a=>[a[0],a[1],'12s'])});go('making');return;}
+ if(x.status==='queued'){toast(`Queued. It starts when episode ${ctx.ep-1} is finished.`);return;}
+ Object.assign(S.mk,{title:x.title,stage:3,pct:30,need:null,done:false,asked:true,started:Date.now()-14*60000,acts:[...STAGES[0].acts,...STAGES[1].acts,STAGES[3].acts[0]].map(a=>[a[0],a[1],'20s'])});go('making');}
+// ---------------- SERIES OUTLINE ----------------
+function vSeries(){const o=S.outline;const drafting=o.state==='drafting';const n=o.eps.length;
+ return topbar()+`<main class="making gut">
+ <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="b quiet" data-a="go" data-v="home">${ic('back','sm')}Tutorials</button><span class="pill brand">${ic('film','sm')}New series</span></div>
+ <label class="sr" for="sertitle">Series title</label><input id="sertitle" class="tf" data-a="sertitle" value="${esc(o.title)}" style="font-family:Inter,var(--sans);font-size:28px;font-weight:800;letter-spacing:-.02em;background:none;padding:4px 6px;max-width:760px">
+ <section class="shell" aria-live="polite"><div class="panel status"><div class="top">
+  ${drafting?'<span class="tile brand"><span class="dots"><i></i><i></i><i></i></span></span>':`<span class="tile warn">${ic('warn')}</span>`}
+  <div class="grow"><div class="lab">${drafting?esc(o.label):'Your turn: approve the outline'}</div><div class="det">${drafting?'Nothing is recorded yet. This only plans the episodes.':`${n} episodes · about ${n*3} min of video in total · each starts where the last one ended`}</div></div>
+  ${drafting?`<span class="pill tab">${ic('clock','sm')}<span id="selapsed">${elapsed(Date.now()-o.started)}</span></span>`:''}
+ </div></div></section>
+ <div class="mk2"><section class="shell"><div class="shead"><span class="tile">${ic('film')}</span><div class="grow"><h3>Episodes</h3><p>Rename, reorder or remove. Each becomes its own tutorial.</p></div><span class="s13 muted tab">${n}</span></div>
+  <div class="panel review" style="padding:6px">${o.eps.map((e,i)=>`<div class="rstep enter ep-card"><span class="num">${i+1}</span><label class="sr" for="et${i}">Episode ${i+1} title</label><input class="tf" id="et${i}" data-a="ept" data-i="${i}" value="${esc(e.title)}" style="font-weight:500;padding:6px 10px"><span style="display:flex;gap:2px">${drafting?'':`<button class="b quiet icon" data-a="epmove" data-i="${i}" data-d="-1" aria-label="Move episode ${i+1} up" ${i===0?'disabled':''}><svg class="ico sm" viewBox="0 0 20 20" fill="currentColor" style="transform:rotate(-90deg)">${P.next}</svg></button><button class="b quiet icon" data-a="epmove" data-i="${i}" data-d="1" aria-label="Move episode ${i+1} down" ${i===n-1?'disabled':''}><svg class="ico sm" viewBox="0 0 20 20" fill="currentColor" style="transform:rotate(90deg)">${P.next}</svg></button><button class="b quiet icon" data-a="eprm" data-i="${i}" aria-label="Remove episode ${i+1}">${ic('trash','sm')}</button>`}</span>
+   <span class="s13 muted" style="grid-column:2/-1">${esc(e.goal)}</span>
+   <span style="grid-column:2/-1;display:flex;gap:6px;flex-wrap:wrap"><span class="pill">${ic('clock','sm')}~${e.mins} min</span><span class="pill">${i===0?'Starts from an empty project':`Starts where episode ${i} ends`}</span>${e.ex?'<span class="pill brand">1 explainer</span>':''}</span></div>`).join('')}
+   ${drafting?`<div class="tcall"><span class="st run"><span class="spin"></span></span><span class="nm muted">Drafting the next episode…</span></div>`:`<button class="b" style="margin:6px;align-self:flex-start" data-a="epadd">${ic('plus','sm')}Add an episode</button>`}</div></section>
+ <div style="display:flex;flex-direction:column;gap:14px">
+  ${drafting?'':`<section class="approve enter"><div class="panel"><div style="display:flex;gap:10px;align-items:center"><span class="tile warn">${ic('film')}</span><div class="grow"><b style="font-weight:500">Approve the outline</b><p class="s13 muted">Each episode then gets its own script check.</p></div></div>
+   <button class="b brand lg" data-a="sermake" data-all="0">Make episode 1 now</button>
+   <button class="b md" data-a="sermake" data-all="1">Make all ${n}, one after another</button>
+   <p class="s12 muted">All ${n}: about ${n*25} min and $${n*2}. You'll get a notification for each script check.</p>
+   <div class="field"><label class="lbl" for="serchg">Or ask for changes</label><textarea class="tf" id="serchg" rows="2" placeholder="Merge episodes 3 and 4, and add one on deploying"></textarea><button class="b" style="align-self:flex-start" data-a="serrevise">Send</button></div></div></section>`}
+  <section class="shell"><div class="shead"><span class="tile">${ic('gear')}</span><div class="grow"><h3>Shared by every episode</h3></div></div><div class="panel" style="padding:12px;display:flex;flex-direction:column;gap:12px">
+   <div class="field"><span class="lbl">Product and voice</span><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill">WSO2 Integrator</span><span class="pill">Rachel</span><span class="pill">2–5 min each</span></div></div>
+   <label class="check"><input type="checkbox" checked><span><b style="font-weight:500">Continue from the last episode</b><br><span class="muted s12">The agent rebuilds where episode 1 ended before it records episode 2.</span></span></label>
+   <label class="check"><input type="checkbox" checked><span><b style="font-weight:500">“Previously” and “Next up” cards</b><br><span class="muted s12">A one-line recap at the start, a teaser at the end.</span></span></label>
+   <label class="check"><input type="checkbox" checked><span><b style="font-weight:500">Same title-card style</b><br><span class="muted s12">“Episode 2 of 4” on every title card.</span></span></label>
+  </div></section></div></div></main>`;}
+const OUTLINE=[
+ {title:'Create your first AI agent',goal:'Make a chat agent service and give it a math tutor role.',mins:3,ex:true},
+ {title:'Give the agent tools',goal:'Add sum, subtract, multiply and divide as custom tools.',mins:3},
+ {title:'Trace and test the tutor',goal:'Turn on tracing, run the service and ask it questions in Agent Chat.',mins:3},
+ {title:'Handle bad questions',goal:'Add guardrails so the tutor declines questions that are not math.',mins:2},
+];
+function startOutline(title){S.outline={title,eps:[],state:'drafting',label:'Reading what it knows about WSO2 Integrator',started:Date.now(),from:null};go('series');
+ const labels=['Reading what it knows about WSO2 Integrator','Splitting the journey into episodes','Checking each episode builds on the last','Estimating lengths'];
+ OUTLINE.forEach((e,i)=>setTimeout(()=>{if(S.view!=='series'||S.outline.state!=='drafting')return;S.outline.eps.push({...e});S.outline.label=labels[Math.min(i+1,3)];render();},700+i*650));
+ setTimeout(()=>{if(S.view!=='series')return;S.outline.state='review';render();notify(title,'The series outline is ready for you to approve.','series');},700+OUTLINE.length*650+300);}
+setInterval(()=>{const e=$('#selapsed');if(e&&S.outline)e.textContent=elapsed(Date.now()-S.outline.started);},1000);
 
 // ---------------- MAKING ----------------
 function vMaking(){
@@ -492,7 +561,7 @@ function vMaking(){
  const last=m.acts[m.acts.length-1];
  const state=m.done?'done':m.need?'need':'work';
  return topbar()+`<main class="making gut">
- <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="b quiet" data-a="go" data-v="home">${ic('back','sm')}Tutorials</button><h1 style="font-size:20px">${esc(m.title)}</h1></div>
+ <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="b quiet" data-a="go" data-v="home">${ic('back','sm')}Tutorials</button><h1 style="font-size:20px">${esc(m.title)}</h1>${ctxPill()}</div>
  <section class="shell" aria-live="polite"><div class="panel status">
   <div class="top">
    ${state==='work'?'<span class="tile brand"><span class="dots"><i></i><i></i><i></i></span></span>':state==='need'?`<span class="tile warn">${ic(m.need==='perm'?'lock':'warn')}</span>`:`<span class="tile pos">${ic('check')}</span>`}
@@ -523,13 +592,13 @@ let mkInt=setInterval(()=>{const m=S.mk;if(S.view!=='making'||m.need||m.done){re
  const before=STAGES.slice(0,m.stage).reduce((a,s)=>a+(s.acts?s.acts.length:0),0);
  while(m.acts.length<before+want){const a=st.acts[m.acts.length-before];m.acts.push([a[0],a[1],`${(1+Math.random()*40|0)}s`]);}
  if(m.stage===1&&m.pct>58&&!m.asked){m.asked=true;m.need='perm';notify(m.title,'The agent needs your OK to install packages.','making');}
- if(m.pct>=100){m.stage++;m.pct=0;if(m.stage>=STAGES.length){m.done=true;m.stage=4;notify(m.title,'Your tutorial is ready to watch and edit.','studio');}else if(STAGES[m.stage].you){m.need='script';notify(m.title,'Your turn: check the script before it is voiced.','making');}}
+ if(m.pct>=100){m.stage++;m.pct=0;if(m.stage>=STAGES.length){m.done=true;m.stage=4;if(S.ctx){const sr=S.lib.find(z=>z.title===S.ctx.series);const e=sr&&sr.eps[S.ctx.ep-1];if(e){e.status='ready';e.meta='3:10 · just now';e.at=171;}}notify(m.title,'Your tutorial is ready to watch and edit.','studio');}else if(STAGES[m.stage].you){m.need='script';notify(m.title,'Your turn: check the script before it is voiced.','making');}}
  render();},160);
 setInterval(()=>{const e=$('#elapsed');if(e)e.textContent=elapsed(Date.now()-S.mk.started);const a=$('#aelapsed');if(a&&S.agent.started)a.textContent=elapsed(Date.now()-S.agent.started);},1000);
 
 // ---------------- STUDIO ----------------
 function vStudio(){const u=S.hist[S.hist.length-1],r=S.redo[S.redo.length-1];
- return `<header class="bar gut"><button class="b quiet icon md" data-a="go" data-v="home" aria-label="Back to tutorials">${ic('back')}</button><span class="ttl">${esc(S.title)}</span><span class="saved">${ic('check','sm')}Saved</span><span class="grow"></span>
+ return `<header class="bar gut"><button class="b quiet icon md" data-a="go" data-v="home" aria-label="Back to tutorials">${ic('back')}</button><span class="ttl">${esc(S.title)}</span>${ctxPill()}<span class="saved">${ic('check','sm')}Saved</span><span class="grow"></span>
  <button class="b quiet icon" data-a="undo" ${u?'':'disabled'} aria-label="${u?'Undo: '+esc(u.label):'Undo'}" title="${u?'Undo: '+esc(u.label):'Nothing to undo'}">${ic('undo','sm')}</button><button class="b quiet icon" data-a="redo" ${r?'':'disabled'} aria-label="${r?'Redo: '+esc(r.label):'Redo'}">${ic('redo','sm')}</button>
  <span style="position:relative"><button class="b quiet" data-a="pop" data-p="hist" aria-expanded="${S.pop==='hist'}">${ic('history','sm')}Changes <span class="pill tab" style="height:18px">${S.hist.length}</span></button>${S.pop==='hist'?histPop():''}</span>
  <button class="b pri md" data-a="go" data-v="export">${ic('upload','sm')}Export</button></header>
@@ -608,7 +677,7 @@ function renderLayer(){let h='';
  h+=`<div class="toasts" aria-live="polite">${S.toasts.map(t=>`<div class="toast">${esc(t.msg)}${t.undoable?'<button data-a="undo">Undo</button>':''}</div>`).join('')}</div>`;
  $('#layer').innerHTML=h;}
 function render(){const v=S.view;let b='';
- if(v==='home')b=vHome();else if(v==='making')b=vMaking();else if(v==='studio')b=vStudio();else b=vExport();
+ if(v==='home')b=vHome();else if(v==='series')b=vSeries();else if(v==='making')b=vMaking();else if(v==='studio')b=vStudio();else b=vExport();
  const ae=document.activeElement,aid=ae&&ae.id,ss=ae&&ae.selectionStart,rs=$('#rail')?.scrollTop;
  const app=$('#app');app.innerHTML=proto()+b;app.className='app'+(v==='studio'?' fit':'');
  if(aid){const el=document.getElementById(aid);if(el&&el!==document.body){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch(e){}}}
@@ -651,13 +720,28 @@ function placeOverlay(kind,x,y){const i=idx(S.t);const o={id:'o'+(oid++),type:ki
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(S.pop&&!e.target.closest('.pop')&&!(el&&el.dataset.a==='pop')){S.pop=null;render();}
  if(!el)return;const a=el.dataset.a,d=el.dataset;
  switch(a){
- case 'jump':{const v=d.v;if(v==='check'){Object.assign(S.mk,{stage:2,pct:0,need:'script',done:false,asked:true,acts:[...STAGES[0].acts,...STAGES[1].acts].map(x=>[x[0],x[1],'12s'])});go('making');}else if(v==='making'){Object.assign(S.mk,{stage:0,pct:0,need:null,done:false,asked:false,acts:[],started:Date.now()});go('making');}else go(v);break;}
+ case 'jump':{const v=d.v;if(v==='series'){startOutline('Build an AI math tutor');break;}if(v==='check'){Object.assign(S.mk,{stage:2,pct:0,need:'script',done:false,asked:true,acts:[...STAGES[0].acts,...STAGES[1].acts].map(x=>[x[0],x[1],'12s'])});go('making');}else if(v==='making'){Object.assign(S.mk,{stage:0,pct:0,need:null,done:false,asked:false,acts:[],started:Date.now()});go('making');}else go(v);break;}
  case 'go':go(d.v);break;
  case 'toast':toast(d.m);break;
  case 'addkey':S.keyMissing=false;render();toast('Key checked with ElevenLabs and saved securely.');break;
  case 'sugg':S.goal=d.s;render();$('#goal').focus();break;
  case 'how':S.how=d.v;S.goal=$('#goal').value;render();break;
- case 'card':if(d.d==='studio'){S.title=d.t;go('studio');}else if(d.d==='check'){Object.assign(S.mk,{title:d.t,stage:2,need:'script',done:false,asked:true,acts:[...STAGES[0].acts,...STAGES[1].acts].map(x=>[x[0],x[1],'12s'])});go('making');}else{Object.assign(S.mk,{title:d.t,stage:3,pct:30,need:null,done:false,asked:true,started:Date.now()-14*60000,acts:[...STAGES[0].acts,...STAGES[1].acts,STAGES[3].acts[0]].map(x=>[x[0],x[1],'20s'])});go('making');}break;
+ case 'card':openItem(S.lib[+d.li]);break;
+ case 'mode':S.mode=d.v;S.goal=$('#goal').value;render();break;
+ case 'sertog':S.lib[+d.li].open=!S.lib[+d.li].open;render();break;
+ case 'epopen':{const sr=S.lib[+d.li];openItem(sr.eps[+d.ei],{series:sr.title,ep:+d.ei+1,of:sr.eps.length});break;}
+ case 'seredit':{const sr=S.lib[+d.li];S.outline={title:sr.title,eps:sr.eps.map(e=>({title:e.title,goal:'Already made. Re-planning keeps its video.',mins:3})),state:'review',started:Date.now(),from:sr.id};S.outline.eps.push({title:'New episode',goal:'Describe what this episode adds.',mins:3});go('series');break;}
+ case 'addto':{const x=S.lib[+d.li];const sr=S.lib.find(z=>z.id===d.sid);sr.eps.push({title:x.title,status:x.status,meta:x.meta,at:x.at});S.lib.splice(+d.li,1);sr.open=true;S.pop=null;render();toast(`Added to ${sr.title} as episode ${sr.eps.length}. Its video is unchanged.`);break;}
+ case 'newseries':{const x=S.lib[+d.li];S.lib.splice(+d.li,1,{kind:'series',id:'ser'+Date.now(),title:x.title+' series',open:true,eps:[{title:x.title,status:x.status,meta:x.meta,at:x.at}]});S.pop=null;render();toast('New series created. Add episodes from its row.');break;}
+ case 'epmove':{const i=+d.i,j=i+(+d.d);const e=S.outline.eps;[e[i],e[j]]=[e[j],e[i]];render();break;}
+ case 'eprm':{const e=S.outline.eps.splice(+d.i,1)[0];render();toast(`Removed "${e.title}".`);break;}
+ case 'epadd':S.outline.eps.push({title:'New episode',goal:'Describe what this episode adds. The agent fills in the rest.',mins:3});render();document.getElementById('et'+(S.outline.eps.length-1))?.select();break;
+ case 'serrevise':{const o=S.outline;o.state='drafting';o.label='Revising the outline';o.started=Date.now();render();setTimeout(()=>{if(o.eps.length>3){const b=o.eps.splice(3,1)[0];o.eps[2].goal+=' '+b.goal;}o.eps.push({title:'Deploy the tutor',goal:'Deploy the agent and call it from the internet.',mins:3});o.state='review';render();toast('Revised: merged episodes 3 and 4, added one on deploying.');},1800);break;}
+ case 'sermake':{const o=S.outline;const all=d.all==='1';let sr=o.from?S.lib.find(z=>z.id===o.from):null;
+  if(sr){o.eps.slice(sr.eps.length).forEach(e=>sr.eps.push({title:e.title,status:'queued',meta:'Queued',at:66}));}
+  else{sr={kind:'series',id:'ser'+Date.now(),title:o.title,open:true,eps:o.eps.map((e,i)=>({title:e.title,status:i===0?'making':all?'queued':'queued',meta:i===0?'Making now':all?'Starts after episode '+i:'Not started',at:[9,66,150,171,30][i%5]}))};S.lib.unshift(sr);}
+  const first=sr.eps.findIndex(e=>e.status==='making'||e.status==='queued');const ep=sr.eps[first];ep.status='making';ep.meta='Making now';
+  S.ctx={series:sr.title,ep:first+1,of:sr.eps.length};S.title=ep.title;Object.assign(S.mk,{title:ep.title,stage:0,pct:0,acts:[],need:null,done:false,asked:false,open:{},started:Date.now()});go('making');toast(all?`Making all ${sr.eps.length} episodes, one after another.`:`Making episode ${first+1}. The rest wait in the series.`);break;}
  case 'mkskip':S.mk.pct=Math.max(S.mk.pct,97);break;
  case 'tog':S.mk.open[d.i]=!S.mk.open[d.i];render();break;
  case 'perm':S.mk.need=null;S.mk.acts.push([d.v==='1'?'You allowed npm install':'You denied npm install; it skipped that part','permission · '+(d.v==='1'?'allowed':'denied'),'—']);toast(d.v==='1'?'Allowed. Carrying on.':'Denied. The agent works around it.');render();break;
@@ -712,9 +796,13 @@ document.addEventListener('input',e=>{const el=e.target,d=el.dataset;
  else if(d.a==='rv'){const s=S.steps.find(x=>x.id===d.id);s.line=el.value;S.orig[s.id]=el.value;}
  else if(d.a==='ovt'){const o=S.ovs.find(x=>x.id===S.selOv);o.text=el.value;$('#stage').innerHTML=stageInner();}
  else if(el.id==='ask'){S.agent.text=el.value;el.style.height='auto';el.style.height=el.scrollHeight+'px';}
- else if(el.id==='goal')S.goal=el.value;});
+ else if(el.id==='goal')S.goal=el.value;
+ else if(d.a==='sertitle')S.outline.title=el.value;
+ else if(d.a==='ept')S.outline.eps[+d.i].title=el.value;});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target.dataset.f;
- if(f==='make'){const g=$('#goal').value.trim();if(!g){toast('Describe what the viewer should learn first.');$('#goal').focus();return;}
+ if(f==='make'){const g=$('#goal').value.trim();if(!g){toast(S.mode==='series'?'Describe what the series should teach first.':'Describe what the viewer should learn first.');$('#goal').focus();return;}
+  if(S.mode==='series'){S.ctx=null;startOutline(g.charAt(0).toUpperCase()+g.slice(1));return;}
+  S.ctx=null;
   if(S.how==='me'){toast('The product opens for you to click through once. (Not in this prototype.)');return;}
   Object.assign(S.mk,{title:g.charAt(0).toUpperCase()+g.slice(1),stage:0,pct:0,acts:[],need:null,done:false,asked:false,open:{},started:Date.now()});go('making');}
  if(f==='ask'){const t=($('#ask').value||'').trim();if(!t&&!S.agent.notes.length){toast('Say what you want changed.');return;}runAgent(t||'Add a callout here');}});
@@ -737,6 +825,6 @@ addEventListener('pointermove',e=>{if(!drag)return;const{o,r}=drag;o.x=Math.max(
 addEventListener('pointerup',()=>{if(drag&&drag.moved){S.hist.push({label:`Moved ${OVN[drag.o.type].toLowerCase()}`,who:'you',before:drag.before,at:S.t});S.redo=[];render();}drag=null;});
 
 // boot
-const h0=(location.hash||'').slice(1);if(['home','making','studio','export'].includes(h0))S.view=h0;
+const h0=(location.hash||'').slice(1);if(['home','making','studio','export'].includes(h0))S.view=h0;else if(h0==='series')setTimeout(()=>startOutline('Build an AI math tutor'),0);
 render();
 </script>
