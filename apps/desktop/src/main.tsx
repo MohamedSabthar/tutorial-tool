@@ -6,6 +6,7 @@ import { ToastProvider } from '@studio/ui';
 import { RunNotifier } from './routes/RunNotifier';
 import { LiveShell } from './live/LiveShell';
 import { StudioScreen } from './studio/StudioScreen';
+import { EditScreen } from './studio/edit/EditScreen';
 import { PackagesPage } from './pages/Packages';
 import { TimelinePlayground } from './pages/TimelinePlayground';
 import { EnginePage } from './pages/EnginePage';
@@ -138,7 +139,10 @@ function Screen({ path }: { path: string }) {
   if (path.split('?')[0] === '/guide')
     return <GuideScreen section={new URLSearchParams(path.split('?')[1] ?? '').get('s')} />;
   const studio = match(path, 'studio');
-  if (studio) return <StudioScreen key={studio} slug={studio} />;
+  if (studio) return <EditScreen key={studio} slug={studio} />;
+  // The old Studio, until the Phase 13 cleanup (dev builds only).
+  const classic = import.meta.env.DEV ? match(path, 'studio-classic') : undefined;
+  if (classic) return <StudioScreen key={classic} slug={classic} />;
   const series = match(path, 'series');
   if (series) return <SeriesScreen key={series} slug={series} />;
   const brief = match(path, 'brief');

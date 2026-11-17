@@ -1,0 +1,214 @@
+import {
+  cutGaps,
+  type AgentEvent,
+  type OverlayInstance,
+  type Segment,
+  type Step,
+  type Timeline,
+} from '@studio/core';
+import { tokens, type GlyphName } from '@studio/ui';
+import type { StepSpan } from '../resolve';
+
+/** m:ss, or m:ss.t with tenths. */
+export const mmss = (t: number, tenths = false) => {
+  const s = Math.max(0, t);
+  const m = Math.floor(s / 60);
+  const rest = s - m * 60;
+  return tenths
+    ? `${m}:${rest.toFixed(1).padStart(4, '0')}`
+    : `${m}:${String(Math.floor(rest)).padStart(2, '0')}`;
+};
+
+/** Overlays the pipeline draws by itself and the user doesn't edit as "things on screen". */
+const PLUMBING = new Set([
+  'core:Cursor',
+  'core:ClickRipple',
+  'core:Captions',
+  'core:Zoom',
+  'core:FastForward',
+  'core:Skip',
+]);
+export const isOnScreen = (o: Pick<OverlayInstance, 'component'>) => !PLUMBING.has(o.component);
+
+/** What an overlay is called in the step panel and on the timeline. */
+const NAMES: Record<string, string> = {
+  'core:Arrow': 'Arrow',
+  'core:TextLabel': 'Label',
+  'core:Box': 'Box',
+  'core:Blur': 'Hidden area',
+  'core:Callout': 'Callout',
+  'core:TitleCard': 'Title',
+  'core:Highlight': 'Highlight',
+  'core:Keystroke': 'Keys',
+};
+export function overlayName(o: Pick<OverlayInstance, 'component'>, metaName?: string): string {
+  return NAMES[o.component] ?? metaName ?? o.component.split(':')[1] ?? o.component;
+}
+export function overlayIcon(o: Pick<OverlayInstance, 'component'>): GlyphName {
+  switch (o.component) {
+    case 'core:Arrow':
+      return 'arrow';
+    case 'core:Box':
+    case 'core:Highlight':
+      return 'box';
+    case 'core:Blur':
+      return 'hide';
+    default:
+      return 'label';
+  }
+}
+/** The overlay's own words, if it has any. */
+export function overlayText(o: OverlayInstance): string {
+  const p = o.props as Record<string, unknown>;
+  const v = p.text ?? p.label ?? p.title;
+  return typeof v === 'string' ? v : '';
+}
+/** Which prop holds the overlay's words (null: it has none). */
+export function textProp(component: string): 'text' | 'label' | 'title' | null {
+  if (component === 'core:TextLabel' || component === 'core:Callout') return component === 'core:Callout' ? 'title' : 'text';
+  if (component === 'core:Arrow') return 'label';
+  if (component === 'core:TitleCard') return 'title';
+  return null;
+}
+
+/** The fixed video colours (the video keeps the WSO2 look). */
+export const VIDEO_COLORS: { value: string; name: string }[] = [
+  { value: tokens.color.orange, name: 'Orange' },
+  { value: tokens.color.navy, name: 'Navy' },
+  { value: tokens.color.steel, name: 'Steel blue' },
+  { value: tokens.color.white, name: 'White' },
+];
+/** TextLabel has tones rather than colours. */
+export const LABEL_TONES: { value: 'dark' | 'light' | 'orange'; name: string; swatch: string }[] = [
+  { value: 'orange', name: 'Orange', swatch: tokens.color.orange },
+  { value: 'dark', name: 'Navy', swatch: tokens.color.navy },
+  { value: 'light', name: 'White', swatch: tokens.color.white },
+];
+
+/** Overlays shown during a step (output time), excluding the automatic plumbing. */
+export function overlaysIn(tl: Timeline, span: Pick<StepSpan, 'start' | 'end'>): OverlayInstance[] {
+  return tl.overlays.filter((o) => isOnScreen(o) && o.start < span.end - 0.01 && o.end > span.start + 0.01);
+}
+
+export type Pace = { kind: 'normal' } | { kind: 'fast'; rate: number } | { kind: 'skip' };
+
+/** The recorded pieces that show part of a step (take time overlap), per recording scene. */
+function piecesOf(tl: Timeline, step: Step) {
+  const out: { sceneId: string; index: number; seg: Exclude<Segment, { kind: 'hold' }> }[] = [];
+  for (const sc of tl.scenes) {
+    if (sc.kind !== 'recording' || sc.take !== step.take) continue;
+    sc.segments.forEach((seg, index) => {
+      if (seg.kind === 'hold') return;
+      const overlap = Math.min(seg.to, step.to) - Math.max(seg.from, step.from);
+      if (overlap > 0.05) out.push({ sceneId: sc.id, index, seg });
+    });
+  }
+  return out;
+}
+
+/**
+ * A step's pace, read from the pieces of the recording that show it: none left (cut) is Skip,
+ * all sped up by hand is Faster, anything else (including the timing fit's own speed-ups) is
+ * Normal.
+ */
+export function stepPace(tl: Timeline, step: Step): Pace {
+  const pieces = piecesOf(tl, step);
+  if (!pieces.length) return { kind: 'skip' };
+  const fast = pieces.every((p) => p.seg.kind === 'speed' && p.seg.manual && p.seg.rate > 1.2);
+  if (fast) {
+    const rates = pieces.map((p) => (p.seg.kind === 'speed' ? p.seg.rate : 1));
+    return { kind: 'fast', rate: Math.round(Math.min(...rates) * 10) / 10 };
+  }
+  return { kind: 'normal' };
+}
+
+/** The cuts that took a step out (scene and the piece each cut follows), to put it back. */
+export function cutsOver(tl: Timeline, step: Step): { sceneId: string; after: number }[] {
+  const out: { sceneId: string; after: number }[] = [];
+  for (const sc of tl.scenes) {
+    if (sc.kind !== 'recording' || sc.take !== step.take) continue;
+    for (const g of cutGaps(sc.segments))
+      if (Math.min(g.to, step.to) - Math.max(g.from, step.from) > 0.05) out.push({ sceneId: sc.id, after: g.after });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The agent's activity in plain words
+// ---------------------------------------------------------------------------
+
+const TOOL_WORDS: Record<string, string> = {
+  Read: 'Reading',
+  Write: 'Writing',
+  Edit: 'Editing',
+  MultiEdit: 'Editing',
+  Bash: 'Running a command',
+  Grep: 'Searching',
+  Glob: 'Looking for files',
+  WebFetch: 'Reading a web page',
+  WebSearch: 'Searching the web',
+  TodoWrite: 'Planning',
+  Task: 'Working on a sub-task',
+  Skill: 'Using a skill',
+};
+
+/** "mcp__studio__add_overlay" → "Add overlay"; Read → "Reading …". */
+export function toolPhrase(name: string, summary = ''): string {
+  const short = name.replace(/^mcp__[^_]+__/, '');
+  const verb = TOOL_WORDS[short];
+  const file = summary.split('/').pop() ?? summary;
+  if (verb) return verb === 'Running a command' || !file ? verb : `${verb} ${file}`.slice(0, 80);
+  const words = short.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** The current turn's events: everything after the last message sent into the session. */
+export function currentTurn(events: AgentEvent[]): AgentEvent[] {
+  let i = events.length - 1;
+  while (i >= 0 && events[i]!.kind !== 'user') i--;
+  return i >= 0 ? events.slice(i) : events;
+}
+
+/** What the agent is doing now, the steps it finished, and when the turn started. */
+export function agentActivity(events: AgentEvent[]) {
+  const turn = currentTurn(events);
+  const done = new Set(turn.filter((e) => e.kind === 'tool_result').map((e) => (e.kind === 'tool_result' ? e.id : '')));
+  const uses = turn.filter((e): e is Extract<AgentEvent, { kind: 'tool_use' }> => e.kind === 'tool_use');
+  const open = [...uses].reverse().find((u) => !done.has(u.id));
+  const lastStatus = [...turn].reverse().find((e) => e.kind === 'status' || e.kind === 'text');
+  const label = open
+    ? toolPhrase(open.name, open.summary)
+    : lastStatus && lastStatus.kind === 'status'
+      ? lastStatus.text
+      : 'Thinking';
+  const steps = uses.filter((u) => done.has(u.id)).map((u) => toolPhrase(u.name, u.summary));
+  const first = turn[0];
+  const prompt = first?.kind === 'user' ? first.text : '';
+  return { label, steps, since: first?.at ?? Date.now(), prompt, last: open ?? uses.at(-1) ?? null };
+}
+
+/**
+ * Which step the agent is working on, if its words or tool input say: an anchor or step id,
+ * an output time, or "step N" in the message.
+ */
+export function agentTarget(
+  activity: ReturnType<typeof agentActivity>,
+  steps: StepSpan[],
+): { stepId: string | null } {
+  const input = (activity.last?.input ?? {}) as Record<string, unknown>;
+  const anchor = input.anchor as { stepId?: unknown } | undefined;
+  const id =
+    typeof input.stepId === 'string' ? input.stepId : typeof anchor?.stepId === 'string' ? anchor.stepId : null;
+  if (id && steps.some((s) => s.id === id)) return { stepId: id };
+  const at = [input.at, input.from, input.start].find((v): v is number => typeof v === 'number');
+  if (at !== undefined) {
+    const s = steps.find((x) => at >= x.start && at < x.end);
+    if (s) return { stepId: s.id };
+  }
+  const m = /\bstep\s+(\d+)/i.exec(activity.prompt);
+  if (m) {
+    const s = steps[Number(m[1]) - 1];
+    if (s) return { stepId: s.id };
+  }
+  return { stepId: null };
+}

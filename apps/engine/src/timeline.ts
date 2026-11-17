@@ -24,6 +24,15 @@ interface HistoryEntry {
   author: Author;
   group: string | null;
   label: string;
+  /** When the change was made (ms since epoch). */
+  at: number;
+}
+
+/** One undoable change as the UI lists it ("Changes"). */
+export interface HistoryItem {
+  label: string;
+  author: Author;
+  at: number;
 }
 
 interface Doc {
@@ -114,6 +123,7 @@ export class TimelineStore {
           author: opts.author,
           group,
           label: opts.label ?? 'Edit',
+          at: Date.now(),
         });
         if (doc.undo.length > 200) doc.undo.shift();
       }
@@ -144,6 +154,14 @@ export class TimelineStore {
       doc.undo.push(entry);
       await this.commit(slug, doc, after, combined, entry.author, 'redo');
       return this.result(doc);
+    });
+  }
+
+  /** The undo and redo stacks' labels, oldest first (the last undo item is what Undo reverts). */
+  async history(slug: string): Promise<{ undo: HistoryItem[]; redo: HistoryItem[] }> {
+    return this.run(slug, async (doc) => {
+      const item = (e: HistoryEntry): HistoryItem => ({ label: e.label, author: e.author, at: e.at });
+      return { undo: doc.undo.map(item), redo: doc.redo.map(item) };
     });
   }
 

@@ -98,6 +98,13 @@ const WorkspaceStatus = z.object({
 });
 const CommitInfo = z.object({ hash: z.string(), date: z.string(), subject: z.string() });
 
+/** One undoable timeline change. */
+const HistoryItem = z.object({
+  label: z.string(),
+  author: z.enum(['user', 'agent', 'auto']),
+  at: z.number(),
+});
+
 const TimelineState = z.object({
   version: z.number(),
   timeline: Timeline,
@@ -334,6 +341,26 @@ export const rpcMethods = {
     }),
     result: z.object({ segments: z.array(Segment) }),
   },
+  /**
+   * Speed, remove (cut) or hand back to the timing fit everything shown in output time
+   * [from, to): pieces are split at both ends. One undo step.
+   */
+  'timeline.editRange': {
+    params: z.object({
+      slug: z.string(),
+      from: z.number().nonnegative(),
+      to: z.number().positive(),
+      edit: z.discriminatedUnion('op', [
+        z.object({ op: z.literal('speed'), rate: z.number().min(0.25).max(16) }),
+        z.object({ op: z.literal('remove') }),
+        z.object({ op: z.literal('auto') }),
+      ]),
+      author: z.enum(['user', 'agent']).default('user'),
+      /** What Undo and the Changes list call it (default: the edit's name). */
+      label: z.string().max(120).optional(),
+    }),
+    result: z.object({ pieces: z.number(), duration: z.number() }),
+  },
   /** Waveform peaks (0–1) of a project audio file, `rate` per second. */
   'vo.peaks': {
     params: z.object({ slug: z.string(), audio: z.string() }),
@@ -540,6 +567,11 @@ export const rpcMethods = {
   /** Re-derives scenes and steps from the latest take (keeps overlays). */
   'timeline.rebuildFromTake': { params: z.object({ slug: z.string() }), result: TimelineState },
   'timeline.redo': { params: z.object({ slug: z.string() }), result: TimelineState },
+  /** The undo and redo stacks (labels, who made each change, when), oldest first. */
+  'timeline.history': {
+    params: z.object({ slug: z.string() }),
+    result: z.object({ undo: z.array(HistoryItem), redo: z.array(HistoryItem) }),
+  },
   /** The project's agent session and its recent conversation (for a window opened later). */
   'agent.status': {
     params: z.object({ slug: z.string(), history: z.number().int().min(0).max(1000).default(200) }),

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
-import { createEngineClient, RpcError, TOKEN_HEADER, type EngineClient } from '@studio/core';
+import { createEngineClient, RpcError, sampleTimeline, TOKEN_HEADER, type EngineClient } from '@studio/core';
 import { startEngine, type Engine } from '../src/server';
 import { parseRange } from '../src/media';
 
@@ -135,6 +135,46 @@ describe('engine RPC', () => {
     expect(s).toMatchObject({ claudeExecutable: '/bin/sh', claudeConfigDir: os.homedir() });
     const cleared = await client.call('settings.update', { claudeExecutable: null, claudeConfigDir: null });
     expect(cleared).toMatchObject({ claudeExecutable: null, claudeConfigDir: null });
+  });
+
+  it('edits an output-time range of the recording and lists the undo history', async () => {
+    const p = await client.call('project.create', { title: 'Range edit', product: 'wso2-integrator' });
+    const sample = sampleTimeline();
+    const take = sample.takes[0]!;
+    const dir = path.join(workspace, 'projects', p.slug, 'recordings', 'take-1');
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, 'events.jsonl'), '');
+    await client.call('timeline.patch', {
+      slug: p.slug,
+      patch: [
+        { op: 'replace', path: '/takes', value: [take] },
+        { op: 'replace', path: '/scenes', value: [{ id: 'sc-1', kind: 'recording', take: 'take-1', segments: [{ kind: 'src', from: 0, to: 30 }] }] },
+        { op: 'replace', path: '/transitions', value: [] },
+        { op: 'replace', path: '/steps', value: sample.steps.filter((s) => s.to <= 30) },
+      ],
+      label: 'Set up',
+    });
+    const r = await client.call('timeline.editRange', {
+      slug: p.slug,
+      from: 10,
+      to: 20,
+      edit: { op: 'speed', rate: 2 },
+      label: 'Step 2 faster',
+    });
+    expect(r.duration).toBeCloseTo(25);
+    const { timeline } = await client.call('timeline.get', { slug: p.slug });
+    const scene = timeline.scenes[0]!;
+    expect(scene.kind === 'recording' && scene.segments).toContainEqual({ kind: 'speed', from: 10, to: 20, rate: 2, manual: true });
+    let h = await client.call('timeline.history', { slug: p.slug });
+    expect(h.undo.map((x) => x.label)).toEqual(['Set up', 'Step 2 faster']);
+    expect(h.undo[1]).toMatchObject({ author: 'user', at: expect.any(Number) });
+    await client.call('timeline.undo', { slug: p.slug });
+    h = await client.call('timeline.history', { slug: p.slug });
+    expect(h.undo.map((x) => x.label)).toEqual(['Set up']);
+    expect(h.redo.map((x) => x.label)).toEqual(['Step 2 faster']);
+    await expect(
+      client.call('timeline.editRange', { slug: p.slug, from: 40, to: 50, edit: { op: 'remove' } }),
+    ).rejects.toThrow(/No recording/);
   });
 
   it('validates params and reports unknown projects', async () => {
