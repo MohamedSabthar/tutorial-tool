@@ -1080,6 +1080,26 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return seriesStarts.status(slug);
     },
     'series.cancelPlan': async ({ slug }: { slug: string }) => seriesPlanner.cancel(slug),
+    'series.addProject': async ({ slug, project }: { slug: string; project: string }) => {
+      const { project: p } = await store.open(project);
+      if (p.series) throw new RpcError('This tutorial is already in a series.', 'bad_request');
+      const brief = await store.readBrief(project).catch(() => null);
+      const { series, part } = await seriesStore.addProject(slug, {
+        slug: project,
+        title: p.title,
+        goal: brief?.goal ?? '',
+      });
+      await store.setSeries(project, { slug, part });
+      await syncSeries(slug);
+      const head = await workspace.commit(`series: add ${project} to ${slug}`, [
+        `series/${slug}`,
+        `projects/${project}`,
+      ]);
+      broadcast('series.changed', { slug });
+      broadcast('project.changed', { slug: project });
+      broadcast('workspace.changed', { head });
+      return series;
+    },
     'series.approve': async ({ slug }: { slug: string }) => {
       if (seriesPlanner.isRunning(slug))
         throw new RpcError('The agent is still writing the outline.', 'bad_request');

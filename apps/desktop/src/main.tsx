@@ -23,7 +23,7 @@ import { GalleryPage } from './pages/GalleryPage';
 import { HotReloadPage } from './pages/HotReloadPage';
 import { TimelineSyncPage } from './pages/TimelineSyncPage';
 import { VoicePage } from './pages/VoicePage';
-import { ProjectsScreen } from './routes/projects/ProjectsScreen';
+import { HomeScreen } from './routes/home/HomeScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
 import { CaptureScreen } from './routes/capture/CaptureScreen';
 import { SeriesScreen } from './routes/series/SeriesScreen';
@@ -133,7 +133,8 @@ function App() {
 }
 
 function Screen({ path }: { path: string }) {
-  if (path === '/' || path === '/projects') return <ProjectsScreen />;
+  const [route, query] = path.split('?');
+  if (route === '/' || route === '/projects') return <HomeScreen query={query} />;
   if (path === '/settings') return <SettingsScreen />;
   if (path.split('?')[0] === '/guide')
     return <GuideScreen section={new URLSearchParams(path.split('?')[1] ?? '').get('s')} />;
@@ -158,7 +159,7 @@ function Screen({ path }: { path: string }) {
   if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
   // The developer pages exist only in development; elsewhere an unknown address goes home.
   if (import.meta.env.DEV) return <DevShell routes={routes} />;
-  return <ProjectsScreen />;
+  return <HomeScreen />;
 }
 
 createRoot(document.getElementById('root')!).render(

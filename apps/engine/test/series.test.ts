@@ -155,6 +155,19 @@ describe('series outline', () => {
       'Call a translation API.\n\nBy the end, viewers can: Add a connection; Handle errors.',
     );
   });
+
+  it('adds an existing tutorial as the last part, approving an empty series', async () => {
+    const s = await store.create({ topic: 'My series', product: 'p' });
+    const first = await store.addProject(s.slug, { slug: 'made-one', title: 'Made one', goal: 'Do it' });
+    expect(first.part).toBe('p1');
+    expect(first.series.outline).toBe('approved');
+    expect(first.series.parts[0]).toMatchObject({ title: 'Made one', goal: 'Do it', project: 'made-one' });
+    const second = await store.addProject(s.slug, { slug: 'made-two', title: 'Made two', goal: '' });
+    expect(second.series.parts.map((p) => p.id)).toEqual(['p1', 'p2']);
+    await expect(store.addProject(s.slug, { slug: 'made-two', title: 'x', goal: '' })).rejects.toThrow(
+      'already in the series',
+    );
+  });
 });
 
 describe('series context', () => {

@@ -3,9 +3,11 @@ import path from 'node:path';
 import {
   applySeriesEdit,
   briefTitle,
+  nextPartId,
   RpcError,
   Series,
   SeriesBrief,
+  SeriesPart,
   SLUG_RE,
   type SeriesEdit,
 } from '@studio/core';
@@ -86,6 +88,34 @@ export class SeriesStore {
       throw new RpcError(e instanceof Error ? e.message : String(e), 'bad_request');
     }
     return this.save(next);
+  }
+
+  /**
+   * Adds an existing tutorial as the last part (its video is kept). A series with no parts yet
+   * counts as approved, since its only part already has a tutorial.
+   */
+  async addProject(
+    slug: string,
+    project: { slug: string; title: string; goal: string },
+  ): Promise<{ series: Series; part: string }> {
+    const current = await this.get(slug);
+    if (current.outline === 'planning')
+      throw new RpcError('The agent is still writing the outline.', 'bad_request');
+    if (current.parts.some((p) => p.project === project.slug))
+      throw new RpcError('This tutorial is already in the series.', 'bad_request');
+    if (current.parts.length >= 20) throw new RpcError('a series has at most 20 parts', 'bad_request');
+    const part = SeriesPart.parse({
+      id: nextPartId(current.parts),
+      title: project.title.slice(0, 120),
+      goal: project.goal.slice(0, 2000),
+      project: project.slug,
+    });
+    const series = await this.save({
+      ...current,
+      parts: [...current.parts, part],
+      outline: current.parts.length ? current.outline : 'approved',
+    });
+    return { series, part: part.id };
   }
 
   /** Writes the series as given (stamping updatedAt). */

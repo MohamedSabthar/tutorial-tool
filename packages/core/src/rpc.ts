@@ -389,6 +389,11 @@ export const rpcMethods = {
     params: z.object({ slug: z.string(), part: z.string() }),
     result: z.array(PartStatus),
   },
+  /** Adds an existing tutorial (not yet in a series) as the series' last part. */
+  'series.addProject': {
+    params: z.object({ slug: z.string(), project: z.string() }),
+    result: Series,
+  },
   /** Creates a draft tutorial for every part without one, with the shared brief and the part's goal. */
   'series.approve': { params: z.object({ slug: z.string() }), result: Series },
   /** Removes the series; its parts' projects stay, as standalone tutorials. */
