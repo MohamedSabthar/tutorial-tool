@@ -28,9 +28,9 @@ export async function resolveEngine(): Promise<EngineInfo> {
   return { ...info, source: 'tauri' };
 }
 
-/** Shows Live in this window: the project's run, or whatever is running. */
+/** Shows a tutorial's run (the Making screen) in this window; without a slug, the tutorials. */
 export function openLive(slug?: string | null): void {
-  window.location.hash = slug ? `/live/${slug}` : '/live';
+  window.location.hash = slug ? `/making/${slug}` : '/projects';
 }
 
 /** Opens another Studio window on a route (a browser tab outside Tauri). */

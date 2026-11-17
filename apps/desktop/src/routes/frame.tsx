@@ -10,7 +10,7 @@ export const navigate = (route: string) => {
 };
 
 /** The Live screen, for a project's run or whatever is running. */
-export const liveRoute = (slug?: string | null) => (slug ? `/live/${slug}` : '/live');
+export const liveRoute = (slug?: string | null) => (slug ? `/making/${slug}` : '/projects');
 
 /** Where a tutorial's run is followed: the Studio once it's done, otherwise the Making screen. */
 export const runRoute = (slug: string, status?: string) =>

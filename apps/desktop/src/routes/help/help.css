@@ -1,0 +1,132 @@
+/* Help (Phase 13). Kit v2 tokens only. */
+.help {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.help h1,
+.help h2,
+.help h3,
+.help p,
+.help dl,
+.help dd {
+  margin: 0;
+}
+.help-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.help-hero h1 {
+  font-family: var(--ui-display);
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--ui-fg);
+}
+.help-hero p {
+  font-size: 16px;
+  color: var(--ui-muted);
+  max-width: 62ch;
+  line-height: 1.5;
+}
+.help-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.help-step {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  box-sizing: border-box;
+}
+.help-step-icon,
+.help-row-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: var(--ui-brand-15);
+  color: var(--ui-brand);
+}
+.help-row-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--ui-f06);
+  color: var(--ui-muted);
+  flex: none;
+}
+.help-step h3,
+.help-row h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ui-fg);
+}
+.help-step p,
+.help-row p {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ui-muted);
+}
+.help-step b,
+.help-row b {
+  color: var(--ui-fg);
+  font-weight: 500;
+}
+.help-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.help-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+}
+.help-row + .help-row {
+  border-top: 1px solid var(--ui-f06);
+}
+.help-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+.help-words {
+  padding: 6px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.help-words > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 38%) 1fr;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: 13.5px;
+}
+.help-words > div + div {
+  border-top: 1px solid var(--ui-f06);
+}
+.help-words dt {
+  font-weight: 500;
+  color: var(--ui-fg);
+}
+.help-words dd {
+  color: var(--ui-muted);
+  line-height: 1.45;
+}
+.help-keys {
+  display: inline-flex;
+  gap: 4px;
+}

@@ -1,4 +1,4 @@
-import { StrictMode, useState } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DevShell, useHashPath, type DevRoute } from './shell';
 import { EngineProvider } from './engine';
@@ -35,6 +35,7 @@ import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
 import { ExportScreen } from './routes/export/ExportScreen';
 import { SettingsScreen } from './routes/settings/SettingsScreen';
 import { GuideScreen } from './routes/guide/GuideScreen';
+import { HelpScreen } from './routes/help/HelpScreen';
 import '@studio/ui/styles.css';
 import './styles.css';
 import './routes/routes.css';
@@ -111,35 +112,35 @@ const SLUG = '([a-z0-9][a-z0-9-]*)';
 const match = (path: string, prefix: string) => new RegExp(`^/${prefix}/${SLUG}`).exec(path)?.[1];
 
 /**
- * Hash routes: the app screens and the developer pages (anything else). Live stays mounted from
- * the start and is only hidden on other screens, so its log, frames and progress survive
- * switching screens (and it has followed the run before it is first opened).
+ * Hash routes: the app screens and (in dev builds) the developer pages. Phase 13 folded the old
+ * Storyboard and Live screens into Making: their addresses open Making, and the old screens stay
+ * reachable in dev builds only (`/storyboard-classic/<slug>`, `/live-classic`).
  */
 function App() {
   const path = useHashPath();
   // The export renderer captures the video, so it stays light.
   useApplyTheme(!path.startsWith('/render/'));
-  const onLive = path.startsWith('/live');
-  const liveSlug = onLive ? (match(path, 'live') ?? null) : undefined;
-  const [lastLiveSlug, setLastLiveSlug] = useState<string | null>(null);
-  if (liveSlug !== undefined && liveSlug !== lastLiveSlug) setLastLiveSlug(liveSlug);
   return (
     <>
       {!path.startsWith('/render/') && <RunNotifier />}
-      <div style={onLive ? undefined : { display: 'none' }}>
-        <LiveShell slug={liveSlug ?? lastLiveSlug} />
-      </div>
-      {!onLive && <Screen path={path} />}
+      <Screen path={path} />
     </>
   );
 }
 
+/** Old addresses (bookmarks, notifications, other windows) go to the screen that replaced them. */
+function Redirect({ to }: { to: string }) {
+  useEffect(() => {
+    window.location.replace(`#${to}`);
+  }, [to]);
+  return null;
+}
+
 function Screen({ path }: { path: string }) {
-  const [route, query] = path.split('?');
+  const [route = '', query] = path.split('?');
   if (route === '/' || route === '/projects') return <HomeScreen query={query} />;
   if (path === '/settings') return <SettingsScreen />;
-  if (path.split('?')[0] === '/guide')
-    return <GuideScreen section={new URLSearchParams(path.split('?')[1] ?? '').get('s')} />;
+  if (route === '/guide') return <HelpScreen />;
   const studio = match(path, 'studio');
   if (studio) return <EditScreen key={studio} slug={studio} />;
   // The old Studio, until the Phase 13 cleanup (dev builds only).
@@ -170,7 +171,17 @@ function Screen({ path }: { path: string }) {
       />
     );
   const storyboard = match(path, 'storyboard');
-  if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
+  if (storyboard) return <Redirect to={`/making/${storyboard}`} />;
+  if (route === '/live' || route.startsWith('/live/'))
+    return <Redirect to={match(path, 'live') ? `/making/${match(path, 'live')}` : '/projects'} />;
+  if (import.meta.env.DEV) {
+    const oldBoard = match(path, 'storyboard-classic');
+    if (oldBoard) return <StoryboardScreen key={oldBoard} slug={oldBoard} />;
+    if (route === '/live-classic' || route.startsWith('/live-classic/'))
+      return <LiveShell slug={match(path, 'live-classic') ?? null} />;
+    if (route === '/guide-classic')
+      return <GuideScreen section={new URLSearchParams(query ?? '').get('s')} />;
+  }
   // The developer pages exist only in development; elsewhere an unknown address goes home.
   if (import.meta.env.DEV) return <DevShell routes={routes} />;
   return <HomeScreen />;

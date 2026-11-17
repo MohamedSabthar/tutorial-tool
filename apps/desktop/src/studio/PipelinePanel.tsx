@@ -84,7 +84,7 @@ export function PipelinePanel({ slug }: { slug: string }) {
             </ol>
           )}
           {s.gate.kind === 'narration' && (
-            <LinkButton size="sm" href={`#/storyboard/${slug}`}>
+            <LinkButton size="sm" href={`#/making/${slug}`}>
               Edit the lines on the storyboard
             </LinkButton>
           )}

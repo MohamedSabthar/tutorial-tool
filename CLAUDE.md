@@ -48,11 +48,11 @@ workspace/        (generated, git-ignored here) the agent's knowledge base: its 
 - **Validation:** zod at every I/O boundary (RPC, files, agent tool inputs, timeline patches).
 - **Timeline changes:** `tutorial.json` changes only via validated patches, so undo/redo and window sync work.
 - **Overlays and scenes** must be pure functions of time: no `Date.now`, unseeded `Math.random`, timers, CSS animations or transitions.
-- **UI styling:** the WSO2 Slides design system in a light theme, with a dark theme for the app chrome only (Settings → Appearance; never the video).
-  - Colours: white `#FFFFFF`, `#F3F3F3` surfaces, `#D7D7D7` hairlines, navy `#13213B` text and active states, orange `#FF5800` primary buttons with white text, steel blue `#4F7AA3` for annotations and gates.
-  - Type and shape: Inter, JetBrains Mono for data, 14px radii.
-  - Once `packages/ui` exists (step 0.5), use its tokens and components. Don't put raw hex values in app code.
-  - Tokens change with the theme, so write white text on orange or steel fills as `--ui-on-fill`, not `--ui-white`.
+- **UI styling** (Phase 13): the app chrome uses a neutral, TUFFUI-style theme, light and dark (Settings → Appearance). The **video** keeps the WSO2 look (navy `#13213B`, orange `#FF5800`, Inter), from `packages/ui/src/tokens.ts`, in every theme.
+  - App chrome: borderless layers (page → `Shell` → `ShellPanel` → `Inset`), pill buttons, one blue accent for the main action and the agent, tinted `StatusPill`s. Geist, Geist Mono for data.
+  - Use the kit in `packages/ui` (`kit.tsx`, `glyphs.tsx`, `components.tsx`) and its `--ui-*` tokens (`--ui-bg`, `--ui-fg`, `--ui-muted`, `--ui-surface`, `--ui-inset`, `--ui-f04…f12`, `--ui-brand`, `--ui-positive/negative/warning` and their `-15` tints). Don't put raw hex values in app code.
+  - Write text on brand fills as `--ui-on-fill`.
+  - Words: follow the glossary in `docs/ux-review/index.html` (Recording, Script, Voice-over, Check the script, Explainer, Overlay, Note, Ask the agent). Technical detail (IDs, costs, tool names) goes behind "Details".
 - **Accessibility:** real buttons, links and inputs, a label on every control, keyboard reachable.
 - **Licences:** no commercially licensed dependencies (no Remotion).
 - **Secrets:** API keys never go in the repo, logs or agent context.

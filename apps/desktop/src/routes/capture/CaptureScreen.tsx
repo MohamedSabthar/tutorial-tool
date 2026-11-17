@@ -160,7 +160,7 @@ export function CaptureScreen({ slug }: { slug: string }) {
         entry: 'from_capture',
         gates: { storyboard: brief.gates.storyboard, narration: brief.gates.narration },
       });
-      navigate(`/storyboard/${slug}`);
+      navigate(`/making/${slug}`);
     });
   // Closes an open capture without saving; a saved demo stays as it is.
   const cancel = () =>

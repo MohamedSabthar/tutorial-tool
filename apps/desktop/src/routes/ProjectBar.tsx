@@ -10,10 +10,10 @@ export type ProjectScreen = 'brief' | 'storyboard' | 'live' | 'studio';
 
 /** Where each kind of gate is answered: plans and lines on the storyboard, the rest in the Studio. */
 const GATE_SCREEN: Record<Gate['kind'], ProjectScreen> = {
-  storyboard: 'storyboard',
-  narration: 'storyboard',
-  help: 'studio',
-  knowledge: 'studio',
+  storyboard: 'live',
+  narration: 'live',
+  help: 'live',
+  knowledge: 'live',
   cues: 'live',
 };
 const GATE_ACTION: Record<Gate['kind'], string> = {
@@ -25,7 +25,7 @@ const GATE_ACTION: Record<Gate['kind'], string> = {
 };
 
 const href = (screen: ProjectScreen, slug: string) =>
-  screen === 'live' ? `#${liveRoute(slug)}` : `#/${screen}/${slug}`;
+  screen === 'live' || screen === 'storyboard' ? `#${liveRoute(slug)}` : `#/${screen}/${slug}`;
 
 /**
  * The open project across its screens: its name, links between Brief, Storyboard, Live and
@@ -77,8 +77,7 @@ export function ProjectBar({ slug, current }: { slug: string; current: ProjectSc
 
   const screens: { key: ProjectScreen; label: string }[] = [
     { key: 'brief', label: 'Brief' },
-    { key: 'storyboard', label: 'Storyboard' },
-    { key: 'live', label: 'Live' },
+    { key: 'live', label: 'Making' },
     { key: 'studio', label: 'Studio' },
   ];
 

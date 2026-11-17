@@ -191,7 +191,7 @@ export function BriefScreen({ slug }: { slug: string }) {
         gates: { storyboard: b?.gates.storyboard ?? false, narration: b?.gates.narration ?? true },
       });
       // Planning comes first: its storyboard is where the user reviews it.
-      navigate(`/storyboard/${slug}`);
+      navigate(`/making/${slug}`);
     });
 
   // Feed mode: the user demonstrates the tutorial; the pipeline starts from the capture.
