@@ -20,7 +20,7 @@ Branch: `ui-redesign` (from `ux-review`). Target design: `docs/ux-review/prototy
 - [x] 13.4 Making: one screen for the run (status bar with 5 stages, timer, time left, stop), live view, "What it did" feed with details, approval cards, Check the script, Check the steps, late cues, failure recovery, done → Watch and edit
 - [x] 13.5 Series outline: draft, review, edit episodes, shared settings, approve and make
 - [x] 13.6 Studio editing: steps rail, preview with chapter scrubber, step panel (what's said + re-voice, on screen, pace), Fix this moment sheet and click-to-place
-- [ ] 13.7 Studio agent: dock with live status, approvals, results (Keep / Undo / Tell it more), Changes history; old timeline behind "Timeline"
+- [x] 13.7 Studio agent: dock with live status, approvals, results (Keep / Undo / Tell it more), Changes history; old timeline behind "Timeline"
 - [x] 13.8 Export: name, size, save folder with reveal, outputs, progress, finished files
 - [x] 13.9 Settings: checklist with copy, accounts, agent (limit, ask before commands), voice, what the agent learned, appearance, advanced
 - [ ] 13.10 Cleanup: old routes redirect to the new screens, short Help, docs, final checks
