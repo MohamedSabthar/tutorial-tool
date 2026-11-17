@@ -27,7 +27,7 @@ Branch: `ui-redesign` (from `ux-review`). Target design: `docs/ux-review/prototy
 
 ## In flight
 
-13.3+13.5, 13.4, 13.6+13.7 and 13.8+13.9 are being built by four background agents in their own git worktrees (`git worktree list`; branches `worktree-agent-*`). When resuming after a failure:
+13.3, 13.4, 13.5, 13.8 and 13.9 are merged into `ui-redesign`. 13.6+13.7 (Studio) is being built by a background agent in their own git worktrees (`git worktree list`; branches `worktree-agent-*`). When resuming after a failure:
 1. Check those worktrees and branches before redoing anything.
 2. Merge finished branches into `ui-redesign` one at a time, resolving `main.tsx` route conflicts by keeping every new route.
 3. Run the checks.
