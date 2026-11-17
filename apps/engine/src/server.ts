@@ -828,6 +828,19 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       edit: PieceEdit;
       author: 'user' | 'agent';
     }) => timing.editPiece(p.slug, p, { author: p.author, group: `piece-${Date.now()}` }),
+    'timeline.editRange': async (p: {
+      slug: string;
+      from: number;
+      to: number;
+      edit: { op: 'speed'; rate: number } | { op: 'remove' } | { op: 'auto' };
+      author: 'user' | 'agent';
+      label?: string;
+    }) =>
+      edits.editRange(p.slug, { from: p.from, to: p.to, edit: p.edit }, {
+        author: p.author,
+        group: `range-${Date.now()}`,
+        label: p.label,
+      }),
     'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
     'vo.addLine': async (p: { slug: string; text: string; at: number; author: 'user' | 'agent' }) =>
       voiceover.addLine(p.slug, p, { author: p.author }),
@@ -931,6 +944,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       }),
     'timeline.undo': async ({ slug }: { slug: string }) => timelines.undo(slug),
     'timeline.redo': async ({ slug }: { slug: string }) => timelines.redo(slug),
+    'timeline.history': async ({ slug }: { slug: string }) => timelines.history(slug),
     'timeline.rebuildFromTake': async ({ slug }: { slug: string }) => {
       const { timeline } = await timelines.get(slug);
       const take = timeline.takes.at(-1);

@@ -468,7 +468,7 @@ export class RecordingEdits {
   async editRange(
     slug: string,
     p: { from: number; to: number; edit: Extract<PieceEdit, { op: 'speed' | 'remove' | 'auto' }> },
-    opts: { author?: Author; group?: string | null } = {},
+    opts: { author?: Author; group?: string | null; label?: string } = {},
   ) {
     const { timeline } = await this.deps.timelines.get(slug);
     let r: ReturnType<typeof editRange>;
@@ -483,7 +483,7 @@ export class RecordingEdits {
     const events = take ? await readEvents(this.deps.store.dir(slug), take.events) : [];
     await saveTiming(this.deps, slug, timeline, r.timeline, events, {
       ...opts,
-      label: PIECE_LABEL[p.edit.op],
+      label: opts.label ?? PIECE_LABEL[p.edit.op],
     });
     return { pieces: r.pieces, duration: r3(buildTimeMap(r.timeline).duration) };
   }
