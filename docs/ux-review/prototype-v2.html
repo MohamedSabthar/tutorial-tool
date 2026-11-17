@@ -1,0 +1,742 @@
+<title>Tutorial Studio Flow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@500;700;800&display=swap">
+<style>
+/* Layout: TUFFUI-style borderless layers (shell > panel > inset), pill buttons, tinted status pills.
+   Studio = steps rail | big video with chapter scrubber and agent dock | per-step panel. The video itself keeps WSO2 colours. */
+:root{
+  --bg:#FFFFFF; --fg:#111113; --muted:#6B6B74; --faint:#9C9CA4;
+  --surface:oklch(0.948 0.002 286); --inset:#FFFFFF; --raised:oklch(0.912 0.003 286);
+  --f04:rgba(17,17,19,.04); --f06:rgba(17,17,19,.06); --f08:rgba(17,17,19,.08); --f12:rgba(17,17,19,.12);
+  --brand:#0071E3; --brand-15:rgba(0,113,227,.13); --brand-08:rgba(0,113,227,.07); --on-brand:#FFFFFF;
+  --positive:#248A3D; --positive-15:rgba(36,138,61,.14); --negative:#D70015; --negative-15:rgba(215,0,21,.12);
+  --warning:#C93400; --warning-15:rgba(201,52,0,.12);
+  --btn:linear-gradient(0deg,#fff 0%,#e6e6e6 100%); --btn-hover:linear-gradient(0deg,#fff 0%,#eeeeee 100%); --btn-fg:#111111; --btn-edge:rgba(0,0,0,.1); --btn-shadow:0 0 #0000;
+  --btn2:linear-gradient(180deg,#e2e2e2 0%,#ececec 100%); --btn2-hover:linear-gradient(180deg,#dadada 0%,#e4e4e4 100%);
+  --pop:0 12px 40px rgba(17,17,19,.16),0 2px 6px rgba(17,17,19,.06); --scrim:rgba(17,17,19,.32);
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --ease:cubic-bezier(.23,1,.32,1);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:oklch(0.145 0 0); --fg:#F2F2F3; --muted:#A0A0A8; --faint:#71717A;
+  --surface:oklch(0.212 0 0); --inset:oklch(0.172 0 0); --raised:oklch(0.265 0 0);
+  --f04:rgba(242,242,243,.04); --f06:rgba(242,242,243,.06); --f08:rgba(242,242,243,.08); --f12:rgba(242,242,243,.12);
+  --brand:#0A84FF; --brand-15:rgba(10,132,255,.18); --brand-08:rgba(10,132,255,.1);
+  --positive:#30D158; --positive-15:rgba(48,209,88,.16); --negative:#FF453A; --negative-15:rgba(255,69,58,.16); --warning:#FF9F0A; --warning-15:rgba(255,159,10,.16);
+  --btn:linear-gradient(0deg,#fff 0%,#ababab 100%); --btn-hover:linear-gradient(0deg,#fff 0%,#c2c2c2 100%); --btn-edge:rgba(255,255,255,.5); --btn-shadow:0 2px 2px 0 rgba(0,0,0,.1);
+  --btn2:linear-gradient(180deg,#1d1d1d 0%,#262626 100%); --btn2-hover:linear-gradient(180deg,#242424 0%,#2d2d2d 100%);
+  --pop:0 12px 40px rgba(0,0,0,.55); --scrim:rgba(0,0,0,.55); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:oklch(0.145 0 0); --fg:#F2F2F3; --muted:#A0A0A8; --faint:#71717A;
+  --surface:oklch(0.212 0 0); --inset:oklch(0.172 0 0); --raised:oklch(0.265 0 0);
+  --f04:rgba(242,242,243,.04); --f06:rgba(242,242,243,.06); --f08:rgba(242,242,243,.08); --f12:rgba(242,242,243,.12);
+  --brand:#0A84FF; --brand-15:rgba(10,132,255,.18); --brand-08:rgba(10,132,255,.1);
+  --positive:#30D158; --positive-15:rgba(48,209,88,.16); --negative:#FF453A; --negative-15:rgba(255,69,58,.16); --warning:#FF9F0A; --warning-15:rgba(255,159,10,.16);
+  --btn:linear-gradient(0deg,#fff 0%,#ababab 100%); --btn-hover:linear-gradient(0deg,#fff 0%,#c2c2c2 100%); --btn-edge:rgba(255,255,255,.5); --btn-shadow:0 2px 2px 0 rgba(0,0,0,.1);
+  --btn2:linear-gradient(180deg,#1d1d1d 0%,#262626 100%); --btn2-hover:linear-gradient(180deg,#242424 0%,#2d2d2d 100%);
+  --pop:0 12px 40px rgba(0,0,0,.55); --scrim:rgba(0,0,0,.55); color-scheme:dark}
+html,body{height:100%}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+h1,h2,h3,h4{margin:0;font-weight:600;text-wrap:balance;letter-spacing:-.01em}
+p{margin:0}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.app{min-height:100%;display:flex;flex-direction:column}
+.app.fit{height:100%;overflow:hidden}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.muted{color:var(--muted)} .s13{font-size:13px} .s12{font-size:12px} .mono{font-family:var(--mono)} .tab{font-variant-numeric:tabular-nums}
+.grow{flex:1}
+.ico{width:16px;height:16px;flex:none;display:block}
+.ico.sm{width:14px;height:14px} .ico.lg{width:20px;height:20px}
+
+/* TUFFUI surfaces */
+.shell{background:var(--surface);border-radius:22px;padding:6px}
+.panel{background:var(--inset);border-radius:16px}
+.inset{background:var(--f04);border-radius:12px}
+.shead{display:flex;align-items:center;gap:12px;padding:6px 14px 12px 6px}
+.shead h3{font-size:15px;font-weight:500}
+.shead p{font-size:13px;color:var(--muted)}
+.tile{width:36px;height:36px;border-radius:12px;background:var(--f06);color:var(--muted);display:grid;place-items:center;flex:none}
+.tile.brand{background:var(--brand-15);color:var(--brand)} .tile.pos{background:var(--positive-15);color:var(--positive)} .tile.warn{background:var(--warning-15);color:var(--warning)}
+
+/* buttons */
+.b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 14px;border-radius:999px;border:0;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background-color .15s var(--ease),transform .15s var(--ease),opacity .15s;user-select:none;background:var(--btn2);color:var(--fg)}
+.b:hover{background:var(--btn2-hover)}
+.b:active{transform:scale(.97)}
+.b[disabled]{opacity:.4;pointer-events:none}
+.b.md{height:36px;padding:0 16px;font-size:14px}
+.b.lg{height:44px;padding:0 22px;font-size:15px}
+.b.pri{background:var(--btn);border:1px solid var(--btn-edge);color:var(--btn-fg);box-shadow:var(--btn-shadow)}
+.b.pri:hover{background:var(--btn-hover)}
+.b.brand{background:var(--brand);color:var(--on-brand)}
+.b.brand:hover{filter:brightness(1.07)}
+.b.quiet{background:none;color:var(--muted)}
+.b.quiet:hover{background:var(--f06);color:var(--fg)}
+.b.danger{background:var(--negative-15);color:var(--negative)}
+.b.icon{width:32px;padding:0}
+.b.icon.md{width:36px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--f08);color:var(--muted)}
+.pill.brand{background:var(--brand-15);color:var(--brand)} .pill.pos{background:var(--positive-15);color:var(--positive)} .pill.neg{background:var(--negative-15);color:var(--negative)} .pill.warn{background:var(--warning-15);color:var(--warning)}
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:6px;background:var(--f06);font-family:var(--mono);font-size:11px;color:var(--muted)}
+.kbd{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:6px;background:var(--f08);font-family:var(--mono);font-size:11px;color:var(--muted)}
+.seg{display:inline-flex;background:var(--f06);border-radius:999px;padding:3px;gap:2px;position:relative}
+.seg button{border:0;background:none;height:28px;padding:0 13px;border-radius:999px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;position:relative;z-index:1;transition:color .15s}
+.seg button[aria-pressed="true"]{color:var(--fg);background:var(--inset);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.field{display:flex;flex-direction:column;gap:6px}
+.lbl{font-size:12px;font-weight:500;color:var(--muted)}
+.tf{width:100%;background:var(--f04);border:0;border-radius:12px;padding:10px 12px;font-size:14px;resize:none;transition:background-color .15s}
+.tf:hover{background:var(--f06)}
+.tf:focus{outline:2px solid var(--brand);outline-offset:0;background:var(--inset)}
+select.tf{appearance:none;padding-right:30px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.dots{display:inline-flex;gap:3px;align-items:center}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--brand);animation:dot 1s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.16s}.dots i:nth-child(3){animation-delay:.32s}
+@keyframes dot{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--f12);border-top-color:currentColor;animation:sp .8s linear infinite;display:inline-block;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.stripe{height:8px;border-radius:999px;background:var(--f08);position:relative;overflow:hidden}
+.stripe i{position:absolute;inset:0;border-radius:999px;background:var(--brand) repeating-linear-gradient(-45deg,rgba(255,255,255,.22) 0 3px,transparent 3px 7px);background-size:auto;transition:clip-path .4s var(--ease);animation:slide 1.2s linear infinite}
+@keyframes slide{to{background-position:20px 0}}
+.roll{display:inline-flex;overflow:hidden;height:1.2em;line-height:1.2em;vertical-align:bottom}
+.roll span{display:inline-block;transition:transform .35s var(--ease)}
+.enter{animation:enter .28s var(--ease) both}
+@keyframes enter{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.shimmer{position:relative;overflow:hidden}
+.shimmer::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,var(--brand-15) 50%,transparent 70%);background-size:220% 100%;animation:shim 1.4s linear infinite;pointer-events:none}
+@keyframes shim{from{background-position:130% 0}to{background-position:-90% 0}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+
+/* top bar */
+.proto{display:flex;align-items:center;gap:4px;padding-block:6px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--f08);flex-wrap:wrap}
+.proto b{font-weight:600;color:var(--fg);margin-right:6px}
+.proto button{border:0;background:none;color:var(--muted);height:24px;padding:0 10px;border-radius:999px;cursor:pointer;font-size:12px}
+.proto button[aria-current="page"]{background:var(--f08);color:var(--fg)}
+.bar{display:flex;align-items:center;gap:10px;min-height:58px;padding-block:8px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;border:0;background:none;cursor:pointer;padding:0}
+.logo span.m{width:28px;height:28px;border-radius:9px;background:var(--fg);color:var(--bg);display:grid;place-items:center}
+.ttl{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.saved{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+
+/* HOME */
+.home{width:100%;max-width:820px;margin:0 auto;padding-block:56px 72px;display:flex;flex-direction:column;gap:28px}
+.home h1{font-family:"Inter",var(--sans);font-size:clamp(30px,4.5vw,44px);font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.composer .panel{padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px}
+.composer textarea{border:0;background:none;font-size:18px;min-height:76px;resize:none;padding:4px 4px}
+.composer textarea:focus{outline:0}
+.crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.send{width:40px;height:40px;border-radius:50%;border:0;background:var(--brand);color:var(--on-brand);display:grid;place-items:center;cursor:pointer;transition:transform .15s var(--ease)}
+.send:active{transform:scale(.94)}
+.send[disabled]{opacity:.35;cursor:not-allowed}
+.cfoot{display:flex;align-items:center;gap:10px;padding:10px 12px 6px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.cfoot b{color:var(--fg);font-weight:500}
+.sugg{display:flex;flex-wrap:wrap;gap:8px}
+.sugg button{border:0;background:var(--f06);border-radius:999px;height:32px;padding:0 14px;cursor:pointer;font-size:13px;color:var(--fg)}
+.sugg button:hover{background:var(--f12)}
+.disc summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:500;height:28px;padding:0 10px;border-radius:999px}
+.disc summary::-webkit-details-marker{display:none}
+.disc summary:hover{background:var(--f06);color:var(--fg)}
+.disc[open] summary .car{transform:rotate(90deg)}
+.car{transition:transform .2s var(--ease)}
+.cust{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:10px 4px 4px}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13px}
+.check input{width:16px;height:16px;accent-color:var(--brand);margin:2px 0 0;flex:none}
+.rows{display:flex;flex-direction:column;gap:2px}
+.row{display:flex;align-items:center;gap:12px;padding:8px;border-radius:14px;border:0;background:none;text-align:left;cursor:pointer;width:100%}
+.row:hover{background:var(--f04)}
+.thumb{width:96px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;position:relative;flex:none;background:#fff;container-type:inline-size}
+.row .meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.row .meta b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notice{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 12px}
+
+/* MAKING */
+.making{width:100%;max-width:1240px;margin:0 auto;padding-block:16px 40px;display:flex;flex-direction:column;gap:14px}
+.status{display:flex;flex-direction:column;gap:14px;padding:16px 18px 18px}
+.status .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status .lab{font-size:18px;font-weight:600}
+.status .det{color:var(--muted);font-size:14px}
+.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;position:relative}
+.stg{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted);min-width:0}
+.stg .bar5{height:8px;border-radius:999px;background:var(--f08);position:relative;overflow:hidden}
+.stg .bar5 i{position:absolute;inset:0;border-radius:999px}
+.stg.done .bar5 i{background:var(--positive)}
+.stg.now .bar5 i{background:var(--brand) repeating-linear-gradient(-45deg,rgba(255,255,255,.22) 0 3px,transparent 3px 7px);animation:slide 1.2s linear infinite;transition:clip-path .4s var(--ease)}
+.stg.you .bar5 i{background:var(--warning)}
+.stg b{font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stg.wait b{color:var(--muted)}
+.mk2{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:980px){.mk2{grid-template-columns:minmax(0,1fr)}}
+.vid{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#fff;container-type:inline-size;width:100%}
+.tc-row{display:flex;flex-direction:column}
+.tcall{border:0;background:none;width:100%;display:flex;align-items:center;gap:10px;padding:7px 10px 7px 6px;border-radius:14px;cursor:pointer;text-align:left}
+.tcall:hover{background:var(--f04)}
+.tcall .st{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none}
+.tcall .st.ok{background:var(--positive-15);color:var(--positive)} .tcall .st.run{background:var(--brand-15);color:var(--brand)} .tcall .st.warn{background:var(--warning-15);color:var(--warning)}
+.tcall .nm{font-weight:500;font-size:13.5px;flex:1;min-width:0}
+.tcall .du{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.tdet{margin:0 6px 6px 40px;padding:10px 12px;font-family:var(--mono);font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.approve{border-radius:22px;padding:6px;background:var(--warning-15)}
+.approve .panel{padding:14px;display:flex;flex-direction:column;gap:10px}
+.review{display:flex;flex-direction:column;gap:8px}
+.rstep{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:6px 12px;padding:12px 14px;align-items:start}
+.num{width:26px;height:26px;border-radius:9px;background:var(--f08);display:grid;place-items:center;font-size:12px;font-weight:600}
+.num.ex{background:var(--brand-15);color:var(--brand)}
+.rstep textarea{grid-column:2/-1}
+.done{padding:28px;display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+.done h2{font-family:"Inter",var(--sans);font-size:30px;font-weight:800;letter-spacing:-.02em}
+.stats{display:flex;gap:28px;flex-wrap:wrap}
+.stats div{display:flex;flex-direction:column}
+.stats b{font-size:26px;font-weight:600}
+.stats span{font-size:12px;color:var(--muted)}
+
+/* STUDIO */
+.studio{flex:1;min-height:0;display:grid;grid-template-columns:268px minmax(0,1fr) 340px;gap:12px;padding-block:4px 12px}
+@media (max-width:1180px){.studio{grid-template-columns:220px minmax(0,1fr) 300px}}
+@media (max-width:980px){.app.fit{height:auto;overflow:visible}.studio{grid-template-columns:minmax(0,1fr)}}
+.rail{min-height:0;display:flex;flex-direction:column}
+.rail .list{overflow:auto;display:flex;flex-direction:column;gap:2px;padding:0 4px 4px;min-height:0;flex:1}
+@media (max-width:980px){.rail .list{max-height:320px}}
+.scard{border:0;background:none;text-align:left;cursor:pointer;display:grid;grid-template-columns:72px minmax(0,1fr);gap:4px 10px;padding:7px;border-radius:14px;position:relative}
+.scard:hover{background:var(--f04)}
+.scard.cur{background:var(--inset);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.scard .thumb{width:72px;grid-row:span 2}
+.scard .t{font-size:13px;font-weight:500;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.scard .m{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.scard .n{position:absolute;left:11px;top:11px;z-index:2;width:18px;height:18px;border-radius:6px;background:rgba(17,17,19,.72);color:#fff;font-size:10.5px;font-weight:600;display:grid;place-items:center}
+.scard.agent{outline:2px solid var(--brand);outline-offset:-2px}
+.center{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.stagewrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+.stagebox{position:relative;width:100%;max-width:min(100%,calc((100vh - 360px) * 16 / 9));aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#fff;container-type:inline-size;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+@media (max-width:980px){.stagebox{max-width:100%}}
+.stagebox.picking{cursor:crosshair;outline:3px solid var(--brand);outline-offset:3px}
+.pickhint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;background:var(--brand);color:var(--on-brand);border-radius:999px;padding:6px 8px 6px 14px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;box-shadow:var(--pop)}
+.pickhint button{border:0;background:rgba(255,255,255,.2);color:inherit;border-radius:999px;height:24px;padding:0 10px;cursor:pointer}
+.scan{position:absolute;border:2px solid var(--brand);border-radius:1.2cqw;background:rgba(0,113,227,.08);z-index:6;pointer-events:none;animation:scan 1.2s ease-in-out infinite}
+@keyframes scan{0%,100%{box-shadow:0 0 0 0 rgba(0,113,227,.35)}50%{box-shadow:0 0 0 1.2cqw rgba(0,113,227,0)}}
+.agentcursor{position:absolute;z-index:7;pointer-events:none;transition:left .7s var(--ease),top .7s var(--ease)}
+.agentcursor span{position:absolute;left:18px;top:14px;background:var(--brand);color:#fff;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.play{width:40px;height:40px;border-radius:50%;border:0;background:var(--fg);color:var(--bg);display:grid;place-items:center;cursor:pointer;transition:transform .15s var(--ease)}
+.play:active{transform:scale(.94)}
+.tc{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.fixbtn{height:40px;padding:0 18px;font-size:14px}
+.chap{position:relative;height:30px;display:flex;gap:3px;cursor:pointer;align-items:center}
+.chap .seg5{height:8px;border-radius:999px;background:var(--f12);position:relative;transition:height .15s var(--ease)}
+.chap .seg5.ex{background:var(--brand-15)}
+.chap .seg5.fast{background:repeating-linear-gradient(-45deg,var(--f12) 0 3px,transparent 3px 6px)}
+.chap .seg5.skip{background:none;border:1.5px dashed var(--f12);height:8px}
+.chap .seg5 i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--fg)}
+.chap:hover .seg5{height:12px}
+.chap .mk{position:absolute;top:2px;width:6px;height:6px;border-radius:50%;background:#FF5800;transform:translateX(-50%);pointer-events:none}
+.chap .mk.note{background:var(--brand)}
+.chap .head{position:absolute;top:3px;bottom:3px;width:3px;border-radius:3px;background:var(--fg);transform:translateX(-50%);pointer-events:none}
+.dock{display:flex;flex-direction:column;gap:8px}
+.dockbox{background:var(--surface);border-radius:22px;padding:6px}
+.dockin{background:var(--inset);border-radius:16px;display:flex;align-items:flex-end;gap:6px;padding:6px 6px 6px 14px}
+.dockin textarea{flex:1;border:0;background:none;resize:none;font-size:14px;padding:8px 0;max-height:96px;min-height:22px;line-height:1.4}
+.dockin textarea:focus{outline:0}
+.astatus{display:flex;flex-direction:column;gap:8px;padding:10px 12px}
+.astatus .l1{display:flex;align-items:center;gap:10px}
+.astatus .l1 b{font-weight:500}
+.astatus ol{list-style:none;margin:0;padding:0 0 0 30px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.astatus ol li{display:flex;gap:6px;align-items:center}
+.result{display:flex;flex-direction:column;gap:10px;padding:12px}
+.diff del{color:var(--negative);background:var(--negative-15);text-decoration:line-through;border-radius:4px;padding:0 2px}
+.diff ins{color:var(--positive);background:var(--positive-15);text-decoration:none;border-radius:4px;padding:0 2px}
+.side{min-height:0;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.sp{padding:14px;display:flex;flex-direction:column;gap:14px}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec .h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.sec .h .grow{flex:1}
+.ovrow{display:flex;align-items:center;gap:10px;padding:6px;border-radius:12px;cursor:pointer;border:0;background:none;width:100%;text-align:left}
+.ovrow:hover{background:var(--f04)}
+.ovrow.sel{background:var(--brand-08);outline:1.5px solid var(--brand)}
+.ovrow .tile{width:30px;height:30px;border-radius:9px}
+.ovrow b{font-weight:500;font-size:13px}
+.warnbox{display:flex;align-items:center;gap:10px;background:var(--warning-15);color:var(--warning);border-radius:12px;padding:8px 8px 8px 12px;font-size:13px}
+.warnbox span{flex:1}
+.swatches{display:flex;gap:8px}
+.swatches button{width:24px;height:24px;border-radius:50%;border:2px solid var(--f12);cursor:pointer}
+.swatches button[aria-pressed="true"]{outline:2px solid var(--fg);outline-offset:2px}
+.hist{padding:8px;display:flex;flex-direction:column;gap:2px;max-height:300px;overflow:auto}
+.hrow{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;font-size:13px}
+.hrow:hover{background:var(--f04)}
+.hrow .who{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:10px;font-weight:700}
+.hrow .who.a{background:var(--brand-15);color:var(--brand)} .hrow .who.y{background:var(--f08);color:var(--muted)}
+
+/* sheet / popover / toasts */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:80;display:grid;place-items:center;padding:16px;animation:fade .2s var(--ease)}
+@keyframes fade{from{opacity:0}}
+.sheet{background:var(--surface);border-radius:26px;padding:6px;width:min(560px,100%);box-shadow:var(--pop);animation:enter .28s var(--ease)}
+.sheet .panel{padding:18px;display:flex;flex-direction:column;gap:14px}
+.fixgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:520px){.fixgrid{grid-template-columns:1fr}}
+.fix{border:0;background:var(--f04);border-radius:16px;padding:14px;text-align:left;cursor:pointer;display:flex;gap:12px;align-items:flex-start;transition:background-color .15s,transform .15s var(--ease)}
+.fix:hover{background:var(--f08)}
+.fix:active{transform:scale(.98)}
+.fix b{display:block;font-weight:500;font-size:14px}
+.fix span.d{font-size:12.5px;color:var(--muted)}
+.fix.wide{grid-column:1/-1;background:var(--brand-08)}
+.fix.wide .tile{background:var(--brand-15);color:var(--brand)}
+.pop{position:absolute;z-index:40;background:var(--surface);border-radius:20px;padding:6px;box-shadow:var(--pop);min-width:300px;animation:enter .2s var(--ease)}
+.toasts{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:90;display:flex;flex-direction:column-reverse;gap:8px;align-items:flex-end;max-width:calc(100vw - 32px)}
+.toast{background:var(--fg);color:var(--bg);border-radius:16px;padding:10px 10px 10px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--pop);font-size:13px;animation:enter .25s var(--ease)}
+.toast button{border:0;background:rgba(127,127,127,.25);color:inherit;border-radius:999px;height:26px;padding:0 12px;cursor:pointer;font-weight:500}
+.notif{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:95;width:340px;max-width:calc(100vw - 24px);background:var(--surface);border-radius:20px;padding:6px;box-shadow:var(--pop);animation:enter .3s var(--ease)}
+.notif .panel{padding:12px;display:grid;grid-template-columns:36px 1fr;gap:3px 10px}
+.notif .tile{grid-row:span 3}
+
+/* EXPORT */
+.page{width:100%;max-width:1000px;margin:0 auto;padding-block:24px 56px;display:flex;flex-direction:column;gap:16px}
+.exg{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:900px){.exg{grid-template-columns:minmax(0,1fr)}}
+.optrow{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;cursor:pointer}
+.optrow:hover{background:var(--f04)}
+.optrow input{width:18px;height:18px;accent-color:var(--brand);flex:none}
+.optrow b{font-weight:500;display:block}
+.big{font-size:44px;font-weight:600;letter-spacing:-.03em}
+
+/* fixed video world: WSO2 look */
+.vs{position:absolute;inset:0;display:grid;grid-template-columns:5% 22% 1fr;grid-template-rows:7% 1fr 5%;font-family:"Inter",sans-serif;color:#1F2937;background:#FFFFFF}
+.vs .tb{grid-column:1/-1;background:#F3F3F3;border-bottom:1px solid #E1E1E1;display:flex;align-items:center;justify-content:center;font-size:1.1cqw;color:#666}
+.vs .ab{background:#F3F3F3;border-right:1px solid #E1E1E1}
+.vs .ex{background:#F8F8F8;border-right:1px solid #E1E1E1;padding:1.2cqw;font-size:1cqw;display:flex;flex-direction:column;gap:.6cqw;color:#444}
+.vs .ex .hi{background:#E4E9F2;border-radius:3px;padding:.2cqw .5cqw;color:#13213B;font-weight:700}
+.vs .ed{position:relative;padding:2cqw;display:flex;flex-direction:column;gap:1.4cqw}
+.vs .sb{grid-column:1/-1;background:#4F7AA3;color:#fff;font-size:.9cqw;display:flex;align-items:center;padding:0 1cqw}
+.vs .crumbs{font-size:1cqw;color:#777}
+.vs h4{margin:0;font-size:1.8cqw;color:#13213B;font-weight:800}
+.vs .form{display:flex;flex-direction:column;gap:1cqw;max-width:60%}
+.vs .inp{border:1px solid #CCD2DC;border-radius:4px;height:3cqw;padding:0 1cqw;display:flex;align-items:center;font-size:1.1cqw;color:#333;background:#fff}
+.vs .vbtn{align-self:flex-start;background:#13213B;color:#fff;border-radius:4px;padding:.8cqw 1.6cqw;font-size:1.1cqw;font-weight:700}
+.vs .canvas{flex:1;position:relative;background-image:radial-gradient(#D7DCE5 1px,transparent 1px);background-size:1.6cqw 1.6cqw;border:1px solid #E6E8EE;border-radius:6px}
+.vs .node{position:absolute;border:1.5px solid #13213B;background:#fff;border-radius:6px;padding:.8cqw 1.2cqw;font-size:1.1cqw;font-weight:700;color:#13213B}
+.vs .node small{display:block;font-weight:400;color:#777;font-size:.9cqw}
+.vs .chat{position:absolute;right:3%;bottom:6%;width:42%;border:1px solid #D7DCE5;border-radius:8px;background:#fff;padding:1cqw;display:flex;flex-direction:column;gap:.8cqw;font-size:1.05cqw}
+.vs .chat .u{align-self:flex-end;background:#13213B;color:#fff;border-radius:8px;padding:.5cqw 1cqw}
+.vs .chat .a{background:#F1F3F7;border-radius:8px;padding:.5cqw 1cqw;color:#222}
+.vs .term{position:absolute;left:0;right:0;bottom:0;height:34%;background:#1E1E1E;color:#D4D4D4;font-family:"Geist Mono",monospace;font-size:1cqw;padding:1cqw;display:flex;flex-direction:column;gap:.4cqw}
+.wexp{position:absolute;inset:0;background:radial-gradient(120% 120% at 20% 0%,#22355A 0%,#13213B 60%,#0C1526 100%);color:#fff;padding:5cqw;display:flex;flex-direction:column;gap:4cqw;font-family:"Inter",sans-serif}
+.wexp .k{font-size:1.1cqw;letter-spacing:.2em;color:#FF8A4C;font-weight:700}
+.wexp h4{margin:0;font-size:3.6cqw;font-weight:800}
+.wexp h4 i,.wtitle h4 i{font-style:normal;color:#FF5800}
+.wexp .fl{display:flex;gap:2cqw;align-items:center}
+.wexp .bx{flex:1;border:1.5px solid rgba(255,255,255,.35);border-radius:1cqw;padding:1.6cqw;font-size:1.4cqw;font-weight:700}
+.wexp .bx small{display:block;font-family:"Geist Mono",monospace;font-weight:400;font-size:1cqw;opacity:.7;margin-top:.6cqw}
+.wexp .bx.on{border-color:#FF5800;background:rgba(255,88,0,.16)}
+.cap{position:absolute;left:50%;bottom:4%;transform:translateX(-50%);max-width:80%;background:rgba(12,21,38,.84);color:#fff;font-family:"Inter",sans-serif;font-size:1.5cqw;padding:.6cqw 1.4cqw;border-radius:.6cqw;text-align:center;line-height:1.35}
+.cursor{position:absolute;width:2.2cqw;height:2.2cqw;pointer-events:none}
+.ov{position:absolute;cursor:grab}
+.ov.sel{outline:2px dashed #0071E3;outline-offset:4px}
+.ov.arrow{width:12cqw;height:4cqw}
+.ov.box{border:.35cqw solid #FF5800;border-radius:1cqw;width:16cqw;height:7cqw}
+.ov.text{background:#13213B;color:#fff;font-family:"Inter",sans-serif;font-weight:700;font-size:1.6cqw;padding:.6cqw 1.2cqw;border-radius:.6cqw;white-space:nowrap}
+.ov.callout{background:#fff;color:#13213B;border:.25cqw solid #FF5800;font-family:"Inter",sans-serif;font-weight:700;font-size:1.4cqw;padding:.8cqw 1.3cqw;border-radius:1cqw;max-width:28cqw;box-shadow:0 .5cqw 1.5cqw rgba(0,0,0,.2)}
+.ov.blur{backdrop-filter:blur(.8cqw);-webkit-backdrop-filter:blur(.8cqw);background:rgba(255,255,255,.3);width:18cqw;height:5cqw;border-radius:.6cqw;border:1px dashed rgba(19,33,59,.25)}
+.wtitle{position:absolute;inset:0;background:#13213B;color:#fff;display:flex;flex-direction:column;justify-content:center;padding:6cqw;gap:1cqw;font-family:"Inter",sans-serif}
+.wtitle .k{font-size:1.2cqw;letter-spacing:.2em;color:#FF8A4C;font-weight:700}
+.wtitle h4{margin:0;font-size:4.4cqw;font-weight:800}
+.pin{position:absolute;width:3cqw;height:3cqw;border-radius:50% 50% 50% 0;transform:translate(-50%,-100%) rotate(-45deg);background:#0071E3;border:.25cqw solid #fff;box-shadow:0 .3cqw .8cqw rgba(0,0,0,.3);z-index:5}
+</style>
+
+<div class="app" id="app"></div>
+<div id="layer"></div>
+
+<script>
+// ---------------- data ----------------
+const DUR=200;
+const STEPS0=[
+ {id:'s1',t:0,title:'Open the Chat Agent Service form',line:'You start from an empty integration. Click Add Artifact, then pick Chat Agent Service under AI Integration.'},
+ {id:'s2',t:9,title:'Give the agent a math tutor role',line:'Name the service math-tutor and give the agent its role: a patient tutor that explains every step of the answer.'},
+ {id:'s3',t:23,title:'Create the chat agent',line:'Click Create. The agent, its model and an empty tool list appear on the canvas.'},
+ {id:'s4',t:44,title:'How a chat agent works',ex:true,line:'A chat message reaches the agent. The agent asks the model, and the model can call a tool, like sum.'},
+ {id:'s5',t:66,title:'Add a sum tool',line:'The agent needs tools to calculate. Select the agent, click the plus button, then Create Custom Tool. Name it sum.'},
+ {id:'s6',t:99,title:'Implement the sum function',line:'Add two integer parameters, a and b, and return a plus b.',warn:'The click on Save happens 0.4 s after the narrator says it.'},
+ {id:'s7',t:117,title:'Add subtract, multiply and divide',line:'The other three tools work the same way, so we speed through them.',pace:'fast'},
+ {id:'s8',t:145,title:'Turn on tracing and run',line:'Turn on tracing, then click Run. The service starts on port 9090.'},
+ {id:'s9',t:171,title:'Ask the tutor a math question',line:'Open Agent Chat and ask: what is 12 plus 8? The agent calls sum and explains the answer step by step.'},
+];
+STEPS0.forEach(s=>{s.pace=s.pace||'normal';});
+const OV0=[
+ {id:'o1',type:'title',t0:0,t1:4,text:'Creating an AI Agent',x:0,y:0,color:'#13213B'},
+ {id:'o3',type:'callout',t0:178,t1:188,text:'The agent calls sum(12, 8)',x:30,y:44,color:'#FF5800'},
+ {id:'o4',type:'blur',t0:150,t1:160,text:'',x:52,y:84,color:'#FF5800'},
+];
+const OVN={arrow:'Arrow',box:'Box',text:'Label',callout:'Callout',blur:'Blur',title:'Title card'};
+const COLORS=[['#FF5800','Orange'],['#13213B','Navy'],['#4F7AA3','Steel'],['#FFFFFF','White']];
+const STAGES=[
+ {name:'Planning',mins:4,detail:'Planning the steps',acts:[['Read what it knows about WSO2 Integrator','skill: wso2-integrator · 6 notes'],['Read the docs you added','bi.docs.wso2.com/agents'],['Planned 9 steps and 1 explainer','save_plan · 9 steps']]},
+ {name:'Testing the steps',mins:8,detail:'Trying each step in WSO2 Integrator',acts:[['Opened WSO2 Integrator','launch · empty project'],['Steps 1–3 work','run_script · 3/9'],['Step 5: the + button moved; found it in the agent menu','inspect_ui · repaired selector'],['Steps 4–9 work','run_script · 9/9']]},
+ {name:'Check the script',you:true,detail:'Waiting for you to check the script'},
+ {name:'Recording',mins:9,detail:'Recording in time with the voice-over',acts:[['Recorded the voice-over','9 lines · 3:12 · voice: Rachel'],['Recorded steps 1–5','take-1 · 1080p'],['Recorded steps 6–9','take-1 · 1080p']]},
+ {name:'Finishing',mins:3,detail:'Adding the cursor, clicks and captions',acts:[['Added cursor, click ripples and captions','auto overlays · 41'],['Watched the whole video for problems','final check · none found']]},
+];
+
+// ---------------- state ----------------
+const clone=o=>JSON.parse(JSON.stringify(o));
+const S={view:'home',goal:'',how:'agent',
+ title:'Creating an AI Agent',steps:clone(STEPS0),ovs:clone(OV0),orig:{},voicing:{},
+ t:24.5,playing:false,selOv:null,captions:true,pick:null,hist:[],redo:[],
+ agent:{state:'idle',text:'',acts:[],label:'',started:0,result:null,approval:null,target:null,notes:[]},
+ mk:{title:'Creating an AI Agent',stage:0,pct:0,acts:[],need:null,done:false,open:{},started:Date.now()},
+ ex:{state:'idle',p:0,res:'1080p',outs:{video:true,captions:true,doc:true,script:false}},
+ sheet:false,pop:null,toasts:[],notif:null,keyMissing:true};
+STEPS0.forEach(s=>S.orig[s.id]=s.line);
+
+// ---------------- helpers ----------------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mmss=(t,f)=>{t=Math.max(0,t);const m=Math.floor(t/60),s=t-m*60;return f?`${m}:${s.toFixed(1).padStart(4,'0')}`:`${m}:${String(Math.floor(s)).padStart(2,'0')}`};
+const idx=t=>{let i=0;S.steps.forEach((s,j)=>{if(t>=s.t)i=j});return i};
+const stepAt=t=>S.steps[idx(t)];
+const sEnd=i=>i<S.steps.length-1?S.steps[i+1].t:DUR;
+const sLen=i=>sEnd(i)-S.steps[i].t;
+const voLen=s=>Math.min(sLen(S.steps.indexOf(s))-.5,s.line.split(/\s+/).length/2.6);
+const ovsIn=i=>S.ovs.filter(o=>o.t0>=S.steps[i].t&&o.t0<sEnd(i));
+const elapsed=ms=>{const s=Math.floor(ms/1000);return s<60?`${s}s`:`${Math.floor(s/60)}m ${String(s%60).padStart(2,'0')}s`};
+function roll(str){return `<span class="roll tab">${[...String(str)].map(c=>/\d/.test(c)?`<span style="transform:translateY(0)">${c}</span>`:`<span>${c}</span>`).join('')}</span>`}
+const P={ // inline filled icons
+ play:'<path d="M5 3.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 5 3.5Z"/>',
+ pause:'<rect x="4.5" y="3" width="4" height="14" rx="1.3"/><rect x="11.5" y="3" width="4" height="14" rx="1.3"/>',
+ back:'<path d="M12.7 4.3a1 1 0 0 1 0 1.4L8.4 10l4.3 4.3a1 1 0 1 1-1.4 1.4l-5-5a1 1 0 0 1 0-1.4l5-5a1 1 0 0 1 1.4 0Z"/>',
+ next:'<path d="M7.3 4.3a1 1 0 0 0 0 1.4l4.3 4.3-4.3 4.3a1 1 0 1 0 1.4 1.4l5-5a1 1 0 0 0 0-1.4l-5-5a1 1 0 0 0-1.4 0Z"/>',
+ spark:'<path d="M10 1.5c.4 0 .7.3.8.6l1.1 3.6a3 3 0 0 0 2 2l3.5 1.1a.8.8 0 0 1 0 1.6l-3.5 1.1a3 3 0 0 0-2 2l-1.1 3.6a.8.8 0 0 1-1.6 0l-1.1-3.6a3 3 0 0 0-2-2L2.6 10.4a.8.8 0 0 1 0-1.6l3.5-1.1a3 3 0 0 0 2-2l1.1-3.6c.1-.3.4-.6.8-.6Z"/>',
+ wand:'<path d="M14.3 2.3a1 1 0 0 1 1.4 0l2 2a1 1 0 0 1 0 1.4L6.4 17a1 1 0 0 1-1.4 0l-2-2a1 1 0 0 1 0-1.4L14.3 2.3Z"/><path d="M5 2l.6 1.4L7 4l-1.4.6L5 6l-.6-1.4L3 4l1.4-.6L5 2Zm11 9l.6 1.4L18 13l-1.4.6L16 15l-.6-1.4L14 13l1.4-.6L16 11Z"/>',
+ mic:'<rect x="7" y="2" width="6" height="10" rx="3"/><path d="M4.5 9.5a.9.9 0 0 1 1.8 0 3.7 3.7 0 0 0 7.4 0 .9.9 0 0 1 1.8 0 5.5 5.5 0 0 1-4.6 5.4V17h2a.9.9 0 0 1 0 1.8H7.1a.9.9 0 0 1 0-1.8h2v-2.1a5.5 5.5 0 0 1-4.6-5.4Z"/>',
+ arrow:'<path d="M3 10a1 1 0 0 1 1-1h9.6l-3.3-3.3a1 1 0 1 1 1.4-1.4l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 0 1-1.4-1.4l3.3-3.3H4a1 1 0 0 1-1-1Z"/>',
+ label:'<path d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V5h-4v10h1a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h1V5H5v1a1 1 0 1 1-2 0V4Z"/>',
+ box:'<path d="M5 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 2v10h10V5H5Z"/>',
+ eye:'<path d="M2.7 2.7a1 1 0 0 1 1.4 0l13.2 13.2a1 1 0 0 1-1.4 1.4l-2-2A8.6 8.6 0 0 1 10 16.5c-4.3 0-7.3-3.4-8.4-5.6a2 2 0 0 1 0-1.8 12 12 0 0 1 2.7-3.4L2.7 4.1a1 1 0 0 1 0-1.4ZM10 3.5c4.3 0 7.3 3.4 8.4 5.6a2 2 0 0 1 0 1.8 12.3 12.3 0 0 1-1.9 2.6L7.4 4.1A8 8 0 0 1 10 3.5Z"/>',
+ gauge:'<path d="M10 3a8 8 0 0 0-7 11.9 1 1 0 0 0 .9.6h12.2a1 1 0 0 0 .9-.6A8 8 0 0 0 10 3Zm3.7 4.3a.9.9 0 0 1 .1 1.2l-2.6 3.6a1.6 1.6 0 1 1-1.5-1.1l2.8-3.6a.9.9 0 0 1 1.2-.1Z"/>',
+ chat:'<path d="M10 2.5c4.4 0 8 3 8 6.8s-3.6 6.8-8 6.8c-.9 0-1.7-.1-2.5-.3L4 17.3a.7.7 0 0 1-1-.8l.8-2.6A6.4 6.4 0 0 1 2 9.3C2 5.5 5.6 2.5 10 2.5Z"/>',
+ check:'<path d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4l3.3 3.3 7.3-7.3a1 1 0 0 1 1.4 0Z"/>',
+ x:'<path d="M5.3 5.3a1 1 0 0 1 1.4 0L10 8.6l3.3-3.3a1 1 0 1 1 1.4 1.4L11.4 10l3.3 3.3a1 1 0 0 1-1.4 1.4L10 11.4l-3.3 3.3a1 1 0 0 1-1.4-1.4L8.6 10 5.3 6.7a1 1 0 0 1 0-1.4Z"/>',
+ warn:'<path d="M8.6 2.8a1.6 1.6 0 0 1 2.8 0l6.4 11.4a1.6 1.6 0 0 1-1.4 2.4H3.6a1.6 1.6 0 0 1-1.4-2.4L8.6 2.8ZM10 7a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V8a1 1 0 0 0-1-1Zm0 6.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/>',
+ stop:'<rect x="5" y="5" width="10" height="10" rx="2"/>',
+ pin:'<path d="M10 1.8a6 6 0 0 0-6 6c0 4.3 5.2 9.7 5.4 9.9a.8.8 0 0 0 1.2 0c.2-.2 5.4-5.6 5.4-9.9a6 6 0 0 0-6-6Zm0 8.3a2.3 2.3 0 1 1 0-4.6 2.3 2.3 0 0 1 0 4.6Z"/>',
+ undo:'<path d="M7.7 3.3a1 1 0 0 1 0 1.4L6.4 6H11a5.5 5.5 0 0 1 0 11H8a1 1 0 1 1 0-2h3a3.5 3.5 0 0 0 0-7H6.4l1.3 1.3a1 1 0 1 1-1.4 1.4l-3-3a1 1 0 0 1 0-1.4l3-3a1 1 0 0 1 1.4 0Z"/>',
+ redo:'<path d="M12.3 3.3a1 1 0 0 0 0 1.4L13.6 6H9a5.5 5.5 0 0 0 0 11h3a1 1 0 1 0 0-2H9a3.5 3.5 0 0 1 0-7h4.6l-1.3 1.3a1 1 0 1 0 1.4 1.4l3-3a1 1 0 0 0 0-1.4l-3-3a1 1 0 0 0-1.4 0Z"/>',
+ history:'<path d="M10 2.5a7.5 7.5 0 1 1-7.1 9.9 1 1 0 1 1 1.9-.6A5.5 5.5 0 1 0 5.5 6.8H7a1 1 0 0 1 0 2H3.5a1 1 0 0 1-1-1V4.3a1 1 0 1 1 2 0v1A7.5 7.5 0 0 1 10 2.5Zm0 3a1 1 0 0 1 1 1v3.1l2 1.6a1 1 0 0 1-1.2 1.6l-2.4-1.9A1 1 0 0 1 9 10V6.5a1 1 0 0 1 1-1Z"/>',
+ upload:'<path d="M10 2.6a1 1 0 0 1 .7.3l3.5 3.5a1 1 0 0 1-1.4 1.4L11 6v6.5a1 1 0 1 1-2 0V6L7.2 7.8a1 1 0 0 1-1.4-1.4l3.5-3.5a1 1 0 0 1 .7-.3ZM4 12a1 1 0 0 1 1 1v2h10v-2a1 1 0 1 1 2 0v2.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5V13a1 1 0 0 1 1-1Z"/>',
+ folder:'<path d="M2.5 5.5A2 2 0 0 1 4.5 3.5h3.3a2 2 0 0 1 1.4.6l1 1h5.3a2 2 0 0 1 2 2v7.4a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V5.5Z"/>',
+ film:'<path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-11ZM5 5v2h2V5H5Zm8 0v2h2V5h-2ZM5 9v2h2V9H5Zm8 0v2h2V9h-2Zm-8 4v2h2v-2H5Zm8 0v2h2v-2h-2Z"/>',
+ gear:'<path d="M8.6 2.2a1.4 1.4 0 0 1 2.8 0l.2.9a6 6 0 0 1 1.4.8l.9-.3a1.4 1.4 0 0 1 1.7.6l.7 1.2c.4.6.2 1.4-.3 1.8l-.7.6a6 6 0 0 1 0 1.6l.7.6c.5.4.7 1.2.3 1.8l-.7 1.2a1.4 1.4 0 0 1-1.7.6l-.9-.3a6 6 0 0 1-1.4.8l-.2.9a1.4 1.4 0 0 1-2.8 0l-.2-.9a6 6 0 0 1-1.4-.8l-.9.3a1.4 1.4 0 0 1-1.7-.6l-.7-1.2a1.4 1.4 0 0 1 .3-1.8l.7-.6a6 6 0 0 1 0-1.6l-.7-.6a1.4 1.4 0 0 1-.3-1.8l.7-1.2a1.4 1.4 0 0 1 1.7-.6l.9.3a6 6 0 0 1 1.4-.8l.2-.9ZM10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/>',
+ plus:'<path d="M10 3.5a1 1 0 0 1 1 1V9h4.5a1 1 0 1 1 0 2H11v4.5a1 1 0 1 1-2 0V11H4.5a1 1 0 1 1 0-2H9V4.5a1 1 0 0 1 1-1Z"/>',
+ trash:'<path d="M8 2.5h4a1 1 0 0 1 1 1V4h3a1 1 0 1 1 0 2h-.6l-.7 9.6a2 2 0 0 1-2 1.9H7.3a2 2 0 0 1-2-1.9L4.6 6H4a1 1 0 0 1 0-2h3v-.5a1 1 0 0 1 1-1Z"/>',
+ lock:'<path d="M6 8V6.5a4 4 0 1 1 8 0V8h.5A1.5 1.5 0 0 1 16 9.5v7a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16.5v-7A1.5 1.5 0 0 1 5.5 8H6Zm2 0h4V6.5a2 2 0 1 0-4 0V8Z"/>',
+ send:'<path d="M10 3a1 1 0 0 1 .7.3l5 5a1 1 0 0 1-1.4 1.4L11 6.4V16a1 1 0 1 1-2 0V6.4L5.7 9.7a1 1 0 0 1-1.4-1.4l5-5A1 1 0 0 1 10 3Z"/>',
+ clock:'<path d="M10 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15Zm0 3a1 1 0 0 0-1 1V10c0 .3.1.5.3.7l2.5 2.5a1 1 0 0 0 1.4-1.4L11 9.6V6.5a1 1 0 0 0-1-1Z"/>',
+};
+const ic=(n,c='')=>`<svg class="ico ${c}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">${P[n]}</svg>`;
+const arrowSvg=c=>`<svg viewBox="0 0 120 40" width="100%" height="100%"><path d="M4 20 H96" stroke="${c}" stroke-width="7" stroke-linecap="round"/><path d="M84 6 L112 20 L84 34 Z" fill="${c}"/></svg>`;
+
+// history (undoable changes, named, attributed)
+function commit(label,who,fn){const before=clone({steps:S.steps,ovs:S.ovs});fn();S.hist.push({label,who:who||'you',before,at:S.t});S.redo=[];}
+function undo(){const h=S.hist.pop();if(!h)return;S.redo.push({...h,after:clone({steps:S.steps,ovs:S.ovs})});S.steps=h.before.steps;S.ovs=h.before.ovs;S.selOv=null;toast(`Undid: ${h.label}`);render();}
+function redo(){const r=S.redo.pop();if(!r)return;S.hist.push({label:r.label,who:r.who,before:clone({steps:S.steps,ovs:S.ovs}),at:r.at});S.steps=r.after.steps;S.ovs=r.after.ovs;toast(`Redid: ${r.label}`);render();}
+let tid=0;
+function toast(msg,undoable){const id=++tid;S.toasts.push({id,msg,undoable});if(S.toasts.length>3)S.toasts.shift();renderLayer();setTimeout(()=>{S.toasts=S.toasts.filter(x=>x.id!==id);renderLayer()},4200);}
+function notify(title,text,dest){S.notif={title,text,dest};renderLayer();setTimeout(()=>{if(S.notif&&S.notif.text===text){S.notif=null;renderLayer()}},7000);}
+function go(v){S.view=v;S.pop=null;S.sheet=false;S.playing=false;S.pick=null;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0);}
+
+// ---------------- the recorded product (WSO2 look, fixed colours) ----------------
+function screen(t,mini){
+ const s=stepAt(t),i=S.steps.indexOf(s);
+ if(s.ex){const k=Math.min(3,Math.floor((t-s.t)/sLen(i)*4));const bx=[['Chat message','"What is 12 + 8?"'],['Agent','math-tutor'],['Model','decides'],['Tools','sum(12, 8)']];
+  return `<div class="wexp"><div class="k">AI AGENTS</div><h4>How a chat agent works<i>.</i></h4><div class="fl">${bx.map((b,j)=>`${j?'<span style="opacity:.6;font-size:1.8cqw">→</span>':''}<div class="bx ${j<=k?'on':''}">${b[0]}<small>${b[1]}</small></div>`).join('')}</div></div>`;}
+ let body='';
+ if(i<=1)body=`<div class="crumbs">Greeting Service › Artifacts › Chat Agent Service</div><h4>Create Chat Agent Service</h4><div class="form"><div class="inp">${i===0?'':'math-tutor'}</div><div class="inp" style="height:6cqw;align-items:flex-start;padding-top:.8cqw">${i===0?'':'You are a patient math tutor…'}</div><div class="vbtn">Create</div></div>`;
+ else if(i<=6)body=`<div class="crumbs">math-tutor › Agent</div><div class="canvas"><div class="node" style="left:8%;top:30%">Chat<small>/math-tutor/chat</small></div><div class="node" style="left:36%;top:30%">Agent<small>Math tutor</small></div><div class="node" style="left:64%;top:12%">Model<small>gpt-4o</small></div><div class="node" style="left:64%;top:52%">Tools<small>${i>=4?(i>=6?'sum, subtract, multiply, divide':'sum'):'none'}</small></div></div>`;
+ else if(i===7)body=`<div class="crumbs">math-tutor › Run</div><div class="canvas"><div class="node" style="left:36%;top:22%">Agent<small>tracing on</small></div></div><div class="term"><span>$ bal run</span><span>Compiling source</span><span style="color:#7BD3A0">Running service on port 9090</span><span>API_KEY=sk-live-4f9a…c2</span></div>`;
+ else body=`<div class="crumbs">math-tutor › Agent Chat</div><div class="canvas"><div class="node" style="left:8%;top:20%">Agent<small>Math tutor</small></div><div class="chat"><div class="u">What is 12 + 8?</div><div class="a">I'll use the sum tool… 12 + 8 = 20.</div></div></div>`;
+ const cx=30+30*Math.sin(t/3),cy=40+20*Math.cos(t/4);
+ return `<div class="vs"><div class="tb">greeting-project — WSO2 Integrator</div><div class="ab"></div><div class="ex"><b style="font-size:.9cqw;letter-spacing:.1em">WSO2 INTEGRATOR</b><span>Greeting Service</span><span class="hi">${i<=1?'Artifacts':'math-tutor'}</span><span>Connections</span><span>Types</span><span>Functions</span><span>Configurations</span></div><div class="ed">${body}</div><div class="sb">WSO2 Integrator · Ballerina 2201.14.1</div></div>${mini?'':`<svg class="cursor" style="left:${cx}%;top:${cy}%" viewBox="0 0 20 20"><path d="M3 2l13 8-6 1.5L7 18z" fill="#13213B" stroke="#fff" stroke-width="1.4"/></svg>`}`;
+}
+
+// ---------------- chrome ----------------
+function proto(){const v=[['home','Start'],['making','Making'],['check','Check the script'],['studio','Edit'],['export','Export']];const cur=S.view==='making'&&S.mk.need==='script'?'check':S.view;
+ return `<div class="proto gut" role="navigation" aria-label="Prototype screens"><b>Prototype</b>${v.map(([k,l])=>`<button data-a="jump" data-v="${k}" ${cur===k?'aria-current="page"':''}>${l}</button>`).join('')}<span class="grow"></span><span class="s12">The app UI is TUFFUI-style. The video keeps the WSO2 look.</span></div>`;}
+function topbar(){return `<header class="bar gut"><button class="logo" data-a="go" data-v="home"><span class="m">${ic('film','sm')}</span>Tutorial Studio</button><span class="grow"></span><button class="b quiet" data-a="toast" data-m="Settings: accounts, spending limit, what the agent learned.">${ic('gear','sm')}Settings</button><button class="b quiet" data-a="toast" data-m="Help opens a 3-step guide: make, check the script, edit.">Help</button></header>`;}
+
+// ---------------- HOME ----------------
+function vHome(){
+ return topbar()+`<main class="home gut">
+ <div style="display:flex;flex-direction:column;gap:10px"><h1>What should the viewer learn?</h1><p class="muted" style="font-size:16px;max-width:58ch">Describe it once. The agent plans it, tries it in the product and records a narrated video. You check the script, then polish it.</p></div>
+ ${S.keyMissing?`<div class="shell"><div class="panel notice"><span class="tile warn">${ic('mic')}</span><div class="grow"><b style="font-weight:500">Add a voice-over key to give the video a narrator</b><p class="s13 muted">You can start without it. The voice-over waits until it's added.</p></div><button class="b pri" data-a="addkey">Add key</button></div></div>`:''}
+ <form class="shell composer" data-f="make"><div class="panel">
+  <label class="sr" for="goal">What should the viewer learn?</label>
+  <textarea id="goal" placeholder="Create an HTTP service with a GET /greeting resource and try it">${esc(S.goal)}</textarea>
+  <div class="crow"><label class="sr" for="prod">Product</label><select id="prod" class="tf" style="width:auto;height:32px;padding:0 30px 0 12px;border-radius:999px;font-size:13px"><option>WSO2 Integrator</option><option>Micro Integrator</option><option>Ballerina</option></select>
+   <div class="seg" role="group" aria-label="Who clicks through it"><button type="button" data-a="how" data-v="agent" aria-pressed="${S.how==='agent'}">The agent clicks through</button><button type="button" data-a="how" data-v="me" aria-pressed="${S.how==='me'}">I'll show it once</button></div>
+   <span class="grow"></span><button class="send" type="submit" aria-label="Make tutorial">${ic('send','lg')}</button></div>
+  <details class="disc"><summary><svg class="ico sm car" viewBox="0 0 20 20" fill="currentColor">${P.next}</svg>Length, voice and notes</summary><div class="cust">
+   <div class="field"><span class="lbl">Length</span><div class="seg" role="group" aria-label="Length"><button type="button" aria-pressed="false">~1 min</button><button type="button" aria-pressed="true">2–5 min</button><button type="button" aria-pressed="false">Longer</button></div></div>
+   <div class="field"><label class="lbl" for="voice">Voice</label><select id="voice" class="tf"><option>Rachel (default)</option><option>Adam</option></select></div>
+   <div class="field" style="grid-column:1/-1"><label class="lbl" for="notes">Notes for the agent</label><textarea id="notes" class="tf" rows="2" placeholder="Anything to show, skip or say. Drop docs or links here."></textarea></div>
+   <label class="check"><input type="checkbox"><span>Let me check the steps before it records</span></label>
+   <label class="check"><input type="checkbox" checked><span>Add short explainers for concepts</span></label></div></details>
+ </div><div class="cfoot"><span>${ic('clock','sm')}</span><span>About <b>25 min</b> · about <b>$2</b></span><span>·</span><span>You'll check the script once, then it records</span></div></form>
+ <div class="sugg" aria-label="Examples">${['Create an HTTP service and try it','Connect to a MySQL database','Map JSON to XML with the data mapper','Expose a service as an AI agent tool'].map(s=>`<button data-a="sugg" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+ <section class="shell"><div class="shead"><span class="tile">${ic('film')}</span><div class="grow"><h3>Your tutorials</h3></div><span class="s13 muted">3</span></div><div class="panel rows" style="padding:6px">
+  ${row('Creating an AI Agent','<span class="pill pos">'+ic('check','sm')+'Ready to edit</span>','3:20 · edited today','studio',171)}
+  ${row('Connect to a MySQL database','<span class="pill warn">'+ic('warn','sm')+'Your turn: check the script</span>','Waiting 10 min','check',9)}
+  ${row('Expose a service as an AI agent tool','<span class="pill brand"><span class="dots"><i></i><i></i><i></i></span>Recording</span>','About 6 min left','rec',66)}
+ </div></section></main>`;}
+function row(t,pill,meta,dest,at){return `<button class="row" data-a="card" data-d="${dest}" data-t="${esc(t)}"><span class="thumb">${screen(at,true)}</span><span class="meta"><b>${esc(t)}</b><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill}<span class="s12 muted">${meta}</span></span></span>${ic('next','sm')}</button>`;}
+
+// ---------------- MAKING ----------------
+function vMaking(){
+ const m=S.mk;const st=STAGES[Math.min(m.stage,4)];
+ const left=Math.max(1,Math.round(STAGES.slice(m.stage).reduce((a,s,i)=>a+(s.mins||0)*(i===0?1-m.pct/100:1),0)));
+ const last=m.acts[m.acts.length-1];
+ const state=m.done?'done':m.need?'need':'work';
+ return topbar()+`<main class="making gut">
+ <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="b quiet" data-a="go" data-v="home">${ic('back','sm')}Tutorials</button><h1 style="font-size:20px">${esc(m.title)}</h1></div>
+ <section class="shell" aria-live="polite"><div class="panel status">
+  <div class="top">
+   ${state==='work'?'<span class="tile brand"><span class="dots"><i></i><i></i><i></i></span></span>':state==='need'?`<span class="tile warn">${ic(m.need==='perm'?'lock':'warn')}</span>`:`<span class="tile pos">${ic('check')}</span>`}
+   <div class="grow" style="min-width:200px"><div class="lab">${state==='done'?'Your tutorial is ready':state==='need'?(m.need==='perm'?'The agent needs your OK':'Your turn: check the script'):esc(st.detail)}</div>
+   <div class="det">${state==='done'?'3:20 · 9 steps · narrated and captioned':state==='need'?(m.need==='perm'?'It paused before running a command. Nothing happens until you decide.':'Read the words before they are voiced. Nothing is recorded until you approve.'):esc(last?last[0]:'Starting…')}</div></div>
+   ${state==='work'?`<span class="pill tab">${ic('clock','sm')}<span id="elapsed">${elapsed(Date.now()-m.started)}</span></span><span class="pill brand tab">about ${roll(left)} min left</span><button class="b quiet" data-a="mkskip">Skip ahead (prototype)</button><button class="b danger" data-a="toast" data-m="Paused. Continue any time from Tutorials.">${ic('stop','sm')}Stop</button>`:''}
+   ${state==='done'?`<button class="b brand lg" data-a="go" data-v="studio">Watch and edit ${ic('next','sm')}</button>`:''}
+  </div>
+  <div class="stages" role="list">${STAGES.map((s,i)=>{const c=m.done||i<m.stage?'done':i===m.stage?(s.you?'you':'now'):'wait';const w=c==='done'||c==='you'?100:c==='now'?m.pct:0;
+   return `<div class="stg ${c}" role="listitem"><span class="bar5"><i style="clip-path:inset(0 ${100-w}% 0 0 round 999px)"></i></span><b>${s.name}</b><span class="s12">${c==='done'?'Done':c==='now'?'Now':c==='you'?'Needs you':s.mins?`~${s.mins} min`:'You'}</span><span class="sr">${c}</span></div>`}).join('')}</div>
+ </div></section>
+ ${m.done?doneBlock():`<div class="mk2">${m.need==='script'?scriptReview():liveBlock()}<div style="display:flex;flex-direction:column;gap:14px">${m.need==='perm'?approval():''}${m.need==='script'?yourTurn():''}${activity()}</div></div>`}
+ </main>`;}
+function liveBlock(){const m=S.mk;const t=m.stage<=1?m.pct/100*DUR*.95:m.stage===3?m.pct/100*DUR:171;
+ return `<section class="shell"><div class="shead"><span class="tile">${ic('film')}</span><div class="grow"><h3>Live view</h3><p>${m.stage===0?'The product opens when testing starts':'What the agent sees in WSO2 Integrator'}</p></div>${m.stage>0?'<span class="pill neg"><span class="dots"><i style="background:var(--negative)"></i><i style="background:var(--negative)"></i><i style="background:var(--negative)"></i></span>Live</span>':''}</div><div class="panel" style="padding:8px">${m.stage===0?`<div class="vid inset" style="display:grid;place-items:center;background:var(--f04)"><div style="text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center"><span class="dots"><i></i><i></i><i></i></span><b style="font-weight:500">Reading and planning</b><span class="s13 muted">Usually about 4 minutes</span></div></div>`:`<div class="vid">${screen(t)}</div>`}</div><p class="s12 muted" style="padding:10px 10px 4px">You can close this window. You'll get a notification when it needs you or is ready.</p></section>`;}
+function activity(){const m=S.mk;
+ return `<section class="shell"><div class="shead"><span class="tile">${ic('spark')}</span><div class="grow"><h3>What it did</h3><p>Click a line for the technical details</p></div><span class="s13 muted tab">${m.acts.length}</span></div><div class="panel tc-row" style="padding:4px;max-height:420px;overflow:auto">
+ ${m.acts.map((a,i)=>`<button class="tcall enter" data-a="tog" data-i="${i}" aria-expanded="${!!m.open[i]}"><span class="st ok">${ic('check','sm')}</span><span class="nm">${esc(a[0])}</span><span class="du">${a[2]}</span>${ic('next','sm')}</button>${m.open[i]?`<div class="inset tdet">${esc(a[1])}<span>cost so far $${(0.12+i*.09).toFixed(2)}</span></div>`:''}`).join('')}
+ ${!m.need&&!m.done?`<div class="tcall"><span class="st run"><span class="spin"></span></span><span class="nm">${esc(STAGES[m.stage].detail)}…</span><span class="du" id="elapsed2">now</span></div>`:''}
+ </div></section>`;}
+function approval(){return `<section class="approve enter" role="alert"><div class="panel"><div style="display:flex;gap:10px;align-items:center"><span class="tile warn">${ic('lock')}</span><div class="grow"><b style="font-weight:500">Install packages for step 7?</b><p class="s13 muted">Runs a command outside the tutorial folder.</p></div><span class="tag">npm install</span></div><div class="inset" style="padding:10px 12px;font-size:13px">Step 7 calls an external math library. The agent wants to install it before it tests the step. It's safe to deny: the agent will skip that part.</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="b brand md" data-a="perm" data-v="1">Allow</button><button class="b md" data-a="perm" data-v="0">Deny</button><span class="grow"></span><label class="check s12"><input type="checkbox">Always for this tutorial</label></div></div></section>`;}
+function yourTurn(){return `<section class="approve enter"><div class="panel"><div style="display:flex;gap:10px;align-items:center"><span class="tile warn">${ic('mic')}</span><div class="grow"><b style="font-weight:500">Check the script</b><p class="s13 muted">9 lines · about 3:20 · fits your 2–5 min target</p></div></div><button class="b brand lg" data-a="approve">Approve and record</button><div class="field"><label class="lbl" for="chg">Or ask for changes</label><textarea class="tf" id="chg" rows="2" placeholder="Shorter intro, and mention the port in step 8"></textarea><button class="b" style="align-self:flex-start" data-a="toast" data-m="Sent. The agent rewrites the script and asks you again.">Send</button></div></div></section>`;}
+function scriptReview(){return `<section class="shell"><div class="shead"><span class="tile">${ic('mic')}</span><div class="grow"><h3>The script</h3><p>Edit any words here. They become the voice-over.</p></div></div><div class="panel review" style="padding:6px">${S.steps.map((s,i)=>`<div class="rstep"><span class="num ${s.ex?'ex':''}">${i+1}</span><b style="font-weight:500">${esc(s.title)}${s.ex?' <span class="pill brand" style="margin-left:4px">Explainer</span>':''}</b><span class="s12 muted tab">~${Math.round(s.line.split(/\s+/).length/2.6)}s</span><label class="sr" for="rv${i}">Words for step ${i+1}</label><textarea class="tf" id="rv${i}" rows="2" data-a="rv" data-id="${s.id}">${esc(s.line)}</textarea></div>`).join('')}</div></section>`;}
+function doneBlock(){return `<section class="shell"><div class="panel done"><span class="pill pos">${ic('check','sm')}Ready</span><h2>Ready to watch.</h2><div class="stats"><div><b class="tab">3:20</b><span>long</span></div><div><b>9</b><span>steps</span></div><div><b>1</b><span>explainer</span></div><div><b>$1.84</b><span>spent</span></div></div><div class="vid" style="max-width:640px">${screen(171)}</div><button class="b brand lg" data-a="go" data-v="studio">Watch and edit ${ic('next','sm')}</button></div></section>`;}
+let mkInt=setInterval(()=>{const m=S.mk;if(S.view!=='making'||m.need||m.done){return;}
+ const st=STAGES[m.stage];m.pct=Math.min(100,m.pct+2.2);
+ const want=Math.min(st.acts.length,Math.floor(m.pct/100*st.acts.length+.35));
+ const before=STAGES.slice(0,m.stage).reduce((a,s)=>a+(s.acts?s.acts.length:0),0);
+ while(m.acts.length<before+want){const a=st.acts[m.acts.length-before];m.acts.push([a[0],a[1],`${(1+Math.random()*40|0)}s`]);}
+ if(m.stage===1&&m.pct>58&&!m.asked){m.asked=true;m.need='perm';notify(m.title,'The agent needs your OK to install packages.','making');}
+ if(m.pct>=100){m.stage++;m.pct=0;if(m.stage>=STAGES.length){m.done=true;m.stage=4;notify(m.title,'Your tutorial is ready to watch and edit.','studio');}else if(STAGES[m.stage].you){m.need='script';notify(m.title,'Your turn: check the script before it is voiced.','making');}}
+ render();},160);
+setInterval(()=>{const e=$('#elapsed');if(e)e.textContent=elapsed(Date.now()-S.mk.started);const a=$('#aelapsed');if(a&&S.agent.started)a.textContent=elapsed(Date.now()-S.agent.started);},1000);
+
+// ---------------- STUDIO ----------------
+function vStudio(){const u=S.hist[S.hist.length-1],r=S.redo[S.redo.length-1];
+ return `<header class="bar gut"><button class="b quiet icon md" data-a="go" data-v="home" aria-label="Back to tutorials">${ic('back')}</button><span class="ttl">${esc(S.title)}</span><span class="saved">${ic('check','sm')}Saved</span><span class="grow"></span>
+ <button class="b quiet icon" data-a="undo" ${u?'':'disabled'} aria-label="${u?'Undo: '+esc(u.label):'Undo'}" title="${u?'Undo: '+esc(u.label):'Nothing to undo'}">${ic('undo','sm')}</button><button class="b quiet icon" data-a="redo" ${r?'':'disabled'} aria-label="${r?'Redo: '+esc(r.label):'Redo'}">${ic('redo','sm')}</button>
+ <span style="position:relative"><button class="b quiet" data-a="pop" data-p="hist" aria-expanded="${S.pop==='hist'}">${ic('history','sm')}Changes <span class="pill tab" style="height:18px">${S.hist.length}</span></button>${S.pop==='hist'?histPop():''}</span>
+ <button class="b pri md" data-a="go" data-v="export">${ic('upload','sm')}Export</button></header>
+ <main class="studio gut">${rail()}<section class="center">${stage()}${controls()}${dock()}</section><aside class="side">${stepPanel()}</aside></main>`;}
+function histPop(){return `<div class="pop" style="right:0;top:40px"><div class="panel hist">${S.hist.length?S.hist.slice().reverse().map((h,i)=>`<div class="hrow"><span class="who ${h.who==='agent'?'a':'y'}">${h.who==='agent'?ic('spark','sm'):'You'}</span><span class="grow">${esc(h.label)}</span><span class="s12 muted tab">${mmss(h.at)}</span>${i===0?`<button class="b sm quiet" data-a="undo">Undo</button>`:''}</div>`).join(''):'<p class="s13 muted" style="padding:10px">No changes yet. Everything you or the agent changes shows here, and you can undo it.</p>'}</div></div>`;}
+function rail(){const cur=idx(S.t);
+ return `<nav class="shell rail" aria-label="Steps"><div class="shead"><div class="grow" style="padding-left:8px"><h3>Steps</h3><p>${S.steps.length} steps · ${mmss(DUR)}</p></div></div><div class="list" id="rail">${S.steps.map((s,i)=>{const n=ovsIn(i).length;const changed=S.orig[s.id]!==s.line;const ag=S.agent.state==='working'&&S.agent.target===i;
+ return `<button class="scard ${i===cur?'cur':''} ${ag?'agent shimmer':''}" data-a="seek" data-t="${s.t+.2}" aria-current="${i===cur?'step':'false'}"><span class="n">${i+1}</span><span class="thumb">${screen(s.t+2,true)}</span><span class="t">${esc(s.title)}</span><span class="m"><span class="tab">${mmss(sLen(i))}</span>${s.ex?'<span class="pill brand" style="height:18px;font-size:11px">Explainer</span>':''}${s.pace==='fast'?'<span class="pill" style="height:18px;font-size:11px">2×</span>':''}${s.pace==='skip'?'<span class="pill" style="height:18px;font-size:11px">Skipped</span>':''}${n?`<span class="pill" style="height:18px;font-size:11px">${n} on screen</span>`:''}${changed?'<span class="pill warn" style="height:18px;font-size:11px">Edited</span>':''}${s.warn?`<span class="pill warn" style="height:18px;font-size:11px">${ic('warn','sm')}</span>`:''}${ag?'<span class="pill brand" style="height:18px;font-size:11px">Agent editing</span>':''}</span></button>`}).join('')}</div></nav>`;}
+function stage(){return `<div class="stagewrap">${S.pick?`<div class="pickhint">${S.pick==='note'?'Click where the agent should look':S.pick==='blur'?'Click what to hide':'Click what to point at'}<button data-a="cancelpick">Cancel</button></div>`:''}<div class="stagebox ${S.pick?'picking':''}" id="stage" aria-label="Video preview">${stageInner()}</div></div>`;}
+function stageInner(){let h=screen(S.t);const showAgentPreview=S.agent.state==='result'&&!S.agent.showBefore;
+ S.ovs.filter(o=>S.t>=o.t0&&S.t<o.t1).forEach(o=>{if(S.agent.state==='result'&&S.agent.showBefore&&o.id===S.agent.result.ov)return;const sel=S.selOv===o.id?' sel':'';const pos=`left:${o.x}%;top:${o.y}%`;
+  if(o.type==='title')h+=`<div class="wtitle"><span class="k">WSO2 INTEGRATOR</span><h4>${esc(o.text)}<i>.</i></h4></div>`;
+  else if(o.type==='arrow')h+=`<div class="ov arrow${sel}" data-ov="${o.id}" style="${pos}">${arrowSvg(o.color)}</div>`;
+  else if(o.type==='box')h+=`<div class="ov box${sel}" data-ov="${o.id}" style="${pos};border-color:${o.color}"></div>`;
+  else if(o.type==='text')h+=`<div class="ov text${sel}" data-ov="${o.id}" style="${pos};background:${o.color};color:${o.color==='#FFFFFF'?'#13213B':'#fff'}">${esc(o.text)}</div>`;
+  else if(o.type==='callout')h+=`<div class="ov callout${sel}" data-ov="${o.id}" style="${pos};border-color:${o.color}">${esc(o.text)}</div>`;
+  else h+=`<div class="ov blur${sel}" data-ov="${o.id}" style="${pos}"></div>`;});
+ S.agent.notes.forEach(n=>{if(Math.abs(n.t-S.t)<4)h+=`<span class="pin" style="left:${n.x}%;top:${n.y}%"></span>`;});
+ if(S.agent.state==='working'&&S.agent.scan){const z=S.agent.scan;h+=`<div class="scan" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%"></div><div class="agentcursor" style="left:${z.x+z.w/2}%;top:${z.y+z.h/2}%"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M3 2l13 8-6 1.5L7 18z" fill="#0071E3" stroke="#fff" stroke-width="1.4"/></svg><span>Agent</span></div>`;}
+ const s=stepAt(S.t);if(S.captions&&!s.ex&&S.t-s.t<voLen(s)&&s.pace!=='fast')h+=`<div class="cap">${esc(s.line)}</div>`;
+ return h;}
+function controls(){const i=idx(S.t);
+ return `<div class="ctrl"><button class="b quiet icon md" data-a="nav" data-d="-1" aria-label="Previous step">${ic('back')}</button><button class="play" data-a="play" aria-label="${S.playing?'Pause':'Play'}">${ic(S.playing?'pause':'play')}</button><button class="b quiet icon md" data-a="nav" data-d="1" aria-label="Next step">${ic('next')}</button><span class="tc tab" id="tc">${mmss(S.t,1)} / ${mmss(DUR)}</span><span class="pill" id="stepPill">Step ${i+1} of ${S.steps.length}</span><span class="grow"></span><button class="b quiet" data-a="cap" aria-pressed="${S.captions}">${S.captions?'Captions on':'Captions off'}</button><button class="b brand fixbtn" data-a="sheet">${ic('wand','sm')}Fix this moment</button></div>
+ <div class="chap" id="chap" role="slider" tabindex="0" aria-label="Position in video" aria-valuemin="0" aria-valuemax="${DUR}" aria-valuenow="${Math.round(S.t)}" aria-valuetext="${mmss(S.t)}, step ${i+1}">${S.steps.map((s,j)=>{const w=sLen(j)/DUR*100;const fill=S.t>=sEnd(j)?100:S.t<s.t?0:(S.t-s.t)/sLen(j)*100;return `<span class="seg5 ${s.ex?'ex':''} ${s.pace!=='normal'?s.pace:''}" style="flex:${w}" title="${j+1}. ${esc(s.title)}"><i style="width:${fill}%"></i></span>`}).join('')}
+ ${S.ovs.filter(o=>o.type!=='title').map(o=>`<span class="mk" style="left:${o.t0/DUR*100}%"></span>`).join('')}${S.agent.notes.map(n=>`<span class="mk note" style="left:${n.t/DUR*100}%"></span>`).join('')}</div>`;}
+function dock(){const a=S.agent;let top='';
+ if(a.state==='working')top=`<div class="dockbox enter" role="status" aria-live="polite"><div class="panel astatus"><div class="l1"><span class="dots" style="width:20px;justify-content:center"><i></i><i></i><i></i></span><b class="grow">${esc(a.label)}</b><span class="pill tab">${ic('clock','sm')}<span id="aelapsed">${elapsed(Date.now()-a.started)}</span></span><button class="b sm danger" data-a="astop">${ic('stop','sm')}Stop</button></div>${a.acts.length?`<ol>${a.acts.slice(-3).map(x=>`<li class="enter">${ic('check','sm')}${esc(x)}</li>`).join('')}</ol>`:''}</div></div>`;
+ if(a.state==='approval')top=`<div class="approve enter" role="alert"><div class="panel"><div style="display:flex;gap:10px;align-items:center"><span class="tile warn">${ic('lock')}</span><div class="grow"><b style="font-weight:500">${esc(a.approval.title)}</b><p class="s13 muted">${esc(a.approval.body)}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b brand md" data-a="aallow">${esc(a.approval.yes)}</button><button class="b md" data-a="adeny">Not now</button></div></div></div>`;
+ if(a.state==='result'){const r=a.result;top=`<div class="dockbox enter" role="status"><div class="panel result"><div style="display:flex;gap:10px;align-items:center"><span class="tile pos">${ic('check')}</span><div class="grow"><b style="font-weight:500">${esc(r.title)}</b><p class="s13 muted">${esc(r.body)}</p></div>${r.ov?`<div class="seg" role="group" aria-label="Compare"><button data-a="before" data-v="1" aria-pressed="${!!a.showBefore}">Before</button><button data-a="before" data-v="0" aria-pressed="${!a.showBefore}">After</button></div>`:''}</div>${r.diff?`<div class="inset diff s13" style="padding:10px 12px">${r.diff}</div>`:''}<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b pri" data-a="akeep">${ic('check','sm')}Keep</button><button class="b" data-a="aundo">${ic('undo','sm')}Undo this</button><button class="b quiet" data-a="amore">Tell it more…</button></div></div></div>`;}
+ return `<div class="dock">${top}<form class="dockbox" data-f="ask"><div class="dockin"><span style="color:var(--brand);padding-bottom:9px">${ic('spark')}</span><label class="sr" for="ask">Ask the agent</label><textarea id="ask" rows="1" placeholder="Ask the agent to change anything… e.g. “Add an arrow at Create in step 3”">${esc(a.text)}</textarea>${a.notes.length?`<span class="pill brand" style="margin-bottom:6px">${ic('pin','sm')}${a.notes.length} note${a.notes.length>1?'s':''}</span>`:''}<button type="button" class="b quiet icon md" data-a="pick" data-k="note" aria-label="Point at the video">${ic('pin')}</button><button class="send" type="submit" aria-label="Send to the agent" ${a.state==='working'?'disabled':''}>${ic('send')}</button></div></form></div>`;}
+function stepPanel(){const i=idx(S.t),s=S.steps[i];const changed=S.orig[s.id]!==s.line;const busy=S.voicing[s.id];const ovs=ovsIn(i);const sel=S.ovs.find(o=>o.id===S.selOv);
+ return `<section class="shell" aria-label="This step"><div class="shead"><span class="num ${s.ex?'ex':''}" style="width:36px;height:36px;border-radius:12px;font-size:14px">${i+1}</span><div class="grow" style="min-width:0"><h3 style="white-space:normal">${esc(s.title)}</h3><p class="tab">${mmss(s.t)}–${mmss(sEnd(i))} · ${Math.round(sLen(i))} s</p></div></div>
+ <div class="panel sp">
+  ${s.warn?`<div class="warnbox">${ic('warn','sm')}<span>${esc(s.warn)}</span><button class="b sm pri" data-a="fixwarn">Fix it</button></div>`:''}
+  <div class="sec"><div class="h">${ic('mic','sm')}What's said<span class="grow"></span>${busy?'<span class="pill brand"><span class="spin"></span>Voicing</span>':changed?'<span class="pill warn">Not voiced yet</span>':'<span class="pill pos">Voiced</span>'}</div>
+   <label class="sr" for="line">Words for this step</label><textarea class="tf" id="line" rows="4" data-a="line">${esc(s.line)}</textarea>
+   <div id="lineacts" style="display:flex;gap:8px;flex-wrap:wrap">${changed&&!busy?`<button class="b pri" data-a="revoice">${ic('mic','sm')}Re-voice this line</button><button class="b quiet" data-a="revert">Revert</button>`:''}</div></div>
+  <div class="sec"><div class="h">${ic('box','sm')}On screen<span class="grow"></span><span class="tab" style="text-transform:none;letter-spacing:0;font-weight:500">${ovs.length}</span></div>
+   ${ovs.length?ovs.map(o=>`<button class="ovrow ${S.selOv===o.id?'sel':''}" data-a="selov" data-id="${o.id}"><span class="tile">${ic(o.type==='text'||o.type==='title'||o.type==='callout'?'label':o.type==='blur'?'eye':o.type==='box'?'box':'arrow','sm')}</span><span class="grow"><b>${OVN[o.type]}</b>${o.text?`<span class="s12 muted" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${esc(o.text)}</span>`:''}</span><span class="s12 muted tab">${mmss(o.t0)}</span></button>`).join(''):'<p class="s13 muted">Nothing extra on screen in this step.</p>'}
+   ${sel&&ovs.includes(sel)?ovEditor(sel):''}
+   <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" data-a="pick" data-k="arrow">${ic('arrow','sm')}Arrow</button><button class="b sm" data-a="addlabel">${ic('label','sm')}Label</button><button class="b sm" data-a="pick" data-k="box">${ic('box','sm')}Box</button><button class="b sm" data-a="pick" data-k="blur">${ic('eye','sm')}Hide</button></div></div>
+  ${s.ex?'':`<div class="sec"><div class="h">${ic('gauge','sm')}Pace</div><div class="seg" role="group" aria-label="Pace">${[['normal','Normal'],['fast','Faster'],['skip','Skip']].map(([k,l])=>`<button data-a="pace" data-v="${k}" aria-pressed="${s.pace===k}">${l}</button>`).join('')}</div><p class="s12 muted">${s.pace==='fast'?'Plays at 2× with no voice. Good for repetitive steps.':s.pace==='skip'?'Left out of the video. The voice-over for it is dropped too.':'Plays in time with the voice-over.'}</p></div>`}
+ </div></section>`;}
+function ovEditor(o){return `<div class="inset enter" style="padding:12px;display:flex;flex-direction:column;gap:10px">${['text','callout','title'].includes(o.type)?`<div class="field"><label class="lbl" for="ovt">Text</label><input class="tf" id="ovt" data-a="ovt" value="${esc(o.text)}"></div>`:''}${o.type!=='blur'&&o.type!=='title'?`<div class="field"><span class="lbl">Colour</span><div class="swatches">${COLORS.map(([c,n])=>`<button data-a="ovc" data-c="${c}" aria-label="${n}" aria-pressed="${o.color===c}" style="background:${c}"></button>`).join('')}</div></div>`:''}<div class="field"><span class="lbl">Shows for</span><div class="seg">${[2,4,6].map(d=>`<button data-a="ovd" data-v="${d}" aria-pressed="${Math.round(o.t1-o.t0)===d}">${d} s</button>`).join('')}</div></div>${o.type!=='title'?'<p class="s12 muted">Drag it on the video to move it.</p>':''}<div style="display:flex;gap:6px"><button class="b sm danger" data-a="ovdel">${ic('trash','sm')}Remove</button></div></div>`;}
+
+function sheet(){return `<div class="scrim" data-a="closesheet"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh"><div class="panel"><div style="display:flex;align-items:center;gap:10px"><div class="grow"><h2 id="sh" style="font-size:18px">What do you want to fix at ${mmss(S.t)}?</h2><p class="s13 muted">Step ${idx(S.t)+1}: ${esc(stepAt(S.t).title)}</p></div><button class="b quiet icon" data-a="closesheet" aria-label="Close">${ic('x','sm')}</button></div>
+ <div class="fixgrid">
+  <button class="fix" data-a="fx" data-k="say"><span class="tile">${ic('mic')}</span><span><b>Change what's said</b><span class="d">Edit the words, then re-voice</span></span></button>
+  <button class="fix" data-a="fx" data-k="arrow"><span class="tile">${ic('arrow')}</span><span><b>Point something out</b><span class="d">Click it to add an arrow</span></span></button>
+  <button class="fix" data-a="fx" data-k="label"><span class="tile">${ic('label')}</span><span><b>Add a label</b><span class="d">A short line of text on screen</span></span></button>
+  <button class="fix" data-a="fx" data-k="blur"><span class="tile">${ic('eye')}</span><span><b>Hide something</b><span class="d">Blur a key, email or name</span></span></button>
+  <button class="fix" data-a="fx" data-k="pace"><span class="tile">${ic('gauge')}</span><span><b>Too slow or not needed</b><span class="d">Speed up or skip this step</span></span></button>
+  <button class="fix" data-a="fx" data-k="note"><span class="tile">${ic('pin')}</span><span><b>Mark it for the agent</b><span class="d">Click the spot, then describe it</span></span></button>
+  <button class="fix wide" data-a="fx" data-k="ask"><span class="tile">${ic('spark')}</span><span><b>Something else: ask the agent</b><span class="d">“Explain tools with a short animation before this step”</span></span></button>
+ </div><p class="s12 muted">Tip: press <span class="kbd">F</span> any time while watching.</p></div></div></div>`;}
+
+// ---------------- EXPORT ----------------
+function vExport(){const e=S.ex;const size={'720p':140,'1080p':305,'4K':980}[e.res];const ph=e.p<78?'Rendering frames':e.p<92?'Encoding the video':e.p<98?'Mixing the voice-over':'Writing captions and the doc';
+ return topbar()+`<main class="page gut"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="b quiet" data-a="go" data-v="studio">${ic('back','sm')}Back to editing</button></div><h1 style="font-family:Inter,var(--sans);font-size:30px;font-weight:800;letter-spacing:-.02em">Export ${esc(S.title)}</h1>
+ <div class="exg"><section class="shell"><div class="panel" style="padding:8px;display:flex;flex-direction:column;gap:12px"><div class="vid">${screen(e.state==='running'?e.p/100*DUR:171)}</div>
+ ${e.state==='idle'?`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:4px"><span class="pill">3:20</span><span class="pill">${e.res}</span><span class="pill">about ${size} MB</span><span class="pill pos">${ic('check','sm')}Narrated and captioned</span><span class="pill pos">${ic('check','sm')}${S.hist.length} edits included</span></div>`:''}
+ ${e.state==='running'?`<div style="padding:4px 6px 8px;display:flex;flex-direction:column;gap:10px" role="status"><div style="display:flex;align-items:baseline;gap:12px"><span class="big tab">${Math.round(e.p)}%</span><span class="muted">${ph}… about ${Math.max(1,Math.round((100-e.p)/28))} min left</span></div><div class="stripe"><i style="clip-path:inset(0 ${100-e.p}% 0 0 round 999px)"></i></div><p class="s12 muted">You can keep editing. You'll get a notification when it's done.</p></div>`:''}
+ ${e.state==='done'?`<div style="padding:4px 6px 8px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:10px;align-items:center"><span class="tile pos">${ic('check')}</span><div><b style="font-weight:500">Exported</b><p class="s13 muted">Saved to ~/Tutorials/creating-an-ai-agent/</p></div></div><div class="rows">${[e.outs.video&&['creating-an-ai-agent.mp4',size+' MB','film'],e.outs.captions&&['captions.srt · captions.vtt','2 files','label'],e.outs.doc&&['tutorial.md','9 images','box'],e.outs.script&&['recording-script.ts','record again','history']].filter(Boolean).map(f=>`<div class="row" style="cursor:default"><span class="tile">${ic(f[2],'sm')}</span><span class="meta"><b class="mono" style="font-size:13px">${f[0]}</b><span class="s12 muted">${f[1]}</span></span></div>`).join('')}</div><div style="display:flex;gap:8px"><button class="b brand md" data-a="toast" data-m="Opens the folder in Finder.">${ic('folder','sm')}Show in Finder</button><button class="b md" data-a="go" data-v="studio">Back to editing</button></div></div>`:''}
+ </div></section>
+ <section class="shell"><div class="shead"><span class="tile">${ic('upload')}</span><div class="grow"><h3>What you get</h3></div></div><div class="panel" style="padding:8px;display:flex;flex-direction:column;gap:4px">
+ ${[['video','Video','MP4 with voice-over and everything on screen'],['captions','Captions','Subtitle files for YouTube or the docs site'],['doc','Step-by-step doc','Markdown with one picture per step'],['script','Recording script','To record this tutorial again later']].map(([k,t,d])=>`<label class="optrow"><input type="checkbox" data-a="out" data-k="${k}" ${e.outs[k]?'checked':''} ${e.state==='running'?'disabled':''}><span><b>${t}</b><span class="s12 muted">${d}</span></span></label>`).join('')}
+ <div style="padding:10px;display:flex;flex-direction:column;gap:12px"><div class="field"><span class="lbl">Quality</span><div class="seg" role="group" aria-label="Quality">${['720p','1080p','4K'].map(r=>`<button data-a="res" data-v="${r}" aria-pressed="${e.res===r}">${r}</button>`).join('')}</div></div>
+ <div class="field"><span class="lbl">Saves to</span><div class="inset" style="display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px">${ic('folder','sm')}<span class="mono s12 grow" style="overflow-wrap:anywhere">~/Tutorials/creating-an-ai-agent/</span><button class="b sm" data-a="toast" data-m="Opens a folder picker.">Change</button></div><span class="s12" style="color:var(--warning)">Replaces yesterday's export in that folder.</span></div>
+ ${e.state==='running'?`<button class="b md" data-a="excancel">Cancel export</button>`:`<button class="b brand lg" data-a="exstart" ${Object.values(e.outs).some(Boolean)?'':'disabled'}>${e.state==='done'?'Export again':'Export'}</button>`}</div>
+ </div></section></div></main>`;}
+
+// ---------------- layer ----------------
+function renderLayer(){let h='';
+ if(S.sheet)h+=sheet();
+ if(S.notif)h+=`<div class="notif" role="alert"><div class="panel"><span class="tile brand">${ic('film')}</span><span class="s12 muted">Tutorial Studio · now</span><b style="font-weight:500">${esc(S.notif.title)}</b><span class="s13">${esc(S.notif.text)}</span><div style="grid-column:2;display:flex;gap:6px;margin-top:6px"><button class="b sm pri" data-a="nopen">Open</button><button class="b sm quiet" data-a="nclose">Close</button></div></div></div>`;
+ h+=`<div class="toasts" aria-live="polite">${S.toasts.map(t=>`<div class="toast">${esc(t.msg)}${t.undoable?'<button data-a="undo">Undo</button>':''}</div>`).join('')}</div>`;
+ $('#layer').innerHTML=h;}
+function render(){const v=S.view;let b='';
+ if(v==='home')b=vHome();else if(v==='making')b=vMaking();else if(v==='studio')b=vStudio();else b=vExport();
+ const ae=document.activeElement,aid=ae&&ae.id,ss=ae&&ae.selectionStart,rs=$('#rail')?.scrollTop;
+ const app=$('#app');app.innerHTML=proto()+b;app.className='app'+(v==='studio'?' fit':'');
+ if(aid){const el=document.getElementById(aid);if(el&&el!==document.body){el.focus();try{if(ss!=null)el.setSelectionRange(ss,ss)}catch(e){}}}
+ if(rs!=null&&$('#rail'))$('#rail').scrollTop=rs;
+ renderLayer();}
+function live(){const st=$('#stage');if(!st)return;st.innerHTML=stageInner();const tc=$('#tc');if(tc)tc.textContent=`${mmss(S.t,1)} / ${mmss(DUR)}`;
+ const i=idx(S.t);const chap=$('#chap');if(chap){chap.querySelectorAll('.seg5 i').forEach((el,j)=>{const s=S.steps[j];el.style.width=(S.t>=sEnd(j)?100:S.t<s.t?0:(S.t-s.t)/sLen(j)*100)+'%'});chap.setAttribute('aria-valuenow',Math.round(S.t));chap.setAttribute('aria-valuetext',`${mmss(S.t)}, step ${i+1}`);}
+ if(live.last!==i){live.last=i;render();}}
+let raf=null,lastTs=0;
+function loop(ts){if(!S.playing){raf=null;return}const dt=lastTs?(ts-lastTs)/1000:0;lastTs=ts;const s=stepAt(S.t);
+ if(s.pace==='skip'){S.t=sEnd(S.steps.indexOf(s))+.01}else S.t+=dt*(s.pace==='fast'?2:1);
+ if(S.t>=DUR){S.t=DUR;S.playing=false;render();return}live();raf=requestAnimationFrame(loop);}
+function setPlay(p){S.playing=p;lastTs=0;if(p){S.selOv=null;if(!raf)raf=requestAnimationFrame(loop);}render();}
+
+// ---------------- agent simulation ----------------
+let aTimers=[];
+function runAgent(text){const a=S.agent;const i=idx(S.t);
+ if(/record|re-?record/i.test(text)){a.state='approval';a.approval={title:`Record step ${i+1} again?`,body:`Opens WSO2 Integrator and records this step (about 40 s, about $0.30). Your edits to other steps stay.`,yes:'Record it'};a.pending=text;render();return;}
+ a.state='working';a.started=Date.now();a.acts=[];a.text='';
+ const isWords=/short|word|say|narrat|script|line/i.test(text);const isArrow=/arrow|point|create/i.test(text)||(!isWords&&a.notes.length);
+ const target=/step\s*(\d)/i.exec(text)?+/step\s*(\d)/i.exec(text)[1]-1:(isArrow&&/create/i.test(text)?2:i);
+ a.target=target;S.t=S.steps[target].t+(isArrow&&target===2?3:1);
+ const plan=isWords?[['Reading the script for step '+(target+1),null],['Rewriting it shorter, keeping the button names',null],['Voicing the new line',null],['Re-timing the step to fit',null]]
+  :[['Watching step '+(target+1),{x:30,y:20,w:60,h:60}],['Finding '+(/create/i.test(text)?'the Create button':'the spot you marked'),{x:44,y:52,w:18,h:16}],['Adding '+(isArrow?'an arrow':'a callout'),{x:44,y:52,w:18,h:16}],['Checking it on 6 frames',{x:44,y:52,w:18,h:16}]];
+ a.label=plan[0][0];a.scan=plan[0][1];render();
+ plan.forEach((p,k)=>{aTimers.push(setTimeout(()=>{if(k>0)a.acts.push(plan[k-1][0]);a.label=p[0];a.scan=p[1];render();},k*950));});
+ aTimers.push(setTimeout(()=>{a.acts.push(plan[plan.length-1][0]);a.scan=null;
+  if(isWords){const s=S.steps[target];const old=s.line;const nw=old.split(/[,.:]/)[0].trim()+'.';commit(`Shortened step ${target+1}'s line`,'agent',()=>{s.line=nw;S.orig[s.id]=nw;});
+   a.result={title:`Shortened step ${target+1}'s line`,body:'Re-voiced and re-timed. The step is now 4 s shorter.',diff:`<del>${esc(old)}</del> <ins>${esc(nw)}</ins>`};}
+  else{const o={id:'o'+Date.now(),type:isArrow?'arrow':'callout',t0:S.steps[target].t+1,t1:S.steps[target].t+6,text:isArrow?'':text.slice(0,36),x:a.notes[0]?.x??44,y:a.notes[0]?.y??56,color:'#FF5800'};
+   if(isArrow&&!a.notes.length){o.x=44;o.y=56;}
+   commit(isArrow?`Added an arrow in step ${target+1}`:`Added a callout in step ${target+1}`,'agent',()=>S.ovs.push(o));
+   a.result={title:isArrow?'Added an arrow pointing at Create':'Added a callout where you pointed',body:`Shows for 5 s in step ${target+1}, as the narrator mentions it. It follows the button if the screen moves.`,ov:o.id};}
+  a.notes=[];a.state='result';a.showBefore=false;a.target=null;render();},plan.length*950+200));}
+
+// ---------------- events ----------------
+let oid=100;
+function placeOverlay(kind,x,y){const i=idx(S.t);const o={id:'o'+(oid++),type:kind==='box'?'box':kind==='blur'?'blur':'arrow',t0:Math.round(S.t*2)/2,t1:Math.round(S.t*2)/2+4,text:'',x:Math.max(0,Math.min(84,x-(kind==='arrow'?12:kind==='blur'?9:8))),y:Math.max(0,Math.min(90,y-(kind==='arrow'?2:3))),color:'#FF5800'};
+ commit(`Added ${kind==='blur'?'a blur':kind==='box'?'a box':'an arrow'} in step ${i+1}`,'you',()=>S.ovs.push(o));S.selOv=o.id;S.pick=null;render();toast(`${kind==='blur'?'Hidden':'Added'}. Drag it to adjust.`,true);}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(S.pop&&!e.target.closest('.pop')&&!(el&&el.dataset.a==='pop')){S.pop=null;render();}
+ if(!el)return;const a=el.dataset.a,d=el.dataset;
+ switch(a){
+ case 'jump':{const v=d.v;if(v==='check'){Object.assign(S.mk,{stage:2,pct:0,need:'script',done:false,asked:true,acts:[...STAGES[0].acts,...STAGES[1].acts].map(x=>[x[0],x[1],'12s'])});go('making');}else if(v==='making'){Object.assign(S.mk,{stage:0,pct:0,need:null,done:false,asked:false,acts:[],started:Date.now()});go('making');}else go(v);break;}
+ case 'go':go(d.v);break;
+ case 'toast':toast(d.m);break;
+ case 'addkey':S.keyMissing=false;render();toast('Key checked with ElevenLabs and saved securely.');break;
+ case 'sugg':S.goal=d.s;render();$('#goal').focus();break;
+ case 'how':S.how=d.v;S.goal=$('#goal').value;render();break;
+ case 'card':if(d.d==='studio'){S.title=d.t;go('studio');}else if(d.d==='check'){Object.assign(S.mk,{title:d.t,stage:2,need:'script',done:false,asked:true,acts:[...STAGES[0].acts,...STAGES[1].acts].map(x=>[x[0],x[1],'12s'])});go('making');}else{Object.assign(S.mk,{title:d.t,stage:3,pct:30,need:null,done:false,asked:true,started:Date.now()-14*60000,acts:[...STAGES[0].acts,...STAGES[1].acts,STAGES[3].acts[0]].map(x=>[x[0],x[1],'20s'])});go('making');}break;
+ case 'mkskip':S.mk.pct=Math.max(S.mk.pct,97);break;
+ case 'tog':S.mk.open[d.i]=!S.mk.open[d.i];render();break;
+ case 'perm':S.mk.need=null;S.mk.acts.push([d.v==='1'?'You allowed npm install':'You denied npm install; it skipped that part','permission · '+(d.v==='1'?'allowed':'denied'),'—']);toast(d.v==='1'?'Allowed. Carrying on.':'Denied. The agent works around it.');render();break;
+ case 'approve':S.mk.need=null;S.mk.stage=3;S.mk.pct=0;S.mk.acts.push(['You approved the script','9 lines','—']);toast('Approved. Recording now, about 12 min.');render();break;
+ case 'nopen':{const n=S.notif;S.notif=null;go(n.dest||'making');break;}
+ case 'nclose':S.notif=null;renderLayer();break;
+ case 'undo':undo();break;
+ case 'redo':redo();break;
+ case 'pop':S.pop=S.pop===d.p?null:d.p;render();break;
+ case 'seek':S.t=+d.t;S.selOv=null;render();break;
+ case 'nav':{const i=Math.max(0,Math.min(S.steps.length-1,idx(S.t)+(+d.d)));S.t=S.steps[i].t+.2;S.selOv=null;render();break;}
+ case 'play':setPlay(!S.playing);break;
+ case 'cap':S.captions=!S.captions;render();break;
+ case 'sheet':S.playing=false;S.sheet=true;render();break;
+ case 'closesheet':if(e.target===el||el.tagName==='BUTTON'){S.sheet=false;renderLayer();}break;
+ case 'fx':{S.sheet=false;const k=d.k;
+  if(k==='say'){render();const t=$('#line');t.focus();t.setSelectionRange(t.value.length,t.value.length);}
+  else if(k==='arrow'||k==='blur'||k==='note'){S.pick=k;render();}
+  else if(k==='label'){addLabel();}
+  else if(k==='pace'){render();toast('Choose Faster or Skip under Pace.');document.querySelector('[data-a="pace"][data-v="fast"]')?.focus();}
+  else if(k==='ask'){S.agent.text=`At ${mmss(S.t)}, `;render();const t=$('#ask');t.focus();t.setSelectionRange(t.value.length,t.value.length);}
+  break;}
+ case 'pick':S.pick=d.k;S.playing=false;render();break;
+ case 'cancelpick':S.pick=null;render();break;
+ case 'addlabel':addLabel();break;
+ case 'selov':S.selOv=S.selOv===d.id?null:d.id;{const o=S.ovs.find(x=>x.id===d.id);if(S.t<o.t0||S.t>=o.t1)S.t=o.t0+.3;}render();break;
+ case 'ovc':{const o=S.ovs.find(x=>x.id===S.selOv);commit('Changed colour','you',()=>o.color=d.c);render();break;}
+ case 'ovd':{const o=S.ovs.find(x=>x.id===S.selOv);commit(`Set ${OVN[o.type].toLowerCase()} to ${d.v} s`,'you',()=>o.t1=o.t0+(+d.v));render();break;}
+ case 'ovdel':{const o=S.ovs.find(x=>x.id===S.selOv);commit(`Removed ${OVN[o.type].toLowerCase()}`,'you',()=>S.ovs=S.ovs.filter(x=>x.id!==o.id));S.selOv=null;render();toast(`Removed ${OVN[o.type].toLowerCase()}.`,true);break;}
+ case 'pace':{const s=stepAt(S.t);if(s.pace===d.v)break;commit(d.v==='skip'?`Skipped step ${idx(S.t)+1}`:d.v==='fast'?`Sped up step ${idx(S.t)+1}`:`Step ${idx(S.t)+1} back to normal`,'you',()=>s.pace=d.v);render();toast(d.v==='skip'?'Step skipped. It stays in the list so you can bring it back.':d.v==='fast'?'This step now plays at 2×.':'Back to normal speed.',true);break;}
+ case 'fixwarn':{const s=stepAt(S.t);commit(`Lined up the click in step ${idx(S.t)+1}`,'you',()=>delete s.warn);render();toast('Sped up the wait before the click by 0.4 s. It now lands on the word.',true);break;}
+ case 'revoice':{const s=stepAt(S.t);S.voicing[s.id]=true;render();setTimeout(()=>{delete S.voicing[s.id];commit(`Re-voiced step ${idx(S.t)+1}`,'you',()=>S.orig[s.id]=s.line);render();toast('Re-voiced. The step is 1.2 s shorter now.',true);},1400);break;}
+ case 'revert':{const s=stepAt(S.t);s.line=S.orig[s.id];render();break;}
+ case 'astop':aTimers.forEach(clearTimeout);aTimers=[];S.agent.state='idle';S.agent.scan=null;S.agent.target=null;render();toast('Stopped. Nothing was changed.');break;
+ case 'aallow':S.agent.state='working';S.agent.started=Date.now();S.agent.acts=[];S.agent.label='Opening WSO2 Integrator';S.agent.target=idx(S.t);render();
+  aTimers.push(setTimeout(()=>{S.agent.acts.push('Opened WSO2 Integrator');S.agent.label=`Recording step ${idx(S.t)+1}`;render();},1300));
+  aTimers.push(setTimeout(()=>{S.agent.acts.push(`Recorded step ${idx(S.t)+1}`);S.agent.label='Fitting it to the voice-over';render();},2800));
+  aTimers.push(setTimeout(()=>{commit(`Re-recorded step ${idx(S.t)+1}`,'agent',()=>{});S.agent.state='result';S.agent.target=null;S.agent.result={title:`Recorded step ${idx(S.t)+1} again`,body:'The new take replaces the old one. Overlays in this step were kept and re-aimed.'};render();},4200));break;
+ case 'adeny':S.agent.state='idle';render();toast('Okay. Nothing was recorded.');break;
+ case 'akeep':S.agent.state='idle';S.agent.result=null;render();toast('Kept.');break;
+ case 'aundo':undo();S.agent.state='idle';S.agent.result=null;render();break;
+ case 'amore':S.agent.state='idle';S.agent.text='Make it ';render();$('#ask').focus();break;
+ case 'before':S.agent.showBefore=d.v==='1';render();break;
+ case 'exstart':S.ex.state='running';S.ex.p=0;clearInterval(S.exInt);S.exInt=setInterval(()=>{S.ex.p=Math.min(100,S.ex.p+1.4);if(S.ex.p>=100){S.ex.state='done';clearInterval(S.exInt);if(S.view!=='export')notify(S.title,'Export finished.','export');}if(S.view==='export')render();},90);render();break;
+ case 'excancel':clearInterval(S.exInt);S.ex.state='idle';render();toast('Cancelled. Nothing was overwritten.');break;
+ case 'res':S.ex.res=d.v;render();break;
+ }});
+function addLabel(){const i=idx(S.t);const o={id:'o'+(oid++),type:'text',t0:Math.round(S.t*2)/2,t1:Math.round(S.t*2)/2+4,text:'Click Create',x:38,y:16,color:'#13213B'};commit(`Added a label in step ${i+1}`,'you',()=>S.ovs.push(o));S.selOv=o.id;render();const t=$('#ovt');if(t){t.focus();t.select();}toast('Label added. Type its text on the right.',true);}
+document.addEventListener('change',e=>{const el=e.target,d=el.dataset;if(d.a==='out'){S.ex.outs[d.k]=el.checked;render();}});
+document.addEventListener('input',e=>{const el=e.target,d=el.dataset;
+ if(d.a==='line'){const s=stepAt(S.t);s.line=el.value;const changed=S.orig[s.id]!==s.line;const box=$('#lineacts');if(box)box.innerHTML=changed?`<button class="b pri" data-a="revoice">${ic('mic','sm')}Re-voice this line</button><button class="b quiet" data-a="revert">Revert</button>`:'';}
+ else if(d.a==='rv'){const s=S.steps.find(x=>x.id===d.id);s.line=el.value;S.orig[s.id]=el.value;}
+ else if(d.a==='ovt'){const o=S.ovs.find(x=>x.id===S.selOv);o.text=el.value;$('#stage').innerHTML=stageInner();}
+ else if(el.id==='ask'){S.agent.text=el.value;el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+ else if(el.id==='goal')S.goal=el.value;});
+document.addEventListener('submit',e=>{e.preventDefault();const f=e.target.dataset.f;
+ if(f==='make'){const g=$('#goal').value.trim();if(!g){toast('Describe what the viewer should learn first.');$('#goal').focus();return;}
+  if(S.how==='me'){toast('The product opens for you to click through once. (Not in this prototype.)');return;}
+  Object.assign(S.mk,{title:g.charAt(0).toUpperCase()+g.slice(1),stage:0,pct:0,acts:[],need:null,done:false,asked:false,open:{},started:Date.now()});go('making');}
+ if(f==='ask'){const t=($('#ask').value||'').trim();if(!t&&!S.agent.notes.length){toast('Say what you want changed.');return;}runAgent(t||'Add a callout here');}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&e.target.id==='ask'){e.preventDefault();e.target.form.requestSubmit();return;}
+ if(e.key==='Escape'){if(S.sheet){S.sheet=false;renderLayer();}else if(S.pick){S.pick=null;render();}else if(S.pop){S.pop=null;render();}return;}
+ if(S.view!=='studio'||e.target.closest('input,textarea,select'))return;
+ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
+ if(e.key===' '){e.preventDefault();setPlay(!S.playing);}
+ else if(e.key.toLowerCase()==='f'&&!e.metaKey){S.playing=false;S.sheet=true;render();}
+ else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){if(e.target.id==='chap'||!e.target.closest('button')){S.t=Math.max(0,Math.min(DUR,S.t+(e.key==='ArrowLeft'?-2:2)));live();}}
+ else if((e.key==='Delete'||e.key==='Backspace')&&S.selOv){document.querySelector('[data-a="ovdel"]')?.click();}});
+let drag=null;
+document.addEventListener('pointerdown',e=>{const chap=e.target.closest('#chap');
+ if(chap){const r=chap.getBoundingClientRect();const f=x=>{S.t=Math.max(0,Math.min(DUR,(x-r.left)/r.width*DUR));live();};f(e.clientX);const mv=ev=>f(ev.clientX);const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);render();};addEventListener('pointermove',mv);addEventListener('pointerup',up);return;}
+ const st=e.target.closest('#stage');if(!st)return;const r=st.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*100,y=(e.clientY-r.top)/r.height*100;
+ if(S.pick){if(S.pick==='note'){S.agent.notes.push({t:S.t,x,y});S.pick=null;render();toast('Marked. Now tell the agent what to do there.');$('#ask').focus();}else placeOverlay(S.pick,x,y);return;}
+ const ov=e.target.closest('[data-ov]');if(ov){const o=S.ovs.find(z=>z.id===ov.dataset.ov);S.selOv=o.id;S.playing=false;const before=clone({steps:S.steps,ovs:S.ovs});drag={o,dx:x-o.x,dy:y-o.y,r,moved:false,before};render();e.preventDefault();}
+ else if(S.selOv){S.selOv=null;render();}});
+addEventListener('pointermove',e=>{if(!drag)return;const{o,r}=drag;o.x=Math.max(0,Math.min(92,(e.clientX-r.left)/r.width*100-drag.dx));o.y=Math.max(0,Math.min(92,(e.clientY-r.top)/r.height*100-drag.dy));drag.moved=true;$('#stage').innerHTML=stageInner();});
+addEventListener('pointerup',()=>{if(drag&&drag.moved){S.hist.push({label:`Moved ${OVN[drag.o.type].toLowerCase()}`,who:'you',before:drag.before,at:S.t});S.redo=[];render();}drag=null;});
+
+// boot
+const h0=(location.hash||'').slice(1);if(['home','making','studio','export'].includes(h0))S.view=h0;
+render();
+</script>
