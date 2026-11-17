@@ -118,6 +118,17 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [ ] 12.3 Polish
   - [x] 12.4 Every interaction, with marked shots
   - [x] 12.5 Saved demos, restarts and a real-browser test
+- [ ] **Phase 13: UI redesign** (plan and progress: `docs/ux-review/redesign-progress.md`)
+  - [ ] 13.1 Kit v2 and theme
+  - [ ] 13.2 App shell
+  - [ ] 13.3 Home
+  - [ ] 13.4 Making
+  - [ ] 13.5 Series outline
+  - [ ] 13.6 Studio editing
+  - [ ] 13.7 Studio agent
+  - [ ] 13.8 Export
+  - [ ] 13.9 Settings
+  - [ ] 13.10 Cleanup
 
 ---
 
@@ -1099,3 +1110,4 @@ Record any change from `PLAN.md` here as we build. Give each entry the date, the
 | 2026-11-05 | 12.4 | Feed mode captures every interaction, not only clicks, and the agent cleans up. Pointer movement isn't stored as a stream: a hover is recorded only when the pointer rests (0.7 s) on something with a locator, and a scroll once per gesture, so the list stays readable. Drags and double-clicks are turned into actions from the click before them, because the target has to be named on mousedown. Marked shots come from the screencast frame that arrived before the action, since a screenshot taken at that moment already shows the click's effect. They are drawn with ffmpeg's `drawbox` (this Mac's ffmpeg has it, though not `drawtext`), so there are no labels on the image; the id is in the file name | Raised: "are we attaching screenshots with pointers?"; "capture all screen interaction… later agent can clean up" |
 | 2026-11-05 | 12.5 | The capture is tested in headless Chromium, not in the product: launching the product from tests could touch the macOS Keychain, and a page with nested iframes reproduces what matters (trusted input, frame depth, webview offsets, the screencast). The end-to-end check of 12.3 (demo to exported video) stays with a manual run in the app | Raised: "complete the feature" |
 | 2026-11-06 | feature | Late cues can be fixed in the edit instead of recorded again. `planCueFixes` (`apps/engine/src/cueFix.ts`) brings each action of a paced take that landed after its word onto it by speeding up the event-free stretches since the previous action in its step (at most 4×), then freezes before the next action so that one stays on its word. `fitTiming` applies these inside the voiced part (only within one untouched piece of recording, so cuts and hand edits win) and adds the time saved to the voiced length. After a paced recording with late cues, the pipeline stops at a `cues` gate (stage `align`, so a decision restored after a restart continues from there) that lists each late action and what the edit does with it: **Fix in the edit** (carry on to post-production), **Record again** (the existing align → dry run → record, once) or notes for the agent (record again with them). "Don't ask again for this project" saves the choice as `gates.lateCues` (`ask`/`edit`/`retake`). A second take that is still late is fixed in the edit. Gates can now carry `choices` (`pipeline.approve` takes `choice` and `remember`) and `cues` | Raised: "instead of re recording can't we voice align in post production? using freeze and speed up, cut etc", and to ask the question while the pipeline runs rather than in the brief |
+| 2026-11-18 | 13 | Added Phase 13, a UI redesign from the UX review (`docs/ux-review/index.html`) and prototype v2 (`docs/ux-review/prototype-v2.html`). The app chrome moves from the WSO2 Slides look to a neutral, TUFFUI-style theme (borderless layered surfaces, pill buttons, blue accent); the video keeps the WSO2 look. Brief, Storyboard and Live become one Making screen; the Studio is organised by step with a Fix this moment sheet and an always-visible agent dock | Raised: "we don't have to follow the wso2 design theme for the UI of the tutorial maker. But the video should follow those theme"; "do the proper implementation of UI end to end in a separate branch" |
