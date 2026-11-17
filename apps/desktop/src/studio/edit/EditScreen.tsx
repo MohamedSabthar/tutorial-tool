@@ -709,6 +709,55 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Automatic edits (behind a confirm)
+  // ---------------------------------------------------------------------------
+  const pre = mock ? 'Preview: ' : '';
+  function rebuildAuto() {
+    setConfirm({
+      title: 'Rebuild the cursor, clicks and zooms?',
+      body:
+        'The pointer, the click ripples, the zooms that follow the clicks, the blurred areas and the title card are made again from the recording. Overlays you added or changed stay as they are. You can undo it.',
+      action: 'Rebuild',
+      run: async () => {
+        try {
+          const r = await be.autoOverlays();
+          toast(
+            `${pre}${mock ? 'nothing was rebuilt; there are' : 'Rebuilt:'} ${r.count} automatic overlay${r.count === 1 ? '' : 's'}. Yours are unchanged.`,
+            mock ? {} : { undo: () => void be.undo() },
+          );
+        } catch (e) {
+          toast(errText(e), { tone: 'error' });
+        }
+      },
+    });
+  }
+  function lineUp() {
+    setConfirm({
+      title: 'Line up clicks with the voice?',
+      body:
+        'Where the voice-over runs longer than the action, the picture freezes; where the screen waits or nobody is talking, it speeds up. Parts you set by hand stay as they are. You can undo it.',
+      action: 'Line up',
+      run: async () => {
+        try {
+          const r = await be.fitTiming();
+          const parts = [
+            `${r.holds} freeze${r.holds === 1 ? '' : 's'}`,
+            `${r.spedUp} part${r.spedUp === 1 ? '' : 's'} sped up`,
+          ].join(', ');
+          toast(
+            mock
+              ? `${pre}nothing was re-timed. The video is ${mmss(r.after)} with ${parts}.`
+              : `Lined up. The video is ${mmss(r.after)} now (it was ${mmss(r.before)}): ${parts}.`,
+            mock ? {} : { undo: () => void be.undo() },
+          );
+        } catch (e) {
+          toast(errText(e), { tone: 'error' });
+        }
+      },
+    });
+  }
+
   const cutSpan = cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
   const cutLen = cutSpan ? Math.round((cutSpan.b - cutSpan.a) * 10) / 10 : 0;
   function startCut() {
@@ -1103,6 +1152,27 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                 }}
               >
                 Open the tutorial folder
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                icon="wand"
+                hint="Made again from the recording; your own overlays stay"
+                onSelect={() => {
+                  setMenu(false);
+                  rebuildAuto();
+                }}
+              >
+                Rebuild the cursor, clicks and zooms…
+              </MenuItem>
+              <MenuItem
+                icon="gauge"
+                hint="Freezes and speed-ups so the action matches what's said"
+                onSelect={() => {
+                  setMenu(false);
+                  lineUp();
+                }}
+              >
+                Line up clicks with the voice…
               </MenuItem>
               <MenuSeparator />
               <MenuItem
