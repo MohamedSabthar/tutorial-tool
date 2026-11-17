@@ -28,7 +28,9 @@ const PLUMBING = new Set([
   'core:FastForward',
   'core:Skip',
 ]);
-export const isOnScreen = (o: Pick<OverlayInstance, 'component'>) => !PLUMBING.has(o.component);
+/** Zooms you add yourself count as on screen; the automatic ones follow the clicks (Camera). */
+export const isOnScreen = (o: Pick<OverlayInstance, 'component' | 'author'>) =>
+  !PLUMBING.has(o.component) || (o.component === 'core:Zoom' && o.author !== 'auto');
 
 /** What an overlay is called in the step panel and on the timeline. */
 const NAMES: Record<string, string> = {
@@ -99,13 +101,36 @@ export function overlayText(o: OverlayInstance): string {
   const v = p.title ?? p.text ?? p.label;
   return typeof v === 'string' ? v : '';
 }
-/** Which prop holds the overlay's words (null: it has none). */
-export function textProp(component: string): 'text' | 'label' | 'title' | null {
-  if (component === 'core:TextLabel' || component === 'core:Callout') return component === 'core:Callout' ? 'title' : 'text';
-  if (component === 'core:Arrow') return 'label';
-  if (component === 'core:TitleCard') return 'title';
-  return null;
+/** The words an overlay's editor shows, in order (the first gets the `ed-ovt-<id>` field). */
+export function textFields(component: string): { key: string; label: string; keys?: boolean }[] {
+  switch (component) {
+    case 'core:Arrow':
+      return [{ key: 'label', label: 'Text' }];
+    case 'core:TextLabel':
+      return [{ key: 'text', label: 'Text' }];
+    case 'core:Callout':
+      return [
+        { key: 'title', label: 'Title' },
+        { key: 'text', label: 'Text' },
+      ];
+    case 'core:TitleCard':
+      return [
+        { key: 'title', label: 'Title' },
+        { key: 'subtitle', label: 'Subtitle' },
+      ];
+    case 'core:Keystroke':
+      return [{ key: 'keys', label: 'Keys', keys: true }];
+    default:
+      return [];
+  }
 }
+/** "⌘ S", "Ctrl + Shift + P" → ["⌘", "S"], ["Ctrl", "Shift", "P"]. */
+export const parseKeys = (v: string) =>
+  v
+    .split(/\s*\+\s*|\s+/)
+    .map((k) => k.trim())
+    .filter(Boolean)
+    .slice(0, 6);
 
 /** The fixed video colours (the video keeps the WSO2 look). */
 export const VIDEO_COLORS: { value: string; name: string }[] = [

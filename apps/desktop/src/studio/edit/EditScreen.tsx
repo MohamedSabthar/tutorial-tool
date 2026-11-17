@@ -47,22 +47,47 @@ import { PiecePanel } from './PiecePanel';
 import { FixSheet, type FixKind } from './FixSheet';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
-import { agentActivity, agentTarget, cutsOver, isOnScreen, mmss, overlayName, stepPace } from './model';
+import { agentActivity, agentTarget, cutsOver, isOnScreen, mmss, overlayName, parseKeys, stepPace } from './model';
 import { previewAgent, previewFromHash, type Preview } from './previews';
 import './EditScreen.css';
 
-type Pick = 'arrow' | 'box' | 'blur' | 'note';
+type Pick = 'arrow' | 'box' | 'highlight' | 'callout' | 'blur' | 'zoom' | 'note';
 const PICK_HINT: Record<Pick, string> = {
   arrow: 'Click what to point at',
   box: 'Click what to outline',
+  highlight: 'Click what to spotlight',
+  callout: 'Click what the callout explains',
   blur: 'Click what to hide',
+  zoom: 'Drag over the area to zoom into',
   note: 'Click where the agent should look',
 };
-const COMPONENT: Record<'arrow' | 'box' | 'blur', string> = {
+type Placed = 'arrow' | 'box' | 'highlight' | 'callout' | 'blur';
+const COMPONENT: Record<Placed, string> = {
   arrow: 'core:Arrow',
   box: 'core:Box',
+  highlight: 'core:Highlight',
+  callout: 'core:Callout',
   blur: 'core:Blur',
 };
+const SIZE: Record<Placed, { w: number; h: number; dx: number }> = {
+  arrow: { w: 40, h: 40, dx: 10 },
+  box: { w: 240, h: 80, dx: 120 },
+  highlight: { w: 240, h: 80, dx: 120 },
+  callout: { w: 160, h: 60, dx: 80 },
+  blur: { w: 260, h: 60, dx: 130 },
+};
+const WHAT: Record<Placed, string> = {
+  arrow: 'an arrow',
+  box: 'a box',
+  highlight: 'a highlight',
+  callout: 'a callout',
+  blur: 'a hidden area',
+};
+/** A component's default props, or {} when its schema can't make them. */
+function defaultProps(schema: { safeParse?: (v: unknown) => { success: boolean; data?: unknown } } | undefined) {
+  const r = schema?.safeParse?.({});
+  return r?.success && r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : {};
+}
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}`;
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -237,6 +262,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       ...extra,
     };
     controls.pause();
+    if (component === 'core:Zoom' || !component.startsWith('core:')) Object.assign(value, { author: 'user' });
     void attempt(() => be.patch([{ op: 'add', path: '/overlays/-', value }], label), 'Added. Drag it on the video to adjust.', true);
     setSelection({ kind: 'overlay', id });
     return id;
@@ -286,7 +312,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       setNoteError(false);
       return;
     }
-    const size = kind === 'arrow' ? { w: 40, h: 40, dx: 10 } : kind === 'box' ? { w: 240, h: 80, dx: 120 } : { w: 260, h: 60, dx: 130 };
+    if (kind === 'zoom') return;
+    const size = SIZE[kind];
     const screen = { x: px - size.dx, y: py - size.h / 2, w: size.w, h: size.h };
     const rect = screenToStage(screen, take, resolved.instances, t);
     const cx = rect.x + (kind === 'arrow' ? 10 : rect.w / 2);
@@ -297,14 +324,109 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
         ? snapTargets.find((s) => cx >= s.rect.x && cx <= s.rect.x + s.rect.w && cy >= s.rect.y && cy <= s.rect.y + s.rect.h)
         : undefined;
     const n = stepNo(t);
-    const what = kind === 'arrow' ? 'an arrow' : kind === 'box' ? 'a box' : 'a hidden area';
-    addOverlay(
+    const id = addOverlay(
       COMPONENT[kind],
-      hit ? { anchor: { stepId: hit.stepId, target: 'primary' } } : { rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) } },
+      {
+        ...(hit ? { anchor: { stepId: hit.stepId, target: 'primary' } } : { rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) } }),
+        ...(kind === 'callout' ? { props: { ...resolveProps('core:Callout', {}), title: 'Callout', text: '' } } : {}),
+      },
       4,
-      `Add ${what}${n ? ` in step ${n}` : ''}`,
+      `Add ${WHAT[kind]}${n ? ` in step ${n}` : ''}`,
+    );
+    if (id && kind === 'callout') setTimeout(() => (document.getElementById(`ed-ovt-${id}`) as HTMLInputElement | null)?.select(), 350);
+  }
+  /** "Zoom into an area": the rectangle dragged on the video (stage px, while dragging). */
+  const [zoomDrag, setZoomDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const stagePoint = (e: { clientX: number; clientY: number; currentTarget: HTMLElement }) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    return {
+      x: Math.min(Math.max(((e.clientX - box.left) / box.width) * STAGE.width, 0), STAGE.width),
+      y: Math.min(Math.max(((e.clientY - box.top) / box.height) * STAGE.height, 0), STAGE.height),
+    };
+  };
+  function zoomInto(screen: Rect) {
+    if (!take || !resolved) return;
+    setPick(null);
+    setZoomDrag(null);
+    // A click (or a tiny drag): a 2× zoom around that spot.
+    const r =
+      screen.w < 40 || screen.h < 24
+        ? { x: screen.x - STAGE.width / 4, y: screen.y - STAGE.height / 4, w: STAGE.width / 2, h: STAGE.height / 2 }
+        : screen;
+    const rect = screenToStage(r, take, resolved.instances, now());
+    // The zoom fits the area you dragged, as you saw it.
+    const zoom = Math.round(Math.min(Math.max(Math.min(STAGE.width / r.w, STAGE.height / r.h), 1.2), 4) * 10) / 10;
+    const n = stepNo(now());
+    addOverlay(
+      'core:Zoom',
+      { rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) }, props: { ...resolveProps('core:Zoom', {}), zoom } },
+      3,
+      `Zoom in${n ? ` in step ${n}` : ''}`,
     );
   }
+  /** Keys and Title card ask for their words first. */
+  const [askFor, setAskFor] = useState<{ kind: 'keys' | 'title'; text: string } | null>(null);
+  // Stable: the sheet moves focus to its first control whenever onClose changes.
+  const closeAsk = useCallback(() => setAskFor(null), []);
+  function addAsked() {
+    if (!askFor) return;
+    const n = stepNo(now());
+    const where = n ? ` in step ${n}` : '';
+    if (askFor.kind === 'keys') {
+      const keys = parseKeys(askFor.text);
+      if (!keys.length) return;
+      addOverlay('core:Keystroke', { props: { ...resolveProps('core:Keystroke', {}), keys } }, 2.5, `Add keys${where}`);
+    } else {
+      if (!askFor.text.trim()) return;
+      addOverlay('core:TitleCard', { props: { ...resolveProps('core:TitleCard', {}), title: askFor.text.trim() } }, 4, `Add a title card${where}`);
+    }
+    setAskFor(null);
+  }
+  const ownOverlays = useMemo(
+    () =>
+      Object.entries(registry)
+        .filter(([id, m]) => !id.startsWith('core:') && (m.meta?.kind ?? 'overlay') === 'overlay')
+        .map(([id, m]) => {
+          const scope = id.split(':')[0] ?? '';
+          return {
+            id,
+            name: m.meta?.name ?? id.split(':')[1] ?? id,
+            scope: scope === 'project' ? 'This tutorial' : scope === 'series' ? 'This series' : 'All tutorials',
+          };
+        }),
+    [registry],
+  );
+  function add(k: AddKind, component?: string) {
+    controls.pause();
+    if (k === 'label') addLabel();
+    else if (k === 'keys' || k === 'title') {
+      setAskFor({ kind: k, text: k === 'keys' ? '⌘ S' : (title ?? '') });
+      setTimeout(() => (document.getElementById('ed-ask-in') as HTMLInputElement | null)?.select(), 60);
+    }
+    else if (k === 'own' && component) {
+      const meta = registry[component]?.meta;
+      const n = stepNo(now());
+      addOverlay(component, { props: defaultProps(meta?.props) }, meta?.defaultDuration ?? 3, `Add ${meta?.name ?? component}${n ? ` in step ${n}` : ''}`);
+    } else if (k !== 'own') setPick(k);
+  }
+  /** Asks first, then moves a project overlay into the shared library. */
+  function promote(component: string) {
+    const name = registry[component]?.meta?.name ?? component.split(':')[1] ?? component;
+    setConfirm({
+      title: `Save ${name} to the library?`,
+      body: `${name} moves from this tutorial into the shared library, so every tutorial can use it. It's checked first.`,
+      action: 'Save to library',
+      run: () =>
+        attempt(async () => {
+          toast(`Checking ${name}…`);
+          await be.promote(component);
+        }, mock ? `Preview: ${name} would be in the library now (nothing was saved).` : `${name} is in the library. Every tutorial can use it now.`),
+    });
+  }
+  /** One confirm sheet for actions that change a lot at once. */
+  const [confirm, setConfirm] = useState<{ title: string; body: string; action: string; danger?: boolean; run: () => unknown } | null>(null);
+  const closeConfirm = useCallback(() => setConfirm(null), []);
+
   function editOverlay(o: OverlayInstance, change: { props?: Record<string, unknown>; end?: number }, label: string) {
     const i = overlayIndex(o.id);
     if (i < 0) return;
@@ -672,13 +794,15 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     else if (k === 'pace') focus('#ed-pace [aria-pressed="true"]');
     else if (k === 'note') setPick('note');
     else if (k === 'hold') void freezeAt(now(), 2);
+    else if (k === 'zoom') setPick('zoom');
+    else if (k === 'callout') setPick('callout');
     else if (k === 'cut') startCut();
     else focus('#ed-ask');
   }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (sheet || confirmRecord) return;
+      if (sheet || confirmRecord || askFor || confirm) return;
       const el = e.target as HTMLElement;
       if (el.closest('input, textarea, select, [contenteditable="true"]')) {
         if (e.key === 'Escape') (el as HTMLElement).blur();
@@ -755,7 +879,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       })
     : [];
   const shownOverlays = timeline ? timeline.overlays.filter(isOnScreen) : [];
-  const zooms = timeline ? timeline.overlays.filter((o) => o.component === 'core:Zoom') : [];
+  // The Camera track: zooms that follow the clicks (ones you add are on the On screen track).
+  const zooms = timeline ? timeline.overlays.filter((o) => o.component === 'core:Zoom' && !isOnScreen(o)) : [];
   const trackPieces = resolved ? resolved.tm.segments : [];
   const trackCuts =
     timeline && resolved
@@ -947,7 +1072,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               {pick && (
                 <div className="ed-pickhint" role="status">
                   {PICK_HINT[pick]}
-                  <button type="button" onClick={() => setPick(null)}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPick(null);
+                      setZoomDrag(null);
+                    }}
+                  >
                     Cancel
                   </button>
                 </div>
@@ -1112,12 +1243,52 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                     className="ed-picklayer"
                     role="button"
                     tabIndex={0}
-                    aria-label={PICK_HINT[pick]}
-                    onClick={place}
+                    aria-label={`${PICK_HINT[pick]}. Press Enter to use the middle of the video`}
+                    onClick={pick === 'zoom' ? undefined : place}
+                    onPointerDown={(e) => {
+                      if (pick !== 'zoom' || e.button !== 0) return;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      const p = stagePoint(e);
+                      setZoomDrag({ x0: p.x, y0: p.y, x1: p.x, y1: p.y });
+                    }}
+                    onPointerMove={(e) => {
+                      if (pick !== 'zoom' || !zoomDrag) return;
+                      const p = stagePoint(e);
+                      setZoomDrag({ ...zoomDrag, x1: p.x, y1: p.y });
+                    }}
+                    onPointerUp={() => {
+                      if (pick !== 'zoom' || !zoomDrag) return;
+                      const z = zoomDrag;
+                      zoomInto({ x: Math.min(z.x0, z.x1), y: Math.min(z.y0, z.y1), w: Math.abs(z.x1 - z.x0), h: Math.abs(z.y1 - z.y0) });
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') setPick(null);
+                      else if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (pick === 'zoom') zoomInto({ x: STAGE.width / 2, y: STAGE.height / 2, w: 0, h: 0 });
+                        else {
+                          const r = e.currentTarget.getBoundingClientRect();
+                          place({
+                            currentTarget: e.currentTarget,
+                            clientX: r.left + r.width / 2,
+                            clientY: r.top + r.height / 2,
+                          } as unknown as ReactMouseEvent<HTMLDivElement>);
+                        }
+                      }
                     }}
-                  />
+                  >
+                    {zoomDrag && (
+                      <div
+                        className="ed-zoomrect"
+                        style={{
+                          left: `${(Math.min(zoomDrag.x0, zoomDrag.x1) / STAGE.width) * 100}%`,
+                          top: `${(Math.min(zoomDrag.y0, zoomDrag.y1) / STAGE.height) * 100}%`,
+                          width: `${(Math.abs(zoomDrag.x1 - zoomDrag.x0) / STAGE.width) * 100}%`,
+                          height: `${(Math.abs(zoomDrag.y1 - zoomDrag.y0) / STAGE.height) * 100}%`,
+                        }}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -1320,13 +1491,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                 if (o && (now() < o.start || now() > o.end)) controls.seek(Math.min(o.start + 0.4, o.end));
               }}
               names={names}
-              onAdd={(k: AddKind) => {
-                if (k === 'label') addLabel();
-                else {
-                  controls.pause();
-                  setPick(k);
-                }
-              }}
+              onAdd={add}
+              own={ownOverlays}
+              onPromote={promote}
               onEditOverlay={editOverlay}
               onRemoveOverlay={removeOverlay}
               onPace={(k) => void setPace(k)}
@@ -1353,6 +1520,62 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
         onClose={() => setSheet(false)}
         onPick={fix}
       />
+
+      <Sheet
+        open={!!askFor}
+        onClose={closeAsk}
+        title={askFor?.kind === 'keys' ? 'Which keys?' : 'Title card'}
+        subtitle={askFor?.kind === 'keys' ? 'Shown at the playhead for 2.5 s' : 'Shown at the playhead for 4 s'}
+        width={420}
+      >
+        <form
+          className="ed-ask"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addAsked();
+          }}
+        >
+          <label className="ed-lbl" htmlFor="ed-ask-in">
+            {askFor?.kind === 'keys' ? 'Keys, separated by spaces (like ⌘ S or Ctrl Shift P)' : 'Title'}
+          </label>
+          <input
+            id="ed-ask-in"
+            className="ed-input"
+            value={askFor?.text ?? ''}
+            maxLength={askFor?.kind === 'keys' ? 40 : 120}
+            onChange={(e) => setAskFor((a) => (a ? { ...a, text: e.target.value } : a))}
+          />
+          <div className="ed-row ed-row-end">
+            <Button type="button" onClick={() => setAskFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="brand"
+              type="submit"
+              disabled={askFor?.kind === 'keys' ? !parseKeys(askFor.text).length : !askFor?.text.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </form>
+      </Sheet>
+
+      <Sheet open={!!confirm} onClose={closeConfirm} title={confirm?.title ?? ''} width={460}>
+        <p className="ed-s13 ed-sheet-p">{confirm?.body}</p>
+        <div className="ed-row ed-row-end">
+          <Button onClick={() => setConfirm(null)}>Cancel</Button>
+          <Button
+            variant={confirm?.danger ? 'danger' : 'brand'}
+            onClick={() => {
+              const c = confirm;
+              setConfirm(null);
+              void c?.run();
+            }}
+          >
+            {confirm?.action}
+          </Button>
+        </div>
+      </Sheet>
 
       <Sheet open={confirmRecord} onClose={() => setConfirmRecord(false)} title="Record this tutorial again?" width={460}>
         <p className="ed-s13 ed-sheet-p">

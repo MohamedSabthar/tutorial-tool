@@ -1478,3 +1478,31 @@
   box-shadow: inset 0 0 0 1.5px var(--ui-brand);
   color: var(--ui-brand);
 }
+
+/* Popovers placed on the page (see FloatPopover). */
+.ed-float {
+  z-index: 70;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.ed-add-none {
+  margin: 2px 10px 6px;
+  max-width: 250px;
+}
+/* "Zoom into an area": the rectangle being dragged. */
+.ed-zoomrect {
+  position: absolute;
+  border: 2px dashed var(--ui-on-fill);
+  outline: 2px solid var(--ui-brand);
+  background: var(--ui-brand-15);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.ed-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-ask .ed-row-end {
+  margin-top: 8px;
+}

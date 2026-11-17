@@ -1,12 +1,14 @@
 import { Glyph, IconTile, Kbd, Sheet, type GlyphName } from '@studio/ui';
 import { mmss } from './model';
 
-export type FixKind = 'say' | 'arrow' | 'label' | 'blur' | 'pace' | 'hold' | 'cut' | 'note' | 'ask';
+export type FixKind = 'say' | 'arrow' | 'label' | 'blur' | 'pace' | 'hold' | 'cut' | 'zoom' | 'callout' | 'note' | 'ask';
 
 const OPTIONS: { k: FixKind; icon: GlyphName; title: string; d: string }[] = [
   { k: 'say', icon: 'mic', title: "Change what's said", d: 'Edit the words, then re-voice' },
   { k: 'arrow', icon: 'arrow', title: 'Point something out', d: 'Click it to add an arrow' },
   { k: 'label', icon: 'label', title: 'Add a label', d: 'A short line of text on screen' },
+  { k: 'callout', icon: 'label', title: 'Add a callout', d: 'A note next to what you click' },
+  { k: 'zoom', icon: 'expand', title: 'Zoom in here', d: 'Drag over the area to zoom into' },
   { k: 'blur', icon: 'hide', title: 'Hide something', d: 'Blur a key, email or name' },
   { k: 'pace', icon: 'gauge', title: 'Too slow or not needed', d: 'Speed up or skip this step' },
   { k: 'hold', icon: 'pause', title: 'Hold this frame', d: 'Freeze the picture here for 2 s' },

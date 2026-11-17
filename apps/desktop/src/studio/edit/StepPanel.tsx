@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { LateCueFix, OverlayInstance, Step, Timeline, VoiceLine } from '@studio/core';
-import { Button, Glyph, IconTile, StatusPill, type GlyphName } from '@studio/ui';
+import { Button, Glyph, IconTile, Menu, MenuItem, MenuLabel, MenuSeparator, StatusPill, type GlyphName } from '@studio/ui';
+import { FloatPopover } from './FloatPopover';
 import type { StepSpan } from '../resolve';
 import {
   LABEL_TONES,
@@ -9,12 +10,42 @@ import {
   overlayName,
   overlayText,
   overlaysIn,
-  textProp,
+  parseKeys,
+  textFields,
   VIDEO_COLORS,
   type Pace,
 } from './model';
 
-export type AddKind = 'arrow' | 'label' | 'box' | 'blur';
+/** What "+ Add" can put on screen; `own` is one of your own overlays (its component in `component`). */
+export type AddKind = 'arrow' | 'box' | 'highlight' | 'callout' | 'zoom' | 'label' | 'keys' | 'title' | 'blur' | 'own';
+
+const ADD_GROUPS: { label: string; items: { k: AddKind; icon: GlyphName; name: string; hint: string }[] }[] = [
+  {
+    label: 'Point something out',
+    items: [
+      { k: 'arrow', icon: 'arrow', name: 'Arrow', hint: 'Click what to point at' },
+      { k: 'box', icon: 'box', name: 'Box', hint: 'Click what to outline' },
+      { k: 'highlight', icon: 'search', name: 'Highlight', hint: 'Dims the rest of the screen' },
+      { k: 'callout', icon: 'label', name: 'Callout', hint: 'A note next to what you click' },
+    ],
+  },
+  {
+    label: 'Zoom in',
+    items: [{ k: 'zoom', icon: 'expand', name: 'Zoom into an area', hint: 'Drag over the video for about 3 s' }],
+  },
+  {
+    label: 'Text',
+    items: [
+      { k: 'label', icon: 'label', name: 'Label', hint: 'A short line of text' },
+      { k: 'keys', icon: 'dots', name: 'Keys', hint: 'Shows a shortcut, like ⌘ S' },
+      { k: 'title', icon: 'film', name: 'Title card', hint: 'A title over the video' },
+    ],
+  },
+  {
+    label: 'Hide',
+    items: [{ k: 'blur', icon: 'hide', name: 'Blur', hint: 'Click a key, email or name to hide' }],
+  },
+];
 
 export interface StepPanelProps {
   timeline: Timeline;
@@ -32,7 +63,11 @@ export interface StepPanelProps {
   selected: string | null;
   onSelect: (id: string | null) => void;
   names: Record<string, string | undefined>;
-  onAdd: (kind: AddKind) => void;
+  onAdd: (kind: AddKind, component?: string) => void;
+  /** Your own overlays (workspace, series and project), by component. */
+  own: { id: string; name: string; scope: string }[];
+  /** Saves a project overlay to the shared library. */
+  onPromote: (component: string) => void;
   onEditOverlay: (o: OverlayInstance, change: { props?: Record<string, unknown>; end?: number }, label: string) => void;
   onRemoveOverlay: (o: OverlayInstance) => void;
   onPace: (pace: Pace['kind']) => void;
@@ -173,6 +208,8 @@ export function StepPanel(p: StepPanelProps) {
                     <OverlayEditor
                       key={`${o.id}:${JSON.stringify(o.props)}`}
                       o={o}
+                      name={overlayName(o, p.names[o.component])}
+                      onPromote={o.component.startsWith('project:') ? () => p.onPromote(o.component) : null}
                       onEdit={(c, label) => p.onEditOverlay(o, c, label)}
                       onRemove={() => p.onRemoveOverlay(o)}
                     />
@@ -183,21 +220,7 @@ export function StepPanel(p: StepPanelProps) {
           ) : (
             <p className="ed-muted ed-s13">Nothing extra on screen in this step.</p>
           )}
-          <div className="ed-row" role="group" aria-label="Add to the screen">
-            {(
-              [
-                ['arrow', 'arrow', 'Arrow', 'Click what to point at'],
-                ['label', 'label', 'Label', 'Adds a label at the playhead'],
-                ['box', 'box', 'Box', 'Click what to outline'],
-                ['blur', 'hide', 'Hide', 'Click what to hide'],
-              ] as [AddKind, GlyphName, string, string][]
-            ).map(([k, icon, label, title]) => (
-              <Button key={k} size="sm" onClick={() => p.onAdd(k)} title={title} data-add={k}>
-                <Glyph name={icon} size={12} />
-                {label}
-              </Button>
-            ))}
-          </div>
+          <AddMenu own={p.own} onAdd={p.onAdd} />
         </div>
 
         <div className="ed-sec">
@@ -281,24 +304,93 @@ function NoLine({
 }
 
 const DURATIONS = [2, 4, 6];
+const ZOOMS = [1.5, 2, 3];
 
-/** Text, colour, how long it shows, and Remove, for one overlay. */
+/** "+ Add": everything that can go on screen, grouped by what it's for. */
+function AddMenu({ own, onAdd }: { own: StepPanelProps['own']; onAdd: StepPanelProps['onAdd'] }) {
+  const [open, setOpen] = useState(false);
+  const [btn, setBtn] = useState<HTMLButtonElement | null>(null);
+  const pick = (k: AddKind, component?: string) => {
+    setOpen(false);
+    onAdd(k, component);
+  };
+  return (
+    <div className="ed-row">
+      <button
+        ref={setBtn}
+        type="button"
+        className="ui-btn ui-btn-secondary ui-btn-sm"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Add something on screen at the playhead"
+        onClick={() => setOpen((v) => !v)}
+        data-add="menu"
+      >
+        <Glyph name="plus" size={12} />
+        Add
+      </button>
+      <FloatPopover anchor={btn} open={open} onClose={() => setOpen(false)} label="Add to the screen" minWidth={280}>
+        <Menu label="Add to the screen">
+          {ADD_GROUPS.map((g, i) => (
+            <div key={g.label} role="group" aria-label={g.label}>
+              {i > 0 && <MenuSeparator />}
+              <MenuLabel>{g.label}</MenuLabel>
+              {g.items.map((it) => (
+                <MenuItem key={it.k} icon={it.icon} hint={it.hint} onSelect={() => pick(it.k)}>
+                  <span data-add={it.k}>{it.name}</span>
+                </MenuItem>
+              ))}
+            </div>
+          ))}
+          <div role="group" aria-label="Your own">
+            <MenuSeparator />
+            <MenuLabel>Your own</MenuLabel>
+            {own.length ? (
+              own.map((o) => (
+                <MenuItem key={o.id} icon="spark" hint={o.scope} onSelect={() => pick('own', o.id)}>
+                  {o.name}
+                </MenuItem>
+              ))
+            ) : (
+              <p className="ed-muted ed-s12 ed-add-none">None yet. Ask the agent to make one for this tutorial.</p>
+            )}
+          </div>
+        </Menu>
+      </FloatPopover>
+    </div>
+  );
+}
+
+/** Words, colour, zoom, how long it shows, and Remove, for one overlay. */
 function OverlayEditor({
   o,
+  name: title,
   onEdit,
   onRemove,
+  onPromote,
 }: {
   o: OverlayInstance;
+  name: string;
   onEdit: (change: { props?: Record<string, unknown>; end?: number }, label: string) => void;
   onRemove: () => void;
+  onPromote: (() => void) | null;
 }) {
-  const prop = textProp(o.component);
+  const fields = textFields(o.component);
   const props = o.props as Record<string, unknown>;
-  const [text, setText] = useState(prop ? String(props[prop] ?? '') : '');
+  const shown = (key: string, keys?: boolean) =>
+    keys ? (Array.isArray(props[key]) ? (props[key] as string[]).join(' ') : '') : String(props[key] ?? '');
+  const [text, setText] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map((f) => [f.key, shown(f.key, f.keys)])),
+  );
   const len = Math.round((o.end - o.start) * 10) / 10;
-  const name = overlayName(o).toLowerCase();
-  const commitText = () => {
-    if (prop && text !== String(props[prop] ?? '')) onEdit({ props: { ...props, [prop]: text } }, `Change ${name} text`);
+  const name = title.toLowerCase();
+  const commitText = (key: string, keys?: boolean) => {
+    const v = text[key] ?? '';
+    if (v === shown(key, keys)) return;
+    if (keys) {
+      const list = parseKeys(v);
+      if (list.length) onEdit({ props: { ...props, [key]: list } }, `Change ${name}`);
+    } else onEdit({ props: { ...props, [key]: v } }, `Change ${name} text`);
   };
   const colours =
     o.component === 'core:TextLabel'
@@ -312,21 +404,43 @@ function OverlayEditor({
             key: 'color',
           }))
         : [];
+  const zoom = typeof props.zoom === 'number' ? props.zoom : 1.8;
   return (
     <div className="k-inset ed-oved">
-      {prop && (
-        <div className="ed-field">
-          <label className="ed-lbl" htmlFor={`ed-ovt-${o.id}`}>
-            {prop === 'title' ? 'Title' : 'Text'}
+      {fields.map((f, i) => (
+        <div key={f.key} className="ed-field">
+          <label className="ed-lbl" htmlFor={i === 0 ? `ed-ovt-${o.id}` : `ed-ovt-${o.id}-${f.key}`}>
+            {f.label}
+            {f.keys && <span className="ed-muted"> (separate with spaces, like ⌘ S)</span>}
           </label>
           <input
-            id={`ed-ovt-${o.id}`}
+            id={i === 0 ? `ed-ovt-${o.id}` : `ed-ovt-${o.id}-${f.key}`}
             className="ed-input"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={commitText}
+            value={text[f.key] ?? ''}
+            onChange={(e) => setText((t) => ({ ...t, [f.key]: e.target.value }))}
+            onBlur={() => commitText(f.key, f.keys)}
             onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
           />
+        </div>
+      ))}
+      {o.component === 'core:Zoom' && (
+        <div className="ed-field">
+          <span className="ed-lbl" id={`ed-ovz-${o.id}`}>
+            Zoom <span className="ed-muted ed-tab">({Math.round(zoom * 10) / 10}×)</span>
+          </span>
+          <div className="ui-seg" role="group" aria-labelledby={`ed-ovz-${o.id}`}>
+            {ZOOMS.map((z) => (
+              <button
+                key={z}
+                type="button"
+                className="ui-seg-item"
+                aria-pressed={Math.abs(zoom - z) < 0.05}
+                onClick={() => onEdit({ props: { ...props, zoom: z } }, `Zoom ${z}×`)}
+              >
+                {z}×
+              </button>
+            ))}
+          </div>
         </div>
       )}
       {colours.length > 0 && (
@@ -373,6 +487,12 @@ function OverlayEditor({
           <Glyph name="trash" size={12} />
           Remove
         </Button>
+        {onPromote && (
+          <Button size="sm" variant="quiet" onClick={onPromote} title="Every tutorial can use it then">
+            <Glyph name="upload" size={12} />
+            Save to library
+          </Button>
+        )}
       </div>
     </div>
   );
