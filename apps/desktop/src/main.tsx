@@ -26,7 +26,7 @@ import { VoicePage } from './pages/VoicePage';
 import { HomeScreen } from './routes/home/HomeScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
 import { CaptureScreen } from './routes/capture/CaptureScreen';
-import { SeriesScreen } from './routes/series/SeriesScreen';
+import { SeriesOutlineScreen } from './routes/series-outline/SeriesOutlineScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { RenderScreen } from './render/RenderScreen';
 import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
@@ -141,7 +141,7 @@ function Screen({ path }: { path: string }) {
   const studio = match(path, 'studio');
   if (studio) return <StudioScreen key={studio} slug={studio} />;
   const series = match(path, 'series');
-  if (series) return <SeriesScreen key={series} slug={series} />;
+  if (series) return <SeriesOutlineScreen key={`${series}?${query ?? ''}`} slug={series} query={query} />;
   const brief = match(path, 'brief');
   if (brief) return <BriefScreen key={brief} slug={brief} />;
   const capture = match(path, 'capture');
