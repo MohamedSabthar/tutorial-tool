@@ -137,6 +137,16 @@ describe('engine RPC', () => {
     expect(cleared).toMatchObject({ claudeExecutable: null, claudeConfigDir: null });
   });
 
+  it('reveals the workspace folder (only on macOS)', async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    Object.defineProperty(process, 'platform', { value: 'linux' });
+    try {
+      expect(await client.call('workspace.reveal', {})).toEqual({ ok: false });
+    } finally {
+      Object.defineProperty(process, 'platform', platform);
+    }
+  });
+
   it('validates params and reports unknown projects', async () => {
     await expect(client.call('project.create', { title: '' } as never)).rejects.toThrow(RpcError);
     await expect(client.call('project.open', { slug: 'missing' })).rejects.toMatchObject({
