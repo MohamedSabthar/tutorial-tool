@@ -169,7 +169,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [voicing, setVoicing] = useState<Set<string>>(new Set());
   const [paceBusy, setPaceBusy] = useState(false);
-  const [notes, setNotes] = useState<string[]>([]);
+  // The note open on the video, its words while editing, and whether it was sent without words.
+  const [noteOpen, setNoteOpen] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteError, setNoteError] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [ask, setAsk] = useState('');
   const [dragRect, setDragRect] = useState<Rect | null>(null);
   // "Cut a part out": starts at the playhead, the end is set on the timeline.
@@ -277,8 +281,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           'Add a note for the agent',
         ),
       );
-      setNotes((n) => [...n, id]);
-      setTimeout(() => composer.current?.focus(), 50);
+      setNoteOpen(id);
+      setNoteDraft('');
+      setNoteError(false);
       return;
     }
     const size = kind === 'arrow' ? { w: 40, h: 40, dx: 10 } : kind === 'box' ? { w: 240, h: 80, dx: 120 } : { w: 260, h: 60, dx: 130 };
@@ -557,37 +562,82 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   // ---------------------------------------------------------------------------
   // Agent
   // ---------------------------------------------------------------------------
-  const noteLabels = notes.map((id, i) => {
+  // The batch: notes on the video not sent yet (kept in the timeline, so they survive a reload).
+  const batch = useMemo(
+    () => (timeline?.annotations ?? []).filter((a) => a.status === 'open').sort((a, b) => a.t - b.t),
+    [timeline],
+  );
+  const noteNo = (id: string) => batch.findIndex((a) => a.id === id) + 1;
+  /** Goes to a note and opens it on the video. */
+  function openNote(id: string, error = false) {
     const a = timeline?.annotations.find((x) => x.id === id);
-    return { id, label: a ? `Note at ${mmss(a.t)}` : `Note ${i + 1}` };
-  });
+    if (!a) return;
+    if (noteOpen && noteOpen !== id) saveNote();
+    controls.pause();
+    controls.seek(a.t);
+    setNoteOpen(id);
+    setNoteDraft(a.comment);
+    setNoteError(error);
+  }
+  /** Keeps the open note's words (in the annotation) and closes it. */
+  function saveNote(close = true) {
+    const id = noteOpen;
+    if (close) setNoteOpen(null);
+    if (!id || !timeline) return;
+    const i = timeline.annotations.findIndex((a) => a.id === id);
+    const a = timeline.annotations[i];
+    if (!a || a.status !== 'open' || a.comment === noteDraft.trim()) return;
+    void attempt(() => be.patch([{ op: 'replace', path: `/annotations/${i}/comment`, value: noteDraft.trim() }], 'Describe a note'));
+  }
   async function send(text: string) {
+    if (batch.length) {
+      if (!timeline) return;
+      // The open note's words count even before it's closed.
+      const words = (a: (typeof batch)[number]) => (a.id === noteOpen ? noteDraft : a.comment).trim();
+      const empty = batch.findIndex((a) => !words(a));
+      if (empty >= 0) {
+        openNote(batch[empty]!.id, true);
+        toast(`Describe note ${empty + 1} first`, { tone: 'error' });
+        return;
+      }
+      const last = batch.length - 1;
+      const ops: TimelinePatch = batch.flatMap((a, n) => {
+        const i = timeline.annotations.indexOf(a);
+        const comment = words(a) + (n === last && text ? `\n\nOverall: ${text}` : '');
+        const out: TimelinePatch = comment !== a.comment ? [{ op: 'replace', path: `/annotations/${i}/comment`, value: comment }] : [];
+        // The engine marks them sent itself; the preview does it here.
+        if (mock) out.push({ op: 'replace', path: `/annotations/${i}/status`, value: 'sent' });
+        return out;
+      });
+      const ids = batch.map((a) => a.id);
+      setNoteOpen(null);
+      try {
+        if (ops.length) await be.patch(ops, 'Describe the notes');
+        if (mock) previewOnly(`${ids.length} note${ids.length > 1 ? 's' : ''}${text ? ' and your message' : ''}`);
+        else await client!.call('annotations.send', { slug, ids });
+        setBatchOpen(false);
+        setAsk('');
+      } catch (e) {
+        toast(errText(e), { tone: 'error' });
+      }
+      return;
+    }
     if (mock) {
-      previewOnly(notes.length ? `your message and ${notes.length} note${notes.length > 1 ? 's' : ''}` : 'your message');
+      previewOnly('your message');
       return;
     }
     if (!client) return;
     try {
-      if (notes.length && timeline) {
-        const ops: TimelinePatch = notes.flatMap((id) => {
-          const i = timeline.annotations.findIndex((a) => a.id === id);
-          return i >= 0 ? [{ op: 'replace' as const, path: `/annotations/${i}/comment`, value: text }] : [];
-        });
-        if (ops.length) await be.patch(ops, 'Describe the note');
-        await client.call('annotations.send', { slug, ids: notes });
-        setNotes([]);
-      } else {
-        await agentLive.send(text);
-      }
+      await agentLive.send(text);
       setAsk('');
     } catch (e) {
       toast(errText(e), { tone: 'error' });
     }
   }
   function removeNote(id: string) {
-    setNotes((n) => n.filter((x) => x !== id));
+    if (noteOpen === id) setNoteOpen(null);
     const i = timeline?.annotations.findIndex((a) => a.id === id) ?? -1;
-    if (i >= 0) void attempt(() => be.patch([{ op: 'remove', path: `/annotations/${i}` }], 'Remove a note'));
+    if (i >= 0) void attempt(() => be.patch([{ op: 'remove', path: `/annotations/${i}` }], 'Remove a note'), 'Note removed.', true);
   }
   const runAction = (what: string, fn: () => Promise<unknown>, done: string) =>
     mock ? previewOnly(what) : void attempt(fn, done);
@@ -655,6 +705,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       else if ((e.key === 'Backspace' || e.key === 'Delete') && selectedOverlay) removeOverlay(selectedOverlay);
       else if (e.key === 'Escape') {
         if (cut) setCut(null);
+        else if (noteOpen) saveNote();
         else if (pick) setPick(null);
         else if (full) setFull(false);
         else setSelection(null);
@@ -719,7 +770,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               }),
         )
       : [];
-  const notePins = timeline ? timeline.annotations.filter((a) => notes.includes(a.id) && a.shape.kind === 'point') : [];
+  // Pins of the batch and of notes sent and waiting for the agent.
+  const notePins = timeline ? timeline.annotations.filter((a) => a.status !== 'resolved' && a.shape.kind === 'point') : [];
 
   return (
     <div className="ed" data-full={full || undefined}>
@@ -939,17 +991,111 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                   {(t) => (
                     <>
                       {notePins
-                        .filter((a) => Math.abs(a.t - t) < 4)
-                        .map((a) =>
-                          a.shape.kind === 'point' ? (
-                            <span
+                        .filter((a) => batchOpen || noteOpen === a.id || Math.abs(a.t - t) < 2)
+                        .map((a) => {
+                          if (a.shape.kind !== 'point') return null;
+                          const sent = a.status === 'sent';
+                          const n = sent ? null : noteNo(a.id);
+                          const words = a.id === noteOpen ? noteDraft : a.comment;
+                          return (
+                            <button
                               key={a.id}
+                              type="button"
                               className="ed-pin"
+                              data-empty={!sent && !words.trim() ? true : undefined}
+                              data-sent={sent || undefined}
+                              data-open={noteOpen === a.id || undefined}
                               style={{ left: `${(a.shape.x / STAGE.width) * 100}%`, top: `${(a.shape.y / STAGE.height) * 100}%` }}
-                              aria-hidden="true"
-                            />
-                          ) : null,
-                        )}
+                              aria-label={
+                                sent
+                                  ? `Note sent to the agent: ${a.comment}`
+                                  : `Note ${n} at ${mmss(a.t)}${words.trim() ? `: ${words}` : ', no message yet'}`
+                              }
+                              title={sent ? 'Sent to the agent' : words.trim() || 'No message yet'}
+                              onClick={() => (noteOpen === a.id ? saveNote() : openNote(a.id))}
+                            >
+                              <span>{sent ? <Glyph name="check" size={10} /> : n}</span>
+                            </button>
+                          );
+                        })}
+                      {(() => {
+                        const a = noteOpen ? timeline.annotations.find((x) => x.id === noteOpen) : null;
+                        if (!a || a.shape.kind !== 'point') return null;
+                        const left = a.shape.x / STAGE.width;
+                        const sent = a.status !== 'open';
+                        return (
+                          <div
+                            className="ed-notepop"
+                            role="dialog"
+                            aria-label={sent ? 'Sent note' : `Note ${noteNo(a.id)}`}
+                            data-side={left > 0.6 ? 'left' : 'right'}
+                            style={{
+                              left: `${left * 100}%`,
+                              top: `${Math.min(Math.max((a.shape.y / STAGE.height) * 100, 12), 70)}%`,
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                saveNote();
+                              }
+                            }}
+                          >
+                            <div className="ed-notepop-h">
+                              <span className="ed-notecard-n" data-sent={sent || undefined}>
+                                {sent ? <Glyph name="check" size={10} /> : noteNo(a.id)}
+                              </span>
+                              <b>{sent ? 'Sent note' : `Note ${noteNo(a.id)}`}</b>
+                              <span className="ed-tab ed-muted">{mmss(a.t)}</span>
+                            </div>
+                            {sent ? (
+                              <>
+                                <p className="ed-s13 ed-notepop-sent">{a.comment}</p>
+                                <p className="ed-muted ed-s12">Sent to the agent. Waiting for its change.</p>
+                              </>
+                            ) : (
+                              <>
+                                <label className="ed-sr" htmlFor="ed-note-text">
+                                  What should change here?
+                                </label>
+                                <textarea
+                                  id="ed-note-text"
+                                  className="ed-textarea"
+                                  rows={3}
+                                  autoFocus
+                                  maxLength={600}
+                                  value={noteDraft}
+                                  placeholder="What should change here?"
+                                  aria-invalid={noteError && !noteDraft.trim() ? true : undefined}
+                                  aria-describedby={noteError && !noteDraft.trim() ? 'ed-note-err' : undefined}
+                                  onChange={(e) => setNoteDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      saveNote();
+                                    }
+                                  }}
+                                />
+                                {noteError && !noteDraft.trim() && (
+                                  <p id="ed-note-err" className="ed-s12 ed-notepop-err" role="alert">
+                                    <Glyph name="warn" size={12} /> Write what should change before sending the batch.
+                                  </p>
+                                )}
+                              </>
+                            )}
+                            <div className="ed-row ed-row-end">
+                              {!sent && (
+                                <Button size="sm" variant="quiet" onClick={() => removeNote(a.id)}>
+                                  Remove note
+                                </Button>
+                              )}
+                              <Button size="sm" variant={sent ? 'secondary' : 'brand'} onClick={() => saveNote()}>
+                                Done
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </>
                   )}
                 </Timed>
@@ -1076,7 +1222,14 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               cuts={trackCuts}
               zooms={zooms}
               captions={timeline?.captions ?? []}
-              notes={(timeline?.annotations ?? []).map((a) => ({ id: a.id, t: a.t, text: a.comment, done: a.status === 'resolved' }))}
+              notes={(timeline?.annotations ?? []).map((a) => ({
+                id: a.id,
+                t: a.t,
+                text: a.id === noteOpen ? noteDraft : a.comment,
+                done: a.status === 'resolved',
+                ...(a.status === 'open' ? { n: noteNo(a.id) } : {}),
+              }))}
+              onNote={openNote}
               onFreezeLength={(sceneId, index, len) =>
                 void pieceEdit(sceneId, index, { op: 'duration', duration: len }, `The freeze now holds for ${len} s.`)
               }
@@ -1112,7 +1265,10 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               status={agentStatus}
               events={agentEvents}
               run={reviewRun}
-              notes={noteLabels}
+              notes={batch.map((a) => ({ id: a.id, label: mmss(a.t), text: a.id === noteOpen ? noteDraft : a.comment }))}
+              onOpenNote={openNote}
+              batchOpen={batchOpen}
+              onBatchOpen={setBatchOpen}
               composer={composer}
               draft={ask}
               onDraft={setAsk}
@@ -1129,7 +1285,6 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                 controls.pause();
                 setPick('note');
               }}
-              onRemoveNote={removeNote}
               frameUrl={(rel) => media(rel)}
             />
           </section>

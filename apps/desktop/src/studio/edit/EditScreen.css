@@ -699,23 +699,6 @@
   outline: 2px solid var(--ui-brand);
   outline-offset: 2px;
 }
-.ed-note-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-bottom: 7px;
-}
-.ed-note-chip button {
-  border: 0;
-  background: none;
-  color: var(--ui-muted);
-  cursor: pointer;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-}
 .ed-approve {
   border-radius: var(--ui-radius-xl);
   padding: 5px;
@@ -1337,4 +1320,161 @@
 .ed-tlb-ov[data-family='own'] {
   background: color-mix(in srgb, var(--ui-warning) 18%, transparent);
   box-shadow: inset 2px 0 0 var(--ui-warning);
+}
+
+/* Notes for the agent: pins on the video are buttons; each opens its own note. */
+.ed-pin {
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 0;
+}
+.ed-pin > span {
+  transform: rotate(45deg);
+  display: grid;
+  place-items: center;
+  color: var(--ui-on-fill);
+  font-family: var(--ui-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+.ed-pin[data-empty] {
+  background: var(--ui-surface);
+  border-color: var(--ui-brand);
+}
+.ed-pin[data-empty] > span {
+  color: var(--ui-brand);
+}
+.ed-pin[data-sent] {
+  background: var(--ui-muted);
+}
+.ed-pin[data-open] {
+  outline: 3px solid var(--ui-brand-15);
+}
+.ed-pin:focus-visible {
+  outline: 3px solid var(--ui-brand);
+  outline-offset: 2px;
+}
+.ed-notepop {
+  position: absolute;
+  z-index: 25;
+  width: 280px;
+  margin-left: 22px;
+  transform: translateY(-50%);
+  background: var(--ui-surface);
+  color: var(--ui-fg);
+  border-radius: 18px;
+  box-shadow: var(--ui-pop);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-notepop[data-side='left'] {
+  margin-left: -302px;
+}
+.ed-notepop-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.ed-notepop-h b {
+  font-weight: 600;
+  flex: 1;
+}
+.ed-notepop .ed-textarea[aria-invalid='true'] {
+  outline: 2px solid var(--ui-warning);
+}
+.ed-notepop-err {
+  margin: 0;
+  color: var(--ui-warning);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ed-notepop-sent {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.ed-notes {
+  list-style: none;
+  margin: 0;
+  padding: 2px 2px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 156px;
+  overflow: auto;
+}
+.ed-noterow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 4px 8px 4px 4px;
+  border-radius: var(--ui-radius-md);
+  cursor: pointer;
+}
+.ed-noterow:hover {
+  background: var(--ui-f04);
+}
+.ed-noterow:focus-visible {
+  outline: 2px solid var(--ui-brand);
+}
+.ed-noterow-t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-noterow[data-empty] {
+  color: var(--ui-warning);
+}
+.ed-notecard-n {
+  width: 20px;
+  height: 20px;
+  border-radius: 50% 50% 50% 4px;
+  background: var(--ui-brand);
+  color: var(--ui-on-fill);
+  font-family: var(--ui-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+}
+.ed-notecard-n[data-empty] {
+  background: none;
+  border: 1.5px solid var(--ui-brand);
+  color: var(--ui-brand);
+}
+.ed-notecard-n[data-sent] {
+  background: var(--ui-muted);
+}
+.ed-send-wide {
+  width: auto;
+  padding: 0 14px;
+  border-radius: var(--ui-radius-pill);
+  display: inline-flex;
+  gap: 6px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ed-tl-pin[data-empty] {
+  background: var(--ui-surface);
+  box-shadow: inset 0 0 0 1.5px var(--ui-brand);
+  color: var(--ui-brand);
 }

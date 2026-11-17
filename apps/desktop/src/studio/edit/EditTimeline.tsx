@@ -125,7 +125,8 @@ export function EditTimeline({
   /** Camera zooms (drawn by the pipeline, but movable in time like any overlay). */
   zooms?: OverlayInstance[];
   captions?: { id: string; start: number; end: number; text: string; edited?: boolean }[];
-  notes?: { id: string; t: number; text: string; done: boolean }[];
+  /** `n`: the note's number in the batch (not sent yet); none once it's sent or done. */
+  notes?: { id: string; t: number; text: string; done: boolean; n?: number }[];
   /** A piece edge dragged to a new take time. */
   onTrimPiece?: (sceneId: string, index: number, edge: { from?: number; to?: number }) => void;
   onRestoreCut?: (sceneId: string, after: number) => void;
@@ -617,23 +618,27 @@ export function EditTimeline({
             {shown('notes') && (
               <div className="ed-tl-track ed-tl-track-x" role="group" aria-label="Notes">
                 {notes.length ? (
-                  notes.map((n, i) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      className="ed-tl-pin"
-                      data-done={n.done || undefined}
-                      style={{ left: x(n.t) }}
-                      aria-label={`Note ${i + 1} at ${mmss(n.t)}${n.text ? `: ${n.text}` : ''}${n.done ? ', done' : ''}`}
-                      title={n.text || `Note ${i + 1}`}
-                      onClick={() => {
-                        player.seek(n.t);
-                        onNote?.(n.id);
-                      }}
-                    >
-                      {i + 1}
-                    </button>
-                  ))
+                  notes.map((n) => {
+                    const name = n.n ? `Note ${n.n}` : n.done ? 'Done note' : 'Sent note';
+                    return (
+                      <button
+                        key={n.id}
+                        type="button"
+                        className="ed-tl-pin"
+                        data-done={n.done || undefined}
+                        data-empty={(n.n && !n.text.trim()) || undefined}
+                        style={{ left: x(n.t) }}
+                        aria-label={`${name} at ${mmss(n.t)}${n.text ? `: ${n.text}` : ', no message yet'}`}
+                        title={n.text || 'No message yet'}
+                        onClick={() => {
+                          player.seek(n.t);
+                          onNote?.(n.id);
+                        }}
+                      >
+                        {n.n ?? <Glyph name="check" size={9} />}
+                      </button>
+                    );
+                  })
                 ) : (
                   <span className="ed-tl-empty">No notes. Use the pin under the video to point something out</span>
                 )}

@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type RefObject } from 'react';
 import type { AgentEvent, AgentStatus as Status, Run } from '@studio/core';
-import { AgentStatus, Button, Glyph, IconTile, Inset, LinkButton, StatusPill } from '@studio/ui';
+import { AgentStatus, Button, Glyph, IconTile, Inset, LinkButton } from '@studio/ui';
 import { agentActivity, toolPhrase } from './model';
 
 type Permission = Extract<AgentEvent, { kind: 'permission' }>;
@@ -33,7 +33,9 @@ export function AgentDock({
   onUndoRun,
   onFollowUp,
   onPin,
-  onRemoveNote,
+  onOpenNote,
+  batchOpen,
+  onBatchOpen,
   frameUrl,
 }: {
   slug: string;
@@ -41,8 +43,13 @@ export function AgentDock({
   events: AgentEvent[];
   /** The latest run waiting for review. */
   run: Run | null;
-  /** Notes on the video that go with the next message. */
-  notes: { id: string; label: string }[];
+  /** The batch: notes on the video not sent yet, each with its own message, in time order. */
+  notes: { id: string; label: string; text: string }[];
+  /** Goes to a note and opens it on the video. */
+  onOpenNote: (id: string) => void;
+  /** Whether the batch list is open (its pins then stay on the video). */
+  batchOpen: boolean;
+  onBatchOpen: (open: boolean) => void;
   composer: RefObject<HTMLTextAreaElement | null>;
   draft: string;
   onDraft: (text: string) => void;
@@ -53,7 +60,6 @@ export function AgentDock({
   onUndoRun: (run: Run) => void;
   onFollowUp: (run: Run, text: string) => void;
   onPin: () => void;
-  onRemoveNote: (id: string) => void;
   frameUrl: (rel: string) => string | null;
 }) {
   const [followUp, setFollowUp] = useState(false);
@@ -65,7 +71,7 @@ export function AgentDock({
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     const text = draft.trim();
-    if (!text || working) return;
+    if ((!text && !notes.length) || working) return;
     if (followUp && run) {
       onFollowUp(run, text);
       setFollowUp(false);
@@ -204,6 +210,31 @@ export function AgentDock({
       )}
 
       <form className="ed-dockbox" onSubmit={submit}>
+        {notes.length > 0 && batchOpen && (
+          <ol className="ed-notes" id="ed-batch" aria-label="Notes in this batch">
+            {notes.map((n, i) => {
+              const first = n.text.trim().split('\n')[0] ?? '';
+              return (
+                <li key={n.id}>
+                  <button
+                    type="button"
+                    className="ed-noterow"
+                    data-empty={!first || undefined}
+                    onClick={() => onOpenNote(n.id)}
+                    aria-label={`Note ${i + 1} at ${n.label}: ${first || 'no message yet'}. Open it`}
+                  >
+                    <span className="ed-notecard-n" data-empty={!first || undefined}>
+                      {i + 1}
+                    </span>
+                    <span className="ed-tab ed-muted">{n.label}</span>
+                    <span className="ed-noterow-t">{first || 'Needs a message'}</span>
+                    {!first && <Glyph name="warn" size={12} />}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
         <div className="ed-dockin">
           <span className="ed-dock-spark" aria-hidden="true">
             <Glyph name="spark" size={16} />
@@ -219,7 +250,9 @@ export function AgentDock({
             placeholder={
               followUp && run
                 ? 'What should it change about this?'
-                : 'Ask the agent to change anything… e.g. “Add an arrow at Create in step 3”'
+                : notes.length
+                  ? 'Anything else? (optional)'
+                  : 'Ask the agent to change anything… e.g. “Add an arrow at Create in step 3”'
             }
             onChange={(e) => onDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -229,16 +262,6 @@ export function AgentDock({
               } else if (e.key === 'Escape' && followUp) setFollowUp(false);
             }}
           />
-          {notes.map((n) => (
-            <span key={n.id} className="ed-note-chip">
-              <StatusPill tone="brand" icon="pin">
-                {n.label}
-              </StatusPill>
-              <button type="button" aria-label={`Remove ${n.label}`} onClick={() => onRemoveNote(n.id)}>
-                <Glyph name="x" size={10} />
-              </button>
-            </span>
-          ))}
           <button
             type="button"
             className="ui-btn ui-btn-quiet ui-icon-btn"
@@ -248,9 +271,27 @@ export function AgentDock({
           >
             <Glyph name="pin" size={16} />
           </button>
-          <button type="submit" className="ed-send" aria-label="Send to the agent" disabled={working || !draft.trim()}>
-            <Glyph name="send" size={16} />
-          </button>
+          {notes.length > 0 && !followUp ? (
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-quiet ui-btn-sm"
+                aria-expanded={batchOpen}
+                aria-controls="ed-batch"
+                onClick={() => onBatchOpen(!batchOpen)}
+              >
+                Review batch
+              </button>
+              <button type="submit" className="ed-send ed-send-wide" disabled={working}>
+                <Glyph name="send" size={14} />
+                Send batch ({notes.length})
+              </button>
+            </>
+          ) : (
+            <button type="submit" className="ed-send" aria-label="Send to the agent" disabled={working || !draft.trim()}>
+              <Glyph name="send" size={16} />
+            </button>
+          )}
         </div>
       </form>
     </div>
