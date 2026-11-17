@@ -90,19 +90,6 @@
 }
 .hm-pillselect {
   max-width: 240px;
-  height: 32px;
-  border: 0;
-  border-radius: var(--ui-radius-pill);
-  background: var(--ui-f06);
-  color: var(--ui-fg);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 0 12px;
-  cursor: pointer;
-}
-.hm-pillselect:hover {
-  background: var(--ui-f08);
 }
 .hm-send {
   width: 40px;
@@ -328,7 +315,8 @@
   color: var(--ui-faint);
 }
 .hm-stack {
-  margin: 8px 8px 0 0;
+  /* Same size as every other thumbnail: the stacked layers sit in the tile's padding instead. */
+  margin: 0;
 }
 .hm-stack::before,
 .hm-stack::after {
@@ -340,12 +328,12 @@
   box-shadow: 0 0 0 1px var(--ui-f08);
 }
 .hm-stack::before {
-  transform: translate(10px, -10px);
+  transform: translate(6px, -6px);
   z-index: -2;
   opacity: 0.55;
 }
 .hm-stack::after {
-  transform: translate(5px, -5px);
+  transform: translate(3px, -3px);
   z-index: -1;
 }
 .hm-badge,

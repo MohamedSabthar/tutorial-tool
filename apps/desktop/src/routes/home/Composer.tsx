@@ -181,7 +181,7 @@ export function Composer({
             </label>
             <select
               id={ids.prod}
-              className="hm-pillselect"
+              className="ui-select ui-select-pill hm-pillselect"
               value={productId}
               onChange={(e) => setProduct(e.target.value)}
             >
@@ -200,7 +200,7 @@ export function Composer({
                 </label>
                 <select
                   id={ids.eps}
-                  className="hm-pillselect"
+                  className="ui-select ui-select-pill hm-pillselect"
                   value={episodes}
                   onChange={(e) => setEpisodes(Number(e.target.value))}
                 >

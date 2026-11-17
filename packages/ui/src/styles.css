@@ -1053,13 +1053,13 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
 .ui-select {
   border: 0;
   border-radius: var(--ui-radius-md);
-  background: var(--ui-f04);
+  background-color: var(--ui-f04);
   color: var(--ui-fg);
 }
 .ui-input:hover,
 .ui-textarea:hover,
 .ui-select:hover:not(:disabled) {
-  background: var(--ui-f06);
+  background-color: var(--ui-f06);
 }
 .ui-input:focus,
 .ui-textarea:focus,
@@ -1067,7 +1067,57 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
   outline: 2px solid var(--ui-brand);
   outline-offset: 0;
   box-shadow: none;
-  background: var(--ui-inset);
+  background-color: var(--ui-inset);
+}
+/*
+ * Dropdowns: no native look anywhere (WebKit draws its own box otherwise). The chevron is two
+ * gradients in currentColor, so it follows the text colour in light and dark.
+ */
+.ui-select {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 36px;
+  padding: 0 34px 0 12px;
+  line-height: normal;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 50%,
+    calc(100% - 12px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+.ui-select:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ui-select option {
+  color: initial;
+  background: initial;
+}
+/* A compact pill dropdown for toolbars and composers. */
+.ui-select-pill {
+  height: 32px;
+  border-radius: var(--ui-radius-pill);
+  background-color: var(--ui-f06);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 30px 0 13px;
+  background-position:
+    calc(100% - 15px) 50%,
+    calc(100% - 10px) 50%;
+}
+.ui-select-pill:hover:not(:disabled) {
+  background-color: var(--ui-f08);
+}
+.ui-select-pill:focus {
+  background-color: var(--ui-f06);
 }
 .ui-input[aria-invalid='true'],
 .ui-textarea[aria-invalid='true'] {
