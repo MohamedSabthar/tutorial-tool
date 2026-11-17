@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@500;700;800&display=swap">
 <style>
 /* Layout: TUFFUI-style borderless layers (shell > panel > inset), pill buttons, tinted status pills.
-   Studio = steps rail | big video with chapter scrubber and agent dock | per-step panel. The video itself keeps WSO2 colours. */
+   Studio = steps rail | big video with a 3-track timeline and agent dock | per-step panel. The video itself keeps WSO2 colours. */
 :root{
   --bg:#FFFFFF; --fg:#111113; --muted:#6B6B74; --faint:#9C9CA4;
   --surface:oklch(0.948 0.002 286); --inset:#FFFFFF; --raised:oklch(0.912 0.003 286);
@@ -243,7 +243,7 @@ select.tf{appearance:none;padding-right:30px;background-image:linear-gradient(45
 .scard.agent{outline:2px solid var(--brand);outline-offset:-2px}
 .center{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
 .stagewrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
-.stagebox{position:relative;width:100%;max-width:min(100%,calc((100vh - 360px) * 16 / 9));aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#fff;container-type:inline-size;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.stagebox{position:relative;width:100%;max-width:min(100%,calc((100vh - 500px) * 16 / 9));aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#fff;container-type:inline-size;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.1)}
 @media (max-width:980px){.stagebox{max-width:100%}}
 .stagebox.picking{cursor:crosshair;outline:3px solid var(--brand);outline-offset:3px}
 .pickhint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;background:var(--brand);color:var(--on-brand);border-radius:999px;padding:6px 8px 6px 14px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;box-shadow:var(--pop)}
@@ -257,16 +257,36 @@ select.tf{appearance:none;padding-right:30px;background-image:linear-gradient(45
 .play:active{transform:scale(.94)}
 .tc{font-family:var(--mono);font-size:13px;color:var(--muted)}
 .fixbtn{height:40px;padding:0 18px;font-size:14px}
-.chap{position:relative;height:30px;display:flex;gap:3px;cursor:pointer;align-items:center}
-.chap .seg5{height:8px;border-radius:999px;background:var(--f12);position:relative;transition:height .15s var(--ease)}
-.chap .seg5.ex{background:var(--brand-15)}
-.chap .seg5.fast{background:repeating-linear-gradient(-45deg,var(--f12) 0 3px,transparent 3px 6px)}
-.chap .seg5.skip{background:none;border:1.5px dashed var(--f12);height:8px}
-.chap .seg5 i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--fg)}
-.chap:hover .seg5{height:12px}
-.chap .mk{position:absolute;top:2px;width:6px;height:6px;border-radius:50%;background:#FF5800;transform:translateX(-50%);pointer-events:none}
-.chap .mk.note{background:var(--brand)}
-.chap .head{position:absolute;top:3px;bottom:3px;width:3px;border-radius:3px;background:var(--fg);transform:translateX(-50%);pointer-events:none}
+.tl{display:flex;flex-direction:column;gap:6px;background:var(--surface);border-radius:18px;padding:8px 10px 10px}
+.tl-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tl-t{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tl-grid{display:grid;grid-template-columns:80px minmax(0,1fr);gap:0 8px}
+.tl-labs{display:flex;flex-direction:column}
+.tl-labs span{height:30px;display:flex;align-items:center;font-size:11.5px;color:var(--muted);font-weight:500}
+.tl-labs span:first-child{height:19px}
+.tl-scroll{overflow-x:auto;overflow-y:hidden;border-radius:10px;background:var(--inset)}
+.tl-in{position:relative;min-width:100%}
+.tl-ruler{height:18px;position:relative;cursor:pointer;border-bottom:1px solid var(--f08)}
+.tl-ruler span{position:absolute;top:2px;font-family:var(--mono);font-size:10px;color:var(--faint);padding-left:3px;border-left:1px solid var(--f12);height:14px;line-height:14px;pointer-events:none}
+.tl-track{position:relative;height:30px;border-bottom:1px solid var(--f04);cursor:pointer}
+.tlb{position:absolute;top:3px;height:24px;border-radius:7px;font-size:11.5px;font-weight:500;padding:0 9px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;cursor:grab;user-select:none;touch-action:none;border:0;font-family:inherit}
+.tlb:active{cursor:grabbing}
+.tlb span.tx{overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.tlb.st{background:var(--f08);color:var(--fg)}
+.tlb.st.ex{background:var(--brand-15);color:var(--brand)}
+.tlb.st.fast{background-image:repeating-linear-gradient(-45deg,var(--f08) 0 4px,transparent 4px 8px)}
+.tlb.st.skip{background:none;outline:1.5px dashed var(--f12);outline-offset:-1.5px;color:var(--muted)}
+.tlb.vo{background:var(--positive-15);color:var(--positive);font-weight:400}
+.tlb.ov{background:var(--warning-15);color:var(--warning)}
+.tlb.sel{outline:2px solid var(--brand);outline-offset:-1px}
+.tlb.cur{box-shadow:inset 0 0 0 1.5px var(--f12)}
+.tlb .hd{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:2}
+.tlb .hd.l{left:0}.tlb .hd.r{right:0}
+.tlb .hd::after{content:"";position:absolute;top:6px;bottom:6px;left:3.5px;width:2px;border-radius:2px;background:currentColor;opacity:.45}
+.tlb:hover .hd::after,.tlb.sel .hd::after{opacity:.9}
+.tl-ph{position:absolute;top:0;bottom:0;width:2px;background:var(--fg);pointer-events:none;transform:translateX(-1px);z-index:3}
+.tl-ph::before{content:"";position:absolute;top:0;left:-4px;width:10px;height:10px;border-radius:3px;background:var(--fg)}
+.tl-head input[type=range]{width:110px;accent-color:var(--brand)}
 .dock{display:flex;flex-direction:column;gap:8px}
 .dockbox{background:var(--surface);border-radius:22px;padding:6px}
 .dockin{background:var(--inset);border-radius:16px;display:flex;align-items:flex-end;gap:6px;padding:6px 6px 6px 14px}
@@ -413,7 +433,7 @@ const STAGES=[
 const clone=o=>JSON.parse(JSON.stringify(o));
 const S={view:'home',goal:'',how:'agent',
  title:'Creating an AI Agent',steps:clone(STEPS0),ovs:clone(OV0),orig:{},voicing:{},
- t:24.5,playing:false,selOv:null,captions:true,pick:null,hist:[],redo:[],
+ t:24.5,playing:false,zoom:1,selOv:null,captions:true,pick:null,hist:[],redo:[],
  agent:{state:'idle',text:'',acts:[],label:'',started:0,result:null,approval:null,target:null,notes:[]},
  mk:{title:'Creating an AI Agent',stage:0,pct:0,acts:[],need:null,done:false,open:{},started:Date.now()},
  ex:{state:'idle',p:0,res:'1080p',outs:{video:true,captions:true,doc:true,script:false}},
@@ -645,12 +665,20 @@ function stageInner(){let h=screen(S.t);const showAgentPreview=S.agent.state==='
   else h+=`<div class="ov blur${sel}" data-ov="${o.id}" style="${pos}"></div>`;});
  S.agent.notes.forEach(n=>{if(Math.abs(n.t-S.t)<4)h+=`<span class="pin" style="left:${n.x}%;top:${n.y}%"></span>`;});
  if(S.agent.state==='working'&&S.agent.scan){const z=S.agent.scan;h+=`<div class="scan" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%"></div><div class="agentcursor" style="left:${z.x+z.w/2}%;top:${z.y+z.h/2}%"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M3 2l13 8-6 1.5L7 18z" fill="#0071E3" stroke="#fff" stroke-width="1.4"/></svg><span>Agent</span></div>`;}
- const s=stepAt(S.t);if(S.captions&&!s.ex&&S.t-s.t<voLen(s)&&s.pace!=='fast')h+=`<div class="cap">${esc(s.line)}</div>`;
+ const s=stepAt(S.t);const vs=s.t+(s.vo||0);if(S.captions&&!s.ex&&S.t>=vs&&S.t-vs<voLen(s)&&s.pace!=='fast')h+=`<div class="cap">${esc(s.line)}</div>`;
  return h;}
 function controls(){const i=idx(S.t);
  return `<div class="ctrl"><button class="b quiet icon md" data-a="nav" data-d="-1" aria-label="Previous step">${ic('back')}</button><button class="play" data-a="play" aria-label="${S.playing?'Pause':'Play'}">${ic(S.playing?'pause':'play')}</button><button class="b quiet icon md" data-a="nav" data-d="1" aria-label="Next step">${ic('next')}</button><span class="tc tab" id="tc">${mmss(S.t,1)} / ${mmss(DUR)}</span><span class="pill" id="stepPill">Step ${i+1} of ${S.steps.length}</span><span class="grow"></span><button class="b quiet" data-a="cap" aria-pressed="${S.captions}">${S.captions?'Captions on':'Captions off'}</button><button class="b brand fixbtn" data-a="sheet">${ic('wand','sm')}Fix this moment</button></div>
- <div class="chap" id="chap" role="slider" tabindex="0" aria-label="Position in video" aria-valuemin="0" aria-valuemax="${DUR}" aria-valuenow="${Math.round(S.t)}" aria-valuetext="${mmss(S.t)}, step ${i+1}">${S.steps.map((s,j)=>{const w=sLen(j)/DUR*100;const fill=S.t>=sEnd(j)?100:S.t<s.t?0:(S.t-s.t)/sLen(j)*100;return `<span class="seg5 ${s.ex?'ex':''} ${s.pace!=='normal'?s.pace:''}" style="flex:${w}" title="${j+1}. ${esc(s.title)}"><i style="width:${fill}%"></i></span>`}).join('')}
- ${S.ovs.filter(o=>o.type!=='title').map(o=>`<span class="mk" style="left:${o.t0/DUR*100}%"></span>`).join('')}${S.agent.notes.map(n=>`<span class="mk note" style="left:${n.t/DUR*100}%"></span>`).join('')}</div>`;}
+ ${timelineHTML()}`;}
+function timelineHTML(){return `<section class="tl" aria-label="Timeline"><div class="tl-head"><span class="tl-t">Timeline</span><span class="s12 muted">Drag edges to trim or resize · drag bars to move</span><span class="grow"></span><label class="s12 muted" for="tlz">Zoom</label><input id="tlz" type="range" min="1" max="4" step="0.5" value="${S.zoom}" data-a="zoom"></div>
+ <div class="tl-grid"><div class="tl-labs" aria-hidden="true"><span></span><span>Steps</span><span>Voice-over</span><span>On screen</span></div><div class="tl-scroll" id="tlscroll"><div class="tl-in" id="tlin" style="width:${S.zoom*100}%">${tlInner()}</div></div></div></section>`;}
+const pc=t=>(t/DUR*100).toFixed(3)+'%';
+function tlInner(){const step=S.zoom>=3?5:S.zoom>=2?10:15;let r='';for(let t=0;t<DUR;t+=step)r+=`<span style="left:${pc(t)}">${mmss(t)}</span>`;
+ const cur=idx(S.t);
+ const st=S.steps.map((s,j)=>`<div class="tlb st ${s.ex?'ex':''} ${s.pace!=='normal'?s.pace:''} ${j===cur?'cur':''}" data-k="step" data-i="${j}" tabindex="0" role="button" aria-label="Step ${j+1}, ${esc(s.title)}, ${mmss(s.t)} to ${mmss(sEnd(j))}${j<S.steps.length-1?'. Drag its right edge to trim':''}" style="left:${pc(s.t)};width:calc(${pc(sLen(j))} - 2px)"><span class="tx">${j+1} · ${esc(s.title)}</span>${j<S.steps.length-1?'<span class="hd r" data-edge="r"></span>':''}</div>`).join('');
+ const vo=S.steps.filter(s=>!s.ex&&s.pace!=='skip').map(s=>{const j=S.steps.indexOf(s);return `<div class="tlb vo" data-k="vo" data-i="${j}" tabindex="0" role="button" aria-label="Voice-over for step ${j+1}: ${esc(s.line)}. Drag to move" style="left:${pc(s.t+(s.vo||0))};width:calc(${pc(voLen(s))} - 2px)" title="${esc(s.line)}"><span class="tx">${esc(s.line)}</span></div>`}).join('');
+ const ov=S.ovs.map(o=>`<div class="tlb ov ${S.selOv===o.id?'sel':''}" data-k="ov" data-id="${o.id}" tabindex="0" role="button" aria-label="${OVN[o.type]}${o.text?': '+esc(o.text):''}, ${mmss(o.t0)} to ${mmss(o.t1)}. Arrow keys move it" style="left:${pc(o.t0)};width:max(44px,calc(${pc(o.t1-o.t0)} - 2px))"><span class="hd l" data-edge="l"></span><span class="tx" style="padding:0 4px">${OVN[o.type]}${o.text?' · '+esc(o.text):''}</span><span class="hd r" data-edge="r"></span></div>`).join('');
+ return `<div class="tl-ruler" data-tl="seek">${r}</div><div class="tl-track" data-tl="seek">${st}</div><div class="tl-track" data-tl="seek">${vo}</div><div class="tl-track" data-tl="seek">${ov}</div><div class="tl-ph" id="tlph" style="left:${pc(S.t)}"></div>`;}
 function dock(){const a=S.agent;let top='';
  if(a.state==='working')top=`<div class="dockbox enter" role="status" aria-live="polite"><div class="panel astatus"><div class="l1"><span class="dots" style="width:20px;justify-content:center"><i></i><i></i><i></i></span><b class="grow">${esc(a.label)}</b><span class="pill tab">${ic('clock','sm')}<span id="aelapsed">${elapsed(Date.now()-a.started)}</span></span><button class="b sm danger" data-a="astop">${ic('stop','sm')}Stop</button></div>${a.acts.length?`<ol>${a.acts.slice(-3).map(x=>`<li class="enter">${ic('check','sm')}${esc(x)}</li>`).join('')}</ol>`:''}</div></div>`;
  if(a.state==='approval')top=`<div class="approve enter" role="alert"><div class="panel"><div style="display:flex;gap:10px;align-items:center"><span class="tile warn">${ic('lock')}</span><div class="grow"><b style="font-weight:500">${esc(a.approval.title)}</b><p class="s13 muted">${esc(a.approval.body)}</p></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b brand md" data-a="aallow">${esc(a.approval.yes)}</button><button class="b md" data-a="adeny">Not now</button></div></div></div>`;
@@ -711,7 +739,7 @@ function render(){const v=S.view;let b='';
  if(rs!=null&&$('#rail'))$('#rail').scrollTop=rs;
  renderLayer();}
 function live(){const st=$('#stage');if(!st)return;st.innerHTML=stageInner();const tc=$('#tc');if(tc)tc.textContent=`${mmss(S.t,1)} / ${mmss(DUR)}`;
- const i=idx(S.t);const chap=$('#chap');if(chap){chap.querySelectorAll('.seg5 i').forEach((el,j)=>{const s=S.steps[j];el.style.width=(S.t>=sEnd(j)?100:S.t<s.t?0:(S.t-s.t)/sLen(j)*100)+'%'});chap.setAttribute('aria-valuenow',Math.round(S.t));chap.setAttribute('aria-valuetext',`${mmss(S.t)}, step ${i+1}`);}
+ const i=idx(S.t);const ph=$('#tlph');if(ph)ph.style.left=pc(S.t);
  if(live.last!==i){live.last=i;render();}}
 let raf=null,lastTs=0;
 function loop(ts){if(!S.playing){raf=null;return}const dt=lastTs?(ts-lastTs)/1000:0;lastTs=ts;const s=stepAt(S.t);
@@ -822,6 +850,7 @@ document.addEventListener('input',e=>{const el=e.target,d=el.dataset;
  if(d.a==='line'){const s=stepAt(S.t);s.line=el.value;const changed=S.orig[s.id]!==s.line;const box=$('#lineacts');if(box)box.innerHTML=changed?`<button class="b pri" data-a="revoice">${ic('mic','sm')}Re-voice this line</button><button class="b quiet" data-a="revert">Revert</button>`:'';}
  else if(d.a==='rv'){const s=S.steps.find(x=>x.id===d.id);s.line=el.value;S.orig[s.id]=el.value;}
  else if(d.a==='ovt'){const o=S.ovs.find(x=>x.id===S.selOv);o.text=el.value;$('#stage').innerHTML=stageInner();}
+ else if(d.a==='zoom'){S.zoom=+el.value;const t=$('#tlin');if(t)t.style.width=S.zoom*100+'%';}
  else if(el.id==='ask'){S.agent.text=el.value;el.style.height='auto';el.style.height=el.scrollHeight+'px';}
  else if(el.id==='goal')S.goal=el.value;
  else if(d.a==='sertitle')S.outline.title=el.value;
@@ -839,11 +868,30 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&e.targe
  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
  if(e.key===' '){e.preventDefault();setPlay(!S.playing);}
  else if(e.key.toLowerCase()==='f'&&!e.metaKey){S.playing=false;S.sheet=true;render();}
- else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){if(e.target.id==='chap'||!e.target.closest('button')){S.t=Math.max(0,Math.min(DUR,S.t+(e.key==='ArrowLeft'?-2:2)));live();}}
+ else if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&e.target.closest('.tlb[data-k="ov"]')){e.preventDefault();const o=S.ovs.find(x=>x.id===e.target.dataset.id);const d=(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?0.1:0.5);const len=o.t1-o.t0;commit(`Moved ${OVN[o.type].toLowerCase()}`,'you',()=>{o.t0=Math.max(0,Math.min(DUR-len,o.t0+d));o.t1=o.t0+len;});S.selOv=o.id;S.t=o.t0+.2;render();document.querySelector(`.tlb[data-id="${o.id}"]`)?.focus();}
+ else if((e.key==='Enter'||e.key===' ')&&e.target.closest('.tlb')){e.preventDefault();e.target.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:e.target.getBoundingClientRect().left+4}));dispatchEvent(new PointerEvent('pointerup'));}
+ else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){if(!e.target.closest('button')){S.t=Math.max(0,Math.min(DUR,S.t+(e.key==='ArrowLeft'?-2:2)));live();}}
  else if((e.key==='Delete'||e.key==='Backspace')&&S.selOv){document.querySelector('[data-a="ovdel"]')?.click();}});
 let drag=null;
-document.addEventListener('pointerdown',e=>{const chap=e.target.closest('#chap');
- if(chap){const r=chap.getBoundingClientRect();const f=x=>{S.t=Math.max(0,Math.min(DUR,(x-r.left)/r.width*DUR));live();};f(e.clientX);const mv=ev=>f(ev.clientX);const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);render();};addEventListener('pointermove',mv);addEventListener('pointerup',up);return;}
+document.addEventListener('pointerdown',e=>{const tin=e.target.closest('#tlin');
+ if(tin){const r=tin.getBoundingClientRect();const toT=x=>(x-r.left)/r.width*DUR;const blk=e.target.closest('.tlb');
+  if(!blk){const f=x=>{S.t=Math.max(0,Math.min(DUR,toT(x)));live();};f(e.clientX);const mv=ev=>f(ev.clientX);const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);render();};addEventListener('pointermove',mv);addEventListener('pointerup',up);return;}
+  e.preventDefault();const k=blk.dataset.k,edge=e.target.dataset?.edge,x0=e.clientX,before=clone({steps:S.steps,ovs:S.ovs});let moved=false,label='';
+  const i=+blk.dataset.i,s0=S.steps[i],o=S.ovs.find(z=>z.id===blk.dataset.id);
+  const orig=k==='step'?(S.steps[i+1]?.t):k==='vo'?(s0.vo||0):{t0:o.t0,t1:o.t1};
+  const mv=ev=>{const dt=(ev.clientX-x0)/r.width*DUR;if(!moved&&Math.abs(ev.clientX-x0)<3)return;moved=true;
+   if(k==='step'&&edge==='r'&&S.steps[i+1]){const lo=s0.t+2,hi=sEnd(i+1)-2;S.steps[i+1].t=Math.round(Math.max(lo,Math.min(hi,orig+dt))*10)/10;label=`Trimmed step ${i+1}`;}
+   else if(k==='vo'){const max=Math.max(0,sLen(i)-voLen(s0));s0.vo=Math.round(Math.max(0,Math.min(max,orig+dt))*10)/10;label=`Moved step ${i+1}'s voice-over`;}
+   else if(k==='ov'){if(edge==='l'){o.t0=Math.round(Math.max(0,Math.min(o.t1-.5,orig.t0+dt))*10)/10;label=`Changed when the ${OVN[o.type].toLowerCase()} appears`;}
+    else if(edge==='r'){o.t1=Math.round(Math.max(o.t0+.5,Math.min(DUR,orig.t1+dt))*10)/10;label=`Changed how long the ${OVN[o.type].toLowerCase()} shows`;}
+    else{const len=orig.t1-orig.t0;o.t0=Math.round(Math.max(0,Math.min(DUR-len,orig.t0+dt))*10)/10;o.t1=o.t0+len;label=`Moved the ${OVN[o.type].toLowerCase()}`;}
+    S.selOv=o.id;S.t=Math.min(Math.max(S.t,o.t0),o.t1-.01);}
+   else{moved=false;return;}
+   $('#tlin').innerHTML=tlInner();$('#stage').innerHTML=stageInner();};
+  const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);
+   if(moved&&label){S.hist.push({label,who:'you',before,at:S.t});S.redo=[];render();toast(label+'.',true);}
+   else{if(k==='step'){S.t=s0.t+.2;S.selOv=null;}else if(k==='vo'){S.t=s0.t+(s0.vo||0)+.1;S.selOv=null;}else{S.selOv=o.id;if(S.t<o.t0||S.t>=o.t1)S.t=o.t0+.2;}render();}};
+  addEventListener('pointermove',mv);addEventListener('pointerup',up);return;}
  const st=e.target.closest('#stage');if(!st)return;const r=st.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*100,y=(e.clientY-r.top)/r.height*100;
  if(S.pick){if(S.pick==='note'){S.agent.notes.push({t:S.t,x,y});S.pick=null;render();toast('Marked. Now tell the agent what to do there.');$('#ask').focus();}else placeOverlay(S.pick,x,y);return;}
  const ov=e.target.closest('[data-ov]');if(ov){const o=S.ovs.find(z=>z.id===ov.dataset.ov);S.selOv=o.id;S.playing=false;const before=clone({steps:S.steps,ovs:S.ovs});drag={o,dx:x-o.x,dy:y-o.y,r,moved:false,before};render();e.preventDefault();}
