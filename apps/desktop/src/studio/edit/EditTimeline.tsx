@@ -289,12 +289,13 @@ export function EditTimeline({
               })}
             </div>
             <div className="ed-tl-track" role="group" aria-label="Voice-over">
-              {lines.map((l) => {
+              {lines.map((l, i) => {
                 const dt = dtOf('line', l.line.id);
                 const sel: Selection = { kind: 'line', id: l.line.id };
                 return (
                   <div
-                    key={l.line.id}
+                    // Older projects can hold two lines with the same id; the index keeps keys unique.
+                    key={`${l.line.id}:${i}`}
                     className="ed-tlb ed-tlb-vo"
                     data-sel={isSel('line', l.line.id) || undefined}
                     data-silent={!l.line.audio || undefined}

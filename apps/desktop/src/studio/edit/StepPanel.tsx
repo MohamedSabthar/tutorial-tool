@@ -109,7 +109,7 @@ export function StepPanel(p: StepPanelProps) {
               const text = p.drafts[l.id] ?? l.text;
               const dirty = text !== l.text;
               return (
-                <div key={l.id} className="ed-line">
+                <div key={`${l.id}:${i}`} className="ed-line">
                   <label className="ed-sr" htmlFor={i === 0 ? 'ed-said' : `ed-said-${l.id}`}>
                     {lines.length > 1 ? `Words for this step, line ${i + 1}` : 'Words for this step'}
                   </label>
