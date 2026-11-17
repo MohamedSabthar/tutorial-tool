@@ -58,6 +58,6 @@ Screenshot with the helper (also outside the sandbox):
 node /private/tmp/claude-501/-Users-admin-Desktop-tutorial-tool/063b4a2e-844d-4c35-9ead-e328e71e9506/scratchpad/snap.mjs <PORT> <outDir> name=/route name2=/route2 [--dark] [--w=1440] [--h=900]
 ```
 
-It prints page errors. Look at the PNGs with the Read tool. For interactions, write a small Playwright script modelled on `snap.mjs`. Check light, dark and a 1280×800 window. Projects with real data: `creating-an-ai-agent` (recorded and edited), `math-tutor`, `demo-http`, `test`.
+It prints page errors. Look at the PNGs with the Read tool. For interactions, write a small Playwright script modelled on `snap.mjs`. Check light, dark and a 1280×800 window, **in WebKit too** (the Tauri app runs on macOS WebKit, not Chromium): launch Playwright's `webkit` with `executablePath: ~/Library/Caches/ms-playwright/webkit-2388/pw_run.sh`. WebKit differs on flex children inside `<button>`, `aspect-ratio`, and native form controls. Projects with real data: `creating-an-ai-agent` (recorded and edited), `math-tutor`, `demo-http`, `test`.
 
 Stop your Vite when you're done.
