@@ -37,11 +37,10 @@ import { useRuns } from '../useRuns';
 import { useFullscreen } from '../fullscreen';
 import { VoicePlayer } from '../VoicePlayer';
 import { SfxPlayer } from '../SfxPlayer';
-import { TimelinePanel, type PieceRef } from '../TimelinePanel';
 import { useEngineBackend, useMockBackend, type EditBackend } from './backend';
 import { StepsRail } from './StepsRail';
 import { StepPanel, type AddKind } from './StepPanel';
-import { EditTimeline, type Selection, type TimelineStep } from './EditTimeline';
+import { EditTimeline, EXTRA_TRACKS, type ExtraTrack, type Selection, type TimelineStep } from './EditTimeline';
 import { FixSheet, type FixKind } from './FixSheet';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
@@ -146,7 +145,23 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const [sheet, setSheet] = useState(false);
   const [menu, setMenu] = useState(false);
   const [changes, setChanges] = useState(false);
-  const [drawer, setDrawer] = useState(false);
+  // Extra timeline tracks (Recording, Camera, Captions, Notes): a per-viewer choice, remembered.
+  const [tracks, setTracksState] = useState<ExtraTrack[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('studio.tracks') ?? '[]') as unknown;
+      return Array.isArray(v) ? EXTRA_TRACKS.map((t) => t.key).filter((k) => v.includes(k)) : [];
+    } catch {
+      return [];
+    }
+  });
+  const setTracks = (next: ExtraTrack[]) => {
+    setTracksState(next);
+    try {
+      localStorage.setItem('studio.tracks', JSON.stringify(next));
+    } catch {
+      // Not remembered; the choice still applies in this window.
+    }
+  };
   const [confirmRecord, setConfirmRecord] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [voicing, setVoicing] = useState<Set<string>>(new Set());
@@ -154,7 +169,6 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const [notes, setNotes] = useState<string[]>([]);
   const [ask, setAsk] = useState('');
   const [dragRect, setDragRect] = useState<Rect | null>(null);
-  const [piece, setPiece] = useState<PieceRef | null>(null);
   const [full, setFull] = useFullscreen();
   const composer = useRef<HTMLTextAreaElement>(null);
 
@@ -584,6 +598,21 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       })
     : [];
   const shownOverlays = timeline ? timeline.overlays.filter(isOnScreen) : [];
+  const zooms = timeline ? timeline.overlays.filter((o) => o.component === 'core:Zoom') : [];
+  const trackPieces = resolved ? resolved.tm.segments : [];
+  const trackCuts =
+    timeline && resolved
+      ? timeline.scenes.flatMap((sc) =>
+          sc.kind !== 'recording'
+            ? []
+            : cutGaps(sc.segments).flatMap((gap) => {
+                const span = resolved.tm.segments.find((g) => g.sceneId === sc.id && g.index === gap.after);
+                return span
+                  ? [{ sceneId: sc.id, after: gap.after, at: span.end, label: `${mmss(gap.from)}–${mmss(gap.to)}` }]
+                  : [];
+              }),
+        )
+      : [];
   const notePins = timeline ? timeline.annotations.filter((a) => notes.includes(a.id) && a.shape.kind === 'point') : [];
 
   return (
@@ -694,13 +723,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               <MenuSeparator />
               <MenuItem
                 icon="timeline"
-                hint="Camera, captions, notes and every piece"
+                hint="Recording, camera, captions and notes on the timeline"
                 onSelect={() => {
                   setMenu(false);
-                  setDrawer(true);
+                  setTracks(EXTRA_TRACKS.map((t) => t.key));
                 }}
               >
-                Timeline
+                Show all tracks
               </MenuItem>
               {timeline && (
                 <MenuItem
@@ -905,7 +934,33 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               onTrimStep={trimStep}
               onMoveLine={(id, at) => void attempt(() => be.moveLine(id, at), 'Moved the voice-over.', true)}
               onOverlayTime={overlayTime}
-              onMore={() => setDrawer(true)}
+              tracks={tracks}
+              onTracks={setTracks}
+              pieces={trackPieces}
+              cuts={trackCuts}
+              zooms={zooms}
+              captions={timeline?.captions ?? []}
+              notes={(timeline?.annotations ?? []).map((a) => ({ id: a.id, t: a.t, text: a.comment, done: a.status === 'resolved' }))}
+              onTrimPiece={(sceneId, index, edge) =>
+                void attempt(() => be.editPiece(sceneId, index, { op: 'trim', ...edge }), 'Trimmed the recording.', true)
+              }
+              onRestoreCut={(sceneId, after) =>
+                void attempt(() => be.editPiece(sceneId, after, { op: 'restoreCut' }), 'Put back the recording.', true)
+              }
+              onEditCaption={(i, text) =>
+                void attempt(
+                  () =>
+                    be.patch(
+                      [
+                        { op: 'replace', path: `/captions/${i}/text`, value: text },
+                        { op: 'add', path: `/captions/${i}/edited`, value: true },
+                      ],
+                      'Edit a caption',
+                    ),
+                  'Caption changed.',
+                  true,
+                )
+              }
             />
 
             <AgentDock
@@ -1011,41 +1066,6 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           </Button>
         </div>
       </Sheet>
-
-      {drawer && timeline && resolved && (
-        <section className="ed-drawer" aria-label="All tracks">
-          <div className="ed-drawer-head">
-            <b>All tracks</b>
-            <span className="ed-muted ed-s12">Camera, captions, notes and every piece of the recording</span>
-            <span className="ed-grow" />
-            <IconButton variant="quiet" label="Close all tracks" onClick={() => setDrawer(false)}>
-              <Glyph name="x" size={14} />
-            </IconButton>
-          </div>
-          <div className="ed-drawer-body">
-            <TimelinePanel
-              slug={slug}
-              timeline={timeline}
-              resolved={resolved}
-              player={controls}
-              onSeek={(x) => controls.seek(x)}
-              selected={selectedOverlay?.id ?? null}
-              onSelect={(id) => setSelection(id ? { kind: 'overlay', id } : null)}
-              patch={(p, opts) => be.patch(p, opts?.label ?? 'Edit', opts?.group)}
-              onSplit={() => undefined}
-              canUndo={be.canUndo}
-              canRedo={be.canRedo}
-              onUndo={undo}
-              onRedo={redo}
-              selectedPiece={piece}
-              onSelectPiece={setPiece}
-              onMoveLine={(id, at) => void attempt(() => be.moveLine(id, at))}
-              onTrimPiece={(p, edge) => void attempt(() => be.editPiece(p.sceneId, p.index, { op: 'trim', ...edge }))}
-              onRestoreCut={(sceneId, after) => void attempt(() => be.editPiece(sceneId, after, { op: 'restoreCut' }))}
-            />
-          </div>
-        </section>
-      )}
 
       <Timed player={controls}>
         {(t) => (

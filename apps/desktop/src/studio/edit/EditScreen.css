@@ -1033,29 +1033,199 @@
 }
 
 /* All tracks drawer */
-.ed-drawer {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: 12px;
-  height: min(46vh, 420px);
-  z-index: 60;
-  background: var(--ui-bg);
-  border-radius: var(--ui-radius-xl);
-  box-shadow: var(--ui-pop);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+
+/* ---------- Timeline: extra tracks and the Tracks picker ---------- */
+.ed-tl-pick {
+  position: relative;
 }
-.ed-drawer-head {
+.ed-tl-count {
+  font-family: var(--ui-mono);
+  font-size: 11px;
+  color: var(--ui-brand);
+}
+.ed-tl-opt {
+  width: 100%;
+}
+.ed-tl-opt-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--ui-f06);
+  color: var(--ui-muted);
+}
+.ed-tl-opt[aria-checked='true'] .ed-tl-opt-icon {
+  background: var(--ui-brand-15);
+  color: var(--ui-brand);
+}
+.ed-tl-opt-text {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+.ed-tl-opt-text small {
+  display: block;
+  font-weight: 400;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.ed-tl-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1.5px var(--ui-f12);
+  color: var(--ui-on-fill);
+}
+.ed-tl-opt[aria-checked='true'] .ed-tl-check {
+  background: var(--ui-brand);
+  box-shadow: none;
+}
+.ed-tl-opt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 4px;
+}
+.ed-tl-labs .ed-tl-lab-x {
+  gap: 5px;
+  color: var(--ui-faint);
+}
+.ed-tl-track-x {
+  background: var(--ui-f04);
+}
+.ed-tl-empty {
+  position: absolute;
+  left: 10px;
+  top: 0;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 16px;
-  border-bottom: 1px solid var(--ui-f08);
+  font-size: 11.5px;
+  color: var(--ui-faint);
+  white-space: nowrap;
+  pointer-events: none;
 }
-.ed-drawer-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
+
+/* Recording: plain pieces neutral, faster pieces striped, freezes as a soft blue pause. */
+.ed-tlb-rec {
+  background: var(--ui-inset);
+  box-shadow: inset 0 0 0 1px var(--ui-f12);
+  color: var(--ui-muted);
+  font-weight: 500;
+}
+.ed-tlb-rec[data-kind='speed'] {
+  background-image: repeating-linear-gradient(-45deg, var(--ui-f08) 0 4px, transparent 4px 8px);
+  color: var(--ui-fg);
+}
+.ed-tlb-rec[data-kind='hold'] {
+  background: var(--ui-brand-08);
+  box-shadow: inset 0 0 0 1px var(--ui-brand-15);
+  color: var(--ui-brand);
+  cursor: pointer;
+}
+.ed-tlb-rec[data-hand] {
+  box-shadow: inset 0 0 0 1.5px var(--ui-muted);
+}
+.ed-tlb-rec .ed-tlb-tx {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ed-tl-cut {
+  position: absolute;
+  top: 6px;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-negative);
+  color: var(--ui-on-fill);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 3;
+  padding: 0;
+}
+.ed-tl-cut:hover,
+.ed-tl-cut:focus-visible {
+  transform: scale(1.15);
+}
+
+/* Camera: zooms, same handles as overlays, in a neutral tint. */
+.ed-tlb-cam {
+  background: var(--ui-f08);
+  color: var(--ui-fg);
+}
+.ed-tl-track[data-rows='2'] .ed-tlb-cam {
+  height: 10px;
+  font-size: 0;
+  padding: 0;
+}
+.ed-tl-track[data-rows='2'] .ed-tlb-cam[data-row='1'] {
+  top: 15px;
+}
+
+/* Captions: quiet text blocks; edited ones get a brand edge. */
+.ed-tlb-cap {
+  background: var(--ui-inset);
+  box-shadow: inset 0 0 0 1px var(--ui-f08);
+  color: var(--ui-muted);
+  font-weight: 400;
+  cursor: pointer;
+}
+.ed-tlb-cap[data-edited] {
+  box-shadow: inset 0 0 0 1.5px var(--ui-brand-15);
+  color: var(--ui-fg);
+}
+.ed-tl-cap-edit {
+  position: absolute;
+  top: -14px;
+  z-index: 6;
+  width: 260px;
+  height: 54px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--ui-surface);
+  color: var(--ui-fg);
+  box-shadow: var(--ui-pop);
+  outline: 2px solid var(--ui-brand);
+  font: inherit;
+  font-size: 12px;
+  resize: none;
+}
+
+/* Notes: numbered pins. */
+.ed-tl-pin {
+  position: absolute;
+  top: 4px;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border: 0;
+  border-radius: 50% 50% 50% 4px;
+  background: var(--ui-brand);
+  color: var(--ui-on-fill);
+  font-family: var(--ui-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 3;
+  padding: 0;
+}
+.ed-tl-pin[data-done] {
+  background: var(--ui-f12);
+  color: var(--ui-muted);
+}
+/* The track holding an open caption editor sits above the tracks below it. */
+.ed-tl-track:has(.ed-tl-cap-edit) {
+  z-index: 7;
 }
