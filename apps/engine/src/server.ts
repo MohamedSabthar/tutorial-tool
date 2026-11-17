@@ -969,6 +969,14 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       return { id: 'project:HelloOverlay', path: rel, absolutePath: abs };
     },
     'workspace.show': async ({ hash }: { hash: string }) => knowledge.show(hash),
+    // Opens the workspace folder in Finder (Settings → What the agent learned).
+    'workspace.reveal': async () => {
+      if (process.platform !== 'darwin') return { ok: false };
+      await new Promise<void>((resolve, reject) =>
+        execFile('open', [opts.workspace], (err) => (err ? reject(err) : resolve())),
+      );
+      return { ok: true };
+    },
     'workspace.openInEditor': async ({ path: rel }: { path: string }) => {
       const abs = path.resolve(opts.workspace, rel);
       if (!abs.startsWith(path.resolve(opts.workspace) + path.sep))

@@ -525,6 +525,8 @@ export const rpcMethods = {
     params: z.object({ hash: z.string().regex(/^[0-9a-f]{4,40}$/) }),
     result: z.object({ hash: z.string(), subject: z.string(), date: z.string(), diff: z.string() }),
   },
+  /** Opens the workspace folder in Finder. */
+  'workspace.reveal': { params: z.object({}), result: z.object({ ok: z.boolean() }) },
   'workspace.openInEditor': {
     params: z.object({ path: z.string() }),
     result: z.object({ opened: z.boolean() }),

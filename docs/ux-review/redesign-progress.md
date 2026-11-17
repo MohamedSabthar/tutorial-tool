@@ -21,8 +21,8 @@ Branch: `ui-redesign` (from `ux-review`). Target design: `docs/ux-review/prototy
 - [x] 13.5 Series outline: draft, review, edit episodes, shared settings, approve and make
 - [ ] 13.6 Studio editing: steps rail, preview with chapter scrubber, step panel (what's said + re-voice, on screen, pace), Fix this moment sheet and click-to-place
 - [ ] 13.7 Studio agent: dock with live status, approvals, results (Keep / Undo / Tell it more), Changes history; old timeline behind "Timeline"
-- [ ] 13.8 Export: name, size, save folder with reveal, outputs, progress, finished files
-- [ ] 13.9 Settings: checklist with copy, accounts, agent (limit, ask before commands), voice, what the agent learned, appearance, advanced
+- [x] 13.8 Export: name, size, save folder with reveal, outputs, progress, finished files
+- [x] 13.9 Settings: checklist with copy, accounts, agent (limit, ask before commands), voice, what the agent learned, appearance, advanced
 - [ ] 13.10 Cleanup: old routes redirect to the new screens, short Help, docs, final checks
 
 ## In flight

@@ -6,8 +6,11 @@ export const StudioSettings = z.object({
   defaultVoice: z.string().nullable().default(null),
   /** New briefs approve safe tool calls without asking (the brief's Auto mode). */
   autoMode: z.boolean().default(true),
-  /** A pipeline run pauses at a help gate once its agent cost passes this (US dollars). */
-  maxCostPerRun: z.number().positive().nullable().default(null),
+  /**
+   * A pipeline run pauses at a help gate once its agent cost passes this (US dollars). $5 until
+   * the user sets it; null (saved explicitly) means no limit.
+   */
+  maxCostPerRun: z.number().positive().nullable().default(5),
   /**
    * Which Claude models the pipeline's agent uses: `balanced` (Opus for research, planning and
    * repairs; the faster Sonnet for writing the script, narration, alignment, post-production, QA

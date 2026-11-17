@@ -109,6 +109,11 @@ export class Exporter {
     const tm = buildTimeMap(timeline);
     const size = EXPORT_RESOLUTIONS[settings.resolution];
     const running = this.jobs.get(slug)?.state.state === 'running';
+    const folder = path.join(this.deps.store.dir(slug), 'output');
+    const previous = (await readdir(folder, { withFileTypes: true }).catch(() => []))
+      .filter((e) => !e.name.startsWith('.'))
+      .map((e) => `output/${e.name}`)
+      .sort();
     return {
       duration: tm.duration,
       frames: Math.max(1, Math.round(tm.duration * settings.fps)),
@@ -127,6 +132,8 @@ export class Exporter {
       resumable: running
         ? 0
         : await resumableFrames(this.work(slug), await this.key(slug, timeline, settings)),
+      folder,
+      previous,
     };
   }
 

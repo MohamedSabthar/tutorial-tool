@@ -22,7 +22,8 @@ export function runNotice(st: PipelineState): { text: string; tone?: 'error' } |
     };
   }
   if (st.status === 'done') return { text: 'Ready to watch and edit' };
-  if (st.status === 'failed') return { text: 'Stopped with a problem. Open it to see what happened', tone: 'error' };
+  if (st.status === 'failed')
+    return { text: 'Stopped with a problem. Open it to see what happened', tone: 'error' };
   return null;
 }
 
@@ -59,6 +60,30 @@ export function RunNotifier() {
           <b style={{ fontWeight: 600 }}>{title}</b> · {notice.text}
         </>,
         { tone: notice.tone, action: { label: 'Open', run: () => navigate(runRoute(st.slug, st.status)) } },
+      );
+    });
+  }, [client, state, toast]);
+
+  // Exports: tell the user when one finishes or fails, unless they're watching its screen.
+  const exports = useRef(new Map<string, string>());
+  useEffect(() => {
+    if (!client || state !== 'open') return;
+    return client.on('export.progress', (job) => {
+      const before = exports.current.get(job.slug);
+      exports.current.set(job.slug, job.state);
+      if (before !== 'running' || job.state === 'running' || job.state === 'cancelled') return;
+      if (window.location.hash.startsWith(`#/export/${job.slug}`) && document.hasFocus()) return;
+      const title = titles.current.get(job.slug) ?? job.slug;
+      const text = job.state === 'done' ? 'Export finished.' : 'Export failed.';
+      notifySystem(title, text);
+      toast(
+        <>
+          <b style={{ fontWeight: 600 }}>{title}</b> · {text}
+        </>,
+        {
+          tone: job.state === 'done' ? undefined : 'error',
+          action: { label: 'Open', run: () => navigate(`/export/${job.slug}`) },
+        },
       );
     });
   }, [client, state, toast]);
