@@ -1636,3 +1636,70 @@
   background: var(--ui-f04);
   line-height: 1.45;
 }
+
+/* Transitions: a diamond where two scenes meet (filled when there is one, a hollow + when not). */
+.ed-tl-tr {
+  position: absolute;
+  top: 7px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  padding: 0;
+  border: 1.5px dashed var(--ui-muted);
+  border-radius: 3px;
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  transform: rotate(45deg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 4;
+}
+.ed-tl-tr > svg {
+  transform: rotate(-45deg);
+}
+.ed-tl-tr[data-on] {
+  border: 2px solid var(--ui-surface);
+  background: var(--ui-fg);
+}
+.ed-tl-tr:hover,
+.ed-tl-tr[data-open] {
+  border-color: var(--ui-brand);
+  color: var(--ui-brand);
+}
+.ed-tl-tr[data-on]:hover,
+.ed-tl-tr[data-on][data-open] {
+  background: var(--ui-brand);
+  border-color: var(--ui-surface);
+}
+.ed-tl-tr:focus-visible {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: 2px;
+}
+.ed-trform {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+}
+.ed-trlooks {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ed-trlooks legend {
+  padding: 6px 10px 2px;
+}
+.ed-trlook input {
+  accent-color: var(--ui-brand);
+  margin: 0;
+}
+.ed-trlook:has(input:focus-visible) {
+  outline: 2px solid var(--ui-brand);
+}
+.ed-trlen {
+  padding: 0 10px;
+}

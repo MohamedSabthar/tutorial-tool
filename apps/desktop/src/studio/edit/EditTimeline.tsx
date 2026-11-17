@@ -106,6 +106,8 @@ export function EditTimeline({
   scenes = [],
   onInsertExplainer,
   onAskExplainer,
+  boundaries = [],
+  onTransition,
 }: {
   player: Player;
   duration: number;
@@ -148,6 +150,9 @@ export function EditTimeline({
   onInsertExplainer?: (at: number, component: string, n: number) => void;
   /** Starts a message to the agent about an explainer after step `n`. */
   onAskExplainer?: (n: number) => void;
+  /** Where one scene meets the next, and the transition between them if there is one. */
+  boundaries?: { between: [string, string]; at: number; transition: { component: string; duration: number } | null }[];
+  onTransition?: (between: [string, string], value: { component: string; duration: number } | null) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
@@ -156,6 +161,7 @@ export function EditTimeline({
   const [picker, setPicker] = useState(false);
   const [editing, setEditing] = useState<{ index: number; text: string } | null>(null);
   // The "+" between two steps whose explainer popover is open, and which view it shows.
+  const [trOpen, setTrOpen] = useState<{ key: string; el: HTMLElement } | null>(null);
   const [gap, setGap] = useState<{ n: number; at: number; el: HTMLElement; looks: boolean } | null>(null);
   const seeking = useRef(false);
   const ranging = useRef(false);
@@ -200,7 +206,7 @@ export function EditTimeline({
     return Math.min(Math.max((clientX - r.left + el.scrollLeft) / pps, 0), dur);
   };
   const seekDown = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.ed-tlb, .ed-tl-cut, .ed-tl-pin, .ed-tl-cap-edit, .ed-tl-pace, .ed-tl-gap')) return;
+    if ((e.target as HTMLElement).closest('.ed-tlb, .ed-tl-cut, .ed-tl-pin, .ed-tl-cap-edit, .ed-tl-pace, .ed-tl-gap, .ed-tl-tr')) return;
     seeking.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     player.seek(timeAt(e.clientX));
@@ -603,6 +609,28 @@ export function EditTimeline({
                     </div>
                   );
                 })}
+                {boundaries.map((b) => {
+                  const key = b.between.join('>');
+                  const tr = b.transition;
+                  const look = tr ? (TRANSITIONS.find((t) => t.id === tr.component)?.name ?? tr.component.split(':')[1]) : null;
+                  return (
+                    <button
+                      key={`tr-${key}`}
+                      type="button"
+                      className="ed-tl-tr"
+                      data-on={tr ? true : undefined}
+                      data-open={trOpen?.key === key || undefined}
+                      style={{ left: x(b.at + (tr ? tr.duration / 2 : 0)) }}
+                      aria-label={tr ? `Transition: ${look}, ${tr.duration} s. Change it` : `Add a transition at ${mmss(b.at)}`}
+                      title={tr ? `${look} · ${tr.duration} s` : 'Add a transition here'}
+                      aria-haspopup="dialog"
+                      aria-expanded={trOpen?.key === key}
+                      onClick={(e) => setTrOpen(trOpen?.key === key ? null : { key, el: e.currentTarget })}
+                    >
+                      {!tr && <Glyph name="plus" size={8} />}
+                    </button>
+                  );
+                })}
                 {cuts.map((c) => (
                   <button
                     key={`cut-${c.sceneId}-${c.after}`}
@@ -747,6 +775,29 @@ export function EditTimeline({
           </div>
         </div>
       </div>
+      {(() => {
+        const b = trOpen ? boundaries.find((x) => x.between.join('>') === trOpen.key) : undefined;
+        return (
+          <FloatPopover
+            anchor={b ? trOpen!.el : null}
+            open={!!b}
+            onClose={() => setTrOpen(null)}
+            label="Transition"
+            minWidth={280}
+          >
+            {b && (
+              <TransitionForm
+                key={trOpen!.key}
+                value={b.transition}
+                onApply={(v) => {
+                  setTrOpen(null);
+                  onTransition?.(b.between, v);
+                }}
+              />
+            )}
+          </FloatPopover>
+        );
+      })()}
       <FloatPopover
         anchor={gap?.el ?? null}
         open={!!gap}
@@ -801,5 +852,85 @@ export function EditTimeline({
         )}
       </FloatPopover>
     </section>
+  );
+}
+
+/** The transitions between scenes, in plain names, with their usual length. */
+const TRANSITIONS = [
+  { id: 'core:Crossfade', name: 'Crossfade', hint: 'One scene fades into the next', duration: 0.6 },
+  { id: 'core:Push', name: 'Push', hint: 'The next scene slides the last one away', duration: 0.7 },
+  { id: 'core:ZoomThrough', name: 'Zoom through', hint: 'Zooms into the next scene', duration: 0.8 },
+  { id: 'core:FreezeMorph', name: 'Freeze morph', hint: 'The last frame freezes and turns into the next', duration: 1 },
+] as const;
+
+/** A transition's look and length, with Apply and Remove. */
+function TransitionForm({
+  value,
+  onApply,
+}: {
+  value: { component: string; duration: number } | null;
+  onApply: (v: { component: string; duration: number } | null) => void;
+}) {
+  const [component, setComponent] = useState(value?.component ?? 'core:Crossfade');
+  const [length, setLength] = useState(String(value?.duration ?? 0.6));
+  const n = Number(length);
+  const ok = Number.isFinite(n) && n >= 0.2 && n <= 3;
+  return (
+    <form
+      className="ed-trform"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (ok) onApply({ component, duration: Math.round(n * 10) / 10 });
+      }}
+    >
+      <fieldset className="ed-trlooks">
+        <legend className="k-menu-label">{value ? 'Transition' : 'Add a transition'}</legend>
+        {TRANSITIONS.map((t) => (
+          <label key={t.id} className="k-menu-item ed-trlook">
+            <input
+              type="radio"
+              name="ed-tr-look"
+              value={t.id}
+              checked={component === t.id}
+              onChange={() => {
+                setComponent(t.id);
+                if (!value) setLength(String(t.duration));
+              }}
+            />
+            <span>
+              {t.name}
+              <small>{t.hint}</small>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <div className="ed-row ed-trlen">
+        <label className="ed-lbl" htmlFor="ed-tr-len">
+          Length
+        </label>
+        <input
+          id="ed-tr-len"
+          className="ed-input ed-pc-num"
+          type="number"
+          min={0.2}
+          max={3}
+          step={0.1}
+          value={length}
+          aria-invalid={!ok || undefined}
+          onChange={(e) => setLength(e.target.value)}
+        />
+        <span className="ed-muted ed-s13">seconds</span>
+      </div>
+      <div className="ed-row ed-row-end">
+        {value && (
+          <Button type="button" size="sm" variant="quiet" onClick={() => onApply(null)}>
+            Remove
+          </Button>
+        )}
+        <Button type="submit" size="sm" variant="brand" disabled={!ok}>
+          {value ? 'Apply' : 'Add'}
+        </Button>
+      </div>
+    </form>
   );
 }

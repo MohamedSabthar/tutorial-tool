@@ -682,6 +682,33 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Transitions between scenes
+  // ---------------------------------------------------------------------------
+  const boundaries =
+    timeline && resolved
+      ? timeline.scenes.slice(1).flatMap((sc, i) => {
+          const prev = timeline.scenes[i]!;
+          const span = resolved.tm.scenes.find((x) => x.sceneId === sc.id);
+          const tr = timeline.transitions.find((x) => x.between[0] === prev.id && x.between[1] === sc.id);
+          return span
+            ? [{ between: [prev.id, sc.id] as [string, string], at: span.start, transition: tr ? { component: tr.component, duration: tr.duration } : null }]
+            : [];
+        })
+      : [];
+  /** The same patch as the old Studio's transition control: the whole list, one undo step. */
+  function setTransition(between: [string, string], value: { component: string; duration: number } | null) {
+    if (!timeline) return;
+    const rest = timeline.transitions.filter((x) => !(x.between[0] === between[0] && x.between[1] === between[1]));
+    const had = rest.length !== timeline.transitions.length;
+    const next = value ? [...rest, { id: `tr-${between[0]}-${between[1]}`, between, component: value.component, duration: value.duration }] : rest;
+    void attempt(
+      () => be.patch([{ op: 'replace', path: '/transitions', value: next }], value ? 'Set transition' : 'Remove transition'),
+      value ? (had ? 'Changed the transition.' : 'Added a transition.') : 'Removed the transition.',
+      true,
+    );
+  }
+
   const cutSpan = cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
   const cutLen = cutSpan ? Math.round((cutSpan.b - cutSpan.a) * 10) / 10 : 0;
   function startCut() {
@@ -1479,6 +1506,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                 void pieceEdit(sceneId, index, { op: 'duration', duration: len }, `The freeze now holds for ${len} s.`)
               }
               scenes={sceneLooks}
+              boundaries={boundaries}
+              onTransition={setTransition}
               onInsertExplainer={insertExplainer}
               onAskExplainer={askExplainer}
               range={cut}
