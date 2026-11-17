@@ -38,9 +38,9 @@ Never start or approve a real pipeline, recording, agent session, export, voice-
 - `product.signIn`, `recorder.*`
 - `series.plan`, `explainers.start`
 
-Also never use `security` or the macOS Keychain.
+Also never use `security` or the macOS Keychain. Don't open Settings (or anything calling `agent.signInStatus` / `tts.status`) against the real engine in automated screenshots: Settings runs the Claude sign-in check on open, which reads Claude Code's login. Stub those calls (see the Settings agent's `xsnap.mjs` in the scratchpad).
 
-Read-only calls are fine, and so are timeline patches on the `test` project. For states you can't reach safely (a run in progress, a check waiting, the agent working), add a dev-only preview: a fixture that renders the component with sample data when `import.meta.env.DEV` and a `?preview=<state>` hash parameter are set.
+**Never change or delete anything in the existing workspace** (`workspace/`: projects, series, skills, overlays, scenes, settings, products, pronunciations), so every existing project keeps working. Only read-only RPC calls; no writing calls of any kind (no `timeline.patch`/`undo`/`redo`, `project.*` writes, `brief.save`, `series.*` writes, `vo.*`, `settings.update`, `products.save`, `pronunciations.save`, `runs.*`, `capture.*`). For states you can't reach safely (a run in progress, a check waiting, the agent working), add a dev-only preview: a fixture that renders the component with sample data when `import.meta.env.DEV` and a `?preview=<state>` hash parameter are set.
 
 ## How to run and look at it
 

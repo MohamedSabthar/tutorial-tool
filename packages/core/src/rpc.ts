@@ -416,6 +416,11 @@ export const rpcMethods = {
     params: z.object({ slug: z.string(), part: z.string() }),
     result: z.array(PartStatus),
   },
+  /** Adds an existing tutorial (not yet in a series) as the series' last part. */
+  'series.addProject': {
+    params: z.object({ slug: z.string(), project: z.string() }),
+    result: Series,
+  },
   /** Creates a draft tutorial for every part without one, with the shared brief and the part's goal. */
   'series.approve': { params: z.object({ slug: z.string() }), result: Series },
   /** Removes the series; its parts' projects stay, as standalone tutorials. */
@@ -547,6 +552,8 @@ export const rpcMethods = {
     params: z.object({ hash: z.string().regex(/^[0-9a-f]{4,40}$/) }),
     result: z.object({ hash: z.string(), subject: z.string(), date: z.string(), diff: z.string() }),
   },
+  /** Opens the workspace folder in Finder. */
+  'workspace.reveal': { params: z.object({}), result: z.object({ ok: z.boolean() }) },
   'workspace.openInEditor': {
     params: z.object({ path: z.string() }),
     result: z.object({ opened: z.boolean() }),

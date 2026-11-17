@@ -1,0 +1,335 @@
+/* Export screen (Phase 13). Prefix: xp-. Colours come from the kit-v2 tokens. */
+
+.xp {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+.xp-title {
+  margin: 0;
+  font-family: var(--ui-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ui-fg);
+  overflow-wrap: anywhere;
+}
+.xp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .xp-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.xp-muted {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+.xp-pad {
+  padding: 0 6px 6px;
+}
+.xp-h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ui-fg);
+}
+
+/* Left: the frame being rendered, summary, progress, finished files. */
+.xp-stage {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.xp-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.xp-frame {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-f06);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.xp-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.xp-frame-empty {
+  font-size: 13px;
+  color: var(--ui-faint);
+  padding: 16px;
+  text-align: center;
+}
+.xp-caption {
+  font-size: 12px;
+  color: var(--ui-muted);
+  padding: 0 4px;
+}
+.xp-pills {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.xp-run {
+  padding: 4px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.xp-run-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.xp-pct {
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ui-fg);
+}
+.xp-phase {
+  font-size: 14px;
+  color: var(--ui-muted);
+}
+.xp-done {
+  padding: 4px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.xp-done-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.xp-done-head .ui-mono {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.xp-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.xp-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: var(--ui-radius-md);
+}
+.xp-file:hover {
+  background: var(--ui-f04);
+}
+.xp-file-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.xp-file-name {
+  font-size: 13px;
+  color: var(--ui-fg);
+  overflow-wrap: anywhere;
+}
+.xp-notes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ui-muted);
+}
+.xp-error {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-negative-15);
+  color: var(--ui-negative);
+}
+.xp-error > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.xp-error p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-fg);
+}
+.xp-raw {
+  margin: 6px 0 0;
+  font-family: var(--ui-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ui-muted);
+}
+
+/* Right: what you get, quality, folder, Export, details. */
+.xp-side {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.xp-outputs {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.xp-opt {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: var(--ui-radius-md);
+  cursor: pointer;
+}
+.xp-opt:hover {
+  background: var(--ui-f04);
+}
+.xp-opt[data-disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
+.xp-opt input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ui-brand);
+  flex: none;
+  margin: 0;
+}
+.xp-opt-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.xp-opt-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-fg);
+}
+.xp-field {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.xp-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-muted);
+}
+.xp-where {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-f04);
+  color: var(--ui-muted);
+}
+.xp-where > svg {
+  flex: none;
+}
+.xp-where-path {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ui-fg);
+  overflow-wrap: anywhere;
+}
+.xp-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ui-warning);
+}
+.xp-go {
+  padding: 6px 10px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.xp-go-btn {
+  width: 100%;
+  justify-content: center;
+}
+.xp-why {
+  font-size: 12px;
+  color: var(--ui-negative);
+}
+.xp-details {
+  padding: 4px 10px 8px;
+}
+.xp-error .xp-details {
+  padding: 4px 0 0;
+}
+.xp-details > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ui-muted);
+  padding: 4px 0;
+  width: fit-content;
+}
+.xp-error .xp-details > summary {
+  font-size: 12px;
+}
+.xp-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+.xp-details-body .xp-field {
+  padding: 0;
+}
+.xp-specs {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.xp-specs dt {
+  color: var(--ui-muted);
+}
+.xp-specs dd {
+  margin: 0;
+  font-family: var(--ui-mono);
+  color: var(--ui-fg);
+  overflow-wrap: anywhere;
+}

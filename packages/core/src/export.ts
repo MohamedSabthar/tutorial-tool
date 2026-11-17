@@ -69,5 +69,9 @@ export const ExportPlan = z.object({
   hasScript: z.boolean(),
   /** A cancelled export of the same timeline and settings that can be resumed (frames done). */
   resumable: z.number(),
+  /** The absolute folder the export writes into (the project's `output/`). */
+  folder: z.string().default(''),
+  /** Files already in that folder (relative to the project), which an export replaces. */
+  previous: z.array(z.string()).default([]),
 });
 export type ExportPlan = z.infer<typeof ExportPlan>;

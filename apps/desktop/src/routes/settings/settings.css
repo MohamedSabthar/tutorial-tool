@@ -1,0 +1,310 @@
+/* Settings screen and the Get started checklist (Phase 13). Prefix: st-. Kit-v2 tokens only. */
+
+.st {
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+.st-title {
+  margin: 0 0 4px;
+  font-family: var(--ui-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ui-fg);
+}
+.st-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.st-muted {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ui-muted);
+}
+.st-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-fg);
+}
+.st-grow {
+  flex: 1;
+}
+.st-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.st-block + .st-block {
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-f08);
+}
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.st-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.st-inline > .ui-input,
+.st-inline > .ui-field {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.st-ok,
+.st-saved,
+.st-error {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.st-ok,
+.st-saved {
+  color: var(--ui-positive);
+}
+.st-error {
+  color: var(--ui-negative);
+}
+.st-money > .ui-input {
+  flex: 0 1 140px;
+}
+.st-money > span[aria-hidden] {
+  font-size: 14px;
+  color: var(--ui-muted);
+}
+.st-money .ui-input[aria-invalid='true'] {
+  border-color: var(--ui-negative);
+  box-shadow: 0 0 0 1px var(--ui-negative);
+}
+.st-switch .ui-switch {
+  align-items: flex-start;
+  gap: 16px;
+}
+.st-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.st-sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+/* Get started */
+.st-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.st-check {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--ui-f08);
+}
+.st-check:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.st-check:last-child {
+  padding-bottom: 0;
+}
+.st-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--ui-radius-pill);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--ui-f08);
+  color: var(--ui-muted);
+}
+.st-mark[data-state='ok'] {
+  background: var(--ui-positive-15);
+  color: var(--ui-positive);
+}
+.st-mark[data-state='todo'] {
+  background: var(--ui-warning-15);
+  color: var(--ui-warning);
+}
+.st-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.st-check-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-fg);
+}
+.st-check-text .st-muted {
+  overflow-wrap: anywhere;
+}
+.st-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  margin-top: 2px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-f04);
+}
+.st-code code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ui-mono);
+  font-size: 12px;
+  color: var(--ui-fg);
+  overflow-wrap: anywhere;
+}
+.st-allset > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ui-muted);
+  width: fit-content;
+}
+.st-allset[open] > summary {
+  margin-bottom: 12px;
+}
+.st-more {
+  font-size: 13px;
+  color: var(--ui-brand);
+}
+
+/* Voice */
+.st-prons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.st-pron {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-muted);
+}
+
+/* What the agent learned */
+.st-lessons {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ui-fg);
+}
+
+/* Advanced */
+.st-advanced {
+  border-radius: var(--ui-radius-xl);
+  background: var(--ui-surface);
+  padding: 6px;
+}
+.st-advanced > summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-lg);
+  list-style: none;
+}
+.st-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.st-advanced > summary::before {
+  content: '▸';
+  color: var(--ui-muted);
+}
+.st-advanced[open] > summary::before {
+  content: '▾';
+}
+.st-advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 0;
+}
+.st-advanced-body .k-shell {
+  background: var(--ui-f04);
+}
+.st-path {
+  font-family: var(--ui-mono);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-f04);
+  color: var(--ui-fg);
+  overflow-wrap: anywhere;
+}
+.st-products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.st-product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.st-product-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.st-product-text .st-muted {
+  font-family: var(--ui-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.st-product-edit {
+  border: 0;
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-f04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.st-product-edit legend {
+  float: left;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-fg);
+}

@@ -20,7 +20,7 @@ describe('settings', () => {
     expect(await store.readSettings()).toEqual({
       defaultVoice: null,
       autoMode: true,
-      maxCostPerRun: null,
+      maxCostPerRun: 5,
       agentModel: 'balanced',
       customModels: { deep: 'claude-opus-5-5', writing: 'claude-sonnet-5-5' },
       maxRepairs: 1,
@@ -31,6 +31,9 @@ describe('settings', () => {
     const { slug } = await store.create({ title: 'A', product: 'wso2-integrator' });
     expect(await store.readBrief(slug)).toMatchObject({ voice: 'v1', autoMode: false });
     expect((await store.readSettings()).maxCostPerRun).toBe(2.5);
+    // No limit is a choice that's kept (only an unset limit gets the $5 default).
+    await store.updateSettings({ maxCostPerRun: null });
+    expect((await store.readSettings()).maxCostPerRun).toBeNull();
   });
 
   it('saves products.json, keeping fields the editor does not know, and validates', async () => {
