@@ -3,6 +3,11 @@ import {
   buildTimeMap,
   editPiece as editPieceOn,
   editRange as editRangeOn,
+  insertExplainerScene,
+  outputRemapper,
+  remapOutputItems,
+  removeExplainerScene,
+  segmentDuration,
   voiceSpans,
   applyPatch,
   type PieceEdit,
@@ -18,6 +23,13 @@ export interface HistoryItem {
   at: number;
 }
 export type RangeEdit = { op: 'speed'; rate: number } | { op: 'remove' } | { op: 'auto' };
+/** What a timing fit did, in numbers the screen can put into words. */
+export interface FitReport {
+  before: number;
+  after: number;
+  holds: number;
+  spedUp: number;
+}
 
 /**
  * Every change the new Studio makes goes through here, so a dev preview can run the same
@@ -44,6 +56,15 @@ export interface EditBackend {
   revoice: (id: string, text: string) => Promise<void>;
   /** Saves a step's script and voices it. */
   voiceStep: (stepId: string, text: string) => Promise<void>;
+  /** Inserts an explainer scene at output time `at` (freeze morphs in and out next to the recording). */
+  insertScene: (at: number, component: string) => Promise<void>;
+  removeScene: (sceneId: string) => Promise<void>;
+  /** Rebuilds the automatic overlays (pointer, clicks, zooms); overlays added by hand stay. */
+  autoOverlays: () => Promise<{ count: number }>;
+  /** Freezes where the voice runs longer than the action, speeds up what runs on. */
+  fitTiming: () => Promise<FitReport>;
+  /** Moves a project overlay into the shared library. */
+  promote: (id: string) => Promise<void>;
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -144,7 +165,62 @@ export function useEngineBackend(slug: string, enabled: boolean): EditBackend {
         await tl.patch([{ op: 'replace', path: `/steps/${i}/narration`, value: text }], { label: 'Edit script' });
         await client!.call('vo.generate', { slug, stepIds: [stepId] });
       }),
+    insertScene: (at, component) =>
+      track('Insert explainer', () => client!.call('scenes.insert', { slug, at: Math.round(at * 100) / 100, component })),
+    removeScene: (sceneId) => track('Remove explainer', () => client!.call('scenes.remove', { slug, sceneId })),
+    autoOverlays: async () => {
+      let count = 0;
+      await track('Automatic overlays', async () => {
+        count = (await client!.call('overlays.auto', { slug })).count;
+      });
+      return { count };
+    },
+    fitTiming: async () => {
+      let report: FitReport = { before: 0, after: 0, holds: 0, spedUp: 0 };
+      await track('Fit timing', async () => {
+        const r = await client!.call('timing.fit', { slug });
+        report = {
+          before: r.before,
+          after: r.after,
+          holds: r.steps.filter((x) => x.hold > 0).length,
+          spedUp: r.steps.filter((x) => x.saved > 0.5).length,
+        };
+      });
+      return report;
+    },
+    promote: (id) => track(null, () => client!.call('library.promote', { slug, id })),
   };
+}
+
+/** The engine's scenes.insert on a timeline: the scene, freeze morphs next to the recording, later items moved. */
+function insertWithMorphs(t: Timeline, at: number, component: string): Timeline {
+  const { timeline: next, sceneId } = insertExplainerScene(t, at, {
+    kind: 'explainer',
+    component,
+    props: {},
+    narration: [],
+    beats: [],
+    duration: 'auto',
+    estimatedDuration: 6,
+  });
+  const i = next.scenes.findIndex((s) => s.id === sceneId);
+  const before = next.scenes[i - 1];
+  const after = next.scenes[i + 1];
+  const morph = (a: string, b: string) => ({
+    id: `tr-${a}-${b}`,
+    between: [a, b] as [string, string],
+    component: 'core:FreezeMorph',
+    duration: 1,
+  });
+  const withTransitions = {
+    ...next,
+    transitions: [
+      ...next.transitions,
+      ...(before?.kind === 'recording' ? [morph(before.id, sceneId)] : []),
+      ...(after?.kind === 'recording' ? [morph(sceneId, after.id)] : []),
+    ],
+  };
+  return remapOutputItems(withTransitions, outputRemapper(next, withTransitions));
 }
 
 /**
@@ -244,5 +320,27 @@ export function useMockBackend(slug: string, enabled: boolean, seed?: (t: Timeli
       change('Edit voice line', (t) => ({ ...t, voice: t.voice.map((v) => (v.id === id ? { ...v, text, manual: true } : v)) })),
     voiceStep: (stepId, text) =>
       change('Edit script', (t) => ({ ...t, steps: t.steps.map((s) => (s.id === stepId ? { ...s, narration: text } : s)) })),
+    insertScene: (at, component) => change('Insert explainer', (t) => insertWithMorphs(t, at, component)),
+    removeScene: (sceneId) => change('Remove explainer', (t) => removeExplainerScene(t, sceneId)),
+    // The preview can't read the recording's clicks or re-time it: it reports what's there and changes nothing.
+    autoOverlays: async () => {
+      await new Promise((r) => setTimeout(r, 400));
+      return { count: ref.current.timeline?.overlays.filter((o) => o.author === 'auto').length ?? 0 };
+    },
+    fitTiming: async () => {
+      await new Promise((r) => setTimeout(r, 400));
+      const t = ref.current.timeline;
+      const len = t ? buildTimeMap(t).duration : 0;
+      const segs = t?.scenes.flatMap((s) => (s.kind === 'recording' ? s.segments : [])) ?? [];
+      return {
+        before: len,
+        after: len,
+        holds: segs.filter((g) => g.kind === 'hold' && segmentDuration(g) > 0).length,
+        spedUp: segs.filter((g) => g.kind === 'speed').length,
+      };
+    },
+    promote: async () => {
+      await new Promise((r) => setTimeout(r, 400));
+    },
   };
 }

@@ -1,7 +1,7 @@
 import { Glyph, IconTile, Kbd, Sheet, type GlyphName } from '@studio/ui';
 import { mmss } from './model';
 
-export type FixKind = 'say' | 'arrow' | 'label' | 'blur' | 'pace' | 'note' | 'ask';
+export type FixKind = 'say' | 'arrow' | 'label' | 'blur' | 'pace' | 'hold' | 'cut' | 'note' | 'ask';
 
 const OPTIONS: { k: FixKind; icon: GlyphName; title: string; d: string }[] = [
   { k: 'say', icon: 'mic', title: "Change what's said", d: 'Edit the words, then re-voice' },
@@ -9,6 +9,8 @@ const OPTIONS: { k: FixKind; icon: GlyphName; title: string; d: string }[] = [
   { k: 'label', icon: 'label', title: 'Add a label', d: 'A short line of text on screen' },
   { k: 'blur', icon: 'hide', title: 'Hide something', d: 'Blur a key, email or name' },
   { k: 'pace', icon: 'gauge', title: 'Too slow or not needed', d: 'Speed up or skip this step' },
+  { k: 'hold', icon: 'pause', title: 'Hold this frame', d: 'Freeze the picture here for 2 s' },
+  { k: 'cut', icon: 'trash', title: 'Cut a part out', d: 'From here to where you click on the timeline' },
   { k: 'note', icon: 'pin', title: 'Mark it for the agent', d: 'Click the spot, then describe it' },
 ];
 

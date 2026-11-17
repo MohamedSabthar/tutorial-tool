@@ -1229,3 +1229,67 @@
 .ed-tl-track:has(.ed-tl-cap-edit) {
   z-index: 7;
 }
+
+/* Selected piece of the recording. */
+.ed-tlb-rec[data-sel] {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: -1px;
+}
+
+/* Cut a part out: the marked part across all tracks, and the bar to confirm it. */
+.ed-tl-range {
+  position: absolute;
+  top: 18px;
+  bottom: 0;
+  background: var(--ui-negative-15);
+  box-shadow:
+    inset 2px 0 0 var(--ui-negative),
+    inset -2px 0 0 var(--ui-negative);
+  pointer-events: none;
+  z-index: 4;
+}
+.ed-tl-range-from {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ui-negative);
+  pointer-events: none;
+  z-index: 4;
+}
+.ed-tl-rangelayer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: crosshair;
+  touch-action: none;
+}
+.ed-cutbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-negative-15);
+  color: var(--ui-fg);
+}
+.ed-cutbar > svg {
+  color: var(--ui-negative);
+  flex: none;
+}
+
+/* Piece panel */
+.ed-pc-d {
+  margin: 0;
+  line-height: 1.5;
+}
+.ed-pc-num {
+  width: 76px;
+  height: 32px;
+}
+/* A freeze is narrow: it and the selected block sit above their neighbours' edge handles. */
+.ed-tlb-rec[data-kind='hold'],
+.ed-tlb-rec[data-sel] {
+  z-index: 3;
+}

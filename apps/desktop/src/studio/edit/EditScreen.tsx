@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import {
   cutGaps,
+  editPiece as editPieceOn,
   sfxCues,
   voiceSpans,
   type OverlayInstance,
+  type PieceEdit,
   type Rect,
   type Run,
   type TimelinePatch,
@@ -40,7 +42,8 @@ import { SfxPlayer } from '../SfxPlayer';
 import { useEngineBackend, useMockBackend, type EditBackend } from './backend';
 import { StepsRail } from './StepsRail';
 import { StepPanel, type AddKind } from './StepPanel';
-import { EditTimeline, EXTRA_TRACKS, type ExtraTrack, type Selection, type TimelineStep } from './EditTimeline';
+import { EditTimeline, EXTRA_TRACKS, pieceKey, type ExtraTrack, type Selection, type TimelineStep } from './EditTimeline';
+import { PiecePanel } from './PiecePanel';
 import { FixSheet, type FixKind } from './FixSheet';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
@@ -169,6 +172,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const [notes, setNotes] = useState<string[]>([]);
   const [ask, setAsk] = useState('');
   const [dragRect, setDragRect] = useState<Rect | null>(null);
+  // "Cut a part out": starts at the playhead, the end is set on the timeline.
+  const [cut, setCut] = useState<{ from: number; to: number | null } | null>(null);
+  const [pieceBusy, setPieceBusy] = useState(false);
   const [full, setFull] = useFullscreen();
   const composer = useRef<HTMLTextAreaElement>(null);
 
@@ -397,6 +403,103 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   }
 
   // ---------------------------------------------------------------------------
+  // Pieces of the recording: speed, freezes, cuts
+  // ---------------------------------------------------------------------------
+  const selectedPiece = (() => {
+    if (selection?.kind !== 'piece' || !timeline || !resolved) return null;
+    const cut = selection.id.lastIndexOf(':');
+    const sceneId = selection.id.slice(0, cut);
+    const i = Number(selection.id.slice(cut + 1));
+    const scene = timeline.scenes.find((sc) => sc.id === sceneId);
+    const span = resolved.tm.segments.find((g) => g.sceneId === sceneId && g.index === i);
+    const segment = scene?.kind === 'recording' ? scene.segments[i] : undefined;
+    return segment && span ? { sceneId, index: i, segment, start: span.start, end: span.end } : null;
+  })();
+  const playheadInPiece = usePlayerValue(
+    controls,
+    (s) => !!selectedPiece && s.t >= selectedPiece.start - 1e-6 && s.t < selectedPiece.end,
+  );
+  const PIECE_DONE: Record<PieceEdit['op'], string> = {
+    speed: 'Changed the speed.',
+    remove: 'Removed that part of the recording.',
+    freeze: 'Froze the frame.',
+    duration: 'Changed how long the freeze holds.',
+    auto: 'Back to automatic timing.',
+    restoreCut: 'Put back the recording.',
+    trim: 'Trimmed the recording.',
+  };
+  async function pieceEdit(sceneId: string, index: number, edit: PieceEdit, done = PIECE_DONE[edit.op]) {
+    setPieceBusy(true);
+    try {
+      await be.editPiece(sceneId, index, edit);
+      if (edit.op === 'remove' || (edit.op === 'auto' && selectedPiece?.segment.kind === 'hold')) setSelection(null);
+      toast(done, { undo: () => void be.undo() });
+    } catch (e) {
+      toast(errText(e), { tone: 'error' });
+    } finally {
+      setPieceBusy(false);
+    }
+  }
+  /** Freezes the frame at output time `t` for `len` seconds, then selects the freeze. */
+  async function freezeAt(t: number, len: number) {
+    if (!timeline || !resolved) return;
+    controls.pause();
+    const g = resolved.tm.segments.find((x) => t >= x.start - 1e-6 && t < x.end);
+    if (!g) {
+      toast('There is no recording here to freeze.');
+      return;
+    }
+    if (g.segment.kind === 'hold') {
+      setSelection({ kind: 'piece', id: pieceKey(g.sceneId, g.index) });
+      toast('This frame is already frozen. Change how long it holds on the right.');
+      return;
+    }
+    const seg = g.segment;
+    const pos = resolved.tm.toSource(t);
+    const take = pos && pos.kind === 'recording' && pos.sceneId === g.sceneId ? pos.takeTime : resolved.sourceTime(t);
+    const at = Math.round(Math.min(Math.max(take, seg.from), seg.to) * 1000) / 1000;
+    const edit: PieceEdit = { op: 'freeze', at, duration: len };
+    const scene = timeline.scenes.find((sc) => sc.id === g.sceneId);
+    let holdIndex = g.index;
+    if (scene?.kind === 'recording') {
+      try {
+        const after = editPieceOn(scene.segments, g.index, edit);
+        holdIndex = [g.index, g.index + 1].find((i) => after[i]?.kind === 'hold' && after[i]?.manual) ?? g.index;
+      } catch (e) {
+        toast(errText(e), { tone: 'error' });
+        return;
+      }
+    }
+    setPieceBusy(true);
+    try {
+      await be.editPiece(g.sceneId, g.index, edit);
+      setSelection({ kind: 'piece', id: pieceKey(g.sceneId, holdIndex) });
+      toast(`Froze the frame at ${mmss(t)} for ${len} s.`, { undo: () => void be.undo() });
+    } catch (e) {
+      toast(errText(e), { tone: 'error' });
+    } finally {
+      setPieceBusy(false);
+    }
+  }
+  const cutSpan = cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
+  const cutLen = cutSpan ? Math.round((cutSpan.b - cutSpan.a) * 10) / 10 : 0;
+  function startCut() {
+    controls.pause();
+    setSelection(null);
+    setCut({ from: r2(now()), to: null });
+  }
+  function doCut() {
+    if (!cutSpan || cutLen < 0.1) return;
+    const { a, b } = cutSpan;
+    setCut(null);
+    void attempt(
+      () => be.editRange(r2(a), r2(b), { op: 'remove' }, `Cut ${mmss(a)}–${mmss(b)}`),
+      `Cut ${mmss(a)}–${mmss(b)} out of the video.`,
+      true,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // What's said
   // ---------------------------------------------------------------------------
   const draft = (key: string, text: string | null) =>
@@ -518,6 +621,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     else if (k === 'label') addLabel();
     else if (k === 'pace') focus('#ed-pace [aria-pressed="true"]');
     else if (k === 'note') setPick('note');
+    else if (k === 'hold') void freezeAt(now(), 2);
+    else if (k === 'cut') startCut();
     else focus('#ed-ask');
   }
 
@@ -549,7 +654,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       else if (e.key === 'ArrowRight' && !el.closest('[role="slider"]')) controls.seek(now() + 1 / 30);
       else if ((e.key === 'Backspace' || e.key === 'Delete') && selectedOverlay) removeOverlay(selectedOverlay);
       else if (e.key === 'Escape') {
-        if (pick) setPick(null);
+        if (cut) setCut(null);
+        else if (pick) setPick(null);
         else if (full) setFull(false);
         else setSelection(null);
       }
@@ -921,6 +1027,36 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               </Button>
             </div>
 
+            {cut && (
+              <div className="ed-cutbar" role="group" aria-label="Cut a part out">
+                <Glyph name="trash" size={14} />
+                <span className="ed-grow ed-s13" role="status" aria-live="polite">
+                  {cutSpan ? (
+                    <>
+                      Cut{' '}
+                      <b className="ed-tab">
+                        {mmss(cutSpan.a)}–{mmss(cutSpan.b)}
+                      </b>{' '}
+                      ({cutLen} s)
+                    </>
+                  ) : (
+                    <>
+                      Cut from <b className="ed-tab">{mmss(cut.from)}</b>. Click or drag on the timeline to set where it ends.
+                    </>
+                  )}
+                </span>
+                <Button size="sm" variant="quiet" onClick={() => setCut({ ...cut, to: r2(now()) })} title="Use the playhead as the end">
+                  End at the playhead
+                </Button>
+                <Button size="sm" onClick={() => setCut(null)}>
+                  Cancel
+                </Button>
+                <Button size="sm" variant="danger" disabled={!cutSpan || cutLen < 0.1} onClick={doCut}>
+                  Cut
+                </Button>
+              </div>
+            )}
+
             <EditTimeline
               player={controls}
               duration={duration}
@@ -941,6 +1077,14 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               zooms={zooms}
               captions={timeline?.captions ?? []}
               notes={(timeline?.annotations ?? []).map((a) => ({ id: a.id, t: a.t, text: a.comment, done: a.status === 'resolved' }))}
+              onFreezeLength={(sceneId, index, len) =>
+                void pieceEdit(sceneId, index, { op: 'duration', duration: len }, `The freeze now holds for ${len} s.`)
+              }
+              range={cut}
+              onRangeEnd={(t) => {
+                setCut((c) => (c ? { ...c, to: r2(t) } : c));
+                controls.seek(t);
+              }}
               onTrimPiece={(sceneId, index, edge) =>
                 void attempt(() => be.editPiece(sceneId, index, { op: 'trim', ...edge }), 'Trimmed the recording.', true)
               }
@@ -990,7 +1134,19 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
             />
           </section>
 
-          {step && span ? (
+          {selectedPiece ? (
+            <PiecePanel
+              key={selection?.id}
+              segment={selectedPiece.segment}
+              start={selectedPiece.start}
+              end={selectedPiece.end}
+              busy={pieceBusy}
+              playheadInside={playheadInPiece}
+              onEdit={(edit) => void pieceEdit(selectedPiece.sceneId, selectedPiece.index, edit)}
+              onFreeze={(len) => void freezeAt(now(), len)}
+              onClose={() => setSelection(null)}
+            />
+          ) : step && span ? (
             <StepPanel
               timeline={timeline}
               step={step}

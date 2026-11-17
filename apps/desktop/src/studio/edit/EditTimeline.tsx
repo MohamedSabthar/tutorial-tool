@@ -4,7 +4,9 @@ import { Button, Glyph, MenuLabel, MenuSeparator, Popover, type GlyphName } from
 import { Timed, type Player } from '@studio/stage';
 import { mmss, overlayName, overlayText, type Pace } from './model';
 
-export type Selection = { kind: 'step' | 'line' | 'overlay'; id: string } | null;
+/** What's selected: a piece is `<sceneId>:<index>`, an explainer its scene id. */
+export type Selection = { kind: 'step' | 'line' | 'overlay' | 'piece' | 'explainer'; id: string } | null;
+export const pieceKey = (sceneId: string, index: number) => `${sceneId}:${index}`;
 
 export interface TimelineStep {
   id: string;
@@ -41,6 +43,8 @@ type Drag = {
 };
 
 const MIN_OVERLAY = 0.3;
+const MIN_FREEZE = 0.1;
+const MAX_FREEZE = 60;
 
 /** Greedy packing into at most two rows, so an overlay track stays one row tall. */
 function pack(items: OverlayInstance[]): Map<string, number> {
@@ -93,6 +97,9 @@ export function EditTimeline({
   onRestoreCut,
   onEditCaption,
   onNote,
+  onFreezeLength,
+  range = null,
+  onRangeEnd,
 }: {
   player: Player;
   duration: number;
@@ -123,6 +130,11 @@ export function EditTimeline({
   onRestoreCut?: (sceneId: string, after: number) => void;
   onEditCaption?: (index: number, text: string) => void;
   onNote?: (id: string) => void;
+  /** A freeze's right edge dragged: its new length in seconds. */
+  onFreezeLength?: (sceneId: string, index: number, seconds: number) => void;
+  /** A part being marked to cut: clicks and drags on the timeline set its end. */
+  range?: { from: number; to: number | null } | null;
+  onRangeEnd?: (t: number) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
@@ -131,6 +143,7 @@ export function EditTimeline({
   const [picker, setPicker] = useState(false);
   const [editing, setEditing] = useState<{ index: number; text: string } | null>(null);
   const seeking = useRef(false);
+  const ranging = useRef(false);
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
@@ -471,23 +484,32 @@ export function EditTimeline({
                   const { short, long } = pieceLabel(seg);
                   const rate = seg.kind === 'speed' ? seg.rate : 1;
                   const trimmable = seg.kind !== 'hold' && !!onTrimPiece;
+                  const hold = seg.kind === 'hold';
+                  const stretch = hold && !!onFreezeLength;
+                  const sel: Selection = { kind: 'piece', id };
                   return (
                     <div
                       key={id}
                       className="ed-tlb ed-tlb-rec"
                       data-kind={seg.kind}
                       data-hand={seg.manual || undefined}
+                      data-sel={isSel('piece', id) || undefined}
                       style={{ left, width: w }}
                       tabIndex={0}
                       role="button"
-                      aria-label={`${long}${seg.manual ? ', edited by hand' : ''}, ${mmss(p.start)} to ${mmss(p.end)}${trimmable ? '. Drag an edge to trim it' : ''}`}
+                      aria-label={`${long}${seg.manual ? ', edited by hand' : ''}, ${mmss(p.start)} to ${mmss(p.end)}. Press Enter to edit it${trimmable ? ', or drag an edge to trim it' : stretch ? ', or drag its right edge to change its length' : ''}`}
                       title={`${long}${seg.manual ? ' · edited by hand' : ''} · ${mmss(p.start)}–${mmss(p.end)}`}
                       onPointerDown={(e) => begin(e, { kind: 'piece', id, mode: 'move' })}
                       onPointerMove={move}
                       onPointerUp={() =>
                         end(
-                          () => player.seek(p.start + 0.01),
+                          () => onSelect(sel, p.start + 0.01),
                           (dt, mode) => {
+                            if (hold && mode === 'end' && stretch) {
+                              const len = Math.min(Math.max(seg.duration + dt, MIN_FREEZE), MAX_FREEZE);
+                              onFreezeLength!(p.sceneId, p.index, Math.round(len * 10) / 10);
+                              return;
+                            }
                             if (!trimmable || mode === 'move' || !('from' in seg)) return;
                             const take = (mode === 'start' ? seg.from : seg.to) + dt * rate;
                             const at = Math.max(0, Math.round(take * 1000) / 1000);
@@ -495,13 +517,15 @@ export function EditTimeline({
                           },
                         )
                       }
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), player.seek(p.start + 0.01))}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onSelect(sel, p.start + 0.01))}
                     >
                       {trimmable && <span className="ed-hd ed-hd-l" onPointerDown={(e) => begin(e, { kind: 'piece', id, mode: 'start' })} />}
                       <span className="ed-tlb-tx">
-                        {seg.kind === 'hold' && <Glyph name="pause" size={9} />} {short}
+                        {hold && <Glyph name="pause" size={9} />} {hold && de ? `Freeze ${Math.min(Math.max(seg.duration + de, MIN_FREEZE), MAX_FREEZE).toFixed(1)} s` : short}
                       </span>
-                      {trimmable && <span className="ed-hd ed-hd-r" onPointerDown={(e) => begin(e, { kind: 'piece', id, mode: 'end' })} />}
+                      {(trimmable || stretch) && (
+                        <span className="ed-hd ed-hd-r" onPointerDown={(e) => begin(e, { kind: 'piece', id, mode: 'end' })} />
+                      )}
                     </div>
                   );
                 })}
@@ -611,6 +635,36 @@ export function EditTimeline({
               </div>
             )}
 
+            {range && (
+              <>
+                {range.to !== null && (
+                  <div
+                    className="ed-tl-range"
+                    style={{ left: x(Math.min(range.from, range.to)), width: Math.max(x(Math.abs(range.to - range.from)), 2) }}
+                    aria-hidden="true"
+                  />
+                )}
+                <div className="ed-tl-range-from" style={{ left: x(range.from) }} aria-hidden="true" />
+                <div
+                  className="ed-tl-rangelayer"
+                  aria-hidden="true"
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.stopPropagation();
+                    ranging.current = true;
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    onRangeEnd?.(timeAt(e.clientX));
+                  }}
+                  onPointerMove={(e) => ranging.current && onRangeEnd?.(timeAt(e.clientX))}
+                  onPointerUp={() => {
+                    ranging.current = false;
+                  }}
+                  onPointerCancel={() => {
+                    ranging.current = false;
+                  }}
+                />
+              </>
+            )}
             <Timed player={player}>{(t) => <div className="ed-tl-ph" style={{ left: x(t) }} />}</Timed>
           </div>
         </div>
