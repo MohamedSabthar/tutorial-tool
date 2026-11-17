@@ -1506,3 +1506,7 @@
 .ed-ask .ed-row-end {
   margin-top: 8px;
 }
+.ed-fix .k-kbd {
+  align-self: center;
+  flex: none;
+}
