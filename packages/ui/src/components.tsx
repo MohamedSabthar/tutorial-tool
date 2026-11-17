@@ -184,7 +184,7 @@ export function Panel({
 // Buttons
 // ---------------------------------------------------------------------------
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'steel';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'steel' | 'brand' | 'silver' | 'quiet';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 export function Button({
