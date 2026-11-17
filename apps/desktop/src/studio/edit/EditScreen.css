@@ -1510,3 +1510,89 @@
   align-self: center;
   flex: none;
 }
+
+/* Speed-ups and freezes under the steps: a striped band with a small tag. The step blocks (and
+   their edge handles) keep the top of the track. */
+.ed-tl-track[data-tags],
+.ed-tl-labs span[data-tags] {
+  height: 42px;
+}
+.ed-tl-labs span[data-tags] {
+  align-items: flex-start;
+  padding-top: 7px;
+  box-sizing: border-box;
+}
+.ed-tl-pace {
+  position: absolute;
+  top: 27px;
+  height: 13px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+  box-sizing: border-box;
+  font: inherit;
+  font-family: var(--ui-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ui-fg);
+  background: repeating-linear-gradient(-45deg, var(--ui-f12) 0 3px, var(--ui-f04) 3px 6px);
+}
+.ed-tl-pace[data-kind='hold'] {
+  background: var(--ui-brand-15);
+  color: var(--ui-brand);
+}
+.ed-tl-pace[data-hand] {
+  box-shadow: inset 0 0 0 1px var(--ui-muted);
+}
+.ed-tl-pace[data-narrow] {
+  justify-content: center;
+  padding: 0;
+}
+.ed-tl-pace[data-narrow] span {
+  display: none;
+}
+.ed-tl-pace > svg {
+  flex: none;
+}
+.ed-tl-pace[data-sel] {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: 0;
+}
+.ed-tl-pace:focus-visible {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: 1px;
+}
+
+.ed-autopace {
+  margin: 0;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.ed-autopace > svg {
+  margin-top: 2px;
+  flex: none;
+  color: var(--ui-muted);
+}
+.ed-linkbtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ui-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ed-linkbtn:focus-visible {
+  outline: 2px solid var(--ui-brand);
+  border-radius: 3px;
+}

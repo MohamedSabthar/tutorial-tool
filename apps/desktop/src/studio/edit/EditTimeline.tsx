@@ -43,6 +43,7 @@ type Drag = {
 };
 
 const MIN_OVERLAY = 0.3;
+const r1 = (n: number) => Math.round(n * 10) / 10;
 const MIN_FREEZE = 0.1;
 const MAX_FREEZE = 60;
 
@@ -63,7 +64,7 @@ function pack(items: OverlayInstance[]): Map<string, number> {
 /** What a piece of the recording is called on its block. */
 function pieceLabel(seg: Segment): { short: string; long: string } {
   if (seg.kind === 'hold') return { short: `Freeze ${seg.duration.toFixed(1)} s`, long: `Freeze for ${seg.duration.toFixed(1)} s` };
-  if (seg.kind === 'speed') return { short: `${seg.rate}×`, long: `Plays at ${seg.rate}×` };
+  if (seg.kind === 'speed') return { short: `${r1(seg.rate)}×`, long: `Plays at ${r1(seg.rate)}×` };
   return { short: 'Recording', long: 'Recording at normal speed' };
 }
 
@@ -165,6 +166,8 @@ export function EditTimeline({
   const rows = useMemo(() => pack(overlays), [overlays]);
   const zoomRows = useMemo(() => pack(zooms), [zooms]);
   const rowCount = Math.max(0, ...rows.values()) + 1;
+  // Speed-ups and freezes (automatic or yours), tagged under the steps they're in.
+  const paceTags = pieces.filter((p) => p.segment.kind === 'speed' || (p.segment.kind === 'hold' && p.end - p.start > 0.05));
   const zoomRowCount = Math.max(0, ...zoomRows.values()) + 1;
 
   // Zoomed in, the view follows the playhead while it plays.
@@ -185,7 +188,7 @@ export function EditTimeline({
     return Math.min(Math.max((clientX - r.left + el.scrollLeft) / pps, 0), dur);
   };
   const seekDown = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.ed-tlb, .ed-tl-cut, .ed-tl-pin, .ed-tl-cap-edit')) return;
+    if ((e.target as HTMLElement).closest('.ed-tlb, .ed-tl-cut, .ed-tl-pin, .ed-tl-cap-edit, .ed-tl-pace')) return;
     seeking.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     player.seek(timeAt(e.clientX));
@@ -361,7 +364,7 @@ export function EditTimeline({
       <div className="ed-tl-grid">
         <div className="ed-tl-labs" aria-hidden="true">
           <span />
-          <span>Steps</span>
+          <span data-tags={paceTags.length > 0 || undefined}>Steps</span>
           <span>Voice-over</span>
           <span data-rows={rowCount}>On screen</span>
           {EXTRA_TRACKS.filter((t) => shown(t.key)).map((t) => (
@@ -387,7 +390,35 @@ export function EditTimeline({
                 </span>
               ))}
             </div>
-            <div className="ed-tl-track" role="group" aria-label="Steps">
+            <div className="ed-tl-track" role="group" aria-label="Steps" data-tags={paceTags.length > 0 || undefined}>
+              {paceTags.map((p) => {
+                const seg = p.segment;
+                const id = pieceKey(p.sceneId, p.index);
+                const w = Math.max(x(p.end - p.start) - 1, 14);
+                const who = seg.manual ? 'by you' : 'automatic';
+                const what =
+                  seg.kind === 'hold'
+                    ? `Freeze ${seg.duration.toFixed(1)} s (${who})`
+                    : `Sped up ${seg.kind === 'speed' ? r1(seg.rate) : 1}× (${who})`;
+                return (
+                  <button
+                    key={`pace-${id}`}
+                    type="button"
+                    className="ed-tl-pace"
+                    data-kind={seg.kind}
+                    data-hand={seg.manual || undefined}
+                    data-narrow={w < 34 || undefined}
+                    data-sel={isSel('piece', id) || undefined}
+                    style={{ left: x(p.start), width: w }}
+                    title={`${what}. Click to change it`}
+                    aria-label={`${what}, ${mmss(p.start)} to ${mmss(p.end)}. Open it to change`}
+                    onClick={() => onSelect({ kind: 'piece', id }, p.start + 0.01)}
+                  >
+                    <Glyph name={seg.kind === 'hold' ? 'pause' : 'next'} size={9} />
+                    <span>{seg.kind === 'hold' ? `${seg.duration.toFixed(1)} s` : `${seg.kind === 'speed' ? r1(seg.rate) : 1}×`}</span>
+                  </button>
+                );
+              })}
               {explainers.map((e) => (
                 <div
                   key={e.id}

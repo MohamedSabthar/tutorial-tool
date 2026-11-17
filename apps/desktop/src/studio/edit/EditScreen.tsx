@@ -608,6 +608,18 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       setPieceBusy(false);
     }
   }
+  /** The automatic speed-ups and freezes shown during a step (output time). */
+  function autoPaceIn(sp: { start: number; end: number }) {
+    const speeds = new Map<number, number>();
+    const holds: number[] = [];
+    for (const g of resolved?.tm.segments ?? []) {
+      const seen = Math.min(g.end, sp.end) - Math.max(g.start, sp.start);
+      if (seen <= 0.05 || g.segment.manual) continue;
+      if (g.segment.kind === 'speed') speeds.set(g.segment.rate, (speeds.get(g.segment.rate) ?? 0) + seen);
+      else if (g.segment.kind === 'hold') holds.push(g.segment.duration);
+    }
+    return { speeds: [...speeds].sort((a, b) => a[0] - b[0]).map(([rate, seconds]) => ({ rate, seconds })), holds };
+  }
   const cutSpan = cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
   const cutLen = cutSpan ? Math.round((cutSpan.b - cutSpan.a) * 10) / 10 : 0;
   function startCut() {
@@ -1499,6 +1511,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               onPace={(k) => void setPace(k)}
               paceBusy={paceBusy}
               lateCues={cues.filter((c) => c.stepId === step.id)}
+              autoPace={autoPaceIn(span)}
+              onShowRecording={tracks.includes('recording') ? null : () => setTracks([...tracks, 'recording'])}
               onFixCues={
                 cues.length
                   ? () => (mock ? previewOnly('Fix it') : void pipe.approve({ choice: 'edit' }))

@@ -73,6 +73,10 @@ export interface StepPanelProps {
   onPace: (pace: Pace['kind']) => void;
   paceBusy: boolean;
   lateCues: LateCueFix[];
+  /** What the automatic timing did inside this step: speed-ups (rate, seconds shown) and freezes. */
+  autoPace: { speeds: { rate: number; seconds: number }[]; holds: number[] };
+  /** Turns on the Recording track. */
+  onShowRecording: (() => void) | null;
   onFixCues: (() => void) | null;
 }
 
@@ -250,6 +254,31 @@ export function StepPanel(p: StepPanelProps) {
             ))}
           </div>
           <p className="ed-muted ed-s12">{p.paceBusy ? 'Changing the pace…' : PACE_TEXT[p.pace.kind]}</p>
+          {p.pace.kind !== 'skip' && (p.autoPace.speeds.length > 0 || p.autoPace.holds.length > 0) && (
+            <p className="ed-s12 ed-autopace">
+              <Glyph name="next" size={11} />
+              <span>
+                {[
+                  p.autoPace.speeds.length
+                    ? `Partly sped up automatically: ${p.autoPace.speeds.map((x) => `${Math.round(x.rate * 10) / 10}× for ${Math.max(1, Math.round(x.seconds))} s`).join(', ')}`
+                    : '',
+                  p.autoPace.holds.length
+                    ? `${p.autoPace.holds.length} freeze${p.autoPace.holds.length > 1 ? 's' : ''} (${p.autoPace.holds.map((h) => `${h.toFixed(1)} s`).join(', ')})`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {p.onShowRecording && (
+                  <>
+                    {' '}
+                    <button type="button" className="ed-linkbtn" onClick={p.onShowRecording}>
+                      Show on the timeline
+                    </button>
+                  </>
+                )}
+              </span>
+            </p>
+          )}
         </div>
       </div>
     </section>
