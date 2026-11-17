@@ -12,11 +12,9 @@ export const navigate = (route: string) => {
 /** The Live screen, for a project's run or whatever is running. */
 export const liveRoute = (slug?: string | null) => (slug ? `/live/${slug}` : '/live');
 
-/**
- * Where a tutorial's run is followed: the Studio once it's done, otherwise the run screen.
- * (Phase 13 replaces the storyboard here with the Making screen.)
- */
-export const runRoute = (slug: string, status?: string) => (status === 'done' ? `/studio/${slug}` : `/storyboard/${slug}`);
+/** Where a tutorial's run is followed: the Studio once it's done, otherwise the Making screen. */
+export const runRoute = (slug: string, status?: string) =>
+  status === 'done' ? `/studio/${slug}` : `/making/${slug}`;
 
 /** Header links shared by every screen: the Studio and Live icons follow the open project. */
 export const appHrefs = (slug?: string | null): Partial<Record<NavKey, string>> => ({
@@ -69,7 +67,11 @@ export function EngineStatus() {
         ? 'Engine offline: run pnpm engine'
         : 'Reconnecting…';
   return (
-    <StatusPill tone={state === 'connecting' ? 'neutral' : 'warning'} busy={state === 'connecting'} title={error ?? undefined}>
+    <StatusPill
+      tone={state === 'connecting' ? 'neutral' : 'warning'}
+      busy={state === 'connecting'}
+      title={error ?? undefined}
+    >
       {text}
     </StatusPill>
   );
@@ -157,7 +159,13 @@ export function AppFrame({
   children: ReactNode;
 }) {
   const nav: TopNav | undefined =
-    current === 'projects' ? 'tutorials' : current === 'settings' ? 'settings' : current === 'guide' ? 'help' : undefined;
+    current === 'projects'
+      ? 'tutorials'
+      : current === 'settings'
+        ? 'settings'
+        : current === 'guide'
+          ? 'help'
+          : undefined;
   return (
     <div className="app-frame">
       <TopBar current={nav} />

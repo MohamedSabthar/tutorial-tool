@@ -28,6 +28,7 @@ import { BriefScreen } from './routes/brief/BriefScreen';
 import { CaptureScreen } from './routes/capture/CaptureScreen';
 import { SeriesScreen } from './routes/series/SeriesScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
+import { MakingScreen } from './routes/making/MakingScreen';
 import { RenderScreen } from './render/RenderScreen';
 import { AgentFixScreen } from './routes/agentfix/AgentFixScreen';
 import { ExportScreen } from './routes/export/ExportScreen';
@@ -154,6 +155,15 @@ function Screen({ path }: { path: string }) {
   if (render) return <RenderScreen slug={render} />;
   const exporting = match(path, 'export');
   if (exporting) return <ExportScreen key={exporting} slug={exporting} />;
+  const making = match(path, 'making');
+  if (making)
+    return (
+      <MakingScreen
+        key={making}
+        slug={making}
+        preview={new URLSearchParams(path.split('?')[1] ?? '').get('preview')}
+      />
+    );
   const storyboard = match(path, 'storyboard');
   if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
   // The developer pages exist only in development; elsewhere an unknown address goes home.
