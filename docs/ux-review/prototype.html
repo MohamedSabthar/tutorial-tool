@@ -1,0 +1,889 @@
+<title>Tutorial Studio Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: desktop app shell. Slim prototype bar, app header, then one screen per view; the Studio is Script | Preview | Inspector over a 3-lane timeline. */
+:root{
+  --bg:#F3F3F3; --surface:#FFFFFF; --sunk:#F3F3F3; --line:#D7D7D7; --ink:#13213B; --muted:#56607A; --faint:#8A92A5;
+  --accent:#FF5800; --accent-ink:#B84300; --accent-soft:#FFEADC; --steel:#4F7AA3; --steel-soft:#E3ECF5;
+  --ok:#1E7A46; --ok-soft:#E3F4EA; --warn:#9A5B00; --warn-soft:#FFF3D6; --bad:#B3261E; --bad-soft:#FCE8E6;
+  --on-fill:#FFFFFF; --navy-fill:#13213B; --shadow:0 8px 28px rgba(19,33,59,.14);
+  --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:14px; --r-sm:9px; --r-xs:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1626; --surface:#162139; --sunk:#111B2F; --line:#2A3853; --ink:#E7ECF4; --muted:#A6B1C5; --faint:#7C879C;
+  --accent:#FF6A1A; --accent-ink:#FF9A5C; --accent-soft:#3A2517; --steel:#8DB3D8; --steel-soft:#1C2B41;
+  --ok:#7BD3A0; --ok-soft:#173326; --warn:#F2C46B; --warn-soft:#3A2F17; --bad:#FF8A80; --bad-soft:#3A1C21;
+  --on-fill:#FFFFFF; --navy-fill:#E7ECF4; --shadow:0 8px 28px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1626; --surface:#162139; --sunk:#111B2F; --line:#2A3853; --ink:#E7ECF4; --muted:#A6B1C5; --faint:#7C879C;
+  --accent:#FF6A1A; --accent-ink:#FF9A5C; --accent-soft:#3A2517; --steel:#8DB3D8; --steel-soft:#1C2B41;
+  --ok:#7BD3A0; --ok-soft:#173326; --warn:#F2C46B; --warn-soft:#3A2F17; --bad:#FF8A80; --bad-soft:#3A1C21;
+  --on-fill:#FFFFFF; --navy-fill:#E7ECF4; --shadow:0 8px 28px rgba(0,0,0,.45); color-scheme:dark}
+html,body{height:100%}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;margin:0}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.01em}
+p{margin:0}
+.app{min-height:100%;display:flex;flex-direction:column}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* prototype bar */
+.proto{background:var(--steel-soft);color:var(--steel);font-size:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding-block:6px;border-bottom:1px solid var(--line)}
+.proto b{font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.proto button{background:none;border:0;color:var(--steel);font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
+.proto button[aria-current="page"]{background:var(--surface);color:var(--ink)}
+.proto .sp{flex:1}
+
+/* header */
+.hdr{background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;min-height:56px;padding-block:8px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;background:none;border:0;cursor:pointer;padding:0}
+.mark{width:26px;height:26px;border-radius:50%;background:var(--accent);display:grid;place-items:center;color:var(--on-fill);font-size:13px;font-weight:800}
+.nav{display:flex;gap:2px}
+.nav button{background:none;border:0;padding:7px 12px;border-radius:var(--r-sm);font-weight:600;color:var(--muted);cursor:pointer}
+.nav button[aria-current="page"]{color:var(--ink);background:var(--sunk)}
+.hdr .grow{flex:1}
+.crumb{display:flex;align-items:center;gap:8px;min-width:0}
+.crumb .t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.save{font-size:12px;color:var(--ok);display:flex;align-items:center;gap:5px}
+.save::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);padding:8px 14px;font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--faint)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-fill);font-weight:700;font-size:15px}
+.btn.pri:hover{filter:brightness(1.05)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.ghost:hover{background:var(--sunk)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.lg{padding:12px 22px;font-size:16px}
+.ico{width:16px;height:16px;flex:none}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.need{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.run{background:var(--steel-soft);color:var(--steel)} .chip.warn{background:var(--warn-soft);color:var(--warn)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.eb{font-size:11px;letter-spacing:.11em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.lbl{font-weight:600;font-size:13px}
+input[type=text],input[type=number],input[type=password],textarea,select{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;width:100%}
+textarea{resize:vertical}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.seg{display:inline-flex;background:var(--sunk);border-radius:var(--r-sm);padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:7px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.switch{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.switch input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--accent);flex:none}
+.kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;color:var(--muted)}
+
+/* home */
+.home{max-width:980px;margin:0 auto;width:100%;padding-block:44px 64px;display:flex;flex-direction:column;gap:34px}
+.setupbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--warn-soft);color:var(--warn);border-radius:var(--r);padding:12px 16px}
+.setupbar b{color:var(--ink)}
+.hero{display:flex;flex-direction:column;gap:12px}
+.hero h1{font-size:clamp(30px,4.6vw,46px);font-weight:800;line-height:1.08}
+.hero h1 i{font-style:normal;color:var(--accent)}
+.maker{padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow);border:0}
+.maker textarea{font-size:18px;border:0;padding:6px 2px;min-height:64px;background:transparent}
+.maker textarea:focus{outline:0}
+.maker .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.how button{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:var(--r-sm);padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.how button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.how b{font-size:14px}
+.how span{font-size:12.5px;color:var(--muted)}
+.est{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);align-items:center}
+.est b{color:var(--ink)}
+.go{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px}
+details.custom summary{cursor:pointer;font-weight:600;color:var(--steel);list-style:none;display:inline-flex;align-items:center;gap:6px}
+details.custom summary::-webkit-details-marker{display:none}
+details.custom[open] summary .car{transform:rotate(90deg)}
+.car{display:inline-block;transition:transform .15s}
+.customgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:14px}
+.sugg{display:flex;flex-wrap:wrap;gap:8px}
+.sugg button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;cursor:pointer;font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.tcard{text-align:left;cursor:pointer;padding:0;overflow:hidden;display:flex;flex-direction:column}
+.tcard:hover{border-color:var(--faint)}
+.tcard .thumb{aspect-ratio:16/9;background:#F7F8FA;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.tcard .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.tcard .body b{font-size:14.5px}
+
+/* making */
+.making{flex:1;display:grid;grid-template-columns:260px minmax(0,1fr) 340px;gap:16px;padding-block:18px;min-height:0}
+@media (max-width:1100px){.making{grid-template-columns:minmax(0,1fr)}}
+.stages{padding:18px;display:flex;flex-direction:column;gap:4px;align-self:start}
+.stage{display:grid;grid-template-columns:26px 1fr;gap:2px 10px;padding:8px 0;align-items:start}
+.stage .m{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--muted);margin-top:1px}
+.stage.done .m{background:var(--ok);border-color:var(--ok);color:var(--on-fill)}
+.stage.now .m{border-color:var(--accent);color:var(--accent)}
+.stage.you .m{border-color:var(--steel);color:var(--steel)}
+.stage b{font-size:14px}
+.stage .s{grid-column:2;font-size:12.5px;color:var(--muted)}
+.stage.now b{color:var(--accent-ink)}
+.bar{height:4px;background:var(--sunk);border-radius:4px;overflow:hidden;grid-column:2;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.livecol{display:flex;flex-direction:column;gap:12px;min-width:0}
+.livebox{padding:14px;display:flex;flex-direction:column;gap:10px}
+.nowline{display:flex;align-items:center;gap:10px;font-weight:600}
+.pulse{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,88,0,.45)}100%{box-shadow:0 0 0 10px rgba(255,88,0,0)}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.needcard{border:2px solid var(--accent);padding:16px;display:flex;flex-direction:column;gap:10px}
+.needcard h3{font-size:16px}
+.feed{padding:16px;display:flex;flex-direction:column;gap:8px}
+.feed ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:340px;overflow:auto}
+.feed li{display:grid;grid-template-columns:16px 1fr;gap:8px;font-size:13px}
+.feed li .ck{color:var(--ok);font-weight:800}
+.tech{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--sunk);border-radius:var(--r-xs);padding:10px;display:flex;flex-direction:column;gap:3px}
+.review{display:flex;flex-direction:column;gap:10px}
+.rstep{padding:14px 16px;display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 12px}
+.rstep .n{width:26px;height:26px;border-radius:8px;background:var(--navy-fill);color:var(--bg);display:grid;place-items:center;font-weight:800;font-size:12px}
+.rstep.ex .n{background:var(--accent);color:var(--on-fill)}
+.rstep textarea{grid-column:2;min-height:54px}
+.rstep .meta{grid-column:2;font-size:12px;color:var(--muted)}
+.donecard{padding:30px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.donecard h2{font-size:28px;font-weight:800}
+
+/* studio */
+.studio{flex:1;display:grid;grid-template-columns:320px minmax(0,1fr) 300px;grid-template-rows:minmax(0,1fr) auto;min-height:0;gap:12px;padding-block:12px}
+@media (max-width:1100px){.studio{grid-template-columns:minmax(0,1fr);grid-template-rows:auto}}
+.col{min-height:0;display:flex;flex-direction:column;gap:12px;min-width:0}
+.script{display:flex;flex-direction:column;min-height:0;flex:1}
+.script .head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
+.script .head h2{font-size:15px}
+.slist{overflow:auto;padding:0 8px 8px;display:flex;flex-direction:column;gap:2px;min-height:0;flex:1}
+.app.fixed{height:100%;overflow:hidden}
+.app.fixed .studio{min-height:0}
+.app.fixed .col{min-height:0}
+.app.fixed .agent{flex:none;max-height:46%;overflow:auto}
+@media (max-width:1100px){.app.fixed{height:auto;overflow:visible}.slist{max-height:60vh}}
+.srow{border-radius:var(--r-sm);padding:8px;display:grid;grid-template-columns:44px minmax(0,1fr);gap:2px 8px;border:1.5px solid transparent}
+.srow.cur{background:var(--accent-soft)}
+.srow.sel{border-color:var(--accent)}
+.srow .tm{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:none;border:0;padding:2px 0;cursor:pointer;text-align:left}
+.srow .ti{font-weight:700;font-size:13px;cursor:pointer}
+.srow textarea{grid-column:2;border:1px solid transparent;background:transparent;padding:4px 6px;margin-left:-6px;font-size:13px;line-height:1.45;color:var(--ink);min-height:0;resize:none;overflow:hidden}
+.srow textarea:hover{border-color:var(--line)}
+.srow .acts{grid-column:2;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.srow .tag{font-size:11px;font-weight:700;color:var(--accent-ink)}
+.warnrow{grid-column:2;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--warn);background:var(--warn-soft);border-radius:var(--r-xs);padding:4px 8px}
+.warnrow button{margin-left:auto}
+.agent{padding:12px;display:flex;flex-direction:column;gap:8px}
+.agent .top{display:flex;align-items:center;justify-content:space-between}
+.agent h2{font-size:14px}
+.agent textarea{min-height:44px;font-size:13px}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font-size:12px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px;cursor:pointer;color:var(--muted)}
+.notechips{display:flex;flex-wrap:wrap;gap:6px}
+.result{border:1.5px solid var(--steel);border-radius:var(--r-sm);padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--steel-soft)}
+.result .rb{display:flex;gap:6px;flex-wrap:wrap}
+
+.center{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.stagewrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--sunk);border-radius:var(--r);padding:12px;position:relative}
+.stagebox{position:relative;width:100%;max-width:min(100%, calc((100vh - 430px) * 16 / 9));aspect-ratio:16/9;border-radius:8px;overflow:hidden;box-shadow:var(--shadow);user-select:none;background:#FFFFFF}
+@media (max-width:1100px){.stagebox{max-width:100%}}
+.stagebox.notemode{cursor:crosshair}
+.addbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between}
+.addbar .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px}
+.addbar .grp .gl{font-size:11px;font-weight:700;color:var(--muted);padding:0 6px;text-transform:uppercase;letter-spacing:.08em}
+.addbar .grp button{border:0;background:none;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:600;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.addbar .grp button:hover{background:var(--sunk)}
+.addbar .grp button[aria-pressed="true"]{background:var(--steel-soft);color:var(--steel)}
+.transport{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.play{width:38px;height:38px;border-radius:50%;background:var(--accent);border:0;color:var(--on-fill);display:grid;place-items:center;cursor:pointer}
+.tc{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+
+/* fixed "video" world (always light, it is the recording) */
+.vs{position:absolute;inset:0;display:grid;grid-template-columns:5% 22% 1fr;grid-template-rows:7% 1fr 5%;font-family:var(--sans);color:#1F2937;background:#FFFFFF}
+.vs .tb{grid-column:1/-1;background:#F3F3F3;border-bottom:1px solid #E1E1E1;display:flex;align-items:center;justify-content:center;font-size:1.1cqw;color:#666}
+.vs .ab{background:#F3F3F3;border-right:1px solid #E1E1E1}
+.vs .ex{background:#F8F8F8;border-right:1px solid #E1E1E1;padding:1.2cqw;font-size:1cqw;display:flex;flex-direction:column;gap:.6cqw;color:#444}
+.vs .ex .hi{background:#E4E9F2;border-radius:3px;padding:.2cqw .5cqw;color:#13213B;font-weight:600}
+.vs .ed{position:relative;padding:2cqw;display:flex;flex-direction:column;gap:1.4cqw}
+.vs .sb{grid-column:1/-1;background:#4F7AA3;color:#fff;font-size:.9cqw;display:flex;align-items:center;padding:0 1cqw}
+.vs .crumbs{font-size:1cqw;color:#777}
+.vs h4{margin:0;font-size:1.8cqw;color:#13213B}
+.vs .form{display:flex;flex-direction:column;gap:1cqw;max-width:60%}
+.vs .inp{border:1px solid #CCD2DC;border-radius:4px;height:3cqw;padding:0 1cqw;display:flex;align-items:center;font-size:1.1cqw;color:#333;background:#fff}
+.vs .vbtn{align-self:flex-start;background:#13213B;color:#fff;border-radius:4px;padding:.8cqw 1.6cqw;font-size:1.1cqw;font-weight:600}
+.vs .canvas{flex:1;position:relative;background-image:radial-gradient(#D7DCE5 1px,transparent 1px);background-size:1.6cqw 1.6cqw;border:1px solid #E6E8EE;border-radius:6px}
+.vs .node{position:absolute;border:1.5px solid #13213B;background:#fff;border-radius:6px;padding:.8cqw 1.2cqw;font-size:1.1cqw;font-weight:600;color:#13213B}
+.vs .node small{display:block;font-weight:400;color:#777;font-size:.9cqw}
+.vs .chat{position:absolute;right:3%;bottom:6%;width:42%;border:1px solid #D7DCE5;border-radius:8px;background:#fff;padding:1cqw;display:flex;flex-direction:column;gap:.8cqw;font-size:1.05cqw}
+.vs .chat .u{align-self:flex-end;background:#13213B;color:#fff;border-radius:8px;padding:.5cqw 1cqw}
+.vs .chat .a{background:#F1F3F7;border-radius:8px;padding:.5cqw 1cqw;color:#222}
+.vs .term{position:absolute;left:0;right:0;bottom:0;height:34%;background:#1E1E1E;color:#D4D4D4;font-family:var(--mono);font-size:1cqw;padding:1cqw;display:flex;flex-direction:column;gap:.4cqw}
+.stagebox{container-type:inline-size}
+.exp{position:absolute;inset:0;background:radial-gradient(120% 120% at 20% 0%,#22355A 0%,#13213B 60%,#0C1526 100%);color:#fff;padding:5cqw;display:flex;flex-direction:column;gap:4cqw}
+.exp .k{font-size:1.1cqw;letter-spacing:.2em;color:#FF8A4C;font-weight:700}
+.exp h4{margin:0;font-size:3.6cqw;font-weight:800}
+.exp h4 i{font-style:normal;color:#FF5800}
+.exp .flowx{display:flex;gap:2cqw;align-items:center}
+.exp .bx{flex:1;border:1.5px solid rgba(255,255,255,.35);border-radius:1cqw;padding:1.6cqw;font-size:1.4cqw;font-weight:700;transition:none}
+.exp .bx small{display:block;font-family:var(--mono);font-weight:400;font-size:1cqw;opacity:.7;margin-top:.6cqw}
+.exp .bx.on{border-color:#FF5800;background:rgba(255,88,0,.16)}
+.exp .ar{opacity:.6;font-size:1.8cqw}
+.cap{position:absolute;left:50%;bottom:4%;transform:translateX(-50%);max-width:80%;background:rgba(12,21,38,.82);color:#fff;font-size:1.5cqw;padding:.6cqw 1.4cqw;border-radius:.6cqw;text-align:center;line-height:1.35}
+.cursor{position:absolute;width:2.2cqw;height:2.2cqw;pointer-events:none}
+.ov{position:absolute;cursor:grab;outline-offset:3px}
+.ov.sel{outline:2px dashed #4F7AA3}
+.ov.arrow{width:12cqw;height:4cqw}
+.ov.box{border:.35cqw solid #FF5800;border-radius:1cqw;width:16cqw;height:7cqw}
+.ov.text{background:#13213B;color:#fff;font-weight:700;font-size:1.6cqw;padding:.6cqw 1.2cqw;border-radius:.6cqw;white-space:nowrap}
+.ov.callout{background:#fff;color:#13213B;border:.25cqw solid #FF5800;font-weight:600;font-size:1.4cqw;padding:.8cqw 1.3cqw;border-radius:1cqw;max-width:28cqw;box-shadow:0 .5cqw 1.5cqw rgba(0,0,0,.2)}
+.ov.blur{backdrop-filter:blur(.8cqw);-webkit-backdrop-filter:blur(.8cqw);background:rgba(255,255,255,.3);width:18cqw;height:5cqw;border-radius:.6cqw}
+.ov.title{left:0!important;top:0!important;right:0;bottom:0;background:#13213B;color:#fff;display:flex;flex-direction:column;justify-content:center;padding:6cqw;gap:1cqw;cursor:default}
+.ov.title .k{font-size:1.2cqw;letter-spacing:.2em;color:#FF8A4C;font-weight:700}
+.ov.title h4{margin:0;font-size:4.4cqw;font-weight:800}
+.ov.title h4 i{font-style:normal;color:#FF5800}
+.ov.zoom{border:.3cqw dashed #4F7AA3;border-radius:1cqw;width:24cqw;height:13cqw}
+.ov.zoom span{position:absolute;top:-2.6cqw;left:0;font-size:1.1cqw;color:#4F7AA3;font-weight:700;background:#fff;padding:0 .5cqw;border-radius:.3cqw}
+.ov.highlight{background:rgba(255,88,0,.18);border-radius:.6cqw;width:20cqw;height:4cqw}
+.pin{position:absolute;width:3cqw;height:3cqw;border-radius:50% 50% 50% 0;transform:translate(-50%,-100%) rotate(-45deg);background:#4F7AA3;border:.25cqw solid #fff;box-shadow:0 .3cqw .8cqw rgba(0,0,0,.3)}
+
+/* inspector */
+.insp{padding:16px;display:flex;flex-direction:column;gap:14px}
+.insp h2{font-size:15px}
+.insp .sub{font-size:12.5px;color:var(--muted)}
+.tips{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;color:var(--muted);font-size:13px}
+.swatches{display:flex;gap:8px}
+.swatches button{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);cursor:pointer}
+.swatches button[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+details.adv summary{cursor:pointer;color:var(--muted);font-size:12.5px;font-weight:600}
+
+/* timeline */
+.tl{grid-column:1/-1;padding:10px 14px 12px;display:flex;flex-direction:column;gap:8px}
+@media (max-width:1100px){.tl{grid-column:auto}}
+.tlbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tlbar .grow{flex:1}
+.menuwrap{position:relative}
+.menu{position:absolute;bottom:calc(100% + 6px);left:0;z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--shadow);padding:6px;min-width:260px;display:flex;flex-direction:column}
+.menu.down{bottom:auto;top:calc(100% + 6px);right:0;left:auto}
+.menu .mh{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:6px 10px 4px}
+.menu button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:7px;cursor:pointer;display:flex;flex-direction:column;gap:1px}
+.menu button:hover,.menu button:focus-visible{background:var(--sunk)}
+.menu button span{font-size:12px;color:var(--muted)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.tlgrid{display:grid;grid-template-columns:96px minmax(0,1fr);gap:0 10px}
+.lanes-l{display:flex;flex-direction:column}
+.lanes-l div{height:36px;display:flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lanes-l div:first-child{height:22px}
+.scroller{overflow-x:auto;overflow-y:hidden}
+.track{position:relative;min-width:100%}
+.ruler{height:22px;position:relative;cursor:pointer;border-bottom:1px solid var(--line)}
+.ruler span{position:absolute;top:3px;font-family:var(--mono);font-size:10.5px;color:var(--faint);transform:translateX(2px)}
+.ruler span::before{content:"";position:absolute;left:-2px;top:12px;height:6px;border-left:1px solid var(--line)}
+.lane{height:36px;position:relative;border-bottom:1px dashed var(--line);cursor:pointer}
+.blk{position:absolute;top:5px;height:26px;border-radius:7px;padding:0 8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;border:1.5px solid transparent;cursor:pointer;text-align:left}
+.blk.rec{background:var(--steel-soft);color:var(--steel)}
+.blk.rec.fast{background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(79,122,163,.18) 6px 12px)}
+.blk.exb{background:var(--accent-soft);color:var(--accent-ink)}
+.blk.vo{background:var(--ok-soft);color:var(--ok);font-weight:500}
+.blk.vo.changed{border-style:dashed;border-color:var(--ok)}
+.blk.ovb{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.blk.stp{background:var(--sunk);color:var(--muted);font-weight:500}
+.blk.cpt{background:var(--sunk);color:var(--muted);font-weight:400;font-size:11px}
+.blk.note{background:var(--steel);color:var(--on-fill);width:22px!important;justify-content:center;padding:0;border-radius:50%}
+.blk.sel{border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent-soft)}
+.blk .sp{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);pointer-events:none;z-index:5}
+.playhead::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top-color:var(--accent)}
+
+/* export / settings */
+.page{max-width:1080px;margin:0 auto;width:100%;padding-block:32px 64px;display:flex;flex-direction:column;gap:22px}
+.page h1{font-size:32px;font-weight:800}
+.page h1 i{font-style:normal;color:var(--accent)}
+.exgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.exgrid{grid-template-columns:minmax(0,1fr)}}
+.outs{display:flex;flex-direction:column;gap:8px}
+.outs label{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;cursor:pointer}
+.outs input{width:18px;height:18px;accent-color:var(--accent);margin-top:2px}
+.outs b{display:block}
+.where{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sunk);border-radius:var(--r-sm);padding:10px 12px}
+.where code{font-family:var(--mono);font-size:12.5px;overflow-wrap:anywhere}
+.prog{height:8px;background:var(--sunk);border-radius:8px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent)}
+.phases{display:flex;flex-wrap:wrap;gap:6px}
+.files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.files li{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 12px}
+.files li code{font-family:var(--mono);font-size:12.5px}
+.files li .grow{flex:1}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start}
+.setgrid .panel{padding:18px;display:flex;flex-direction:column;gap:14px}
+.setgrid h2{font-size:16px}
+.check{display:grid;grid-template-columns:24px 1fr auto;gap:2px 10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.check:first-of-type{border-top:0}
+.check .m{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800}
+.check .m.ok{background:var(--ok-soft);color:var(--ok)} .check .m.todo{background:var(--warn-soft);color:var(--warn)}
+.check .d{grid-column:2;font-size:12.5px;color:var(--muted)}
+.codeline{grid-column:2/-1;display:flex;gap:8px;align-items:center;background:var(--sunk);border-radius:var(--r-xs);padding:6px 6px 6px 10px;font-family:var(--mono);font-size:12px;overflow-x:auto}
+.codeline code{flex:1;white-space:nowrap}
+.lessons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.lessons li{display:flex;gap:10px;align-items:flex-start}
+.lessons li span{flex:1}
+
+/* overlays: toast, dialog, notification, changes drawer */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--navy-fill);color:var(--bg);border-radius:var(--r-sm);padding:10px 12px 10px 16px;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow);max-width:calc(100vw - 32px)}
+.toast button{background:none;border:0;color:var(--accent);font-weight:700;cursor:pointer}
+.notif{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:max(14px,env(safe-area-inset-right,0px));z-index:70;width:340px;max-width:calc(100vw - 28px);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 14px;display:grid;grid-template-columns:34px 1fr;gap:4px 10px}
+.notif .ic{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center;color:var(--on-fill);font-weight:800;grid-row:span 3}
+.notif .os{font-size:11px;color:var(--faint)}
+.notif .acts{display:flex;gap:6px}
+.scrim{position:fixed;inset:0;background:rgba(10,16,30,.45);z-index:80;display:grid;place-items:center;padding:16px}
+.dialog{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:22px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px}
+.dialog h2{font-size:18px}
+.dialog .btnrow{justify-content:flex-end}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--surface);border-left:1px solid var(--line);z-index:75;box-shadow:var(--shadow);padding:20px max(20px,env(safe-area-inset-right,0px)) 20px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.drawer ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.drawer .ids{font-family:var(--mono);font-size:11px;color:var(--steel)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:sp 0.8s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+
+<div class="app" id="app"></div>
+<div id="layer"></div>
+
+<script>
+// ---------- data ----------
+const DUR = 200;
+const STEPS0 = [
+ {id:'s1',t:0,  title:'Open the Chat Agent Service form', line:'You start from an empty integration. Click Add Artifact, then pick Chat Agent Service under AI Integration.'},
+ {id:'s2',t:9,  title:'Give the agent a math tutor role', line:'Name the service math-tutor and give the agent its role: a patient tutor that explains every step.'},
+ {id:'s3',t:23, title:'Create the chat agent', line:'Click Create. The agent, its model and an empty tool list appear on the canvas.'},
+ {id:'s4',t:44, title:'How a chat agent works', ex:true, line:'A chat message reaches the agent. The agent asks the model, and the model can call a tool, like sum.'},
+ {id:'s5',t:66, title:'Add a sum tool', line:'The agent needs tools to calculate. Select the agent, click the plus button, then Create Custom Tool. Name it sum.'},
+ {id:'s6',t:99, title:'Implement the sum function', line:'Add two integer parameters, a and b, and return a plus b.', warn:'The click on Save lands 0.4 s after the narrator says it.'},
+ {id:'s7',t:117,title:'Add subtract, multiply and divide', line:'The other three tools work the same way, so we speed through them.'},
+ {id:'s8',t:145,title:'Turn on tracing and run', line:'Turn on tracing, then click Run. The service starts on port 9090.'},
+ {id:'s9',t:171,title:'Ask the tutor a math question', line:'Open Agent Chat and ask: what is 12 plus 8? The agent calls sum and explains the answer step by step.'},
+];
+const CLIPS0 = [
+ {id:'c1',s:0,e:44,kind:'rec',speed:1},{id:'c2',s:44,e:66,kind:'ex',speed:1,look:'Blueprint flow'},
+ {id:'c3',s:66,e:117,kind:'rec',speed:1},{id:'c4',s:117,e:145,kind:'rec',speed:4},{id:'c5',s:145,e:200,kind:'rec',speed:1}];
+const OV0 = [
+ {id:'o1',type:'title',s:0,e:4,text:'Creating an AI Agent',x:0,y:0,color:'#13213B'},
+ {id:'o2',type:'arrow',s:26,e:31,text:'',x:47,y:58,color:'#FF5800'},
+ {id:'o3',type:'callout',s:178,e:188,text:'The agent calls sum(12, 8)',x:30,y:44,color:'#FF5800'},
+ {id:'o4',type:'blur',s:150,e:160,text:'',x:56,y:86,color:'#FF5800'},
+];
+const OVNAME = {arrow:'Arrow',box:'Box',text:'Text',callout:'Callout',zoom:'Zoom',blur:'Blur',highlight:'Highlight',title:'Title card'};
+const COLORS = [['#FF5800','Orange'],['#13213B','Navy'],['#4F7AA3','Steel'],['#FFFFFF','White']];
+const STAGES = [
+ {name:'Planning', mins:4, sub:'Reads what it knows and plans the steps', logs:['Read what the agent already knows about WSO2 Integrator','Looked up Chat Agent Service in the docs you added','Planned 9 steps and 1 explainer']},
+ {name:'Testing the steps', mins:8, sub:'Runs every step once in the product', logs:['Opened WSO2 Integrator with an empty project','Steps 1–3 work','Step 5: the plus button moved, found it under the agent menu','Steps 4–9 work']},
+ {name:'Check the script', you:true, sub:'You read the words before they are voiced'},
+ {name:'Recording', mins:9, sub:'Records the voice-over, then the screen in time with it', logs:['Recorded the voice-over (9 lines, 3:12)','Recorded steps 1–5','Recorded steps 6–9']},
+ {name:'Finishing', mins:3, sub:'Adds cursor, click ripples and captions, then checks the video', logs:['Added the cursor, click ripples and captions','Watched the whole video for problems: none found']},
+];
+const CHANGES = {
+ home:['One screen to start: goal, product and how. Everything else is under Customize. <span class="ids">H-02 B-01</span>','Time and cost estimate before you start, plus which checks will happen. <span class="ids">B-08</span>','Setup problems show above the form and block starting. <span class="ids">H-01</span>','Cards say exactly what is next ("Check the script") and open the right place. <span class="ids">H-07</span>','Text navigation (Tutorials, Settings, Help) replaces unlabeled icons. <span class="ids">X-03</span>','Series is a link, not the first decision. <span class="ids">H-03</span>'],
+ making:['Brief, Storyboard and Live merged into one "Making your tutorial" screen. <span class="ids">S-07 L-04</span>','Five plain stages with time left, instead of 13 stages in jargon. <span class="ids">S-10 L-04</span>','A single "Needs you" card for permissions and checks, plus an OS notification. <span class="ids">ST-01 X-04</span>','Plain activity feed; cost, session and tool calls under Details. <span class="ids">L-02</span>','One review point with one name: Check the script. <span class="ids">X-01 S-01</span>','When it finishes, one button: Watch and edit. <span class="ids">L-03</span>'],
+ studio:['Script panel: each step shows its words. Edit, then Re-voice that one line. <span class="ids">ST-04 ST-05</span>','Ask the agent is always visible; notes on the frame attach to the request; results come back as Keep / Undo / Tell it more. <span class="ids">ST-06…ST-10 A-01</span>','One inspector that changes with what you select. <span class="ids">ST-13</span>','Three lanes (Video, Voice-over, Overlays) with words and plain labels. Others under Show lanes. <span class="ids">ST-21 ST-06</span>','Toolbar: Split, + Add, Automatic edits, Zoom. Heavy edits confirm first. <span class="ids">ST-15 ST-16 ST-20</span>','"Add to video" and "Note for the agent" are separate groups, outside the frame. <span class="ids">ST-11</span>','Every edit can be undone from a toast; Undo names the action. <span class="ids">ST-34 ST-35</span>','Export is the only primary button; Record again is in the ⋯ menu. <span class="ids">ST-23</span>'],
+ export:['Shows the tutorial name and where files are saved, with Show in Finder. <span class="ids">E-01 E-02</span>','Leads with length, quality and size. Codec details are under Details. <span class="ids">E-03</span>','Warns before overwriting an earlier export. <span class="ids">E-05</span>','Plain progress phases and a list of finished files. <span class="ids">E-07</span>'],
+ setup:['Checklist with copy buttons for the one Terminal step; ffmpeg is bundled. <span class="ids">SE-01</span>','Safe defaults: a $5 limit per tutorial, ask before commands. <span class="ids">SE-02</span>','Accounts above Appearance; developer options under Advanced. <span class="ids">SE-05 SE-08</span>','"What the agent learned" lives here as plain sentences with Undo, not git commits in the editor. <span class="ids">ST-18</span>'],
+};
+
+// ---------- state ----------
+const clone = o => JSON.parse(JSON.stringify(o));
+const S = {
+  view:'home', title:'Creating an AI Agent', goal:'', product:'WSO2 Integrator', how:'agent',
+  steps:clone(STEPS0), clips:clone(CLIPS0), ovs:clone(OV0), orig:{}, revoicing:{},
+  t:26.5, playing:false, sel:null, undo:[], redo:[], lanes:{steps:false,captions:false,notes:true}, captions:true, zoom:2,
+  agent:{state:'idle', text:'', notes:[], result:null, history:[]}, noteMode:false,
+  mk:{stage:0,pct:0,log:[],need:null,done:false,details:false,denied:false,askedPerm:false,title:'Creating an AI Agent'},
+  ex:{state:'idle',p:0,res:'1080p',outs:{video:true,captions:true,doc:true,script:false}},
+  setup:{key:false, limit:'5', ask:true},
+  menu:null, dialog:null, toast:null, notif:null, drawer:false,
+};
+STEPS0.forEach(s=>S.orig[s.id]=s.line);
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mmss = (t,ms) => {t=Math.max(0,t);const m=Math.floor(t/60),s=t-m*60;return ms?`${m}:${s.toFixed(2).padStart(5,'0')}`:`${m}:${String(Math.floor(s)).padStart(2,'0')}`};
+const stepAt = t => {let c=S.steps[0];for(const s of S.steps) if(t>=s.t) c=s;return c};
+const stepEnd = i => i<S.steps.length-1?S.steps[i+1].t:DUR;
+const voLen = s => Math.min(stepEnd(S.steps.indexOf(s))-s.t-0.6, s.line.split(/\s+/).length/2.6);
+const pct = t => (t/DUR*100).toFixed(3)+'%';
+const I = {
+ play:'<svg class="ico" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>',
+ pause:'<svg class="ico" viewBox="0 0 16 16" fill="currentColor"><rect x="3.5" y="2.5" width="3" height="11" rx="1"/><rect x="9.5" y="2.5" width="3" height="11" rx="1"/></svg>',
+ prev:'<svg class="ico" viewBox="0 0 16 16" fill="currentColor"><rect x="2.5" y="3" width="2" height="10" rx="1"/><path d="M13 3v10L6 8z"/></svg>',
+ next:'<svg class="ico" viewBox="0 0 16 16" fill="currentColor"><rect x="11.5" y="3" width="2" height="10" rx="1"/><path d="M3 3v10l7-5z"/></svg>',
+ undo:'<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 4 2 7l3 3"/><path d="M2.5 7H10a3.5 3.5 0 0 1 0 7H7"/></svg>',
+ redo:'<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m11 4 3 3-3 3"/><path d="M13.5 7H6a3.5 3.5 0 0 0 0 7h3"/></svg>',
+ pin:'<svg class="ico" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5c0 3.2 4.5 8.5 4.5 8.5s4.5-5.3 4.5-8.5A4.5 4.5 0 0 0 8 1.5Zm0 6.2A1.7 1.7 0 1 1 8 4.3a1.7 1.7 0 0 1 0 3.4Z"/></svg>',
+ dots:'<svg class="ico" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>',
+ check:'<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 8.5 3.2 3L13 4.5"/></svg>',
+};
+const arrowSvg = c => `<svg viewBox="0 0 120 40" width="100%" height="100%"><path d="M4 20 H96" stroke="${c}" stroke-width="7" stroke-linecap="round"/><path d="M84 6 L112 20 L84 34 Z" fill="${c}"/></svg>`;
+
+function snap(label){S.undo.push({label,d:clone({steps:S.steps,clips:S.clips,ovs:S.ovs})});S.redo=[];}
+function undo(){const u=S.undo.pop();if(!u)return;S.redo.push({label:u.label,d:clone({steps:S.steps,clips:S.clips,ovs:S.ovs})});Object.assign(S,clone(u.d));S.sel=null;toast(`Undid ${u.label}`);}
+function redo(){const r=S.redo.pop();if(!r)return;S.undo.push({label:r.label,d:clone({steps:S.steps,clips:S.clips,ovs:S.ovs})});Object.assign(S,clone(r.d));toast(`Redid ${r.label}`);}
+let toastTimer;
+function toast(msg,canUndo){S.toast={msg,canUndo};clearTimeout(toastTimer);toastTimer=setTimeout(()=>{S.toast=null;renderLayer()},4200);renderLayer();}
+function go(v,opts){S.view=v;S.menu=null;S.playing=false;if(opts)Object.assign(S,opts);try{if(location.hash!=='#'+v)history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0);}
+
+// ---------- chrome ----------
+function protoBar(){
+  const v = [['home','Home'],['making','Making'],['check','Check the script'],['studio','Studio'],['export','Export'],['setup','Settings']];
+  const cur = S.view==='making'&&S.mk.need==='script'?'check':S.view;
+  return `<div class="proto gut" role="navigation" aria-label="Prototype"><b>Prototype</b><span>Jump to</span>${v.map(([k,l])=>`<button data-act="jump" data-v="${k}" ${cur===k?'aria-current="page"':''}>${l}</button>`).join('')}<span class="sp"></span><button data-act="drawer">What changed on this screen?</button></div>`;
+}
+function appHeader(cur){
+  return `<header class="hdr gut"><button class="brand" data-act="go" data-v="home" aria-label="Tutorial Studio home"><span class="mark" aria-hidden="true">W</span>Tutorial Studio</button>
+  <nav class="nav" aria-label="Main"><button data-act="go" data-v="home" ${cur==='home'?'aria-current="page"':''}>Tutorials</button><button data-act="go" data-v="setup" ${cur==='setup'?'aria-current="page"':''}>Settings</button><button data-act="toast" data-msg="Help opens a short guide: Make, Check the script, Edit and export.">Help</button></nav><span class="grow"></span></header>`;
+}
+
+// ---------- HOME ----------
+function viewHome(){
+  const keyMissing = !S.setup.key;
+  return appHeader('home')+`<main class="home gut">
+  ${keyMissing?`<div class="setupbar" role="status"><span><b>One thing left before your first tutorial:</b> add a voice-over key so the narrator can speak.</span><span class="grow" style="flex:1"></span><button class="btn sm" data-act="go" data-v="setup">Add key</button></div>`:''}
+  <div class="hero"><h1>What should the viewer learn<i>?</i></h1><p class="muted" style="font-size:16px;max-width:60ch">Describe a task. The agent plans it, tests it in the product, writes the script and records the video. You check the script once, then edit.</p></div>
+  <form class="panel maker" data-form="make">
+    <label for="goal" class="sr">What should the viewer learn?</label>
+    <textarea id="goal" placeholder="e.g. Create an HTTP service with a GET /greeting resource and try it">${esc(S.goal)}</textarea>
+    <div class="sugg" aria-label="Examples">${['Create an HTTP service and try it','Connect to a MySQL database','Map JSON to XML with the data mapper','Expose a service as an AI agent tool'].map(s=>`<button type="button" data-act="sugg" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+    <div class="row"><div class="field" style="min-width:220px"><label for="product">Product</label><select id="product"><option>WSO2 Integrator</option><option>WSO2 Micro Integrator</option><option>Ballerina (VS Code)</option></select></div></div>
+    <div class="field"><span class="lbl" id="howl">Who clicks through it?</span><div class="how" role="group" aria-labelledby="howl">
+      <button type="button" data-act="how" data-v="agent" aria-pressed="${S.how==='agent'}"><b>The agent</b><span>It finds its own way through the product.</span></button>
+      <button type="button" data-act="how" data-v="me" aria-pressed="${S.how==='me'}"><b>I'll show it once</b><span>You click through; the agent turns it into steps.</span></button></div></div>
+    <details class="custom"><summary><span class="car">›</span> Customize length, voice and notes</summary>
+      <div class="customgrid">
+        <div class="field"><span class="lbl">Length</span><div class="seg" role="group" aria-label="Length"><button type="button" aria-pressed="false">About 1 min</button><button type="button" aria-pressed="true">2–3 min</button><button type="button" aria-pressed="false">5+ min</button></div></div>
+        <div class="field"><label for="voice">Voice</label><select id="voice"><option>Rachel (default)</option><option>Adam</option><option>Bella</option></select></div>
+        <div class="field"><label for="aud">Who is watching?</label><select id="aud"><option>Developers</option><option>New to WSO2</option><option>Architects</option></select></div>
+        <div class="field"><label for="notes">Notes for the agent</label><textarea id="notes" rows="2" placeholder="Anything it should show, skip or say"></textarea><button type="button" class="btn sm" style="align-self:flex-start" data-act="toast" data-msg="Opens a file picker for docs or links.">Add docs or links</button></div>
+        <label class="switch"><input type="checkbox" id="chksteps"><span><b>Let me check the steps before it records</b><br><span class="muted small">Adds a second stop after planning.</span></span></label>
+        <label class="switch"><input type="checkbox" checked id="explainers"><span><b>Add explainers where they help</b><br><span class="muted small">Short animated scenes for concepts.</span></span></label>
+      </div></details>
+    <div class="go"><div class="est"><span>About <b>25 min</b></span><span>About <b>$2</b></span><span>You'll be asked to <b>check the script</b> once</span></div>
+      <button class="btn pri lg" type="submit" ${keyMissing?'aria-describedby="whyoff"':''}>Make tutorial →</button></div>
+    ${keyMissing?`<p id="whyoff" class="small" style="color:var(--warn);margin-top:-6px">You can start now. The voice-over waits until you add the key.</p>`:''}
+  </form>
+  <button class="btn ghost" style="align-self:flex-start;color:var(--steel)" data-act="toast" data-msg="A series plans several connected tutorials. It opens its own planner.">Plan a multi-part series instead →</button>
+  <section style="display:flex;flex-direction:column;gap:14px"><h2 style="font-size:20px">Your tutorials</h2>
+    <div class="cards">
+      ${tcard('Creating an AI Agent','<span class="chip ok"><span class="dot"></span>Ready to edit</span>','3:20 · edited today','studio')}
+      ${tcard('Connect to a MySQL database','<span class="chip need"><span class="dot"></span>Needs you: check the script</span>','Waiting since 10 min','check')}
+      ${tcard('Expose a service as an AI agent tool','<span class="chip run"><span class="dot"></span>Recording</span>','About 6 min left','rec')}
+    </div></section></main>`;
+}
+function tcard(t,chip,meta,dest){
+  return `<button class="panel tcard" data-act="card" data-d="${dest}" data-t="${esc(t)}"><div class="thumb">${miniScreen(dest==='studio'?171:dest==='check'?9:66)}</div><div class="body"><b>${esc(t)}</b>${chip}<span class="muted small">${meta}</span></div></button>`;
+}
+function miniScreen(t){return `<div style="position:absolute;inset:0;container-type:inline-size">${screen(t,true)}</div>`;}
+
+// ---------- the recorded "product" screen (fixed video colours) ----------
+function screen(t, mini){
+  const s = stepAt(t);
+  if(s.ex){
+    const k = Math.floor((t-s.t)/(stepEnd(S.steps.indexOf(s))-s.t)*4);
+    const bx = [['Chat message','"What is 12 + 8?"'],['Agent','math-tutor'],['Model','decides'],['Tools','sum(12, 8)']];
+    return `<div class="exp"><div class="k">AI AGENTS</div><h4>How a chat agent works<i>.</i></h4><div class="flowx">${bx.map((b,i)=>`${i?'<span class="ar">→</span>':''}<div class="bx ${i<=k?'on':''}">${b[0]}<small>${b[1]}</small></div>`).join('')}</div></div>`;
+  }
+  const i = S.steps.indexOf(s);
+  let body='';
+  if(i<=1) body = `<div class="crumbs">Greeting Service › Artifacts › Chat Agent Service</div><h4>Create Chat Agent Service</h4><div class="form"><div class="inp">${i===0?'':'math-tutor'}</div><div class="inp" style="height:6cqw;align-items:flex-start;padding-top:.8cqw">${i===0?'':'You are a patient math tutor…'}</div><div class="vbtn">Create</div></div>`;
+  else if(i<=6) body = `<div class="crumbs">math-tutor › Agent</div><div class="canvas"><div class="node" style="left:8%;top:30%">Chat<small>/math-tutor/chat</small></div><div class="node" style="left:36%;top:30%">Agent<small>Math tutor</small></div><div class="node" style="left:64%;top:12%">Model<small>gpt-4o</small></div><div class="node" style="left:64%;top:52%">Tools<small>${i>=4?(i>=6?'sum, subtract, multiply, divide':'sum'):'none'}</small></div></div>`;
+  else if(i===7) body = `<div class="crumbs">math-tutor › Run</div><div class="canvas"><div class="node" style="left:36%;top:22%">Agent<small>tracing on</small></div></div><div class="term"><span>$ bal run</span><span>Compiling source</span><span style="color:#7BD3A0">Running service on port 9090</span><span>API_KEY=sk-live-4f9a…c2</span></div>`;
+  else body = `<div class="crumbs">math-tutor › Agent Chat</div><div class="canvas"><div class="node" style="left:8%;top:20%">Agent<small>Math tutor</small></div><div class="chat"><div class="u">What is 12 + 8?</div><div class="a">I'll use the sum tool… 12 + 8 = 20.</div></div></div>`;
+  const cx = 30 + 30*Math.sin(t/3), cy = 40 + 20*Math.cos(t/4);
+  return `<div class="vs"><div class="tb">greeting-project — WSO2 Integrator</div><div class="ab"></div><div class="ex"><b style="font-size:.9cqw;letter-spacing:.1em">WSO2 INTEGRATOR</b><span>Greeting Service</span><span class="hi">${i<=1?'Artifacts':'math-tutor'}</span><span>Connections</span><span>Types</span><span>Functions</span><span>Configurations</span></div><div class="ed">${body}</div><div class="sb">WSO2 Integrator · Ballerina 2201.14.1</div></div>${mini?'':`<svg class="cursor" style="left:${cx}%;top:${cy}%" viewBox="0 0 20 20"><path d="M3 2l13 8-6 1.5L7 18z" fill="#13213B" stroke="#fff" stroke-width="1.4"/></svg>`}`;
+}
+
+// ---------- MAKING ----------
+function viewMaking(){
+  const m = S.mk, st = STAGES[m.stage];
+  const left = STAGES.slice(m.stage).reduce((a,s,i)=>a+(s.mins||0)*(i===0?(1-m.pct/100):1),0);
+  return appHeader('home')+`<div class="gut" style="padding-top:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="btn ghost sm" data-act="go" data-v="home">← Tutorials</button><h1 style="font-size:22px;font-weight:800">${esc(m.title)}</h1>${m.done?'<span class="chip ok"><span class="dot"></span>Ready</span>':m.need?'<span class="chip need"><span class="dot"></span>Needs you</span>':`<span class="chip run"><span class="dot"></span>About ${Math.max(1,Math.round(left))} min left</span>`}<span style="flex:1"></span>${!m.done&&!m.need?'<button class="btn sm" data-act="mkskip">Skip ahead (prototype)</button>':''}<button class="btn sm ghost" data-act="dialog" data-d="stop">Stop…</button></div>
+  <main class="making gut">
+    <aside class="panel stages" aria-label="Progress"><span class="eb" style="margin-bottom:6px">Progress</span>${STAGES.map((s,i)=>{const cls=i<m.stage||m.done?'done':i===m.stage?(s.you?'you':'now'):'';return `<div class="stage ${cls}"><span class="m">${cls==='done'?'✓':i+1}</span><b>${s.name}${s.you?' <span class="chip" style="margin-left:4px">you</span>':''}</b><span class="s">${cls==='now'&&!s.you?esc(m.log[m.log.length-1]||s.sub):s.sub}${s.mins&&cls!=='done'?` · ~${s.mins} min`:''}</span>${cls==='now'&&!s.you?`<span class="bar"><i style="width:${m.pct}%"></i></span>`:''}<span class="sr">${cls==='done'?'done':cls?'in progress':'waiting'}</span></div>`}).join('')}</aside>
+    <section class="livecol">${m.done?doneCard():m.need==='script'?scriptReview():liveBox()}</section>
+    <aside class="side">${m.need==='perm'?permCard():''}${m.need==='script'?`<div class="panel needcard"><span class="eb" style="color:var(--accent-ink)">Needs you</span><h3>Check the script</h3><p class="small muted">Read each line. Edit any words, or ask for changes. Nothing is voiced or recorded until you approve.</p><button class="btn pri" data-act="approve">Approve and record</button><div class="field"><label for="askchg" class="small">Or ask for changes</label><textarea id="askchg" rows="3" placeholder="e.g. Make step 2 shorter and mention the port"></textarea><button class="btn sm" style="align-self:flex-start" data-act="revise">Send</button></div></div>`:''}
+      <div class="panel feed"><div style="display:flex;justify-content:space-between;align-items:center"><span class="eb">What it's doing</span><button class="btn ghost sm" data-act="mkdetails" aria-expanded="${m.details}">${m.details?'Hide details':'Details'}</button></div>
+      <ol>${m.log.map(l=>`<li><span class="ck" aria-hidden="true">✓</span><span>${esc(l)}</span></li>`).join('')||'<li><span></span><span class="muted">Starting…</span></li>'}</ol>
+      ${m.details?`<div class="tech" aria-label="Technical details"><span>session 1a2b3c4d · model: balanced</span><span>spent $${(0.18+m.stage*0.31+m.pct/300).toFixed(2)} of $5.00 limit</span><span>last action: run_script (step ${Math.min(9,1+Math.floor(m.pct/12))})</span><button class="btn sm" style="align-self:flex-start;margin-top:4px" data-act="toast" data-msg="Opens the full agent log in a separate window.">Open full log</button></div>`:''}</div></aside>
+  </main>`;
+}
+function liveBox(){
+  const st = STAGES[S.mk.stage];
+  const t = S.mk.stage<=1? (S.mk.pct/100*DUR*0.9) : S.mk.stage===3 ? S.mk.pct/100*DUR : 171;
+  return `<div class="panel livebox"><div class="nowline"><span class="pulse" aria-hidden="true"></span>${esc(st.name)}: ${esc(S.mk.log[S.mk.log.length-1]||st.sub)}</div><div class="stagebox" style="max-width:100%">${S.mk.stage===0?`<div style="position:absolute;inset:0;display:grid;place-items:center;background:var(--sunk);color:var(--muted);padding:20px;text-align:center"><div><b style="color:var(--ink);font-size:16px">Planning the steps</b><br>The product opens here when the agent starts testing.</div></div>`:screen(t)}</div><p class="small muted">You can leave this screen. You'll get a notification when the tutorial needs you or is ready.</p></div>`;
+}
+function permCard(){
+  return `<div class="panel needcard" role="alert"><span class="eb" style="color:var(--accent-ink)">Needs you</span><h3>Allow the agent to install packages?</h3><p class="small">It wants to run <code style="font-family:var(--mono);background:var(--sunk);padding:1px 5px;border-radius:5px">npm install</code> in the project folder to test step 7.</p><div class="btnrow"><button class="btn pri" data-act="perm" data-v="allow">Allow</button><button class="btn" data-act="perm" data-v="deny">Deny</button></div><label class="switch small"><input type="checkbox"><span>Always allow this for this tutorial</span></label></div>`;
+}
+function scriptReview(){
+  return `<div class="review"><div class="panel" style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center"><b>9 steps · 1 explainer</b><span class="muted">About <b style="color:var(--ink)">3:20</b> when voiced</span><span class="chip ok">Fits your 2–5 min target</span></div>
+  ${S.steps.map((s,i)=>`<div class="panel rstep ${s.ex?'ex':''}"><span class="n">${i+1}</span><b>${esc(s.title)}${s.ex?' <span class="chip need" style="margin-left:6px">Explainer</span>':''}</b><label class="sr" for="rv-${s.id}">Script for step ${i+1}</label><textarea id="rv-${s.id}" data-act="rvline" data-id="${s.id}" rows="2">${esc(s.line)}</textarea><span class="meta">About ${Math.round(s.line.split(/\s+/).length/2.6)} s spoken</span></div>`).join('')}</div>`;
+}
+function doneCard(){
+  return `<div class="panel donecard"><span class="chip ok"><span class="dot"></span>Ready</span><h2>Your tutorial is ready.</h2><p class="muted" style="font-size:15px">3:20 · 9 steps · 1 explainer · voice-over and captions included. Watch it, fix anything you like, then export.</p><div class="stagebox" style="max-width:520px">${screen(171)}</div><button class="btn pri lg" data-act="go" data-v="studio">Watch and edit →</button></div>`;
+}
+let mkTimer=null;
+function mkTick(){
+  const m=S.mk; if(S.view!=='making'||m.need||m.done) return;
+  const st=STAGES[m.stage]; m.pct=Math.min(100,m.pct+3.2);
+  const n=st.logs?Math.min(st.logs.length,Math.floor(m.pct/100*st.logs.length)+1):0;
+  const base=STAGES.slice(0,m.stage).reduce((a,s)=>a+(s.logs?s.logs.length:0),0);
+  while(m.log.length<base+n) m.log.push(st.logs[m.log.length-base]);
+  if(m.stage===1&&m.pct>55&&!m.askedPerm){m.askedPerm=true;m.need='perm';notify('The agent needs your OK to install packages.');}
+  if(m.pct>=100){ m.stage++; m.pct=0;
+    if(m.stage>=STAGES.length){m.done=true;notify('Your tutorial is ready to watch and edit.','studio');}
+    else if(STAGES[m.stage].you){m.need='script';notify('Check the script before it is voiced.');}
+  }
+  render();
+}
+function notify(text,dest){S.notif={text,dest};renderLayer();setTimeout(()=>{if(S.notif&&S.notif.text===text){S.notif=null;renderLayer()}},7000);}
+
+// ---------- STUDIO ----------
+function viewStudio(){
+  const u=S.undo[S.undo.length-1], r=S.redo[S.redo.length-1];
+  return `<header class="hdr gut"><button class="btn ghost sm" data-act="go" data-v="home">← Tutorials</button><div class="crumb"><span class="t">${esc(S.title)}</span><span class="save">Saved</span></div><span class="grow"></span>
+  <button class="btn ghost sm" data-act="undo" ${u?'':'disabled'} title="${u?'Undo '+esc(u.label):'Nothing to undo'}" aria-label="${u?'Undo '+esc(u.label):'Undo'}">${I.undo}<span>Undo</span></button>
+  <button class="btn ghost sm" data-act="redo" ${r?'':'disabled'} aria-label="${r?'Redo '+esc(r.label):'Redo'}">${I.redo}<span>Redo</span></button>
+  <div class="menuwrap"><button class="btn ghost sm" data-act="menu" data-m="more" aria-haspopup="true" aria-expanded="${S.menu==='more'}" aria-label="More">${I.dots}</button>${S.menu==='more'?`<div class="menu down" role="menu"><button role="menuitem" data-act="dialog" data-d="rerecord">Record again…<span>Plans and records from scratch. Your edits are kept as notes.</span></button><button role="menuitem" data-act="go" data-v="making" data-x="review">Show how it was made<span>Steps, script check and what the agent did.</span></button><button role="menuitem" data-act="toast" data-msg="Opens the tutorial folder in Finder.">Open the tutorial folder</button></div>`:''}</div>
+  <button class="btn pri" data-act="go" data-v="export">Export</button></header>
+  <main class="studio gut">
+    <div class="col">${scriptPanel()}${agentPanel()}</div>
+    <div class="center">${addBar()}<div class="stagewrap"><div class="stagebox ${S.noteMode?'notemode':''}" id="stage" aria-label="Preview">${stageInner()}</div></div>${transport()}</div>
+    <div class="col">${inspector()}</div>
+    ${timeline()}
+  </main>`;
+}
+function scriptPanel(){
+  const cur=stepAt(S.t);
+  return `<section class="panel script" aria-label="Script"><div class="head"><h2>Script</h2><span class="muted small">Click a step to jump</span></div><div class="slist" id="slist">${S.steps.map((s,i)=>{
+    const changed=S.orig[s.id]!==s.line, busy=S.revoicing[s.id];
+    const isSel=S.sel&&S.sel.kind==='line'&&S.sel.id===s.id;
+    return `<div class="srow ${cur===s?'cur':''} ${isSel?'sel':''}" data-row="${s.id}"><button class="tm" data-act="seek" data-t="${s.t}" aria-label="Jump to step ${i+1}, ${mmss(s.t)}">${mmss(s.t)}</button><span class="ti" data-act="seek" data-t="${s.t}">${i+1} · ${esc(s.title)}${s.ex?' <span class="chip need" style="font-size:10.5px;padding:1px 7px">Explainer</span>':''}</span>
+    <label class="sr" for="ln-${s.id}">Words for step ${i+1}</label><textarea id="ln-${s.id}" rows="2" data-act="line" data-id="${s.id}">${esc(s.line)}</textarea>
+    <div class="acts" data-acts="${s.id}">${busy?'<span class="small muted"><span class="spin" aria-hidden="true"></span> Voicing…</span>':changed?`<span class="tag">Changed</span><button class="btn sm" data-act="revoice" data-id="${s.id}">Re-voice this line</button><button class="btn sm ghost" data-act="revert" data-id="${s.id}">Revert</button>`:''}</div>
+    ${s.warn?`<div class="warnrow"><span>⚠ ${esc(s.warn)}</span><button class="btn sm" data-act="fixwarn" data-id="${s.id}">Line it up</button></div>`:''}</div>`}).join('')}</div></section>`;
+}
+function agentPanel(){
+  const a=S.agent;
+  return `<section class="panel agent" aria-label="Ask the agent"><div class="top"><h2>Ask the agent</h2>${a.state==='working'?'<span class="chip run"><span class="spin" aria-hidden="true"></span> Working</span>':''}</div>
+  ${a.state==='result'?`<div class="result" role="status"><b>${esc(a.result.title)}</b><span class="small">${esc(a.result.body)}</span><span class="small muted">Already in your video at ${mmss(a.result.t)}.</span><div class="rb"><button class="btn sm pri" style="font-size:13px" data-act="agkeep">Keep</button><button class="btn sm" data-act="agundo">Undo this</button><button class="btn sm ghost" data-act="agmore">Tell it more…</button></div></div>`:''}
+  ${a.state==='working'?`<p class="small muted">${esc(a.working||'Looking at the video…')}</p>`:''}
+  ${a.notes.length?`<div class="notechips">${a.notes.map((n,i)=>`<span class="chip run">${I.pin} Note at ${mmss(n.t)} <button class="btn ghost sm" style="padding:0 4px" data-act="rmnote" data-i="${i}" aria-label="Remove note at ${mmss(n.t)}">×</button></span>`).join('')}</div>`:''}
+  <label class="sr" for="ask">Ask the agent for a change</label><textarea id="ask" placeholder="e.g. Add an arrow pointing at Create in step 3">${esc(a.text)}</textarea>
+  <div class="presets">${['Shorten step 2','Add an arrow at Create','Explain tools with an explainer'].map(p=>`<button data-act="preset" data-p="${esc(p)}">${esc(p)}</button>`).join('')}</div>
+  <div class="btnrow"><button class="btn pri sm" style="font-size:13px" data-act="agsend" ${a.state==='working'?'disabled':''}>Send</button><button class="btn sm" data-act="notemode" aria-pressed="${S.noteMode}">${I.pin} ${S.noteMode?'Click the video…':'Point at the video'}</button></div></section>`;
+}
+function addBar(){
+  return `<div class="addbar"><div class="grp" role="toolbar" aria-label="Add to video"><span class="gl">Add to video</span>${['text','arrow','box','zoom','blur'].map(k=>`<button data-act="addov" data-k="${k}">${OVNAME[k]}</button>`).join('')}</div>
+  <div class="grp" role="toolbar" aria-label="Note for the agent"><button data-act="notemode" aria-pressed="${S.noteMode}">${I.pin} Note for the agent</button></div></div>`;
+}
+function stageInner(){
+  let h=screen(S.t);
+  S.ovs.filter(o=>S.t>=o.s&&S.t<o.e).forEach(o=>{
+    const sel=S.sel&&S.sel.kind==='ov'&&S.sel.id===o.id?' sel':'';
+    const pos=`left:${o.x}%;top:${o.y}%`;
+    if(o.type==='title') h+=`<div class="ov title${sel}" data-ov="${o.id}"><span class="k">WSO2 INTEGRATOR</span><h4>${esc(o.text)}<i>.</i></h4></div>`;
+    else if(o.type==='arrow') h+=`<div class="ov arrow${sel}" data-ov="${o.id}" style="${pos}" aria-label="Arrow overlay">${arrowSvg(o.color)}</div>`;
+    else if(o.type==='box') h+=`<div class="ov box${sel}" data-ov="${o.id}" style="${pos};border-color:${o.color}"></div>`;
+    else if(o.type==='text') h+=`<div class="ov text${sel}" data-ov="${o.id}" style="${pos};background:${o.color};color:${o.color==='#FFFFFF'?'#13213B':'#fff'}">${esc(o.text)}</div>`;
+    else if(o.type==='callout') h+=`<div class="ov callout${sel}" data-ov="${o.id}" style="${pos};border-color:${o.color}">${esc(o.text)}</div>`;
+    else if(o.type==='zoom') h+=`<div class="ov zoom${sel}" data-ov="${o.id}" style="${pos}"><span>Zoom ${o.zoomLevel||2}×</span></div>`;
+    else h+=`<div class="ov ${o.type}${sel}" data-ov="${o.id}" style="${pos}"></div>`;
+  });
+  S.agent.notes.filter(n=>Math.abs(n.t-S.t)<3).forEach(n=>h+=`<span class="pin" style="left:${n.x}%;top:${n.y}%" aria-label="Note"></span>`);
+  const s=stepAt(S.t);
+  if(S.captions&&S.t-s.t<voLen(s)) h+=`<div class="cap">${esc(s.line)}</div>`;
+  return h;
+}
+function transport(){
+  return `<div class="transport"><button class="btn ghost sm" data-act="stepnav" data-d="-1" aria-label="Previous step">${I.prev}</button><button class="play" data-act="play" aria-label="${S.playing?'Pause':'Play'} (Space)">${S.playing?I.pause:I.play}</button><button class="btn ghost sm" data-act="stepnav" data-d="1" aria-label="Next step">${I.next}</button><span class="tc" id="tc">${mmss(S.t,1)} / ${mmss(DUR)}</span><span style="flex:1"></span><label class="switch small" style="align-items:center"><input type="checkbox" data-act="captions" ${S.captions?'checked':''}><span>Captions</span></label></div>`;
+}
+function inspector(){
+  const sel=S.sel;
+  if(!sel) return `<section class="panel insp" aria-label="Inspector"><h2>Nothing selected</h2><ul class="tips"><li>Click a step in the Script to jump there.</li><li>Change the words, then <b>Re-voice this line</b>.</li><li>Select part of the <b>Video</b> lane to speed it up or cut it.</li><li>Use <b>Add to video</b> for arrows and labels, or ask the agent.</li><li>Press <span class="kbd">Space</span> to play, <span class="kbd">⌘Z</span> to undo.</li></ul></section>`;
+  if(sel.kind==='ov'){const o=S.ovs.find(x=>x.id===sel.id); if(!o) return '';
+    return `<section class="panel insp" aria-label="Inspector"><div><h2>${OVNAME[o.type]}</h2><p class="sub">Shows ${mmss(o.s)}–${mmss(o.e)} · step ${S.steps.indexOf(stepAt(o.s))+1}</p></div>
+    ${['text','callout','title'].includes(o.type)?`<div class="field"><label for="ovtext">Text</label><input type="text" id="ovtext" data-act="ovtext" value="${esc(o.text)}"></div>`:''}
+    ${o.type!=='title'&&o.type!=='blur'&&o.type!=='zoom'?`<div class="field"><span class="lbl">Colour</span><div class="swatches">${COLORS.map(([c,n])=>`<button data-act="ovcolor" data-c="${c}" aria-label="${n}" aria-pressed="${o.color===c}" style="background:${c}"></button>`).join('')}</div></div>`:''}
+    ${o.type==='zoom'?`<div class="field"><span class="lbl">How close</span><div class="seg">${[1.5,2,3].map(z=>`<button data-act="ovzoom" data-z="${z}" aria-pressed="${(o.zoomLevel||2)===z}">${z}×</button>`).join('')}</div></div>`:''}
+    <div class="two"><div class="field"><label for="ovs">Starts</label><input type="number" id="ovs" step="0.5" min="0" data-act="ovtime" data-f="s" value="${o.s}"></div><div class="field"><label for="ove">Ends</label><input type="number" id="ove" step="0.5" min="0" data-act="ovtime" data-f="e" value="${o.e}"></div></div>
+    ${o.type!=='title'?`<label class="switch small"><input type="checkbox" checked><span><b>Follow what it points at</b><br><span class="muted">Moves with the button if the screen changes.</span></span></label><p class="small muted">Drag it on the video to move it.</p>`:''}
+    <div class="btnrow"><button class="btn sm" data-act="ovdup">Duplicate</button><button class="btn sm danger" data-act="del">Delete</button></div></section>`;}
+  if(sel.kind==='clip'){const c=S.clips.find(x=>x.id===sel.id); if(!c) return '';
+    if(c.kind==='ex') return `<section class="panel insp" aria-label="Inspector"><div><h2>Explainer</h2><p class="sub">${mmss(c.s)}–${mmss(c.e)} · ${Math.round(c.e-c.s)} s</p></div><div class="field"><label for="look">Look</label><select id="look"><option>Blueprint flow</option><option>Layered panels</option><option>Card deck</option></select></div><label class="switch small"><input type="checkbox" checked><span><b>Length follows the voice-over</b></span></label><p class="small muted">Its words are step 4 in the Script.</p><div class="btnrow"><button class="btn sm" data-act="preset" data-p="Change the explainer at ${mmss(c.s)} so that ">Ask the agent to change it</button><button class="btn sm danger" data-act="del">Remove</button></div></section>`;
+    return `<section class="panel insp" aria-label="Inspector"><div><h2>Part of the recording</h2><p class="sub">${mmss(c.s)}–${mmss(c.e)} · ${Math.round(c.e-c.s)} s in the video</p></div>
+    <div class="field"><span class="lbl">Speed</span><div class="seg" role="group" aria-label="Speed">${[1,1.5,2,4].map(v=>`<button data-act="speed" data-v="${v}" aria-pressed="${c.speed===v}">${v}×</button>`).join('')}</div><span class="small muted">Faster parts play without voice-over.</span></div>
+    <div class="btnrow"><button class="btn sm" data-act="split">Split at playhead</button><button class="btn sm" data-act="toast" data-msg="Holds this frame for 2 s at the playhead.">Hold this frame</button></div>
+    <button class="btn sm danger" style="align-self:flex-start" data-act="del">Cut this part</button></section>`;}
+  if(sel.kind==='line'){const s=S.steps.find(x=>x.id===sel.id);
+    return `<section class="panel insp" aria-label="Inspector"><div><h2>Voice-over line</h2><p class="sub">Step ${S.steps.indexOf(s)+1} · starts ${mmss(s.t)} · about ${Math.round(voLen(s))} s</p></div><p style="font-size:13.5px">${esc(s.line)}</p><p class="small muted">Edit the words in the Script on the left. The voice-over follows them.</p><div class="btnrow"><button class="btn sm" data-act="focusline" data-id="${s.id}">Edit in the Script</button><button class="btn sm" data-act="toast" data-msg="Plays just this line.">Play this line</button></div></section>`;}
+  return '';
+}
+function timeline(){
+  const ticks=[];for(let t=0;t<=DUR;t+=15) ticks.push(`<span style="left:${pct(t)}">${mmss(t)}</span>`);
+  const isSel=(k,id)=>S.sel&&S.sel.kind===k&&S.sel.id===id?' sel':'';
+  const lanes=[['Video'],['Voice-over'],['Overlays']];
+  if(S.lanes.steps) lanes.push(['Steps']); if(S.lanes.captions) lanes.push(['Captions']); if(S.lanes.notes&&S.agent.notes.length) lanes.push(['Notes']);
+  const video=S.clips.map(c=>`<button class="blk ${c.kind==='ex'?'exb':'rec'}${c.speed>1?' fast':''}${isSel('clip',c.id)}" data-sel="clip" data-id="${c.id}" style="left:${pct(c.s)};width:calc(${pct(c.e-c.s)} - 2px)" aria-label="${c.kind==='ex'?'Explainer':'Recording'} ${mmss(c.s)} to ${mmss(c.e)}${c.speed>1?', '+c.speed+' times speed':''}">${c.kind==='ex'?'Explainer · '+esc(c.look):'Recording'}${c.speed>1?` <span class="sp">${c.speed}×</span>`:''}</button>`).join('');
+  const vo=S.steps.map(s=>`<button class="blk vo${S.orig[s.id]!==s.line?' changed':''}${isSel('line',s.id)}" data-sel="line" data-id="${s.id}" style="left:${pct(s.t)};width:calc(${pct(voLen(s))} - 2px)" title="${esc(s.line)}">${esc(s.line)}</button>`).join('');
+  const ov=S.ovs.map(o=>`<button class="blk ovb${isSel('ov',o.id)}" data-sel="ov" data-id="${o.id}" style="left:${pct(o.s)};width:max(56px,calc(${pct(o.e-o.s)} - 2px))">${OVNAME[o.type]}</button>`).join('');
+  const stp=S.steps.map((s,i)=>`<button class="blk stp" data-act="seek" data-t="${s.t}" style="left:${pct(s.t)};width:calc(${pct(stepEnd(i)-s.t)} - 2px)">${i+1} · ${esc(s.title)}</button>`).join('');
+  const cap=S.steps.map(s=>`<span class="blk cpt" style="left:${pct(s.t)};width:calc(${pct(voLen(s))} - 2px)">${esc(s.line)}</span>`).join('');
+  const notes=S.agent.notes.map(n=>`<span class="blk note" style="left:${pct(n.t)}">${I.pin}</span>`).join('');
+  const rows={Video:video,'Voice-over':vo,Overlays:ov,Steps:stp,Captions:cap,Notes:notes};
+  return `<section class="panel tl" aria-label="Timeline"><div class="tlbar">
+    <button class="btn sm" data-act="split" title="Split the selected video part at the playhead (S)">Split</button>
+    <div class="menuwrap"><button class="btn sm" data-act="menu" data-m="add" aria-haspopup="true" aria-expanded="${S.menu==='add'}">+ Add</button>${S.menu==='add'?`<div class="menu" role="menu"><div class="mh">On the video</div>${['arrow','box','text','callout','highlight','zoom','blur'].map(k=>`<button role="menuitem" data-act="addov" data-k="${k}">${OVNAME[k]}</button>`).join('')}<hr><div class="mh">Other</div><button role="menuitem" data-act="preset" data-p="Add an explainer at ${mmss(S.t)} about ">Explainer…<span>Describe it and the agent builds it.</span></button><button role="menuitem" data-act="toast" data-msg="Adds a new step with an empty line at the playhead.">Voice-over line<span>A new line at the playhead.</span></button></div>`:''}</div>
+    <div class="menuwrap"><button class="btn sm" data-act="menu" data-m="auto" aria-haspopup="true" aria-expanded="${S.menu==='auto'}">Automatic edits</button>${S.menu==='auto'?`<div class="menu" role="menu"><button role="menuitem" data-act="dialog" data-d="revoiceall">Update the voice-over<span>Re-voices the ${changedCount()||'no'} changed line${changedCount()===1?'':'s'}. Asks before re-timing.</span></button><button role="menuitem" data-act="dialog" data-d="lineup">Line up clicks with the voice<span>Speeds up or holds the video so each click lands on its word.</span></button><button role="menuitem" data-act="dialog" data-d="rebuild">Rebuild the cursor and click effects<span>Your own overlays are kept.</span></button></div>`:''}</div>
+    <span class="grow"></span>
+    <div class="menuwrap"><button class="btn sm ghost" data-act="menu" data-m="lanes" aria-haspopup="true" aria-expanded="${S.menu==='lanes'}">Show lanes</button>${S.menu==='lanes'?`<div class="menu down" role="menu" style="min-width:200px">${[['steps','Steps'],['captions','Captions'],['notes','Notes for the agent']].map(([k,l])=>`<label class="switch" style="padding:8px 10px"><input type="checkbox" data-act="lane" data-k="${k}" ${S.lanes[k]?'checked':''}><span>${l}</span></label>`).join('')}</div>`:''}</div>
+    <label class="small muted" for="zoom">Zoom</label><input id="zoom" type="range" min="1" max="4" step="0.5" value="${S.zoom}" data-act="zoom" style="width:110px;accent-color:var(--accent)"></div>
+    <div class="tlgrid"><div class="lanes-l" aria-hidden="true"><div></div>${lanes.map(l=>`<div>${l[0]}</div>`).join('')}</div>
+    <div class="scroller" id="scroller"><div class="track" id="track" style="width:${S.zoom*100}%"><div class="ruler" data-act="ruler">${ticks.join('')}</div>${lanes.map(l=>`<div class="lane" data-act="ruler" aria-label="${l[0]} lane">${rows[l[0]]}</div>`).join('')}<div class="playhead" id="ph" style="left:${pct(S.t)}"></div></div></div></div></section>`;
+}
+const changedCount=()=>S.steps.filter(s=>S.orig[s.id]!==s.line).length;
+
+// ---------- EXPORT ----------
+function viewExport(){
+  const e=S.ex, size={'720p':140,'1080p':305,'4K':980}[e.res];
+  const phase=e.p<80?'Rendering the video':e.p<92?'Encoding':e.p<98?'Adding the voice-over':'Writing captions and the step-by-step doc';
+  return appHeader('home')+`<main class="page gut"><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="btn ghost sm" data-act="go" data-v="studio">← Back to editing</button></div><h1>Export ${esc(S.title)}<i>.</i></h1>
+  <div class="exgrid"><div class="panel" style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="stagebox" style="max-width:100%">${screen(e.state==='running'?e.p/100*DUR:0)}</div>
+  ${e.state==='idle'?`<div style="display:flex;flex-wrap:wrap;gap:6px 18px"><span><b>3:20</b> long</span><span><b>${e.res}</b></span><span>about <b>${size} MB</b></span><span class="chip ok">Voice-over and captions ready</span></div>`:''}
+  ${e.state==='running'?`<div role="status" aria-live="polite"><b>${phase}…</b> <span class="muted">${Math.round(e.p)}% · about ${Math.max(1,Math.round((100-e.p)/30))} min left</span></div><div class="prog"><i style="width:${e.p}%"></i></div><p class="small muted">You can go back to editing. The export keeps running and you'll be notified when it's done.</p>`:''}
+  ${e.state==='done'?`<div role="status"><b style="color:var(--ok)">Exported.</b> <span class="muted">Saved to the folder below.</span></div><ul class="files">${[e.outs.video&&['creating-an-ai-agent.mp4',size+' MB'],e.outs.captions&&['captions.srt, captions.vtt','2 files'],e.outs.doc&&['tutorial.md','with 9 images'],e.outs.script&&['recording-script.ts','to record again']].filter(Boolean).map(f=>`<li><code>${f[0]}</code><span class="grow muted small">${f[1]}</span></li>`).join('')}</ul><div class="btnrow"><button class="btn pri" data-act="toast" data-msg="Opens the folder in Finder.">Show in Finder</button><button class="btn" data-act="go" data-v="studio">Back to editing</button></div>`:''}
+  </div>
+  <div class="panel" style="padding:18px;display:flex;flex-direction:column;gap:16px"><h2 style="font-size:16px">What you get</h2>
+  <div class="outs">${[['video','Video','MP4 with voice-over and overlays'],['captions','Captions','Subtitle files for YouTube or docs sites'],['doc','Step-by-step doc','Markdown with a screenshot per step'],['script','Recording script','To record this tutorial again later']].map(([k,t,d])=>`<label><input type="checkbox" data-act="out" data-k="${k}" ${e.outs[k]?'checked':''} ${e.state==='running'?'disabled':''}><span><b>${t}</b><span class="muted small">${d}</span></span></label>`).join('')}</div>
+  <div class="field"><span class="lbl">Quality</span><div class="seg" role="group" aria-label="Quality">${['720p','1080p','4K'].map(r=>`<button data-act="res" data-v="${r}" aria-pressed="${e.res===r}" ${e.state==='running'?'disabled':''}>${r}</button>`).join('')}</div></div>
+  <div class="field"><span class="lbl">Saves to</span><div class="where"><code>~/Tutorials/creating-an-ai-agent/</code><button class="btn sm" data-act="toast" data-msg="Opens a folder picker.">Change</button></div><span class="small muted">An export from yesterday is already there. Exporting again replaces it.</span></div>
+  <details class="adv"><summary>Details</summary><p class="small muted" style="margin-top:6px;font-family:var(--mono)">H.264 · 12 Mbps · 30 fps · AAC 48 kHz</p></details>
+  ${e.state==='running'?`<button class="btn" data-act="excancel">Cancel export</button>`:`<button class="btn pri lg" data-act="exstart" ${Object.values(e.outs).some(Boolean)?'':'disabled'}>${e.state==='done'?'Export again':'Export'}</button>${Object.values(e.outs).some(Boolean)?'':'<span class="small" style="color:var(--warn)">Choose at least one thing to export.</span>'}`}
+  </div></div></main>`;
+}
+let exTimer=null;
+function exTick(){const e=S.ex;if(e.state!=='running')return;e.p=Math.min(100,e.p+1.6);if(e.p>=100){e.state='done';clearInterval(exTimer);if(S.view!=='export')notify('Export finished: creating-an-ai-agent.mp4','export');}if(S.view==='export')render();}
+
+// ---------- SETTINGS ----------
+function viewSetup(){
+  const st=S.setup;
+  return appHeader('setup')+`<main class="page gut"><h1>Settings<i>.</i></h1><div class="setgrid">
+  <section class="panel" aria-labelledby="gs"><div style="display:flex;justify-content:space-between;align-items:center"><h2 id="gs">Get started</h2><span class="chip ${st.key?'ok':'warn'}">${st.key?'All set':'3 of 4 done'}</span></div>
+    <div><div class="check"><span class="m ok">✓<span class="sr">Done</span></span><b>Claude Code</b><span></span><span class="d">Installed and signed in.</span></div>
+    <div class="check"><span class="m ok">✓<span class="sr">Done</span></span><b>WSO2 Integrator</b><span></span><span class="d">Found in Applications.</span></div>
+    <div class="check"><span class="m ok">✓<span class="sr">Done</span></span><b>Video tools</b><span></span><span class="d">Included with the app.</span></div>
+    <div class="check"><span class="m ${st.key?'ok':'todo'}">${st.key?'✓':'!'}<span class="sr">${st.key?'Done':'To do'}</span></span><b>Voice-over key (ElevenLabs)</b><span></span><span class="d">${st.key?'Saved securely. Never shared with the agent.':'Needed for the narrator’s voice. Recording works without it.'}</span>
+      ${st.key?'':`<div style="grid-column:2/-1;display:flex;gap:8px;margin-top:8px"><label for="key" class="sr">ElevenLabs key</label><input type="password" id="key" placeholder="Paste your key"><button class="btn pri sm" style="font-size:13px" data-act="savekey">Save key</button></div>`}</div>
+    <div class="check"><span class="m ok">✓<span class="sr">Done</span></span><b>If Claude sign-in expires</b><span></span><span class="d">Run this in Terminal, then come back:</span><div class="codeline"><code>claude auth login</code><button class="btn sm" data-act="copy" data-c="claude auth login">Copy</button></div></div></div></section>
+  <section class="panel" aria-labelledby="ag"><h2 id="ag">Agent</h2>
+    <div class="field"><label for="lim">Spending limit per tutorial</label><div style="display:flex;gap:8px;align-items:center"><span>$</span><input type="number" id="lim" min="1" step="1" value="${st.limit}" style="max-width:120px"><span class="small muted">The agent stops and asks when it reaches this.</span></div></div>
+    <label class="switch"><input type="checkbox" ${st.ask?'checked':''}><span><b>Ask me before it runs commands outside the tutorial folder</b><br><span class="muted small">Recommended. Safe steps inside the folder never ask.</span></span></label>
+    <div class="field"><label for="dv">Default voice</label><select id="dv"><option>Rachel</option><option>Adam</option></select></div>
+    <div class="field"><span class="lbl">Say product names right</span><div style="display:flex;gap:8px;align-items:center"><input type="text" value="WSO2" aria-label="Written"><span aria-hidden="true">→</span><input type="text" value="W S O 2" aria-label="Spoken"></div><button class="btn sm" style="align-self:flex-start">Add a word</button></div></section>
+  <section class="panel" aria-labelledby="lr"><h2 id="lr">What the agent learned</h2><p class="small muted">It remembers these for your next tutorials. Undo anything that's wrong.</p>
+    <ul class="lessons"><li><span>In WSO2 Integrator 1.2, the tool button moved into the agent's menu.</span><button class="btn sm ghost" data-act="toast" data-msg="Forgot this lesson.">Undo</button></li><li><span>Wait for "Running service on port" before testing.</span><button class="btn sm ghost" data-act="toast" data-msg="Forgot this lesson.">Undo</button></li><li><span>Keep narration under 25 words per step for this audience.</span><button class="btn sm ghost" data-act="toast" data-msg="Forgot this lesson.">Undo</button></li></ul></section>
+  <section class="panel" aria-labelledby="ap"><h2 id="ap">Appearance</h2><div class="seg" role="group" aria-label="Theme"><button aria-pressed="true">System</button><button aria-pressed="false">Light</button><button aria-pressed="false">Dark</button></div><p class="small muted">Changes the app only. Videos keep their own colours.</p>
+    <details class="adv"><summary>Advanced</summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px"><div class="field"><label for="cfg">Claude login folder</label><input type="text" id="cfg" placeholder="Default (~/.claude)"></div><button class="btn sm" style="align-self:flex-start" data-act="toast" data-msg="Opens product setup for admins.">Manage products…</button><button class="btn sm" style="align-self:flex-start" data-act="toast" data-msg="Opens the workspace folder.">Open the workspace folder</button></div></details></section>
+  </div></main>`;
+}
+
+// ---------- layer (toast, dialog, notification, drawer) ----------
+const DIALOGS = {
+  rerecord:['Record this tutorial again?','The agent plans, tests and records from scratch, about 25 min and $2. Your current video stays until the new one is ready.','Record again'],
+  revoiceall:['Update the voice-over?','Re-voices the changed lines (about $0.05). The video then shifts by up to 3 s so actions stay in time with the words.','Update voice-over'],
+  lineup:['Line up clicks with the voice?','Speeds up the waits before 1 late click so it lands on its word. You can undo this.','Line them up'],
+  rebuild:['Rebuild the cursor and click effects?','Replaces the automatic cursor, click ripples and zooms. Arrows, labels and blurs you added are kept.','Rebuild'],
+  stop:['Stop making this tutorial?','The agent stops now. You can continue later from the same point.','Stop'],
+};
+function renderLayer(){
+  let h='';
+  if(S.toast) h+=`<div class="toast" role="status">${esc(S.toast.msg)}${S.toast.canUndo?'<button data-act="undo">Undo</button>':''}</div>`;
+  if(S.notif) h+=`<div class="notif" role="alert"><span class="ic" aria-hidden="true">W</span><span class="os">Notification · Tutorial Studio</span><b>${esc(S.mk.title)}</b><span class="small">${esc(S.notif.text)}</span><div class="acts" style="grid-column:2"><button class="btn sm" data-act="notifopen">Open</button><button class="btn sm ghost" data-act="notifclose">Close</button></div></div>`;
+  if(S.dialog){const d=DIALOGS[S.dialog];h+=`<div class="scrim" data-act="dlgcancel"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgt"><h2 id="dlgt">${d[0]}</h2><p class="muted">${d[1]}</p><div class="btnrow"><button class="btn" data-act="dlgcancel">Cancel</button><button class="btn pri" data-act="dlgok" id="dlgok">${d[2]}</button></div></div></div>`;}
+  if(S.drawer){const k=S.view==='making'?'making':S.view;h+=`<aside class="drawer" role="dialog" aria-label="What changed"><div style="display:flex;justify-content:space-between;align-items:center"><span class="eb">Compared with today</span><button class="btn sm ghost" data-act="drawer">Close</button></div><h2 style="font-size:20px">What changed on this screen</h2><ul>${(CHANGES[k]||[]).map(c=>`<li>${c}</li>`).join('')}</ul><p class="small muted">IDs refer to findings in the UX review report.</p></aside>`;}
+  $('#layer').innerHTML=h;
+  if(S.dialog) setTimeout(()=>{const b=$('#dlgok');b&&b.focus()},0);
+}
+
+// ---------- render ----------
+function render(){
+  const v=S.view; let body='';
+  if(v==='home') body=viewHome(); else if(v==='making') body=viewMaking(); else if(v==='studio') body=viewStudio(); else if(v==='export') body=viewExport(); else body=viewSetup();
+  const ae=document.activeElement, aid=ae&&ae.id, ss=ae&&ae.selectionStart, sl=$('#slist')?.scrollTop, sc=$('#scroller')?.scrollLeft;
+  $('#app').innerHTML=protoBar()+body; $('#app').className='app'+(v==='studio'?' fixed':'');
+  if(aid){const el=document.getElementById(aid); if(el){el.focus(); try{if(ss!=null)el.setSelectionRange(ss,ss)}catch(e){}}}
+  if(sl!=null&&$('#slist')) $('#slist').scrollTop=sl; if(sc!=null&&$('#scroller')) $('#scroller').scrollLeft=sc;
+  document.querySelectorAll('.srow textarea').forEach(autosize);
+  renderLayer();
+}
+function autosize(t){t.style.height='auto';t.style.height=t.scrollHeight+'px';}
+function renderLive(){ // playback: update only the preview, timecode, playhead, current step
+  const st=$('#stage'); if(!st) return;
+  st.innerHTML=stageInner(); const tc=$('#tc'); if(tc) tc.textContent=`${mmss(S.t,1)} / ${mmss(DUR)}`;
+  const ph=$('#ph'); if(ph) ph.style.left=pct(S.t);
+  const cur=stepAt(S.t); document.querySelectorAll('.srow').forEach(r=>r.classList.toggle('cur',r.dataset.row===cur.id));
+}
+let raf=null,last=0;
+function loop(ts){ if(!S.playing){raf=null;return;} const dt=last?(ts-last)/1000:0; last=ts;
+  const c=S.clips.find(c=>S.t>=c.s&&S.t<c.e); S.t+=dt*(c?Math.min(c.speed,1.5):1)*(c&&c.speed>1?2:1);
+  if(S.t>=DUR){S.t=DUR;S.playing=false;render();return;} renderLive(); raf=requestAnimationFrame(loop);}
+function setPlay(p){S.playing=p;last=0;if(p&&!raf)raf=requestAnimationFrame(loop);const b=document.querySelector('[data-act="play"]');if(b){b.innerHTML=p?I.pause:I.play;b.setAttribute('aria-label',(p?'Pause':'Play')+' (Space)');}}
+function seek(t){S.t=Math.max(0,Math.min(DUR,t));renderLive();}
+
+// ---------- actions ----------
+let nid=10;
+function addOverlay(k){
+  snap(`Add ${OVNAME[k].toLowerCase()}`);
+  const o={id:'o'+(nid++),type:k,s:Math.round(S.t*2)/2,e:Math.round(S.t*2)/2+4,text:k==='text'?'Click Create':k==='callout'?'This is the agent':'' ,x:40,y:40,color:k==='text'?'#13213B':'#FF5800'};
+  S.ovs.push(o);S.sel={kind:'ov',id:o.id};S.menu=null;render();toast(`Added ${OVNAME[k].toLowerCase()} at ${mmss(o.s)}. Drag it on the video.`,true);
+}
+function agentSend(){
+  const a=S.agent;const txt=($('#ask')?.value||'').trim();
+  if(!txt&&!a.notes.length){toast('Type what you want changed, or point at the video first.');return;}
+  a.text='';a.state='working';a.working='Looking at step 3 and the Create button…';render();
+  setTimeout(()=>{a.working='Adding an arrow and checking it on 6 frames…';render();},1200);
+  setTimeout(()=>{snap('agent change');const o={id:'o'+(nid++),type:'arrow',s:24,e:30,text:'',x:47,y:58,color:'#FF5800'};
+    if(!/arrow|create/i.test(txt)){o.type='callout';o.text=txt.slice(0,40)||'Look here';o.s=Math.round(S.t);o.e=o.s+5;o.x=a.notes[0]?.x||40;o.y=a.notes[0]?.y||40;}
+    S.ovs=S.ovs.filter(x=>!(x.type==='arrow'&&x.id==='o2'&&o.type==='arrow'));S.ovs.push(o);
+    a.result={title:o.type==='arrow'?'Added an arrow pointing at Create':'Added a callout',body:o.type==='arrow'?'It appears as the narrator says "Click Create" in step 3 and follows the button.':'Placed where you pointed, for 5 seconds.',t:o.s,ov:o.id};
+    a.notes=[];a.state='result';S.t=o.s+1;S.sel={kind:'ov',id:o.id};render();},2600);
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act],[data-sel],[data-ov]');
+  // close menus on outside click
+  if(S.menu&&!e.target.closest('.menuwrap')){S.menu=null;render();}
+  if(!el) return;
+  const act=el.dataset.act, d=el.dataset;
+  if(el.dataset.sel&&!act){S.sel={kind:d.sel,id:d.id};if(d.sel==='line'){const s=S.steps.find(x=>x.id===d.id);S.t=s.t+0.2;}else if(d.sel==='ov'){const o=S.ovs.find(x=>x.id===d.id);if(S.t<o.s||S.t>=o.e)S.t=o.s+0.5;}else{const c=S.clips.find(x=>x.id===d.id);if(S.t<c.s||S.t>=c.e)S.t=c.s+0.5;}render();return;}
+  switch(act){
+    case 'jump': {const v=d.v; if(v==='check'){Object.assign(S.mk,{stage:2,pct:0,need:'script',done:false,log:[...STAGES[0].logs,...STAGES[1].logs],askedPerm:true});go('making');} else if(v==='making'){Object.assign(S.mk,{stage:0,pct:0,need:null,done:false,log:[],askedPerm:false});go('making');} else go(v);break;}
+    case 'go': if(d.x==='review'){Object.assign(S.mk,{stage:5,done:true,need:null,log:STAGES.flatMap(s=>s.logs||[])});} go(d.v); break;
+    case 'drawer': S.drawer=!S.drawer; renderLayer(); break;
+    case 'toast': toast(d.msg); break;
+    case 'sugg': S.goal=d.s; render(); $('#goal')?.focus(); break;
+    case 'how': S.how=d.v; S.goal=$('#goal').value; render(); break;
+    case 'card': if(d.d==='studio'){S.title=d.t;go('studio');} else if(d.d==='check'){Object.assign(S.mk,{title:d.t,stage:2,pct:0,need:'script',done:false,log:[...STAGES[0].logs,...STAGES[1].logs],askedPerm:true});go('making');} else {Object.assign(S.mk,{title:d.t,stage:3,pct:30,need:null,done:false,log:[...STAGES[0].logs,...STAGES[1].logs,STAGES[3].logs[0]],askedPerm:true});go('making');} break;
+    case 'mkskip': S.mk.pct=99; mkTick(); break;
+    case 'mkdetails': S.mk.details=!S.mk.details; render(); break;
+    case 'perm': S.mk.need=null; S.mk.log.push(d.v==='allow'?'You allowed npm install':'You said no to npm install, so it used the existing packages'); toast(d.v==='allow'?'Allowed. The agent continues.':'Denied. The agent will work around it.'); render(); break;
+    case 'approve': S.mk.need=null; S.mk.stage=3; S.mk.pct=0; S.mk.log.push('You approved the script'); toast('Approved. Recording now, about 12 min. You can leave this screen.'); render(); break;
+    case 'revise': toast('Sent. The agent rewrites the script and asks you again.'); break;
+    case 'notifopen': {const n=S.notif;S.notif=null; if(n&&n.dest) go(n.dest); else {go('making');} break;}
+    case 'notifclose': S.notif=null; renderLayer(); break;
+    case 'dialog': S.dialog=d.d; S.menu=null; render(); break;
+    case 'dlgcancel': if(e.target===el||el.tagName==='BUTTON'){S.dialog=null;renderLayer();} break;
+    case 'dlgok': {const k=S.dialog;S.dialog=null;
+      if(k==='revoiceall'){snap('update voice-over');S.steps.forEach(s=>S.orig[s.id]=s.line);toast('Voice-over updated. The video is now 3:21.',true);}
+      else if(k==='lineup'){snap('line up clicks');S.steps.forEach(s=>delete s.warn);toast('Sped up 0.4 s before 1 click. All clicks now land on their words.',true);}
+      else if(k==='rebuild'){toast('Rebuilt the cursor and click effects. Your overlays were kept.',true);}
+      else if(k==='rerecord'){toast('Recording again in the background. Your current video stays until the new one is ready.');}
+      else if(k==='stop'){S.mk.need=null;toast('Stopped. Continue any time from Tutorials.');go('home');return;}
+      render();break;}
+    case 'undo': undo(); render(); break;
+    case 'redo': redo(); render(); break;
+    case 'menu': S.menu=S.menu===d.m?null:d.m; render(); break;
+    case 'seek': S.t=+d.t+0.2; render(); break;
+    case 'play': setPlay(!S.playing); break;
+    case 'stepnav': {const i=S.steps.indexOf(stepAt(S.t));const j=Math.max(0,Math.min(S.steps.length-1,i+(+d.d)));S.t=S.steps[j].t+0.2;render();break;}
+    case 'revoice': {const id=d.id;S.revoicing[id]=true;render();setTimeout(()=>{delete S.revoicing[id];snap('re-voice line');S.orig[id]=S.steps.find(s=>s.id===id).line;render();toast('Re-voiced. The video shifted by 0.8 s to fit the new words.',true);},1300);break;}
+    case 'revert': {const s=S.steps.find(x=>x.id===d.id);s.line=S.orig[s.id];render();break;}
+    case 'fixwarn': {snap('line up click');delete S.steps.find(x=>x.id===d.id).warn;render();toast('Sped up the wait before the click by 0.4 s.',true);break;}
+    case 'preset': S.agent.text=d.p; S.menu=null; render(); const a=$('#ask'); if(a){a.focus();a.setSelectionRange(a.value.length,a.value.length);} break;
+    case 'agsend': agentSend(); break;
+    case 'agkeep': S.agent.state='idle'; S.agent.result=null; toast('Kept.'); render(); break;
+    case 'agundo': {const r=S.agent.result; S.ovs=S.ovs.filter(o=>o.id!==r.ov); S.agent.state='idle'; S.agent.result=null; S.sel=null; toast('Undone. The video is back as it was.'); render(); break;}
+    case 'agmore': S.agent.state='idle'; S.agent.text='Make the arrow '; render(); $('#ask')?.focus(); break;
+    case 'notemode': S.noteMode=!S.noteMode; render(); if(S.noteMode) toast('Click on the video where you want the agent to look.'); break;
+    case 'rmnote': S.agent.notes.splice(+d.i,1); render(); break;
+    case 'addov': addOverlay(d.k); break;
+    case 'del': {const s=S.sel; if(!s) return;
+      if(s.kind==='ov'){const o=S.ovs.find(x=>x.id===s.id);snap(`delete ${OVNAME[o.type].toLowerCase()}`);S.ovs=S.ovs.filter(x=>x.id!==s.id);toast(`Deleted ${OVNAME[o.type].toLowerCase()}.`,true);}
+      else if(s.kind==='clip'){const c=S.clips.find(x=>x.id===s.id);snap(c.kind==='ex'?'remove explainer':'cut');S.clips=S.clips.filter(x=>x.id!==s.id);toast(c.kind==='ex'?'Removed the explainer.':`Cut ${Math.round(c.e-c.s)} s from the video.`,true);}
+      S.sel=null;render();break;}
+    case 'ovdup': {const o=S.ovs.find(x=>x.id===S.sel.id);snap('duplicate');const n={...o,id:'o'+(nid++),x:o.x+3,y:o.y+3};S.ovs.push(n);S.sel={kind:'ov',id:n.id};render();toast('Duplicated.',true);break;}
+    case 'ovcolor': {const o=S.ovs.find(x=>x.id===S.sel.id);snap('change colour');o.color=d.c;render();break;}
+    case 'ovzoom': {const o=S.ovs.find(x=>x.id===S.sel.id);snap('change zoom');o.zoomLevel=+d.z;render();break;}
+    case 'speed': {const c=S.clips.find(x=>x.id===S.sel.id);snap(`speed ${d.v}×`);c.speed=+d.v;render();toast(`This part now plays at ${d.v}×.`,true);break;}
+    case 'split': {const c=S.clips.find(x=>S.t>x.s+0.5&&S.t<x.e-0.5&&x.kind==='rec');
+      if(!c){toast('Move the playhead inside a recording part to split it.');break;}
+      snap('split');const n={...c,id:'c'+(nid++),s:Math.round(S.t*10)/10};c.e=n.s;S.clips.splice(S.clips.indexOf(c)+1,0,n);S.sel={kind:'clip',id:n.id};render();toast(`Split at ${mmss(S.t)}.`,true);break;}
+    case 'focusline': {const t=document.getElementById('ln-'+d.id);t&&t.focus();break;}
+    case 'exstart': S.ex.state='running'; S.ex.p=0; clearInterval(exTimer); exTimer=setInterval(exTick,100); render(); break;
+    case 'excancel': S.ex.state='idle'; clearInterval(exTimer); toast('Export cancelled. Nothing was overwritten.'); render(); break;
+    case 'res': S.ex.res=d.v; render(); break;
+    case 'savekey': S.setup.key=true; render(); toast('Key checked with ElevenLabs and saved.'); break;
+    case 'copy': try{navigator.clipboard.writeText(d.c).then(()=>toast('Copied.'),()=>toast('Select the command and copy it.'));}catch(err){toast('Select the command and copy it.');} break;
+  }
+});
+document.addEventListener('change',e=>{
+  const el=e.target, d=el.dataset;
+  if(d.act==='captions'){S.captions=el.checked;renderLive();}
+  else if(d.act==='lane'){S.lanes[d.k]=el.checked;render();}
+  else if(d.act==='out'){S.ex.outs[d.k]=el.checked;render();}
+  else if(d.act==='ovtime'){const o=S.ovs.find(x=>x.id===S.sel.id);snap('change timing');o[d.f]=Math.max(0,Math.min(DUR,+el.value||0));if(o.e<=o.s)o.e=o.s+0.5;render();}
+  else if(d.act==='line'){render();}
+});
+document.addEventListener('input',e=>{
+  const el=e.target, d=el.dataset;
+  if(d.act==='line'||d.act==='rvline'){const s=S.steps.find(x=>x.id===d.id);s.line=el.value;if(d.act==='rvline'){S.orig[s.id]=s.line;return;}autosize(el);
+    const acts=document.querySelector(`[data-acts="${d.id}"]`);const changed=S.orig[s.id]!==s.line;
+    if(acts&&!S.revoicing[d.id]) acts.innerHTML=changed?`<span class="tag">Changed</span><button class="btn sm" data-act="revoice" data-id="${s.id}">Re-voice this line</button><button class="btn sm ghost" data-act="revert" data-id="${s.id}">Revert</button>`:'';}
+  else if(d.act==='ovtext'){const o=S.ovs.find(x=>x.id===S.sel.id);o.text=el.value;renderLive();}
+  else if(d.act==='zoom'){S.zoom=+el.value;const t=$('#track');if(t)t.style.width=S.zoom*100+'%';}
+  else if(el.id==='ask'){S.agent.text=el.value;}
+  else if(el.id==='goal'){S.goal=el.value;}
+});
+document.addEventListener('submit',e=>{
+  if(e.target.dataset.form==='make'){e.preventDefault();const g=($('#goal').value||'').trim();
+    if(!g){toast('Describe what the viewer should learn first.');$('#goal').focus();return;}
+    if(S.how==='me'){toast('The product would open now for you to click through once. (Not in this prototype.)');return;}
+    const title=g.charAt(0).toUpperCase()+g.slice(1);
+    Object.assign(S.mk,{title,stage:0,pct:0,log:[],need:null,done:false,askedPerm:false});go('making');}
+});
+// timeline seek + preview drag + note mode
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const ruler=e.target.closest('[data-act="ruler"]');
+  if(ruler&&!e.target.closest('.blk')){const tr=$('#track').getBoundingClientRect();S.t=Math.max(0,Math.min(DUR,(e.clientX-tr.left)/tr.width*DUR));S.sel=null;render();return;}
+  const stage=e.target.closest('#stage'); if(!stage) return;
+  const r=stage.getBoundingClientRect(), x=(e.clientX-r.left)/r.width*100, y=(e.clientY-r.top)/r.height*100;
+  if(S.noteMode){S.agent.notes.push({t:S.t,x,y});S.noteMode=false;setPlay(false);render();toast(`Note added at ${mmss(S.t)}. Now say what you want in Ask the agent.`);$('#ask')?.focus();return;}
+  const ovEl=e.target.closest('[data-ov]');
+  if(ovEl){const o=S.ovs.find(z=>z.id===ovEl.dataset.ov);S.sel={kind:'ov',id:o.id};if(o.type!=='title'){snap(`move ${OVNAME[o.type].toLowerCase()}`);drag={o,dx:x-o.x,dy:y-o.y,r,moved:false};ovEl.setPointerCapture?.(e.pointerId);}render();e.preventDefault();}
+  else if(S.sel&&S.sel.kind==='ov'){S.sel=null;render();}
+});
+document.addEventListener('pointermove',e=>{if(!drag)return;const {o,r}=drag;o.x=Math.max(0,Math.min(92,(e.clientX-r.left)/r.width*100-drag.dx));o.y=Math.max(0,Math.min(92,(e.clientY-r.top)/r.height*100-drag.dy));drag.moved=true;renderLive();});
+document.addEventListener('pointerup',()=>{if(drag&&!drag.moved)S.undo.pop();drag=null;});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(S.dialog){S.dialog=null;renderLayer();}else if(S.menu){S.menu=null;render();}else if(S.drawer){S.drawer=false;renderLayer();}else if(S.noteMode){S.noteMode=false;render();}return;}
+  if(S.view!=='studio') return;
+  const typing=e.target.closest('input,textarea,select,[contenteditable]');
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&!typing){e.preventDefault();e.shiftKey?redo():undo();render();return;}
+  if(typing) return;
+  if(e.key===' '){e.preventDefault();setPlay(!S.playing);}
+  else if((e.key==='Delete'||e.key==='Backspace')&&S.sel&&S.sel.kind!=='line'){e.preventDefault();document.querySelector('[data-act="del"]')?.click();}
+  else if(e.key==='ArrowLeft'){S.t=Math.max(0,S.t-1);renderLive();} else if(e.key==='ArrowRight'){S.t=Math.min(DUR,S.t+1);renderLive();}
+});
+
+// boot
+mkTimer=setInterval(mkTick,180);
+const startView=(location.hash||'').replace('#','');
+if(['home','making','studio','export','setup'].includes(startView)) S.view=startView;
+if(startView==='making') Object.assign(S.mk,{stage:0});
+window.addEventListener('hashchange',()=>{const v=location.hash.replace('#','');if(['home','making','studio','export','setup'].includes(v)&&v!==S.view)go(v);});
+render();
+</script>
