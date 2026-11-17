@@ -1596,3 +1596,43 @@
   outline: 2px solid var(--ui-brand);
   border-radius: 3px;
 }
+
+/* "+" between two steps: add an explainer there. Shown on hover, on focus and while open. */
+.ed-tl-gap {
+  position: absolute;
+  top: 11px;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-brand);
+  color: var(--ui-on-fill);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 4;
+  opacity: 0;
+  transform: scale(0.8);
+}
+.ed-tl-in:hover .ed-tl-gap {
+  opacity: 0.55;
+}
+.ed-tl-gap:hover,
+.ed-tl-gap:focus-visible,
+.ed-tl-gap[data-open] {
+  opacity: 1 !important;
+  transform: none;
+}
+.ed-tl-gap:focus-visible {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: 2px;
+}
+.ed-ex-line {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-f04);
+  line-height: 1.45;
+}

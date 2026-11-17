@@ -44,6 +44,7 @@ import { StepsRail } from './StepsRail';
 import { StepPanel, type AddKind } from './StepPanel';
 import { EditTimeline, EXTRA_TRACKS, pieceKey, type ExtraTrack, type Selection, type TimelineStep } from './EditTimeline';
 import { PiecePanel } from './PiecePanel';
+import { ExplainerPanel, plainName } from './ExplainerPanel';
 import { FixSheet, type FixKind } from './FixSheet';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
@@ -620,6 +621,67 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     }
     return { speeds: [...speeds].sort((a, b) => a[0] - b[0]).map(([rate, seconds]) => ({ rate, seconds })), holds };
   }
+  // ---------------------------------------------------------------------------
+  // Explainers
+  // ---------------------------------------------------------------------------
+  const sceneLooks = useMemo(
+    () =>
+      Object.entries(registry)
+        .filter(([, m]) => m.meta?.kind === 'scene')
+        .map(([id, m]) => {
+          const d = (m.meta?.description ?? '').split(/(?<=\.)\s/)[0] ?? '';
+          const own = !id.startsWith('core:');
+          return {
+            id,
+            name: plainName(m.meta?.name ?? id.split(':')[1] ?? id),
+            hint: `${own ? 'Your own · ' : ''}${d.length > 80 ? `${d.slice(0, 78)}…` : d}`,
+          };
+        }),
+    [registry],
+  );
+  const selectedExplainer = (() => {
+    if (selection?.kind !== 'explainer' || !timeline || !resolved) return null;
+    const i = timeline.scenes.findIndex((sc) => sc.id === selection.id);
+    const scene = timeline.scenes[i];
+    const span = resolved.tm.scenes.find((x) => x.sceneId === selection.id);
+    return scene?.kind === 'explainer' && span ? { scene, index: i, start: span.start, end: span.end } : null;
+  })();
+  function insertExplainer(at: number, component: string, n: number) {
+    controls.pause();
+    void attempt(
+      () => be.insertScene(at, component),
+      `Added an explainer after step ${n}. Ask the agent to write its script.`,
+      true,
+    );
+  }
+  function askExplainer(n: number) {
+    const text = `Add an explainer after step ${n} about `;
+    setAsk(text);
+    setTimeout(() => {
+      const el = composer.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(text.length, text.length);
+    }, 60);
+  }
+  function removeExplainer(sceneId: string) {
+    setConfirm({
+      title: 'Remove this explainer?',
+      body: 'The explainer and its script come out of the video, and the recording on either side joins up again. You can undo it.',
+      action: 'Remove explainer',
+      danger: true,
+      run: () =>
+        attempt(
+          async () => {
+            await be.removeScene(sceneId);
+            setSelection(null);
+          },
+          'Explainer removed.',
+          true,
+        ),
+    });
+  }
+
   const cutSpan = cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
   const cutLen = cutSpan ? Math.round((cutSpan.b - cutSpan.a) * 10) / 10 : 0;
   function startCut() {
@@ -886,7 +948,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     ? resolved.tm.scenes.flatMap((sc) => {
         const scene = timeline?.scenes.find((x) => x.id === sc.sceneId);
         return scene?.kind === 'explainer'
-          ? [{ id: scene.id, title: names[scene.component] ?? 'Explainer', start: sc.start, end: sc.end }]
+          ? [{ id: scene.id, title: plainName(names[scene.component] ?? 'Explainer'), start: sc.start, end: sc.end }]
           : [];
       })
     : [];
@@ -1416,6 +1478,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               onFreezeLength={(sceneId, index, len) =>
                 void pieceEdit(sceneId, index, { op: 'duration', duration: len }, `The freeze now holds for ${len} s.`)
               }
+              scenes={sceneLooks}
+              onInsertExplainer={insertExplainer}
+              onAskExplainer={askExplainer}
               range={cut}
               onRangeEnd={(t) => {
                 setCut((c) => (c ? { ...c, to: r2(t) } : c));
@@ -1482,6 +1547,23 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               playheadInside={playheadInPiece}
               onEdit={(edit) => void pieceEdit(selectedPiece.sceneId, selectedPiece.index, edit)}
               onFreeze={(len) => void freezeAt(now(), len)}
+              onClose={() => setSelection(null)}
+            />
+          ) : selectedExplainer ? (
+            <ExplainerPanel
+              scene={selectedExplainer.scene}
+              name={names[selectedExplainer.scene.component] ?? selectedExplainer.scene.component.split(':')[1] ?? 'Explainer'}
+              start={selectedExplainer.start}
+              end={selectedExplainer.end}
+              voice={timeline.voice.filter((v) => v.owner === selectedExplainer.scene.id)}
+              onLook={(component) =>
+                void attempt(
+                  () => be.patch([{ op: 'replace', path: `/scenes/${selectedExplainer.index}/component`, value: component }], 'Change explainer look'),
+                  'Changed the look.',
+                  true,
+                )
+              }
+              onRemove={() => removeExplainer(selectedExplainer.scene.id)}
               onClose={() => setSelection(null)}
             />
           ) : step && span ? (

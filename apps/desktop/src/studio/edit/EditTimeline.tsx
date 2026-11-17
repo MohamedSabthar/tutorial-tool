@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import type { OverlayInstance, Segment, VoiceLine } from '@studio/core';
-import { Button, Glyph, MenuLabel, MenuSeparator, Popover, type GlyphName } from '@studio/ui';
+import { Button, Glyph, Menu, MenuItem, MenuLabel, MenuSeparator, Popover, type GlyphName } from '@studio/ui';
 import { Timed, type Player } from '@studio/stage';
+import { FloatPopover } from './FloatPopover';
 import { mmss, overlayFamily, overlayIcon, overlayName, overlayShort, overlayText, type Pace } from './model';
 
 /** What's selected: a piece is `<sceneId>:<index>`, an explainer its scene id. */
@@ -102,6 +103,9 @@ export function EditTimeline({
   onFreezeLength,
   range = null,
   onRangeEnd,
+  scenes = [],
+  onInsertExplainer,
+  onAskExplainer,
 }: {
   player: Player;
   duration: number;
@@ -138,6 +142,12 @@ export function EditTimeline({
   /** A part being marked to cut: clicks and drags on the timeline set its end. */
   range?: { from: number; to: number | null } | null;
   onRangeEnd?: (t: number) => void;
+  /** Explainer looks that can be inserted (built-in and your own). */
+  scenes?: { id: string; name: string; hint: string }[];
+  /** Inserts an explainer with look `component` at output time `at`, after step `n`. */
+  onInsertExplainer?: (at: number, component: string, n: number) => void;
+  /** Starts a message to the agent about an explainer after step `n`. */
+  onAskExplainer?: (n: number) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(600);
@@ -145,6 +155,8 @@ export function EditTimeline({
   const [drag, setDrag] = useState<Drag | null>(null);
   const [picker, setPicker] = useState(false);
   const [editing, setEditing] = useState<{ index: number; text: string } | null>(null);
+  // The "+" between two steps whose explainer popover is open, and which view it shows.
+  const [gap, setGap] = useState<{ n: number; at: number; el: HTMLElement; looks: boolean } | null>(null);
   const seeking = useRef(false);
   const ranging = useRef(false);
   useEffect(() => {
@@ -188,7 +200,7 @@ export function EditTimeline({
     return Math.min(Math.max((clientX - r.left + el.scrollLeft) / pps, 0), dur);
   };
   const seekDown = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.ed-tlb, .ed-tl-cut, .ed-tl-pin, .ed-tl-cap-edit, .ed-tl-pace')) return;
+    if ((e.target as HTMLElement).closest('.ed-tlb, .ed-tl-cut, .ed-tl-pin, .ed-tl-cap-edit, .ed-tl-pace, .ed-tl-gap')) return;
     seeking.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     player.seek(timeAt(e.clientX));
@@ -426,10 +438,13 @@ export function EditTimeline({
                   style={{ left: x(e.start), width: Math.max(x(e.end - e.start) - 2, 6) }}
                   tabIndex={0}
                   role="button"
-                  aria-label={`Explainer: ${e.title}, ${mmss(e.start)} to ${mmss(e.end)}`}
+                  data-sel={isSel('explainer', e.id) || undefined}
+                  aria-label={`Explainer: ${e.title}, ${mmss(e.start)} to ${mmss(e.end)}. Press Enter to edit it`}
                   title={`Explainer: ${e.title}`}
-                  onClick={() => player.seek(e.start + 0.01)}
-                  onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && (ev.preventDefault(), player.seek(e.start + 0.01))}
+                  onClick={() => onSelect({ kind: 'explainer', id: e.id }, e.start + 0.01)}
+                  onKeyDown={(ev) =>
+                    (ev.key === 'Enter' || ev.key === ' ') && (ev.preventDefault(), onSelect({ kind: 'explainer', id: e.id }, e.start + 0.01))
+                  }
                 >
                   <span className="ed-tlb-tx">{e.title}</span>
                 </div>
@@ -474,6 +489,28 @@ export function EditTimeline({
                 );
               })}
             </div>
+            {onInsertExplainer &&
+              steps.slice(0, -1).map((s, i) => {
+                const next = steps[i + 1]!;
+                if (s.pace.kind === 'skip' || next.pace.kind === 'skip') return null;
+                const n = i + 1;
+                return (
+                  <button
+                    key={`gap-${s.id}`}
+                    type="button"
+                    className="ed-tl-gap"
+                    data-open={gap?.n === n || undefined}
+                    style={{ left: x(s.end) }}
+                    aria-label={`Add an explainer after step ${n}`}
+                    title={`Add an explainer after step ${n}`}
+                    aria-haspopup="dialog"
+                    aria-expanded={gap?.n === n}
+                    onClick={(e) => setGap(gap?.n === n ? null : { n, at: s.end, el: e.currentTarget, looks: false })}
+                  >
+                    <Glyph name="plus" size={9} />
+                  </button>
+                );
+              })}
             <div className="ed-tl-track" role="group" aria-label="Voice-over">
               {lines.map((l, i) => {
                 const dt = dtOf('line', l.line.id);
@@ -710,6 +747,59 @@ export function EditTimeline({
           </div>
         </div>
       </div>
+      <FloatPopover
+        anchor={gap?.el ?? null}
+        open={!!gap}
+        onClose={() => setGap(null)}
+        label={`Explainer after step ${gap?.n ?? ''}`}
+        minWidth={300}
+        view={gap?.looks ? 'looks' : 'start'}
+      >
+        {gap && !gap.looks && (
+          <Menu label={`Explainer after step ${gap.n}`}>
+            <MenuLabel>Explainer after step {gap.n}</MenuLabel>
+            <MenuItem icon="film" hint="A short animated scene; you write its script after" onSelect={() => setGap({ ...gap, looks: true })}>
+              Pick a look
+            </MenuItem>
+            <MenuItem
+              icon="spark"
+              hint="The agent plans it, writes the script and builds it"
+              onSelect={() => {
+                setGap(null);
+                onAskExplainer?.(gap.n);
+              }}
+            >
+              Describe it to the agent…
+            </MenuItem>
+          </Menu>
+        )}
+        {gap && gap.looks && (
+          <Menu label="Pick a look">
+            <MenuLabel>Pick a look</MenuLabel>
+            {scenes.length ? (
+              scenes.map((sc) => (
+                <MenuItem
+                  key={sc.id}
+                  icon="film"
+                  hint={sc.hint}
+                  onSelect={() => {
+                    setGap(null);
+                    onInsertExplainer?.(gap.at, sc.id, gap.n);
+                  }}
+                >
+                  {sc.name}
+                </MenuItem>
+              ))
+            ) : (
+              <p className="ed-muted ed-s12 ed-add-none">No looks yet. Ask the agent to make one.</p>
+            )}
+            <MenuSeparator />
+            <MenuItem icon="back" onSelect={() => setGap({ ...gap, looks: false })}>
+              Back
+            </MenuItem>
+          </Menu>
+        )}
+      </FloatPopover>
     </section>
   );
 }

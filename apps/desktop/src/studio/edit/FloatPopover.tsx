@@ -18,6 +18,7 @@ export function FloatPopover({
   children,
   minWidth = 240,
   label,
+  view,
 }: {
   anchor: HTMLElement | null;
   open: boolean;
@@ -25,6 +26,8 @@ export function FloatPopover({
   children: ReactNode;
   minWidth?: number;
   label: string;
+  /** Changes when the content switches views: focus moves to the new first control. */
+  view?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -82,7 +85,7 @@ export function FloatPopover({
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey, true);
     };
-  }, [open, anchor]);
+  }, [open, anchor, view]);
 
   if (!open || !anchor) return null;
   // `pos` from an earlier opening is only a starting point: the layout effect places it again.
