@@ -14,7 +14,7 @@ Branch: `ui-redesign` (from `ux-review`). Target design: `docs/ux-review/prototy
 ## Steps
 
 - [x] 13.1 Kit v2: theme tokens (light/dark), Shell/Panel/Inset/IconTile, pill buttons (brand, primary, quiet, danger), StatusPill, Tag, Kbd, Dots, Elapsed, AgentStatus, StripeProgress, Sheet, Popover, Toasts, new icons
-- [ ] 13.2 App shell: top bar with text nav (Tutorials, Settings, Help), dev shell only in dev, engine chip only when disconnected, toasts and notifications (in-app + OS)
+- [x] 13.2 App shell: top bar with text nav (Tutorials, Settings, Help), dev shell only in dev, engine chip only when disconnected, toasts and notifications (in-app + OS)
 - [ ] 13.3 Home: composer (one tutorial / series, product, who clicks, Customize = brief basics, estimate), start goes straight to Making; setup notice; tutorials as tiles with series tiles, open/expand, Add to series
 - [ ] 13.4 Making: one screen for the run (status bar with 5 stages, timer, time left, stop), live view, "What it did" feed with details, approval cards, Check the script, Check the steps, late cues, failure recovery, done → Watch and edit
 - [ ] 13.5 Series outline: draft, review, edit episodes, shared settings, approve and make

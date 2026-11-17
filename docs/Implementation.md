@@ -120,7 +120,7 @@ This is the step-by-step build plan for the design in [`PLAN.md`](./PLAN.md). Th
   - [x] 12.5 Saved demos, restarts and a real-browser test
 - [ ] **Phase 13: UI redesign** (plan and progress: `docs/ux-review/redesign-progress.md`)
   - [x] 13.1 Kit v2 and theme
-  - [ ] 13.2 App shell
+  - [x] 13.2 App shell
   - [ ] 13.3 Home
   - [ ] 13.4 Making
   - [ ] 13.5 Series outline

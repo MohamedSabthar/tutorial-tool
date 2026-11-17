@@ -2,6 +2,8 @@ import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DevShell, useHashPath, type DevRoute } from './shell';
 import { EngineProvider } from './engine';
+import { ToastProvider } from '@studio/ui';
+import { RunNotifier } from './routes/RunNotifier';
 import { LiveShell } from './live/LiveShell';
 import { StudioScreen } from './studio/StudioScreen';
 import { PackagesPage } from './pages/Packages';
@@ -121,6 +123,7 @@ function App() {
   if (liveSlug !== undefined && liveSlug !== lastLiveSlug) setLastLiveSlug(liveSlug);
   return (
     <>
+      {!path.startsWith('/render/') && <RunNotifier />}
       <div style={onLive ? undefined : { display: 'none' }}>
         <LiveShell slug={liveSlug ?? lastLiveSlug} />
       </div>
@@ -153,13 +156,17 @@ function Screen({ path }: { path: string }) {
   if (exporting) return <ExportScreen key={exporting} slug={exporting} />;
   const storyboard = match(path, 'storyboard');
   if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
-  return <DevShell routes={routes} />;
+  // The developer pages exist only in development; elsewhere an unknown address goes home.
+  if (import.meta.env.DEV) return <DevShell routes={routes} />;
+  return <ProjectsScreen />;
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <EngineProvider>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </EngineProvider>
   </StrictMode>,
 );
