@@ -577,14 +577,6 @@
   background: var(--ui-warning-15);
   color: var(--ui-warning);
 }
-.ed-tl-track[data-rows='2'] .ed-tlb-ov {
-  height: 10px;
-  font-size: 0;
-  padding: 0;
-}
-.ed-tl-track[data-rows='2'] .ed-tlb-ov[data-row='1'] {
-  top: 15px;
-}
 .ed-tlb[data-sel] {
   outline: 2px solid var(--ui-brand);
   outline-offset: -1px;
@@ -1162,14 +1154,6 @@
   background: var(--ui-f08);
   color: var(--ui-fg);
 }
-.ed-tl-track[data-rows='2'] .ed-tlb-cam {
-  height: 10px;
-  font-size: 0;
-  padding: 0;
-}
-.ed-tl-track[data-rows='2'] .ed-tlb-cam[data-row='1'] {
-  top: 15px;
-}
 
 /* Captions: quiet text blocks; edited ones get a brand edge. */
 .ed-tlb-cap {
@@ -1292,4 +1276,65 @@
 .ed-tlb-rec[data-kind='hold'],
 .ed-tlb-rec[data-sel] {
   z-index: 3;
+}
+
+/* Overlay and zoom blocks: a type glyph first, then a short name. Two packed rows make the track
+   taller instead of hiding the words. */
+.ed-tlb-ic {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  margin-right: 4px;
+  pointer-events: none;
+}
+.ed-tlb[data-narrow] {
+  padding: 0;
+  justify-content: center;
+}
+.ed-tlb[data-narrow] .ed-tlb-ic {
+  margin: 0;
+}
+.ed-tlb[data-narrow] .ed-tlb-tx {
+  display: none;
+}
+.ed-tl-track[data-rows='2'],
+.ed-tl-labs span[data-rows='2'] {
+  height: 46px;
+}
+.ed-tl-track[data-rows='3'],
+.ed-tl-labs span[data-rows='3'] {
+  height: 67px;
+}
+.ed-tl-track:is([data-rows='2'], [data-rows='3']) :is(.ed-tlb-ov, .ed-tlb-cam) {
+  height: 19px;
+  top: 3px;
+  font-size: 10.5px;
+}
+.ed-tl-track:is([data-rows='2'], [data-rows='3']) :is(.ed-tlb-ov, .ed-tlb-cam)[data-row='1'] {
+  top: 24px;
+}
+.ed-tl-track[data-rows='3'] :is(.ed-tlb-ov, .ed-tlb-cam)[data-row='2'] {
+  top: 45px;
+}
+/* Tints by kind, all in the overlay (warning) family; the glyph tells them apart too. */
+.ed-tlb-ov[data-family='point'] {
+  background: var(--ui-warning-15);
+}
+.ed-tlb-ov[data-family='spot'] {
+  background: color-mix(in srgb, var(--ui-warning) 26%, transparent);
+}
+.ed-tlb-ov[data-family='text'] {
+  background: color-mix(in srgb, var(--ui-warning) 9%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ui-warning-15);
+}
+.ed-tlb-ov[data-family='hide'] {
+  background: repeating-linear-gradient(-45deg, var(--ui-warning-15) 0 4px, transparent 4px 7px);
+  box-shadow: inset 0 0 0 1px var(--ui-warning-15);
+}
+.ed-tlb-ov[data-family='zoom'] {
+  background: color-mix(in srgb, var(--ui-warning) 34%, transparent);
+}
+.ed-tlb-ov[data-family='own'] {
+  background: color-mix(in srgb, var(--ui-warning) 18%, transparent);
+  box-shadow: inset 2px 0 0 var(--ui-warning);
 }

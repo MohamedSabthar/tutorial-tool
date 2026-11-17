@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import type { OverlayInstance, Segment, VoiceLine } from '@studio/core';
 import { Button, Glyph, MenuLabel, MenuSeparator, Popover, type GlyphName } from '@studio/ui';
 import { Timed, type Player } from '@studio/stage';
-import { mmss, overlayName, overlayText, type Pace } from './model';
+import { mmss, overlayFamily, overlayIcon, overlayName, overlayShort, overlayText, type Pace } from './model';
 
 /** What's selected: a piece is `<sceneId>:<index>`, an explainer its scene id. */
 export type Selection = { kind: 'step' | 'line' | 'overlay' | 'piece' | 'explainer'; id: string } | null;
@@ -46,13 +46,14 @@ const MIN_OVERLAY = 0.3;
 const MIN_FREEZE = 0.1;
 const MAX_FREEZE = 60;
 
-/** Greedy packing into at most two rows, so an overlay track stays one row tall. */
+const MAX_ROWS = 3;
+/** Greedy packing into at most three rows, so overlapping overlays stay readable. */
 function pack(items: OverlayInstance[]): Map<string, number> {
   const ends: number[] = [];
   const out = new Map<string, number>();
   for (const o of [...items].sort((a, b) => a.start - b.start)) {
     let r = ends.findIndex((e) => e <= o.start + 1e-6);
-    if (r < 0) r = ends.length < 2 ? ends.push(0) - 1 : ends[0]! <= ends[1]! ? 0 : 1;
+    if (r < 0) r = ends.length < MAX_ROWS ? ends.push(0) - 1 : ends.indexOf(Math.min(...ends));
     ends[r] = Math.max(ends[r] ?? 0, o.end);
     out.set(o.id, r);
   }
@@ -162,8 +163,8 @@ export function EditTimeline({
   const ticks = useMemo(() => Array.from({ length: Math.floor(dur / tick) + 1 }, (_, i) => i * tick), [dur, tick]);
   const rows = useMemo(() => pack(overlays), [overlays]);
   const zoomRows = useMemo(() => pack(zooms), [zooms]);
-  const twoRows = [...rows.values()].some((r) => r > 0);
-  const twoZoomRows = [...zoomRows.values()].some((r) => r > 0);
+  const rowCount = Math.max(0, ...rows.values()) + 1;
+  const zoomRowCount = Math.max(0, ...zoomRows.values()) + 1;
 
   // Zoomed in, the view follows the playhead while it plays.
   useEffect(
@@ -253,8 +254,10 @@ export function EditTimeline({
   /** An overlay or a camera zoom: drag to move it, drag its ends to change when and how long it shows. */
   const overlayBlock = (o: OverlayInstance, cls: string, row: number) => {
     const t = overlayTimes(o);
-    const name = o.component === 'core:Zoom' ? 'Zoom' : overlayName(o, names[o.component]);
+    const name = overlayName(o, names[o.component]);
     const words = o.component === 'core:Zoom' ? '' : overlayText(o);
+    const short = overlayShort(o, names[o.component]);
+    const width = Math.max(x(t.end - t.start) - 2, 16);
     const sel: Selection = { kind: 'overlay', id: o.id };
     const commit = (dt: number, mode: Drag['mode']) => {
       const lower = name.toLowerCase();
@@ -272,8 +275,10 @@ export function EditTimeline({
         key={o.id}
         className={`ed-tlb ${cls}`}
         data-row={row}
+        data-family={overlayFamily(o)}
+        data-narrow={width < 34 || undefined}
         data-sel={isSel('overlay', o.id) || undefined}
-        style={{ left: x(t.start), width: Math.max(x(t.end - t.start) - 2, 30) }}
+        style={{ left: x(t.start), width }}
         tabIndex={0}
         role="button"
         aria-label={`${name}${words ? `: ${words}` : ''}, ${mmss(o.start)} to ${mmss(o.end)}. Arrow keys move it`}
@@ -284,10 +289,10 @@ export function EditTimeline({
         onKeyDown={(e) => nudge(e, sel!, Math.min(o.start + 0.4, o.end))}
       >
         <span className="ed-hd ed-hd-l" onPointerDown={(e) => begin(e, { kind: 'overlay', id: o.id, mode: 'start' })} />
-        <span className="ed-tlb-tx">
-          {name}
-          {words ? ` · ${words}` : ''}
+        <span className="ed-tlb-ic" aria-hidden="true">
+          <Glyph name={overlayIcon(o)} size={10} />
         </span>
+        <span className="ed-tlb-tx">{short}</span>
         <span className="ed-hd ed-hd-r" onPointerDown={(e) => begin(e, { kind: 'overlay', id: o.id, mode: 'end' })} />
       </div>
     );
@@ -357,9 +362,9 @@ export function EditTimeline({
           <span />
           <span>Steps</span>
           <span>Voice-over</span>
-          <span>On screen</span>
+          <span data-rows={rowCount}>On screen</span>
           {EXTRA_TRACKS.filter((t) => shown(t.key)).map((t) => (
-            <span key={t.key} className="ed-tl-lab-x">
+            <span key={t.key} className="ed-tl-lab-x" data-rows={t.key === 'camera' ? zoomRowCount : 1}>
               <Glyph name={t.icon} size={11} />
               {t.label}
             </span>
@@ -468,7 +473,7 @@ export function EditTimeline({
                 );
               })}
             </div>
-            <div className="ed-tl-track" role="group" aria-label="On screen" data-rows={twoRows ? 2 : 1}>
+            <div className="ed-tl-track" role="group" aria-label="On screen" data-rows={rowCount}>
               {overlays.map((o) => overlayBlock(o, 'ed-tlb-ov', rows.get(o.id) ?? 0))}
             </div>
 
@@ -546,7 +551,7 @@ export function EditTimeline({
             )}
 
             {shown('camera') && (
-              <div className="ed-tl-track ed-tl-track-x" role="group" aria-label="Camera" data-rows={twoZoomRows ? 2 : 1}>
+              <div className="ed-tl-track ed-tl-track-x" role="group" aria-label="Camera" data-rows={zoomRowCount}>
                 {zooms.length ? (
                   zooms.map((o) => overlayBlock(o, 'ed-tlb-cam', zoomRows.get(o.id) ?? 0))
                 ) : (

@@ -40,6 +40,7 @@ const NAMES: Record<string, string> = {
   'core:TitleCard': 'Title',
   'core:Highlight': 'Highlight',
   'core:Keystroke': 'Keys',
+  'core:Zoom': 'Zoom',
 };
 export function overlayName(o: Pick<OverlayInstance, 'component'>, metaName?: string): string {
   return NAMES[o.component] ?? metaName ?? o.component.split(':')[1] ?? o.component;
@@ -53,14 +54,49 @@ export function overlayIcon(o: Pick<OverlayInstance, 'component'>): GlyphName {
       return 'box';
     case 'core:Blur':
       return 'hide';
-    default:
+    case 'core:Zoom':
+      return 'expand';
+    case 'core:Callout':
+    case 'core:TextLabel':
+    case 'core:Keystroke':
+    case 'core:TitleCard':
       return 'label';
+    default:
+      return o.component.startsWith('core:') ? 'label' : 'spark';
   }
+}
+/** The family an overlay belongs to, for its tint on the timeline. */
+export function overlayFamily(o: Pick<OverlayInstance, 'component'>): 'point' | 'spot' | 'text' | 'hide' | 'zoom' | 'own' {
+  switch (o.component) {
+    case 'core:Arrow':
+    case 'core:Box':
+    case 'core:Callout':
+      return 'point';
+    case 'core:Highlight':
+      return 'spot';
+    case 'core:Blur':
+      return 'hide';
+    case 'core:Zoom':
+      return 'zoom';
+    default:
+      return o.component.startsWith('core:') ? 'text' : 'own';
+  }
+}
+/** A block's short name on the timeline: "Zoom 2×", "Arrow", "Label · Click Create". */
+export function overlayShort(o: OverlayInstance, metaName?: string): string {
+  const name = overlayName(o, metaName);
+  if (o.component === 'core:Zoom') {
+    const z = (o.props as Record<string, unknown>).zoom;
+    return typeof z === 'number' ? `${name} ${Math.round(z * 10) / 10}×` : name;
+  }
+  const words = overlayText(o);
+  return words ? `${name} · ${words}` : name;
 }
 /** The overlay's own words, if it has any. */
 export function overlayText(o: OverlayInstance): string {
   const p = o.props as Record<string, unknown>;
-  const v = p.text ?? p.label ?? p.title;
+  if (Array.isArray(p.keys)) return p.keys.join(' + ');
+  const v = p.title ?? p.text ?? p.label;
   return typeof v === 'string' ? v : '';
 }
 /** Which prop holds the overlay's words (null: it has none). */
