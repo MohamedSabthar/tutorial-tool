@@ -8,6 +8,7 @@ Branch: `ui-redesign` (from `ux-review`). Target design: `docs/ux-review/prototy
 - Before each commit: `pnpm typecheck && pnpm lint && pnpm test`. Commit message `step 13.X: <summary>`, no AI trailers.
 - The app chrome uses the new neutral theme (TUFFUI-style tokens in `packages/ui`). The video (Stage, overlays, scenes, exports) keeps the WSO2 look. Don't touch `packages/stage`, `overlays-core`, `scenes-core` styling.
 - Real buttons, labels on every control, keyboard reachable. No raw hex in app code: use `--ui-*` tokens.
+- Never change or delete anything in the existing `workspace/` (projects, series, skills, settings): read-only RPC calls only while testing; use dev-only `?preview=` fixtures for writing flows.
 - Never touch the macOS Keychain. Don't run real pipelines or agent sessions to test; use the dev engine and existing projects.
 - Tick the step here and in `docs/Implementation.md` (Phase 13), and log any change of plan in the Decisions log.
 
