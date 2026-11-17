@@ -23,10 +23,10 @@ import { GalleryPage } from './pages/GalleryPage';
 import { HotReloadPage } from './pages/HotReloadPage';
 import { TimelineSyncPage } from './pages/TimelineSyncPage';
 import { VoicePage } from './pages/VoicePage';
-import { ProjectsScreen } from './routes/projects/ProjectsScreen';
+import { HomeScreen } from './routes/home/HomeScreen';
 import { BriefScreen } from './routes/brief/BriefScreen';
 import { CaptureScreen } from './routes/capture/CaptureScreen';
-import { SeriesScreen } from './routes/series/SeriesScreen';
+import { SeriesOutlineScreen } from './routes/series-outline/SeriesOutlineScreen';
 import { StoryboardScreen } from './routes/storyboard/StoryboardScreen';
 import { MakingScreen } from './routes/making/MakingScreen';
 import { RenderScreen } from './render/RenderScreen';
@@ -134,14 +134,15 @@ function App() {
 }
 
 function Screen({ path }: { path: string }) {
-  if (path === '/' || path === '/projects') return <ProjectsScreen />;
+  const [route, query] = path.split('?');
+  if (route === '/' || route === '/projects') return <HomeScreen query={query} />;
   if (path === '/settings') return <SettingsScreen />;
   if (path.split('?')[0] === '/guide')
     return <GuideScreen section={new URLSearchParams(path.split('?')[1] ?? '').get('s')} />;
   const studio = match(path, 'studio');
   if (studio) return <StudioScreen key={studio} slug={studio} />;
   const series = match(path, 'series');
-  if (series) return <SeriesScreen key={series} slug={series} />;
+  if (series) return <SeriesOutlineScreen key={`${series}?${query ?? ''}`} slug={series} query={query} />;
   const brief = match(path, 'brief');
   if (brief) return <BriefScreen key={brief} slug={brief} />;
   const capture = match(path, 'capture');
@@ -168,7 +169,7 @@ function Screen({ path }: { path: string }) {
   if (storyboard) return <StoryboardScreen key={storyboard} slug={storyboard} />;
   // The developer pages exist only in development; elsewhere an unknown address goes home.
   if (import.meta.env.DEV) return <DevShell routes={routes} />;
-  return <ProjectsScreen />;
+  return <HomeScreen />;
 }
 
 createRoot(document.getElementById('root')!).render(
