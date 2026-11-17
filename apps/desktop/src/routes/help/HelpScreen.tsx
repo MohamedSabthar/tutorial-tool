@@ -46,7 +46,7 @@ const EDITING: { icon: GlyphName; title: string; text: ReactNode }[] = [
   {
     icon: 'wand',
     title: 'Fix this moment',
-    text: 'Pause where something is wrong and press Fix this moment. Pick what you want: change the words, point something out, add a label, hide something, speed up or skip, or ask the agent.',
+    text: 'Pause where something is wrong and press Fix this moment. Pick what you want (or press its letter): change the words, point something out, add a label or callout, zoom in, hide something, speed up or skip, hold the frame, cut a part out, or ask the agent.',
   },
   {
     icon: 'mic',
@@ -59,9 +59,29 @@ const EDITING: { icon: GlyphName; title: string; text: ReactNode }[] = [
     text: "Under the video: drag a step's edge to trim it, drag a voice-over line to move it, and drag an arrow, label or blur to move it or its ends to change how long it shows.",
   },
   {
+    icon: 'plus',
+    title: 'Effects',
+    text: 'In the step panel, + Add puts something on screen at the playhead: an arrow, box, highlight or callout, a zoom into an area you drag over, a label, keys or a title card, a blur, or one of your own overlays.',
+  },
+  {
+    icon: 'pause',
+    title: 'Freezes and cuts',
+    text: 'Fix this moment → Hold this frame freezes the picture for 2 s; Cut a part out takes out what you mark on the timeline. Click a piece on the Recording track (or a speed or freeze tag under the steps) to change its speed, its length, or remove it.',
+  },
+  {
+    icon: 'film',
+    title: 'Explainers and transitions',
+    text: 'Hover between two steps on the timeline and press + to add an explainer, picking a look or describing it to the agent. On the Recording track, the diamond where two scenes meet sets the transition between them.',
+  },
+  {
+    icon: 'gauge',
+    title: 'Automatic edits',
+    text: 'Under ⋯: rebuild the cursor, clicks and zooms from the recording, or line up the clicks with the voice. Both keep what you set by hand and can be undone.',
+  },
+  {
     icon: 'spark',
     title: 'Ask the agent',
-    text: 'Type any change under the video, or point at the spot first. You see what it is doing while it works, and the result comes back with Keep, Undo this and Tell it more.',
+    text: 'Type any change under the video, or drop pins on the video first, each with its own note, and send them as one batch. You see what it is doing while it works, and the result comes back with Keep, Undo this and Tell it more.',
   },
   {
     icon: 'undo',
