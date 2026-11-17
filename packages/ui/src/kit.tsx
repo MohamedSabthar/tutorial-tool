@@ -227,6 +227,12 @@ export function Sheet({
 }) {
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // The latest onClose, so a new callback each render doesn't re-run the effect (which would
+  // move focus back to the first control while the user types in the sheet).
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
     const back = document.activeElement as HTMLElement | null;
@@ -235,7 +241,7 @@ export function Sheet({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        close.current();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -243,7 +249,7 @@ export function Sheet({
       window.removeEventListener('keydown', onKey, true);
       back?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
     <div className="k-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
