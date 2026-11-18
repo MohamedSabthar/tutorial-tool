@@ -9,7 +9,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "start": "tsx src/main.ts",
-    "dev": "STUDIO_PORT=4317 STUDIO_TOKEN=dev-token tsx watch src/main.ts",
+    "dev": "STUDIO_PORT=4317 STUDIO_TOKEN=dev-token tsx watch --exclude '**/node_modules/.cache/**' --exclude '../../workspace/**' src/main.ts",
     "test": "vitest run"
   },
   "dependencies": {

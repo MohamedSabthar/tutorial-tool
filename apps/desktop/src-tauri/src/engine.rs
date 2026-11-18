@@ -180,7 +180,8 @@ fn dev_command(workspace: Option<PathBuf>, port: u16, token: &str) -> Result<Com
     let workspace = workspace.unwrap_or_else(|| dir.join("../../workspace"));
     let mut cmd = Command::new("node");
     // Workspace scripts and skills are imported at run time; editing them (the agent does)
-    // must not restart the engine.
+    // must not restart the engine. Nor must the bundled copy of a script the recorder writes
+    // to node_modules/.cache, imports and deletes on every run.
     cmd.args([
         "node_modules/tsx/dist/cli.mjs",
         "watch",
@@ -189,6 +190,8 @@ fn dev_command(workspace: Option<PathBuf>, port: u16, token: &str) -> Result<Com
         "../../workspace/**",
         "--exclude",
         "**/workspace/**",
+        "--exclude",
+        "**/node_modules/.cache/**",
         "src/main.ts",
     ])
     .arg("--workspace")
