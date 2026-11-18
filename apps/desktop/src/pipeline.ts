@@ -70,6 +70,8 @@ export function usePipeline(slug: string | null) {
     revise: (feedback: string) => act(() => client!.call('pipeline.revise', { slug: target!, feedback })),
     stop: () => act(() => client!.call('pipeline.stop', { slug: target! })),
     resume: () => act(() => client!.call('pipeline.resume', { slug: target! })),
+    /** Pushes a direction into the running pipeline: `now` mid-turn, or `next` agent stage. */
+    steer: async (text: string) => (await client!.call('pipeline.steer', { slug: target!, text })).delivered,
   };
 }
 

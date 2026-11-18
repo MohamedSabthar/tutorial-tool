@@ -663,6 +663,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
     'pipeline.revise': async ({ slug, feedback }: { slug: string; feedback: string }) =>
       pipeline.revise(slug, feedback),
     'pipeline.stop': async ({ slug }: { slug: string }) => pipeline.stop(slug),
+    'pipeline.steer': async ({ slug, text }: { slug: string; text: string }) => pipeline.steer(slug, text),
     'pipeline.resume': async ({ slug }: { slug: string }) => pipeline.resume(slug),
     'project.timing': async ({ slug }: { slug: string }) => readTimings(store.dir(slug)),
     'pipeline.editPlan': async ({ slug, edits }: { slug: string; edits: PlanEdit[] }) =>
@@ -836,11 +837,15 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
       author: 'user' | 'agent';
       label?: string;
     }) =>
-      edits.editRange(p.slug, { from: p.from, to: p.to, edit: p.edit }, {
-        author: p.author,
-        group: `range-${Date.now()}`,
-        label: p.label,
-      }),
+      edits.editRange(
+        p.slug,
+        { from: p.from, to: p.to, edit: p.edit },
+        {
+          author: p.author,
+          group: `range-${Date.now()}`,
+          label: p.label,
+        },
+      ),
     'vo.peaks': async ({ slug, audio }: { slug: string; audio: string }) => voiceover.peaks(slug, audio),
     'vo.addLine': async (p: { slug: string; text: string; at: number; author: 'user' | 'agent' }) =>
       voiceover.addLine(p.slug, p, { author: p.author }),

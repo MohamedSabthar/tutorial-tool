@@ -48,6 +48,8 @@ export interface MakingActions {
   revise: (feedback: string) => Promise<void>;
   stop: () => Promise<void>;
   resume: () => Promise<void>;
+  /** Steers the running agent; says whether it reads it now or at its next step. */
+  steer: (text: string) => Promise<'now' | 'next'>;
   answer: (requestId: string, allow: boolean) => Promise<void>;
   /** Lets the agent approve safe calls by itself for this tutorial (the brief's auto mode). */
   allowSafe: () => Promise<void>;
@@ -142,6 +144,7 @@ export function useMakingModel(slug: string): { model: MakingModel; actions: Mak
     revise: (feedback) => pipe.revise(feedback),
     stop: () => pipe.stop(),
     resume: () => pipe.resume(),
+    steer: (text) => pipe.steer(text),
     answer: (id, allow) => agent.answer(id, allow),
     allowSafe: () =>
       run(async () => {

@@ -203,6 +203,50 @@ describe('PipelineManager', () => {
 
   const done = (p: PipelineManager, stage: PipelineStage) => p.stageDone(slug, stage, true, `${stage} done`);
 
+  it('pushes a steer into the running stage, without a nudge', async () => {
+    let delivered: unknown;
+    const { p, sent } = make(
+      async (p, stage, text) => {
+        if (text.startsWith('[User steer]')) {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'plan') delivered = await p.steer(slug, 'Use the default model provider');
+        else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true],
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'done', 5000);
+    expect(delivered).toEqual({ delivered: 'now' });
+    expect(sent.find((t) => t.startsWith('[User steer]'))).toContain('Use the default model provider');
+    expect(sent.some((t) => t.includes('Your turn ended'))).toBe(false);
+  });
+
+  it('keeps a steer sent at a gate for the next agent stage', async () => {
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [true, true],
+    );
+    await expect(p.steer(slug, 'too early')).rejects.toThrow(/not running/);
+    await p.start(slug, { storyboard: true, narration: false });
+    await until(() => last().status === 'waiting');
+    expect(await p.steer(slug, 'Keep every step under 20 seconds')).toEqual({ delivered: 'next' });
+    await p.approve(slug);
+    await until(() => last().status === 'done');
+    const script = sent.find((t) => t.includes('Keep every step under 20 seconds'));
+    expect(script).toMatch(/^\[Pipeline · script/);
+    expect(sent.filter((t) => t.includes('Keep every step under 20 seconds'))).toHaveLength(1);
+  });
+
   it('plans, waits at the storyboard gate, then scripts, repairs, records and finishes', async () => {
     const { p, sent, modes } = make(
       async (p, stage) => {

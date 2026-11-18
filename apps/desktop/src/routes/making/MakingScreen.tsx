@@ -24,6 +24,7 @@ import {
   NeedsYouCard,
   PermissionCard,
   ReviewCard,
+  SteerCard,
 } from './NeedsYou';
 import { isPreviewState, previewModel } from './preview';
 import { ScriptReview, scriptSummary, usePlanEdits } from './ScriptReview';
@@ -60,6 +61,10 @@ export function MakingScreen({ slug, preview }: { slug: string; preview?: string
         revise: async (f) => toast(`Preview: would ask for “${f}”`),
         stop: async () => toast('Preview: would stop'),
         resume: async () => toast('Preview: would try again'),
+        steer: async (t) => {
+          toast(`Preview: would tell the agent “${t}”`);
+          return 'now' as const;
+        },
         answer: async (_id, allow) => toast(`Preview: would ${allow ? 'allow' : 'deny'}`),
         allowSafe: async () => toast('Preview: would allow safe actions'),
         editPlan: async () => undefined,
@@ -319,6 +324,9 @@ function MakingView({ model, actions }: { model: MakingModel; actions: MakingAct
                       Open the brief
                     </LinkButton>
                   </NeedsYouCard>
+                )}
+                {st?.status === 'running' && (
+                  <SteerCard disabled={!model.ready} onSend={(t) => actions.steer(t)} />
                 )}
                 <Feed rows={feed} running={needsPermission ? null : run} />
               </div>

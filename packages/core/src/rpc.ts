@@ -628,6 +628,15 @@ export const rpcMethods = {
     result: PipelineState,
   },
   'pipeline.stop': { params: z.object({ slug: z.string() }), result: PipelineState },
+  /**
+   * Steers the running pipeline. During an agent stage the text goes straight into the agent's
+   * queue and it reads it mid-turn (`now`); while the engine runs a dry run or recording, or a
+   * gate waits, it is kept and opens the next agent stage (`next`).
+   */
+  'pipeline.steer': {
+    params: z.object({ slug: z.string(), text: z.string().trim().min(1).max(4000) }),
+    result: z.object({ delivered: z.enum(['now', 'next']) }),
+  },
   /** Each step's estimated length on camera, from the latest passing dry run. */
   'project.timing': { params: z.object({ slug: z.string() }), result: TimingFile.nullable() },
   /** Continues a stopped or failed run from the stage it was in. */

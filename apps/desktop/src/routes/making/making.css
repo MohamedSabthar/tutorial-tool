@@ -493,6 +493,10 @@
 .mk-ask textarea {
   width: 100%;
 }
+.mk-steer-label {
+  font-size: 13px;
+  font-weight: 600;
+}
 .mk-ask-label {
   font-size: 12.5px;
   color: var(--ui-muted);

@@ -31,6 +31,7 @@ import { outlineChanges, scriptOutline } from './scriptOutline';
 import { cueProblems, DRY_SCRIPT, normalizeScript } from './cueCheck';
 import type { ProjectRunResult } from '../recording';
 import { knowledgeLine, type WorkspaceGit } from '../workspaceGit';
+import { getProduct } from '@studio/recorder/node';
 import {
   alignInstruction,
   captureReviseInstruction,
@@ -48,6 +49,10 @@ import {
   retroInstruction,
   reviseInstruction,
   scriptInstruction,
+  steerMessage,
+  productNote,
+  steerNudge,
+  withSteers,
 } from './instructions';
 
 export interface PipelineDeps {
@@ -154,7 +159,14 @@ interface Live {
   costApproved?: boolean;
   /** Resolves the agent stage the machine is waiting on. */
   stageDone?: { stage: PipelineStage; resolve: (r: StageResult) => void };
+  /** Steers sent while no agent stage ran: they open the next agent stage's instruction. */
+  steers: string[];
+  /** The user steered the agent during the current turn. */
+  steered?: boolean;
 }
+
+/** How long after a steered turn ends to look for the turn the steer started. */
+const STEER_SETTLE_MS = 1500;
 
 const STAGE_STATUS: Partial<Record<PipelineStage, Project['status']>> = {
   storyboard_gate: 'storyboard',
@@ -274,6 +286,23 @@ export class PipelineManager {
     // A gate restored after a restart: continue from it.
     this.launch(slug, state.gate.stage, d);
     return this.get(slug);
+  }
+
+  /**
+   * Steers the running pipeline. During an agent stage the text is pushed into the agent's
+   * queue right away and Claude Code reads it in the running turn; otherwise (a dry run, a
+   * recording, a gate) it is kept and opens the next agent stage.
+   */
+  async steer(slug: string, text: string): Promise<{ delivered: 'now' | 'next' }> {
+    const live = this.live.get(slug);
+    if (!live || live.abort.signal.aborted) throw new RpcError('the pipeline is not running', 'bad_request');
+    if (live.stageDone) {
+      live.steered = true;
+      await this.deps.agents.get(slug).send(steerMessage(live.stageDone.stage, text), 'user', [], text);
+      return { delivered: 'now' };
+    }
+    live.steers.push(text);
+    return { delivered: 'next' };
   }
 
   async stop(slug: string): Promise<PipelineState> {
@@ -419,7 +448,7 @@ export class PipelineManager {
   }
 
   private launch(slug: string, from: PipelineStage, decision?: Decision) {
-    const live: Live = { abort: new AbortController() };
+    const live: Live = { abort: new AbortController(), steers: [] };
     this.live.set(slug, live);
     void this.run(slug, live, from, decision)
       .catch(async (e: unknown) => {
@@ -519,21 +548,37 @@ export class PipelineManager {
     // The stage's model: by default the deep work on Opus, the writing on the faster Sonnet.
     const choice = (await this.deps.agentModel?.().catch(() => undefined)) ?? 'balanced';
     await session.setModel?.(modelFor(stage, choice));
+    const name = await this.productName(slug);
     return new Promise((resolve, reject) => {
       let result: StageResult | null = null;
       let nudged = false;
+      let turns = 0;
       const finish = (fn: () => void) => {
         off();
         live.stageDone = undefined;
         fn();
       };
       live.stageDone = { stage, resolve: (r) => (result = r) };
+      live.steered = false;
       const off = session.subscribe((e: AgentEvent) => {
-        const turnEnded =
-          e.kind === 'result' || (e.kind === 'error' && e.text.startsWith('The agent session stopped'));
+        const stopped = e.kind === 'error' && e.text.startsWith('The agent session stopped');
+        const turnEnded = e.kind === 'result' || stopped;
         if (!turnEnded) return;
+        const turn = ++turns;
         if (live.abort.signal.aborted) return finish(() => reject(new Stopped()));
         if (result) return finish(() => resolve(result!));
+        // A steered turn that ended early isn't a strike: the steer may have started a turn of
+        // its own (wait for it), or it was read in this one (carry on with the stage).
+        if (live.steered && !stopped) {
+          live.steered = false;
+          setTimeout(() => {
+            if (result || turns !== turn || live.abort.signal.aborted || !live.stageDone) return;
+            void session.status().then(({ status }) => {
+              if (status.state !== 'busy' && !result) void session.send(steerNudge(stage), 'pipeline');
+            });
+          }, STEER_SETTLE_MS);
+          return;
+        }
         if (!nudged) {
           nudged = true;
           void session.send(nudge(stage), 'pipeline');
@@ -544,8 +589,19 @@ export class PipelineManager {
         );
       });
       live.abort.signal.addEventListener('abort', () => finish(() => reject(new Stopped())), { once: true });
-      void session.send(instruction, 'pipeline').catch((e: unknown) => finish(() => reject(e)));
+      const text = withSteers(instruction + productNote(name), live.steers.splice(0));
+      void session.send(text, 'pipeline').catch((e: unknown) => finish(() => reject(e)));
     });
+  }
+
+  /** The project's product as the installed app names itself, or null when unknown. */
+  private async productName(slug: string): Promise<string | null> {
+    try {
+      const { project } = await this.deps.store.open(slug);
+      return getProduct(project.product).name;
+    } catch {
+      return null;
+    }
   }
 
   /** An agent stage that may block: asks the user for help until it succeeds. */

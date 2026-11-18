@@ -395,3 +395,26 @@ export function retroInstruction(input: {
 export function nudge(stage: string): string {
   return `[Pipeline] Your turn ended while the pipeline is still waiting for the "${stage}" stage. Continue it, then call stage_done. If you are blocked, call stage_done with "ok": false and explain.`;
 }
+
+/** A steer the user sends while the agent works on a stage: it goes in mid-turn. */
+export function steerMessage(stage: string, text: string): string {
+  return `[User steer] While you work on the "${stage}" stage, the user says:\n\n${text}\n\nFollow this now: where it conflicts with the stage instruction, the user's direction wins. Keep working on the stage and call stage_done when it is finished.`;
+}
+
+/** Steers sent while no agent stage was running, opening the next stage's instruction. */
+export function withSteers(instruction: string, steers: string[]): string {
+  if (!steers.length) return instruction;
+  return `${instruction}\n\n[User steer] While the pipeline was busy, the user said the following. Follow it in this stage; where it conflicts with the instruction above, the user's direction wins:\n\n${steers.map((t) => `- ${t}`).join('\n')}`;
+}
+
+/** After a turn the user steered ended without stage_done. */
+export function steerNudge(stage: string): string {
+  return `[Pipeline] You've read the user's steer. Carry on with the "${stage}" stage with it in mind, then call stage_done. If you are blocked, call stage_done with "ok": false and explain.`;
+}
+
+/** The product's own name, read from the installed app, for narration, titles and explainers. */
+export function productNote(name: string | null): string {
+  return name
+    ? `\n\nProduct name: "${name}" (what the installed app calls itself). Use exactly this name for the product in narration, titles, captions, overlays and explainers. The company is Choreo Labs.`
+    : '';
+}

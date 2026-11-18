@@ -278,6 +278,8 @@ export class AgentSession {
     text: string,
     source: 'user' | 'pipeline' = 'user',
     images: { data: string; mediaType: 'image/jpeg' | 'image/png' }[] = [],
+    /** What the conversation shows, when it differs from what the agent reads. */
+    shown?: string,
   ): Promise<void> {
     await this.loaded;
     if (!this.queue || this.queue.isClosed)
@@ -285,8 +287,8 @@ export class AgentSession {
     this.emit({
       kind: 'user',
       text: images.length
-        ? `${text}\n\n[${images.length} image${images.length === 1 ? '' : 's'} attached]`
-        : text,
+        ? `${shown ?? text}\n\n[${images.length} image${images.length === 1 ? '' : 's'} attached]`
+        : (shown ?? text),
       source,
     });
     this.run = `agent-${this.slug}-${this.seq}`;

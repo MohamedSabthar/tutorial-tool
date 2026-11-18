@@ -373,3 +373,72 @@ export function KnowledgeCard({
     </NeedsYouCard>
   );
 }
+
+/**
+ * Steer the agent while it works: the text goes straight into its queue and it reads it in the
+ * turn it is on, or, during a dry run or recording, at the start of its next step.
+ */
+export function SteerCard({
+  disabled,
+  onSend,
+}: {
+  disabled?: boolean;
+  onSend: (text: string) => Promise<'now' | 'next'>;
+}) {
+  const id = useId();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
+  const send = () => {
+    const t = text.trim();
+    if (!t) return;
+    setBusy(true);
+    setNote(null);
+    onSend(t)
+      .then((when) => {
+        setText('');
+        setNote({
+          text:
+            when === 'now'
+              ? 'Sent. The agent reads it in what it is doing now.'
+              : 'Saved. The agent gets it when its next step starts.',
+        });
+      })
+      .catch((e: unknown) => setNote({ text: e instanceof Error ? e.message : String(e), error: true }))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <section className="mk-steer" aria-labelledby={id}>
+      <ShellPanel className="mk-need-panel">
+        <div className="mk-ask">
+          <label id={id} htmlFor={`${id}-t`} className="mk-steer-label">
+            Steer the agent
+          </label>
+          <textarea
+            id={`${id}-t`}
+            className="ui-textarea"
+            rows={2}
+            maxLength={4000}
+            value={text}
+            placeholder="Use the Default model provider, and keep the agent name short"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                send();
+              }
+            }}
+          />
+          <Button size="sm" variant="brand" disabled={disabled || busy || !text.trim()} onClick={send}>
+            {busy ? 'Sending…' : 'Send now'}
+          </Button>
+          {note && (
+            <p className={note.error ? 'mk-error' : 'mk-ask-label'} role={note.error ? 'alert' : 'status'}>
+              {note.text}
+            </p>
+          )}
+        </div>
+      </ShellPanel>
+    </section>
+  );
+}
