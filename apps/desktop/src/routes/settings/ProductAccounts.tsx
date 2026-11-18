@@ -63,7 +63,13 @@ function ProductAccount({ product }: { product: ProductInfo }) {
           tone={status?.open ? 'brand' : status?.saved ? 'positive' : 'neutral'}
           icon={status?.saved && !status.open ? 'check' : undefined}
         >
-          {!status ? '…' : status.open ? 'Sign-in window open' : status.saved ? 'Sign-in saved' : 'Not signed in'}
+          {!status
+            ? '…'
+            : status.open
+              ? 'Sign-in window open'
+              : status.saved
+                ? 'Sign-in saved'
+                : 'Not signed in'}
         </StatusPill>
       </div>
       <p className="st-muted" id={hintId}>
