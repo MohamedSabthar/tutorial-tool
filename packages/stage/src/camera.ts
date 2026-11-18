@@ -26,10 +26,10 @@ export const STAGE_SIZE = { width: 1920, height: 1080 } as const;
 export const FRAME = {
   inset: 44,
   radius: 18,
-  /** Choreo Labs product-shot look: midnight, a faint dot grid and a soft blue glow behind the window. */
-  backdrop:
-    'radial-gradient(60% 70% at 50% 45%, rgba(31,79,255,0.22) 0%, rgba(31,79,255,0) 70%), radial-gradient(rgba(255,255,255,0.07) 1.3px, rgba(255,255,255,0) 1.8px) 0 0 / 30px 30px, #050A1C',
-  shadow: '0 0 0 1px rgba(255, 255, 255, 0.1), 0 30px 80px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.3)',
+  /** The light background of the Choreo Labs slides, flat. */
+  backdrop: '#F4F6FA',
+  shadow:
+    '0 0 0 1px rgba(11, 22, 51, 0.08), 0 30px 80px rgba(11, 22, 51, 0.16), 0 6px 18px rgba(11, 22, 51, 0.08)',
 } as const;
 
 export function fitSource(
