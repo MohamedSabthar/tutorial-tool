@@ -530,6 +530,20 @@ export function ExportScreen({ slug }: { slug: string }) {
               </div>
 
               <div className="xp-field">
+                <span className="xp-label" aria-hidden="true">
+                  Frame rate
+                </span>
+                <Segmented
+                  label="Frame rate"
+                  block
+                  disabled={running}
+                  options={RATES}
+                  value={String(settings.fps) as (typeof RATES)[number]['value']}
+                  onChange={(v) => setSettings((s) => ({ ...s, fps: Number(v) as ExportSettings['fps'] }))}
+                />
+              </div>
+
+              <div className="xp-field">
                 <span className="xp-label">Saves to</span>
                 <div className="xp-where">
                   <Glyph name="folder" size={14} />
@@ -570,20 +584,6 @@ export function ExportScreen({ slug }: { slug: string }) {
               <details className="xp-details">
                 <summary>Details</summary>
                 <div className="xp-details-body">
-                  <div className="xp-field">
-                    <span className="xp-label" aria-hidden="true">
-                      Frame rate
-                    </span>
-                    <Segmented
-                      label="Frame rate"
-                      disabled={running}
-                      options={RATES}
-                      value={String(settings.fps) as (typeof RATES)[number]['value']}
-                      onChange={(v) =>
-                        setSettings((s) => ({ ...s, fps: Number(v) as ExportSettings['fps'] }))
-                      }
-                    />
-                  </div>
                   {plan ? (
                     <dl className="xp-specs">
                       <dt>Video</dt>

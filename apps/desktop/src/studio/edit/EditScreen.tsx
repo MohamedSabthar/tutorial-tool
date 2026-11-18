@@ -46,6 +46,7 @@ import { EditTimeline, EXTRA_TRACKS, pieceKey, type ExtraTrack, type Selection, 
 import { PiecePanel } from './PiecePanel';
 import { ExplainerPanel, plainName } from './ExplainerPanel';
 import { FIX_KEYS, FixSheet, type FixKind } from './FixSheet';
+import { FullScrubber } from './FullScrubber';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
 import { agentActivity, agentTarget, cutsOver, isOnScreen, mmss, overlayName, parseKeys, stepPace } from './model';
@@ -1493,6 +1494,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               </div>
             </div>
 
+            {full && (
+              <FullScrubber
+                player={controls}
+                duration={duration}
+                steps={[...tlSteps, ...explainers].sort((a, b) => a.start - b.start)}
+              />
+            )}
             <div className="ed-ctrl">
               <IconButton variant="quiet" label="Previous step" onClick={() => seekStep(-1)}>
                 <Glyph name="back" size={14} />

@@ -1828,3 +1828,83 @@
   display: flex;
   flex-direction: column;
 }
+
+/* Full screen: a scrubber above the transport, since the timeline is hidden. */
+.ed-fs {
+  position: relative;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  flex: none;
+}
+.ed-fs:focus-visible {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.ed-fs-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  transition: height 150ms var(--ui-ease);
+}
+.ed-fs:hover .ed-fs-track,
+.ed-fs:focus-visible .ed-fs-track {
+  height: 10px;
+}
+.ed-fs-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin-right: 2px;
+  border-radius: 999px;
+  background: var(--ui-f12);
+  overflow: hidden;
+  box-shadow: 2px 0 0 var(--ui-bg);
+}
+.ed-fs-seg i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ui-brand);
+}
+.ed-fs-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--ui-inset);
+  box-shadow: 0 0 0 2px var(--ui-brand), 0 1px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.ed-fs-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 9px;
+  border-radius: 10px;
+  background: var(--ui-fg);
+  color: var(--ui-bg);
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 280px;
+  pointer-events: none;
+  z-index: 5;
+}
+.ed-fs-tip b {
+  font-family: var(--ui-mono);
+  font-weight: 500;
+}
+.ed-fs-tip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+  opacity: 0.85;
+}
