@@ -96,7 +96,7 @@
   height: 40px;
   border-radius: 50%;
   border: 0;
-  background: var(--ui-action);
+  background: var(--ui-brand);
   color: var(--ui-on-fill);
   display: grid;
   place-items: center;

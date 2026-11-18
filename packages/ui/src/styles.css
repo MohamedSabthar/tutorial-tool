@@ -35,10 +35,6 @@
   --ui-brand-ink: #1838c7;
   --ui-brand-15: rgba(31, 79, 255, 0.13);
   --ui-brand-08: rgba(31, 79, 255, 0.07);
-  /* Choreo Labs orange (choreolabs.com): the main action, and the short rule over page titles.
-     Buttons use a deeper orange so white text stays readable (4.6:1). */
-  --ui-action: #d93b00;
-  --ui-rule: #ff4600;
   --ui-positive: #248a3d;
   --ui-positive-15: rgba(36, 138, 61, 0.14);
   --ui-negative: #d70015;
@@ -109,8 +105,6 @@
   --ui-brand-ink: #8fb4ff;
   --ui-brand-15: rgba(61, 139, 255, 0.18);
   --ui-brand-08: rgba(61, 139, 255, 0.1);
-  --ui-action: #d93b00;
-  --ui-rule: #ff4600;
   --ui-positive: #30d158;
   --ui-positive-15: rgba(48, 209, 88, 0.16);
   --ui-negative: #ff453a;
@@ -939,16 +933,13 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
 }
 .ui-btn-primary,
 .ui-btn-brand {
-  background: var(--ui-action);
+  background: var(--ui-brand);
   color: var(--ui-on-fill);
   font-weight: 600;
 }
-.ui-btn-primary:hover:not(:disabled) {
-  background: var(--ui-brand);
-  filter: brightness(1.08);
-}
+.ui-btn-primary:hover:not(:disabled),
 .ui-btn-brand:hover:not(:disabled) {
-  background: var(--ui-action);
+  background: var(--ui-brand);
   filter: brightness(1.08);
 }
 .ui-btn-silver {
@@ -1579,19 +1570,4 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
   .k-scrim {
     animation: none !important;
   }
-}
-
-/* Page titles carry the short orange rule of choreolabs.com section headers. */
-.ui-page-rule::before,
-.hm-hero h1::before,
-.st-title::before,
-.xp-title::before,
-.help-hero h1::before,
-.so-title::before {
-  content: '';
-  display: block;
-  width: 32px;
-  height: 3px;
-  margin-bottom: 16px;
-  background: var(--ui-rule);
 }
