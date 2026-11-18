@@ -886,7 +886,10 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       try {
         if (ops.length) await be.patch(ops, 'Describe the notes');
         if (mock) previewOnly(`${ids.length} note${ids.length > 1 ? 's' : ''}${text ? ' and your message' : ''}`);
-        else await client!.call('annotations.send', { slug, ids });
+        else {
+          await client!.call('annotations.send', { slug, ids });
+          toast(`Sent ${ids.length} note${ids.length > 1 ? 's' : ''} to the agent. You'll see what it's doing above the box.`);
+        }
         setBatchOpen(false);
         setAsk('');
       } catch (e) {
@@ -902,6 +905,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     try {
       await agentLive.send(text);
       setAsk('');
+      toast("Sent to the agent. You'll see what it's doing above the box.");
     } catch (e) {
       toast(errText(e), { tone: 'error' });
     }
@@ -1626,7 +1630,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               onUndoRun={(r) => runAction('Undo this', () => client!.call('runs.revert', { slug, n: r.n }), 'Undid the agent’s change.')}
               onFollowUp={(r, text) => {
                 if (mock) previewOnly('the follow-up');
-                else void attempt(() => client!.call('runs.followUp', { slug, n: r.n, text }).then(() => setAsk('')), 'Sent.');
+                else void attempt(() => client!.call('runs.followUp', { slug, n: r.n, text }).then(() => setAsk('')), 'Sent to the agent.');
               }}
               onPin={() => {
                 controls.pause();

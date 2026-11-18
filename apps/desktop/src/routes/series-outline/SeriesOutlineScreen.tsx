@@ -214,7 +214,10 @@ export function SeriesOutlineScreen({ slug, query }: { slug: string; query?: str
     act('plan', async () => {
       setActivity('');
       setSeries(await client!.call('series.plan', { slug, ...(text ? { feedback: text } : {}) }));
-      if (text) setFeedback('');
+      if (text) {
+        setFeedback('');
+        toast('Sent to the agent. It is revising the outline.');
+      }
     });
   const cancelPlan = () =>
     act('cancel', async () => {
@@ -517,8 +520,9 @@ export function SeriesOutlineScreen({ slug, query }: { slug: string; query?: str
                 placeholder="Merge episodes 3 and 4, and add one on deploying"
                 onChange={(e) => setFeedback(e.target.value)}
               />
-              <Button type="submit" size="sm" disabled={!feedback.trim() || !!busy} className="so-start">
-                Send
+              <Button type="submit" size="lg" disabled={!feedback.trim() || !!busy} className="ui-btn-block">
+                <Glyph name="send" size={14} />
+                {busy === 'plan' ? 'Sending…' : 'Send'}
               </Button>
             </form>
           </div>

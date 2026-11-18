@@ -1703,3 +1703,8 @@
 .ed-trlen {
   padding: 0 10px;
 }
+
+/* The batch's Send: the dock's main action once notes are pinned. */
+.ed-send-batch {
+  margin-top: 6px;
+}

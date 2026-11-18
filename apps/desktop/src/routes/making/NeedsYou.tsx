@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
 import type { Gate, LateCueFix } from '@studio/core';
-import { Button, IconTile, Inset, ShellPanel, Tag, type GlyphName } from '@studio/ui';
+import { Button, Glyph, IconTile, Inset, ShellPanel, Tag, useToast, type GlyphName } from '@studio/ui';
 import { describeTool } from './feedRows';
 import type { PermissionEvent } from './model';
 
@@ -48,21 +48,40 @@ export function Details({ children, label = 'Details' }: { children: ReactNode; 
   );
 }
 
-/** "Or ask for changes": feedback the agent revises with. */
+/** "Or ask for changes": feedback the agent revises with. A secondary, full-width Send, then a confirmation. */
 export function AskForChanges({
   placeholder,
   disabled,
   onSend,
   label = 'Or ask for changes',
+  sent = 'Sent to the agent. It is working on your changes.',
 }: {
   placeholder: string;
   disabled?: boolean;
   onSend: (text: string) => Promise<void> | void;
   label?: string;
+  /** What the confirmation says once it is sent. */
+  sent?: string;
 }) {
   const id = useId();
+  const toast = useToast();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const send = () => {
+    const t = text.trim();
+    if (!t) return;
+    setBusy(true);
+    setDone(false);
+    Promise.resolve(onSend(t))
+      .then(() => {
+        setText('');
+        setDone(true);
+        toast(sent);
+      })
+      .catch((e: unknown) => toast(e instanceof Error ? e.message : String(e), { tone: 'error' }))
+      .finally(() => setBusy(false));
+  };
   return (
     <div className="mk-ask">
       <label htmlFor={id} className="mk-ask-label">
@@ -74,21 +93,27 @@ export function AskForChanges({
         rows={2}
         value={text}
         placeholder={placeholder}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <Button
-        size="sm"
-        disabled={disabled || busy || !text.trim()}
-        onClick={() => {
-          setBusy(true);
-          void Promise.resolve(onSend(text.trim())).finally(() => {
-            setBusy(false);
-            setText('');
-          });
+        onChange={(e) => {
+          setText(e.target.value);
+          setDone(false);
         }}
-      >
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            send();
+          }
+        }}
+      />
+      <Button size="lg" className="ui-btn-block" disabled={disabled || busy || !text.trim()} onClick={send}>
+        <Glyph name="send" size={14} />
         {busy ? 'Sending…' : 'Send'}
       </Button>
+      {done && (
+        <p className="ui-sent" role="status">
+          <Glyph name="check" size={12} />
+          {sent}
+        </p>
+      )}
     </div>
   );
 }
@@ -429,11 +454,13 @@ export function SteerCard({
               }
             }}
           />
-          <Button size="sm" variant="brand" disabled={disabled || busy || !text.trim()} onClick={send}>
+          <Button size="lg" variant="brand" className="ui-btn-block" disabled={disabled || busy || !text.trim()} onClick={send}>
+            <Glyph name="send" size={14} />
             {busy ? 'Sending…' : 'Send now'}
           </Button>
           {note && (
-            <p className={note.error ? 'mk-error' : 'mk-ask-label'} role={note.error ? 'alert' : 'status'}>
+            <p className={note.error ? 'mk-error' : 'ui-sent'} role={note.error ? 'alert' : 'status'}>
+              {!note.error && <Glyph name="check" size={12} />}
               {note.text}
             </p>
           )}
