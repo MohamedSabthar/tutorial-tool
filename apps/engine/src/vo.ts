@@ -85,34 +85,51 @@ export class Voiceover {
     const result: VoiceoverResult = { lines: [], skipped: [], seconds: 0 };
     const fresh = new Map<string, VoiceLine>();
     const freshScenes = new Map<string, VoiceLine[]>();
-    for (const step of timeline.steps) {
-      if (wanted && !wanted.has(step.id)) continue;
+    // Every line is its own request (neighbouring lines go along as text only), so steps and
+    // explainer lines are all started together; the TTS client keeps to the plan's concurrency
+    // and retries rate limits. Results are put back in script order below.
+    const stepJobs = timeline.steps.map((step) => {
+      if (wanted && !wanted.has(step.id)) return null;
       if (!step.narration.trim()) {
         result.skipped.push({ stepId: step.id, reason: 'no narration' });
-        continue;
+        return null;
       }
       const i = narrated.indexOf(step);
       const prev = narrated[i - 1]?.narration;
       const next = narrated[i + 1]?.narration;
       const { words, ...req } = voiceLine(step.narration.trim(), rules, { prev, next });
-      const r = await this.deps.tts.synthesize(slug, { ...req, voiceId });
+      return this.deps.tts.synthesize(slug, { ...req, voiceId }).then((r) => ({ step, r, words }));
+    });
+    const sceneJobs = explainers.map((scene) => {
+      if (wanted && !wanted.has(scene.id)) return null;
+      const texts = scene.narration.map((x) => x.trim()).filter(Boolean);
+      if (!texts.length) {
+        result.skipped.push({ stepId: scene.id, reason: 'no narration' });
+        return null;
+      }
+      return Promise.all(
+        texts.map((text, i) => {
+          const { words, ...req } = voiceLine(text, rules, { prev: texts[i - 1], next: texts[i + 1] });
+          return this.deps.tts.synthesize(slug, { ...req, voiceId }).then((r) => ({ text, r, words }));
+        }),
+      ).then((voicedLines) => ({ scene, voicedLines }));
+    });
+    const [stepsDone, scenesDone] = await Promise.all([Promise.all(stepJobs), Promise.all(sceneJobs)]);
+
+    for (const job of stepsDone) {
+      if (!job) continue;
+      const { step, r, words } = job;
       fresh.set(step.id, lineFor(step, r, words(r.alignment)));
       result.lines.push({ stepId: step.id, duration: r.duration, cached: r.cached });
     }
 
-    // Explainers: each narration line in turn, one after the other inside the scene.
-    for (const scene of explainers) {
-      if (wanted && !wanted.has(scene.id)) continue;
-      const texts = scene.narration.map((x) => x.trim()).filter(Boolean);
-      if (!texts.length) {
-        result.skipped.push({ stepId: scene.id, reason: 'no narration' });
-        continue;
-      }
+    // Explainers: the lines play one after the other inside the scene.
+    for (const job of scenesDone) {
+      if (!job) continue;
+      const { scene, voicedLines } = job;
       const lines: VoiceLine[] = [];
       let at = SCENE_LEAD_IN;
-      for (const [i, text] of texts.entries()) {
-        const { words, ...req } = voiceLine(text, rules, { prev: texts[i - 1], next: texts[i + 1] });
-        const r = await this.deps.tts.synthesize(slug, { ...req, voiceId });
+      for (const [i, { text, r, words }] of voicedLines.entries()) {
         lines.push(
           VoiceLine.parse({
             id: `vo-${scene.id}-${i}`,

@@ -548,7 +548,7 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
           { store, tts, pronunciations: () => pronunciations.list() },
           slug,
           plan.steps,
-          ({ stepId, index, total, done }) => {
+          ({ stepId, total, done }) => {
             const item = items.find((x) => x.id === stepId);
             if (item) {
               item.state = done ? 'done' : 'active';
@@ -557,12 +557,13 @@ export async function startEngine(opts: EngineOptions): Promise<Engine> {
                 : 'voicing…';
               if (done) item.audio = done.audio;
             }
+            // Lines are voiced together, so count what is finished rather than "line n of N".
+            const finished = items.filter((x) => x.state === 'done').length;
             progress?.({
-              message: done
-                ? index + 1 === total
+              message:
+                finished === total
                   ? `Voiced all ${total} lines`
-                  : `Voiced line ${index + 1} of ${total}`
-                : `Voicing line ${index + 1} of ${total}`,
+                  : `Voicing ${total} lines together · ${finished} done`,
               items: items.map((x) => ({ ...x })),
             });
           },

@@ -51,20 +51,27 @@ export async function voicePace(
   const rules = (await deps.pronunciations?.().catch(() => [])) ?? [];
   const out: Record<string, StepPace> = {};
   let seconds = 0;
-  for (const [i, step] of narrated.entries()) {
-    const text = step.narration.trim();
-    // Trimmed, as the steps get it (see the pipeline's voiceover), so the requests are the same.
-    const prev = narrated[i - 1]?.narration.trim();
-    const next = narrated[i + 1]?.narration.trim();
-    const { words, ...req } = voiceLine(text, rules, { prev, next });
-    onLine?.({ stepId: step.id, index: i, total: narrated.length });
-    const r = await deps.tts.synthesize(slug, { ...req, voiceId });
-    onLine?.({
-      stepId: step.id,
-      index: i,
-      total: narrated.length,
-      done: { seconds: r.duration, cached: r.cached, audio: r.audio },
-    });
+  // Every line is its own request (the neighbouring lines go along as text only), so they are all
+  // started together; the TTS client keeps to the plan's concurrency and retries rate limits.
+  const voiced = await Promise.all(
+    narrated.map(async (step, i) => {
+      const text = step.narration.trim();
+      // Trimmed, as the steps get it (see the pipeline's voiceover), so the requests are the same.
+      const prev = narrated[i - 1]?.narration.trim();
+      const next = narrated[i + 1]?.narration.trim();
+      const { words, ...req } = voiceLine(text, rules, { prev, next });
+      onLine?.({ stepId: step.id, index: i, total: narrated.length });
+      const r = await deps.tts.synthesize(slug, { ...req, voiceId });
+      onLine?.({
+        stepId: step.id,
+        index: i,
+        total: narrated.length,
+        done: { seconds: r.duration, cached: r.cached, audio: r.audio },
+      });
+      return { step, text, r, words };
+    }),
+  );
+  for (const { step, text, r, words } of voiced) {
     out[step.id] = { text, duration: Math.round(r.duration * 1000) / 1000, words: words(r.alignment) };
     seconds += r.duration;
   }

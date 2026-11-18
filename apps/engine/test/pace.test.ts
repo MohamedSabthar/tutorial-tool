@@ -50,8 +50,8 @@ describe('voice-first pace', () => {
         ),
     );
     expect(r.lines).toBe(2);
-    // Each line reports when it starts and when it is voiced.
-    expect(progress).toEqual(['s1 1/2', 's1 1/2 0.8', 's3 2/2', 's3 2/2 1.1']);
+    // Each line reports when it starts and when it is voiced; the lines are started together.
+    expect(progress).toEqual(['s1 1/2', 's3 2/2', 's1 1/2 0.8', 's3 2/2 1.1']);
     expect(requests).toEqual([
       { text: 'Open it.', voiceId: 'voice-1', nextText: 'Click Save.' },
       { text: 'Click Save.', voiceId: 'voice-1', previousText: 'Open it.' },
@@ -65,6 +65,32 @@ describe('voice-first pace', () => {
     expect(pace).toMatchObject({ leadIn: 0.25, clickGap: 0.6, tail: 0.35 });
     await clearPace(store.dir(slug));
     expect(await readPace(store.dir(slug))).toBeNull();
+  });
+
+  it('voices the lines at the same time and keeps them in script order', async () => {
+    let inFlight = 0;
+    let most = 0;
+    const order: string[] = [];
+    const slow = {
+      synthesize: async (_slug: string, input: { text: string }) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        // The first line takes longest, so it finishes last.
+        await new Promise((r) => setTimeout(r, input.text.startsWith('One') ? 30 : 5));
+        inFlight--;
+        order.push(input.text);
+        return (await tts([]).synthesize(_slug, input)) as never;
+      },
+    };
+    await voicePace({ store, tts: slow as never }, slug, [
+      { id: 's1', narration: 'One two.' },
+      { id: 's2', narration: 'Three.' },
+      { id: 's3', narration: 'Four five.' },
+    ]);
+    expect(most).toBe(3);
+    expect(order[2]).toBe('One two.');
+    const pace = await readPace(store.dir(slug));
+    expect(Object.keys(pace!.steps)).toEqual(['s1', 's2', 's3']);
   });
 
   it('speaks terms from the pronunciations but keeps the written words for cues', async () => {
