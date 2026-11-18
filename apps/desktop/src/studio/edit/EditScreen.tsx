@@ -861,6 +861,20 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     if (!a || a.status !== 'open' || a.comment === noteDraft.trim()) return;
     void attempt(() => be.patch([{ op: 'replace', path: `/annotations/${i}/comment`, value: noteDraft.trim() }], 'Describe a note'));
   }
+  // Straight after Send, until the agent reports it is working: what is happening meanwhile.
+  const [sendState, setSendState] = useState<{ label: string; at: number } | null>(null);
+  const setSending = (label: string | null) => setSendState(label ? { label, at: Date.now() } : null);
+  // Gone once the agent picks the request up (a new turn starts after it) or after two minutes.
+  const sending =
+    sendState && !working && !agentEvents.some((e) => e.kind === 'user' && e.at >= sendState.at - 2000)
+      ? sendState.label
+      : null;
+  useEffect(() => {
+    if (!sendState) return;
+    const t = setTimeout(() => setSendState(null), 120_000);
+    return () => clearTimeout(t);
+  }, [sendState]);
+
   async function send(text: string) {
     if (batch.length) {
       if (!timeline) return;
@@ -883,16 +897,20 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       });
       const ids = batch.map((a) => a.id);
       setNoteOpen(null);
+      setBatchOpen(false);
+      setSending(`Taking a picture of each of your ${ids.length} spot${ids.length > 1 ? 's' : ''}…`);
       try {
         if (ops.length) await be.patch(ops, 'Describe the notes');
-        if (mock) previewOnly(`${ids.length} note${ids.length > 1 ? 's' : ''}${text ? ' and your message' : ''}`);
-        else {
+        if (mock) {
+          previewOnly(`${ids.length} note${ids.length > 1 ? 's' : ''}${text ? ' and your message' : ''}`);
+          setSending(null);
+        } else {
           await client!.call('annotations.send', { slug, ids });
-          toast(`Sent ${ids.length} note${ids.length > 1 ? 's' : ''} to the agent. You'll see what it's doing above the box.`);
+          if (!working) setSending('Sent. Starting the agent…');
         }
-        setBatchOpen(false);
         setAsk('');
       } catch (e) {
+        setSending(null);
         toast(errText(e), { tone: 'error' });
       }
       return;
@@ -902,11 +920,14 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       return;
     }
     if (!client) return;
+    setSending('Sending to the agent…');
+    setAsk('');
     try {
       await agentLive.send(text);
-      setAsk('');
-      toast("Sent to the agent. You'll see what it's doing above the box.");
+      if (!working) setSending('Sent. Starting the agent…');
     } catch (e) {
+      setSending(null);
+      setAsk(text);
       toast(errText(e), { tone: 'error' });
     }
   }
@@ -1628,6 +1649,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               draft={ask}
               onDraft={setAsk}
               onSend={(text) => void send(text)}
+              sendingLabel={sending}
               onStop={() => (mock ? previewOnly('Stop') : void agentLive.interrupt())}
               onAnswer={(id, allow) => (mock ? previewOnly(allow ? 'Allow' : 'Not now') : void agentLive.answer(id, allow))}
               onKeep={(r) => runAction('Keep', () => client!.call('runs.accept', { slug, n: r.n }), 'Kept.')}

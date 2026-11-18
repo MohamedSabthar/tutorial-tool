@@ -1710,3 +1710,121 @@
   padding: 0 16px;
   flex: none;
 }
+
+/* The agent's live stream under its status: the request, its messages and each action. */
+.ed-stream-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 12px;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ui-brand);
+  cursor: pointer;
+}
+.ed-stream-toggle svg {
+  transition: transform 150ms var(--ui-ease);
+}
+.ed-stream-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+.ed-stream {
+  list-style: none;
+  margin: 4px 8px 8px;
+  padding: 6px;
+  max-height: 220px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--ui-f04);
+  border-radius: var(--ui-radius-md);
+}
+.ed-stream-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  animation: k-enter 220ms var(--ui-ease) both;
+}
+.ed-stream-row[data-kind='you'] {
+  background: var(--ui-inset);
+}
+.ed-stream-who {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-muted);
+  padding-top: 2px;
+}
+.ed-stream-agent {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: var(--ui-brand-15);
+  color: var(--ui-brand);
+}
+.ed-stream-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ui-fg);
+}
+.ed-stream-icon {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--ui-muted);
+}
+.ed-stream-row[data-state='ok'] .ed-stream-icon {
+  color: var(--ui-positive);
+}
+.ed-stream-row[data-state='failed'] .ed-stream-icon {
+  color: var(--ui-negative);
+}
+.ed-stream-row[data-state='running'] .ed-stream-icon {
+  color: var(--ui-brand);
+}
+.ed-stream-think {
+  color: var(--ui-muted);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-stream-tool summary {
+  cursor: pointer;
+  color: var(--ui-fg);
+  list-style: none;
+}
+.ed-stream-tool summary::-webkit-details-marker {
+  display: none;
+}
+.ed-stream-tool code,
+.ed-stream-tool pre {
+  display: block;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--ui-inset);
+  font-family: var(--ui-mono);
+  font-size: 11px;
+  color: var(--ui-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 140px;
+  overflow: auto;
+}
+.ed-dock-status {
+  display: flex;
+  flex-direction: column;
+}

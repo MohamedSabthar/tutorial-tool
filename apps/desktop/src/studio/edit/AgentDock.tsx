@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type RefObject } from 'react';
+import { AgentStream } from './AgentStream';
 import type { AgentEvent, AgentStatus as Status, Run } from '@studio/core';
 import { AgentStatus, Button, Glyph, IconTile, Inset, LinkButton } from '@studio/ui';
 import { agentActivity, toolPhrase } from './model';
@@ -27,6 +28,7 @@ export function AgentDock({
   draft,
   onDraft,
   onSend,
+  sendingLabel,
   onStop,
   onAnswer,
   onKeep,
@@ -54,6 +56,8 @@ export function AgentDock({
   draft: string;
   onDraft: (text: string) => void;
   onSend: (text: string) => void;
+  /** Shown straight after Send, until the agent reports it is working (e.g. "Starting the agent…"). */
+  sendingLabel?: string | null;
   onStop: () => void;
   onAnswer: (requestId: string, allow: boolean) => void;
   onKeep: (run: Run) => void;
@@ -65,6 +69,22 @@ export function AgentDock({
   const [followUp, setFollowUp] = useState(false);
   const [compare, setCompare] = useState<'before' | 'after'>('after');
   const working = status?.state === 'busy' || status?.state === 'starting' || status?.state === 'interrupting';
+  const [showStream, setShowStream] = useState(() => {
+    try {
+      return localStorage.getItem('studio.agentStream') !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const toggleStream = () =>
+    setShowStream((v) => {
+      try {
+        localStorage.setItem('studio.agentStream', v ? 'closed' : 'open');
+      } catch {
+        // Not remembered; it still toggles.
+      }
+      return !v;
+    });
   const pending = new Set(status?.pending ?? []);
   const waiting = events.filter((e): e is Permission => e.kind === 'permission' && pending.has(e.requestId));
   const activity = agentActivity(events);
@@ -83,15 +103,28 @@ export function AgentDock({
 
   return (
     <div className="ed-dock">
-      {working && (
+      {(working || sendingLabel) && (
         <div className="ed-dockbox k-enter">
           <div className="k-panel ed-dock-status">
             <AgentStatus
-              label={status?.state === 'interrupting' ? 'Stopping…' : waiting.length ? 'Waiting for your OK' : activity.label}
-              since={activity.since}
-              steps={activity.steps}
-              onStop={status?.state === 'interrupting' ? undefined : onStop}
+              label={
+                !working
+                  ? sendingLabel
+                  : status?.state === 'interrupting'
+                    ? 'Stopping…'
+                    : waiting.length
+                      ? 'Waiting for your OK'
+                      : activity.label
+              }
+              since={working ? activity.since : undefined}
+              steps={showStream ? [] : activity.steps}
+              onStop={!working || status?.state === 'interrupting' ? undefined : onStop}
             />
+            <button type="button" className="ed-stream-toggle" aria-expanded={showStream} onClick={toggleStream}>
+              <Glyph name="next" size={11} />
+              {showStream ? 'Hide what it’s doing' : 'Show what it’s doing'}
+            </button>
+            {showStream && <AgentStream events={working ? events : []} pending={working ? null : sendingLabel} />}
           </div>
         </div>
       )}
