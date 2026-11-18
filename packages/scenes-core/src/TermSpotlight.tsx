@@ -1,8 +1,10 @@
 import {
   SAFE,
+  sceneEyebrowStyle,
   SceneFrame,
   scenePalette,
-  theme,
+  SceneRule,
+  sceneTitleStyle,
   useOverlayTime,
   useSceneTiming,
   type OverlayMeta,
@@ -30,7 +32,6 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
   const timing = useSceneTiming();
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
-  const accent = p.accent;
   const terms = props.cards;
   const n = terms.length;
   const at = (k: number) => stepTime(timing, k, n, duration);
@@ -43,14 +44,15 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
     <SceneFrame theme={props.theme} {...(props.eyebrow ? { eyebrow: props.eyebrow } : {})}>
       <div
         style={{
-          fontSize: 34,
-          fontWeight: 600,
+          ...sceneEyebrowStyle,
+          fontSize: 26,
           color: p.muted,
           opacity: title,
           transform: `translateX(${(1 - title) * 30}px)`,
         }}
       >
         {props.title}
+        <SceneRule style={{ marginTop: 22, marginBottom: 0 }} />
       </div>
       <span
         style={{
@@ -86,12 +88,10 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
                 position: 'absolute',
                 left: i * slotW,
                 top: STRIP_Y,
-                padding: '6px 16px',
-                borderRadius: 999,
-                fontFamily: theme.font.mono,
-                fontSize: 22,
-                color: accent,
-                background: 'rgba(31,79,255,0.16)',
+                fontSize: 30,
+                fontWeight: 600,
+                letterSpacing: '-0.02em',
+                color: p.number,
                 opacity: easeOut(t, next - 0.1, next + 0.3),
               }}
             >
@@ -107,7 +107,7 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
                 fontSize: fs,
                 lineHeight: 1.05,
                 fontWeight: 600,
-                letterSpacing: '-0.035em',
+                letterSpacing: sceneTitleStyle.letterSpacing,
                 opacity: clamp01(inP) * (1 - 0.15 * tuck),
                 transform: `translate(${x}px, ${y}px) scale(${s})`,
               }}
@@ -119,9 +119,8 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
                   left: 0,
                   right: 0,
                   bottom: -14,
-                  height: 8,
-                  borderRadius: 4,
-                  background: accent,
+                  height: 6,
+                  background: p.signal,
                   transformOrigin: '0 50%',
                   transform: `scaleX(${draw})`,
                 }}

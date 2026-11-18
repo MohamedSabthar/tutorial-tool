@@ -1,15 +1,15 @@
 import {
   ChoreoMark,
-  resolveSceneTheme,
   SAFE,
   SceneFrame,
   scenePalette,
+  SceneRule,
+  sceneTitleStyle,
   sceneType,
-  theme,
-  type OverlayMeta,
-  type OverlayProps,
   useOverlayTime,
   useSceneTiming,
+  type OverlayMeta,
+  type OverlayProps,
 } from '@studio/overlay-sdk';
 import { ConceptProps } from './concepts';
 import { activeStep, clamp01, easeOut, pop, stepTime } from './shared';
@@ -42,7 +42,6 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
   const cardW = Math.min(500, (W - GAP * (n - 1)) / n);
   const left = (W - (n * cardW + (n - 1) * GAP)) / 2;
   const intro = easeOut(t, -0.4, 0.4);
-  const face = resolveSceneTheme(props.theme) === 'choreo-dark' ? '#111A3D' : '#FFFFFF';
 
   return (
     <SceneFrame theme={props.theme} {...(props.eyebrow ? { eyebrow: props.eyebrow } : {})}>
@@ -50,13 +49,13 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
         style={{
           fontSize: sceneType.title + 8,
           fontWeight: 600,
-          letterSpacing: '-0.01em',
+          letterSpacing: sceneTitleStyle.letterSpacing,
           opacity: intro,
           transform: `translateX(${(1 - intro) * 40}px)`,
         }}
       >
+        <SceneRule />
         {props.title}
-        <span style={{ color: accent }}>.</span>
       </div>
       {cards.map((c, i) => {
         const b = at(i);
@@ -79,7 +78,7 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
         const lift = now ? easeOut(t, b + 0.3, b + 0.7) : 0;
         const settle = i < k ? easeOut(t, at(k) + 0.2, at(k) + 0.6) : 0;
         const breathe = 1 + 0.006 * Math.sin((t + i * 0.9) * 2);
-        const sides = { position: 'absolute', inset: 0, boxSizing: 'border-box', borderRadius: 22 } as const;
+        const sides = { position: 'absolute', inset: 0, boxSizing: 'border-box', borderRadius: 18 } as const;
         return (
           <div
             key={i}
@@ -117,28 +116,18 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
                   flexDirection: 'column',
                   gap: 18,
                   padding: '40px 42px',
-                  background: face,
-                  border: `2px solid ${now ? accent : p.line}`,
+                  background: now ? `${p.litFill}, ${p.node}` : p.node,
+                  border: `1.5px solid ${now ? p.litLine : p.line}`,
                   boxShadow: now ? '0 34px 80px rgba(0,0,0,0.45)' : '0 24px 60px rgba(0,0,0,0.3)',
                   opacity: 1 - 0.4 * settle,
                   transform: `scaleX(${frontW})`,
                 }}
               >
-                <span
-                  style={{
-                    alignSelf: 'flex-start',
-                    padding: '6px 16px',
-                    borderRadius: 999,
-                    fontFamily: theme.font.mono,
-                    fontSize: 22,
-                    color: accent,
-                    background: 'rgba(31,79,255,0.16)',
-                  }}
-                >
+                <span style={{ fontSize: 34, fontWeight: 600, letterSpacing: '-0.02em', color: p.number }}>
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <span style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-0.01em' }}>{c.title}</span>
-                <span style={{ width: 56, height: 4, borderRadius: 2, background: accent }} />
+                <span style={{ fontSize: 44, fontWeight: 600, letterSpacing: '-0.04em' }}>{c.title}</span>
+                <span style={{ width: 54, height: 4, background: p.signal }} />
                 <span style={{ fontSize: 28, lineHeight: 1.35, color: p.muted }}>{c.text}</span>
               </div>
             )}

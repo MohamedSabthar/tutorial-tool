@@ -1,8 +1,9 @@
 import {
-  resolveSceneTheme,
   SAFE,
   SceneFrame,
   scenePalette,
+  SceneRule,
+  sceneTitleStyle,
   sceneType,
   theme,
   tween,
@@ -18,7 +19,7 @@ export const meta: OverlayMeta = {
   name: 'BlueprintFlow',
   kind: 'scene',
   description:
-    'Blueprint look for a request flow: fine lines draw the stops on a grid, then a glowing request hops to each stop on its beat (or narration line) while the request builds up from the parts each stop reads. A closing reply lands on the next beat. Same props as LayeredPanels.',
+    'Diagram look for a request flow: the stops draw in as dark tiles on a dot grid, then a glowing orange request hops to each stop on its beat (or narration line) while the request builds up from the parts each stop reads. A closing reply lands on the next beat. Same props as LayeredPanels.',
   props: FlowProps,
   defaultDuration: 9,
 };
@@ -29,13 +30,13 @@ const H = 1080 - 2 * SAFE;
 const NODE_H = 170;
 const NODE_Y = 330;
 const MID = NODE_Y + NODE_H / 2;
-const CELL = 60;
 
 export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
   const timing = useSceneTiming();
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
   const accent = p.accent;
+  const signal = p.signal;
   const stops = flowOrder(props);
   const n = stops.length;
   const gapMin = 64;
@@ -45,7 +46,6 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
   const at = (k: number) => stepTime(timing, k, n, duration);
   const k = activeStep(timing, n, duration, t);
   const replyAt = afterSteps(timing, n, duration);
-  const wire = resolveSceneTheme(props.theme) === 'choreo-dark' ? theme.color.steelLight : theme.color.steel;
 
   // The request rests in the middle of each stop from its beat and jumps in an arc to the next
   // one just before that beat. The stop's text sits above and below the middle, clear of it.
@@ -75,38 +75,6 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
 
   return (
     <SceneFrame theme={props.theme} {...(props.eyebrow ? { eyebrow: props.eyebrow } : {})}>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 1920 1080"
-        style={{ position: 'absolute', left: -SAFE, top: -SAFE, width: 1920, height: 1080 }}
-      >
-        <g opacity={easeOut(t, 0, 0.8) * 0.7}>
-          {Array.from({ length: 1920 / CELL + 1 }, (_, i) => (
-            <line
-              key={`v${i}`}
-              x1={i * CELL}
-              y1={0}
-              x2={i * CELL}
-              y2={1080}
-              stroke={p.line}
-              strokeWidth={1}
-              opacity={i % 4 ? 0.35 : 0.8}
-            />
-          ))}
-          {Array.from({ length: 1080 / CELL + 1 }, (_, i) => (
-            <line
-              key={`h${i}`}
-              x1={0}
-              y1={i * CELL}
-              x2={1920}
-              y2={i * CELL}
-              stroke={p.line}
-              strokeWidth={1}
-              opacity={i % 4 ? 0.35 : 0.8}
-            />
-          ))}
-        </g>
-      </svg>
       <div
         style={{
           position: 'absolute',
@@ -119,13 +87,13 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
           style={{
             fontSize: sceneType.title + 8,
             fontWeight: 600,
-            letterSpacing: '-0.01em',
+            letterSpacing: sceneTitleStyle.letterSpacing,
             opacity: easeOut(t, 0, 0.6),
             transform: `translateX(${(1 - easeOut(t, 0, 0.6)) * 40}px)`,
           }}
         >
+          <SceneRule />
           {props.title}
-          <span style={{ color: accent }}>.</span>
         </div>
         <svg
           aria-hidden="true"
@@ -142,17 +110,32 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
               pathLength={1}
               strokeDasharray={1}
               strokeDashoffset={1 - easeOut(t, 1.2 + i * 0.2, 1.8 + i * 0.2)}
-              stroke={k > i ? accent : wire}
-              strokeWidth={k > i ? 3.5 : 2.5}
+              stroke={k > i ? accent : p.wire}
+              strokeWidth={k > i ? 3 : 1.5}
               strokeLinecap="round"
             />
           ))}
           {stops.map((s, i) => {
+            const now = k === i && !(props.reply !== '' && t >= replyAt);
             const lit = k >= i;
-            const glow = lit ? 1 - 0.5 * easeOut(t, at(i), at(i) + 0.8) : 0;
+            const glow = now ? 1 - 0.4 * easeOut(t, at(i), at(i) + 0.8) : 0;
             const text = easeOut(t, 0.9 + i * 0.25, 1.4 + i * 0.25);
+            const drawn = easeOut(t, 0.4 + i * 0.25, 1.2 + i * 0.25);
             return (
               <g key={s.id}>
+                {now && (
+                  <rect
+                    x={x(i) - 6}
+                    y={NODE_Y - 6}
+                    width={nodeW + 12}
+                    height={NODE_H + 12}
+                    rx={24}
+                    fill="none"
+                    stroke={signal}
+                    strokeWidth={14}
+                    opacity={0.16 + 0.12 * glow}
+                  />
+                )}
                 <rect
                   x={x(i)}
                   y={NODE_Y}
@@ -161,17 +144,30 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                   rx={18}
                   pathLength={1}
                   strokeDasharray={1}
-                  strokeDashoffset={1 - easeOut(t, 0.4 + i * 0.25, 1.2 + i * 0.25)}
-                  stroke={lit ? accent : wire}
-                  strokeWidth={2.5 + glow * 3}
-                  fill={lit ? `rgba(31,79,255,${(0.06 + glow * 0.1).toFixed(3)})` : 'none'}
+                  strokeDashoffset={1 - drawn}
+                  stroke={now ? signal : lit ? p.litLine : p.nodeLine}
+                  strokeWidth={now ? 2.5 : 1.5}
+                  fill={lit ? 'rgba(31,79,255,0.12)' : p.node}
+                  fillOpacity={drawn}
+                />
+                <circle
+                  cx={x(i) + nodeW - 32}
+                  cy={NODE_Y + 32}
+                  r={now ? 7 : 5}
+                  fill={now ? signal : accent}
+                  opacity={drawn}
                 />
                 <text
                   x={x(i) + 40}
                   y={NODE_Y + 54}
                   fill={p.ink}
                   opacity={text}
-                  style={{ fontFamily: theme.font.sans, fontSize: 30, fontWeight: 600 }}
+                  style={{
+                    fontFamily: theme.font.sans,
+                    fontSize: 30,
+                    fontWeight: 600,
+                    letterSpacing: '-0.03em',
+                  }}
                 >
                   {s.label}
                 </text>
@@ -194,7 +190,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
               cx={head.x}
               cy={head.y}
               r={30}
-              fill={accent}
+              fill={signal}
               opacity={(0.16 + 0.06 * Math.sin(t * 5)) * seen}
             />
           )}
@@ -205,7 +201,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                 cx={d.x}
                 cy={d.y}
                 r={8 + i * 2}
-                fill={accent}
+                fill={signal}
                 opacity={(1 - (3 - i) * 0.24) * seen}
               />
             ) : null,
@@ -224,7 +220,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
           >
             {showParts
               ? parts.map((s, i) => (
-                  <span key={s.id} style={{ color: i === parts.length - 1 && !done ? accent : p.ink }}>
+                  <span key={s.id} style={{ color: i === parts.length - 1 && !done ? p.number : p.ink }}>
                     {s.part}
                   </span>
                 ))
@@ -253,8 +249,9 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                 borderRadius: 999,
                 fontFamily: theme.font.mono,
                 fontSize: 28,
-                color: accent,
+                color: p.number,
                 background: 'rgba(31,79,255,0.16)',
+                border: `1px solid ${p.litLine}`,
                 opacity: clamp01(pop(t, replyAt, replyAt + 0.5)),
                 transform: `scale(${0.6 + 0.4 * pop(t, replyAt, replyAt + 0.5)})`,
                 transformOrigin: 'left center',

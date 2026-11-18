@@ -1,7 +1,8 @@
 import {
-  resolveSceneTheme,
   SceneFrame,
   scenePalette,
+  SceneRule,
+  sceneTitleStyle,
   sceneType,
   theme,
   useOverlayTime,
@@ -41,8 +42,6 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
   const done = props.reply !== '' && t >= replyAt;
   const dx = n > 1 ? Math.min(90, 260 / (n - 1)) : 0;
   const dy = n > 1 ? Math.min(170, (STACK_BOTTOM - STACK_TOP - PANEL_H) / (n - 1)) : 0;
-  const card =
-    resolveSceneTheme(props.theme) === 'choreo-dark' ? 'rgba(17,26,61,0.94)' : 'rgba(255,255,255,0.96)';
   const title = easeOut(t, 0, 0.6);
   const req = easeOut(t, 0.5, 1.0);
 
@@ -54,13 +53,13 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
           fontSize: sceneType.title + 4,
           fontWeight: 600,
           lineHeight: 1.08,
-          letterSpacing: '-0.01em',
+          letterSpacing: sceneTitleStyle.letterSpacing,
           opacity: title,
           transform: `translateX(${(1 - title) * 40}px)`,
         }}
       >
+        <SceneRule />
         {props.title}
-        <span style={{ color: accent }}>.</span>
       </div>
       <div
         style={{
@@ -77,6 +76,7 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
         </div>
         {stops.map((s, i) => {
           const on = k >= i;
+          const now = k === i && !done;
           const grow = on ? pop(t, at(i), at(i) + 0.35, 1.8) : 1;
           return (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 18, height: 58 }}>
@@ -86,8 +86,9 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
                   height: 20,
                   borderRadius: '50%',
                   boxSizing: 'border-box',
-                  border: `2px solid ${on ? accent : theme.color.steel}`,
-                  background: on ? accent : 'transparent',
+                  border: `2px solid ${now ? p.signal : on ? accent : p.dim}`,
+                  background: now ? p.signal : on ? accent : 'transparent',
+                  boxShadow: now ? '0 0 18px rgba(255,70,0,0.55)' : 'none',
                   transform: `scale(${grow})`,
                 }}
               />
@@ -115,9 +116,9 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
               height: PANEL_H,
               boxSizing: 'border-box',
               padding: '30px 36px',
-              borderRadius: 22,
-              background: card,
-              border: `2px solid ${active || (done && i === n - 1) ? accent : p.line}`,
+              borderRadius: 18,
+              background: active || (done && i === n - 1) ? `${p.litFill}, ${p.node}` : p.node,
+              border: `1.5px solid ${active || (done && i === n - 1) ? p.litLine : p.line}`,
               boxShadow: active ? '0 30px 70px rgba(0,0,0,0.45)' : '0 22px 56px rgba(0,0,0,0.3)',
               zIndex: active ? 10 : i,
               display: 'flex',
@@ -134,13 +135,13 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
                 borderRadius: 999,
                 fontFamily: theme.font.mono,
                 fontSize: 20,
-                color: accent,
-                background: 'rgba(31,79,255,0.16)',
+                color: p.number,
+                border: `1px solid ${p.line}`,
               }}
             >
               {s.part || `Stop ${i + 1}`}
             </span>
-            <span style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.01em' }}>{s.label}</span>
+            <span style={{ fontSize: 38, fontWeight: 600, letterSpacing: '-0.04em' }}>{s.label}</span>
             {s.detail && <span style={{ fontSize: 25, color: p.muted }}>{s.detail}</span>}
           </div>
         );
@@ -154,11 +155,12 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
             width: LEFT_W,
             boxSizing: 'border-box',
             padding: '22px 30px',
-            borderRadius: 22,
-            background: card,
-            border: `2px solid ${accent}`,
+            borderRadius: 18,
+            background: `${p.litFill}, ${p.node}`,
+            border: `1.5px solid ${p.litLine}`,
             fontSize: 32,
-            fontWeight: 700,
+            fontWeight: 600,
+            letterSpacing: '-0.03em',
             opacity: easeOut(t, replyAt, replyAt + 0.5),
             transform: `translateY(${(1 - easeOut(t, replyAt, replyAt + 0.5)) * 26}px)`,
           }}

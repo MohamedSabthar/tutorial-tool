@@ -38,7 +38,8 @@ export const theme = {
   duration: { fast: 0.14, base: 0.24, enter: 0.3, exit: 0.2 },
   gradient: {
     edge: 'linear-gradient(0deg, #FF2E00 0%, #FF4600 20%, rgba(255,70,0,0) 66%)',
-    dark: 'radial-gradient(125% 95% at 50% 0%, #14225A 0%, #0A1232 40%, #050A1C 100%)',
+    /** Midnight with a faint dot grid and a soft blue glow (choreolabs.com). */
+    dark: 'radial-gradient(55% 65% at 74% 42%, rgba(31,79,255,0.2) 0%, rgba(31,79,255,0) 70%), radial-gradient(rgba(255,255,255,0.07) 1.3px, rgba(255,255,255,0) 1.8px) 0 0 / 30px 30px, #050A1C',
   },
 } as const;
 

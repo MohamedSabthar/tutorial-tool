@@ -4,7 +4,9 @@ import {
   resolveSceneTheme,
   SceneFrame,
   scenePalette,
+  SceneRule,
   sceneThemeSchema,
+  sceneTitleStyle,
   sceneType,
   theme,
   useOverlayTime,
@@ -93,7 +95,6 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
   const timing = useSceneTiming();
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
-  const accent = p.accent;
   const dark = resolveSceneTheme(props.theme) === 'choreo-dark';
   const lines = props.code.split('\n');
   const n = props.steps.length;
@@ -152,13 +153,13 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
         style={{
           fontSize: sceneType.title + 4,
           fontWeight: 600,
-          letterSpacing: '-0.01em',
+          letterSpacing: sceneTitleStyle.letterSpacing,
           opacity: intro,
           transform: `translateX(${(1 - intro) * 40}px)`,
         }}
       >
+        <SceneRule />
         {props.title}
-        <span style={{ color: accent }}>.</span>
       </div>
       <div
         style={{
@@ -167,8 +168,8 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
           top: 230,
           width: CODE_W,
           height: lines.length * LINE + 2 * PAD,
-          borderRadius: 22,
-          background: dark ? 'rgba(12,21,38,0.85)' : '#FFFFFF',
+          borderRadius: 18,
+          background: p.node,
           border: `1.5px solid ${p.line}`,
           boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
           overflow: 'hidden',
@@ -183,8 +184,8 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
               right: 0,
               top,
               height,
-              background: 'rgba(31,79,255,0.14)',
-              borderLeft: `5px solid ${accent}`,
+              background: p.litFill,
+              borderLeft: `4px solid ${p.signal}`,
             }}
           />
         )}
@@ -203,9 +204,9 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
           <Painted
             src={visible}
             keyword={dark ? theme.color.steelLight : theme.color.steel}
-            string={accent}
+            string={p.number}
           />
-          {caret && <span style={{ color: accent }}>▍</span>}
+          {caret && <span style={{ color: p.signal }}>▍</span>}
         </pre>
       </div>
       <div style={{ position: 'absolute', left: SIDE_X, top: 250, right: 0 }}>
@@ -223,7 +224,7 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
             const reached = run.owner < 0 || done || (k >= 0 && run.owner <= k);
             const lit = run.owner >= 0 && run.owner === k && !done;
             return (
-              <span key={i} style={{ color: lit ? accent : p.ink, opacity: reached ? 1 : 0.45 }}>
+              <span key={i} style={{ color: lit ? p.number : p.ink, opacity: reached ? 1 : 0.45 }}>
                 {run.text}
               </span>
             );
@@ -258,8 +259,9 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
               borderRadius: 999,
               fontFamily: theme.font.mono,
               fontSize: 28,
-              color: accent,
+              color: p.number,
               background: 'rgba(31,79,255,0.16)',
+              border: `1px solid ${p.litLine}`,
               opacity: clamp01(r),
               transform: `scale(${0.6 + 0.4 * r})`,
               transformOrigin: 'left center',

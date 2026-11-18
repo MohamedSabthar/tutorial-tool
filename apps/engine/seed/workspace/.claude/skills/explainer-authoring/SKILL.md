@@ -136,7 +136,16 @@ Where to put it:
 
 ## Look
 
-Choreo Labs brand: midnight backdrop (dark) or white (light), brand blue (`scenePalette().accent`,
-`theme.color.blue`) for what the narration is about right now, orange only for small accents
-(ticks, rules), Sora, sentence case, one idea per beat, no more than ~12 words on screen per beat.
-Use `ChoreoLogo` / `ChoreoMark` from the SDK for the logo; never type the company name as a logo.
+Follow choreolabs.com (about 80%): `SceneFrame` already paints flat midnight with a faint dot grid
+and a soft blue glow; don't add your own backdrop or line grids.
+
+- **Headings:** `<SceneRule />` (short orange bar) then the title in `sceneTitleStyle` (Sora 600,
+  −0.04em, tight leading). No trailing full stop. Small labels use `sceneEyebrowStyle` (uppercase).
+- **Cards and diagram nodes:** `p.node` fill, 1–1.5 px `p.line` / `p.nodeLine` hairline, radius 18,
+  a small blue status dot. A lit card or row: `background: \`${p.litFill}, ${p.node}\``, border
+  `p.litLine`. Numbers (`01`, `02`) in Sora 600, `p.number`, no pill.
+- **Colour roles:** blue (`p.accent`, `p.number`) for structure and what's been covered; orange
+  (`p.signal`, `p.signalGlow`) only for what's happening right now: the current node, the moving
+  request, the active path. Body text `p.muted`, labels `p.dim`. Wires `p.wire`, 1.5 px.
+- Sentence case, one idea per beat, no more than ~12 words on screen per beat.
+- Use `ChoreoLogo` / `ChoreoMark` from the SDK for the logo; never type the company name as a logo.

@@ -1,7 +1,9 @@
 import {
-  resolveSceneTheme,
+  sceneEyebrowStyle,
   SceneFrame,
   scenePalette,
+  SceneRule,
+  sceneTitleStyle,
   sceneType,
   theme,
   useOverlayTime,
@@ -33,7 +35,6 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
   const timing = useSceneTiming();
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
-  const accent = p.accent;
   const layers = focusOrder(props).slice(0, 5);
   const n = layers.length;
   const at = (k: number) => Math.max(stepTime(timing, k, n, duration), k === 0 ? 1.0 : 0);
@@ -61,13 +62,13 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
           fontSize: sceneType.title + 8,
           lineHeight: 1.05,
           fontWeight: 600,
-          letterSpacing: '-0.01em',
+          letterSpacing: sceneTitleStyle.letterSpacing,
           opacity: title,
           transform: `translateX(${(1 - title) * 40}px)`,
         }}
       >
+        <SceneRule />
         {props.title}
-        <span style={{ color: accent }}>.</span>
       </div>
       {layers.map((l, i) => {
         if (!l.detail) return null;
@@ -116,12 +117,9 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
               height: PH,
               boxSizing: 'border-box',
               padding: '30px 36px',
-              borderRadius: 22,
-              background:
-                resolveSceneTheme(props.theme) === 'choreo-dark'
-                  ? `rgba(17,26,61,${(0.9 + 0.1 * face).toFixed(3)})`
-                  : `rgba(255,255,255,${(0.94 + 0.06 * face).toFixed(3)})`,
-              border: `2px solid ${i === k ? accent : p.line}`,
+              borderRadius: 18,
+              background: i === k ? `${p.litFill}, ${p.node}` : p.node,
+              border: `1.5px solid ${i === k ? p.litLine : p.line}`,
               boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
               display: 'flex',
               flexDirection: 'column',
@@ -134,16 +132,13 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
           >
             <span
               style={{
-                fontFamily: theme.font.mono,
-                fontSize: 20,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
+                ...sceneEyebrowStyle,
                 color: p.muted,
               }}
             >
               Layer {i + 1}
             </span>
-            <span style={{ fontSize: 42, fontWeight: 700, letterSpacing: '-0.01em' }}>{l.label}</span>
+            <span style={{ fontSize: 42, fontWeight: 600, letterSpacing: '-0.04em' }}>{l.label}</span>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 'auto' }}>
               {l.inner.map((c, j) => {
                 const a = easeOut(t, b - 0.1 + j * 0.12, b + 0.3 + j * 0.12) * face;
@@ -155,8 +150,8 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
                       borderRadius: 999,
                       fontFamily: theme.font.mono,
                       fontSize: 22,
-                      color: accent,
-                      background: 'rgba(31,79,255,0.16)',
+                      color: p.number,
+                      border: `1px solid ${p.line}`,
                       opacity: 0.5 + 0.5 * a,
                       transform: `translateY(${-4 * a}px)`,
                     }}
@@ -182,8 +177,8 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
             zIndex: 20,
           }}
         >
-          <circle cx={CX} cy={dropY} r={30} fill={accent} opacity={0.2 * dropOn} />
-          <circle cx={CX} cy={dropY} r={11} fill={accent} opacity={dropOn} />
+          <circle cx={CX} cy={dropY} r={30} fill={p.signal} opacity={0.22 * dropOn} />
+          <circle cx={CX} cy={dropY} r={11} fill={p.signal} opacity={dropOn} />
         </svg>
       )}
     </SceneFrame>

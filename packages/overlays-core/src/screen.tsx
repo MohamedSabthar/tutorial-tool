@@ -27,7 +27,8 @@ type TitleCardProps = z.infer<typeof TitleCardProps>;
 
 export const titleCardMeta: OverlayMeta = {
   name: 'TitleCard',
-  description: 'A Choreo Labs-styled title with an orange rule, as a lower third or centred.',
+  description:
+    'A Choreo Labs-styled title (eyebrow, orange rule, headline) on a midnight card, as a lower third or centred.',
   props: TitleCardProps,
   defaultDuration: 3,
 };
@@ -61,9 +62,10 @@ export function TitleCard({ props, duration }: OverlayProps<TitleCardProps>) {
           <div
             style={{
               display: 'inline-block',
-              background: 'rgba(12,21,38,0.88)',
-              padding: '24px 36px 26px',
-              borderRadius: theme.radius,
+              background: 'rgba(5,10,28,0.92)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              padding: '28px 40px 30px',
+              borderRadius: 18,
               boxShadow: theme.shadow,
               textAlign: 'left',
             }}
@@ -72,28 +74,34 @@ export function TitleCard({ props, duration }: OverlayProps<TitleCardProps>) {
               <div
                 className="eyebrow"
                 style={{
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: 600,
                   letterSpacing: '0.04em',
-                  color: theme.color.orange,
-                  marginBottom: 6,
+                  textTransform: 'uppercase',
+                  color: theme.color.steelLight,
+                  marginBottom: 14,
                 }}
               >
                 {props.eyebrow}
               </div>
             )}
             <div
-              style={{ fontSize: 56, fontWeight: 600, color: theme.color.white, letterSpacing: '-0.01em' }}
+              className="rule"
+              style={{ width: 54, height: 4, background: theme.color.orange, margin: '0 0 22px' }}
+            />
+            <div
+              style={{
+                fontSize: 56,
+                fontWeight: 600,
+                lineHeight: 1.05,
+                color: theme.color.white,
+                letterSpacing: '-0.04em',
+              }}
             >
               {props.title}
-              <span style={{ color: theme.color.orange }}>.</span>
             </div>
-            <div
-              className="rule"
-              style={{ width: 72, height: 4, background: theme.color.orange, margin: '12px 0 10px' }}
-            />
             {props.subtitle && (
-              <div className="sub" style={{ fontSize: 26, color: theme.color.steelLight }}>
+              <div className="sub" style={{ marginTop: 14, fontSize: 26, color: theme.color.steelLight }}>
                 {props.subtitle}
               </div>
             )}
@@ -132,7 +140,7 @@ export function TextLabel({ props, duration }: OverlayProps<TextLabelProps>) {
     );
   }, []);
   const tones = {
-    dark: { bg: 'rgba(12,21,38,0.86)', fg: theme.color.white },
+    dark: { bg: 'rgba(5,10,28,0.9)', fg: theme.color.white },
     light: { bg: theme.color.white, fg: theme.color.navy },
     orange: { bg: theme.color.orange, fg: theme.color.white },
   };
@@ -322,7 +330,7 @@ export function FastForward({ props }: OverlayProps<FastForwardProps>) {
           borderRadius: 999,
           fontFamily: theme.font.sans,
           fontSize: 26,
-          fontWeight: 700,
+          fontWeight: 600,
           color: theme.color.white,
           background: 'rgba(12,21,38,0.82)',
           boxShadow: theme.shadow,
@@ -378,7 +386,7 @@ export function Skip({ props }: OverlayProps<SkipProps>) {
           borderRadius: 999,
           fontFamily: theme.font.sans,
           fontSize: 26,
-          fontWeight: 700,
+          fontWeight: 600,
           color: theme.color.white,
           background: 'rgba(12,21,38,0.82)',
           boxShadow: theme.shadow,

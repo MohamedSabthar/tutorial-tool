@@ -225,7 +225,7 @@ export function Arrow({ props, duration }: OverlayProps<ArrowProps>) {
                 top: -18,
                 whiteSpace: 'nowrap',
                 fontFamily: theme.font.sans,
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: 24,
                 color: theme.color.white,
                 background: color,
@@ -296,22 +296,25 @@ export function Callout({ props, duration }: OverlayProps<CalloutProps>) {
             position: 'absolute',
             ...pos,
             width: w,
-            background: theme.color.white,
-            borderRadius: theme.radius,
+            background: 'rgba(5,10,28,0.94)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 18,
             boxShadow: theme.shadow,
-            padding: '18px 22px',
+            padding: '20px 24px',
             fontFamily: theme.font.sans,
-            color: theme.color.navy,
+            color: theme.color.white,
             boxSizing: 'border-box',
           }}
         >
-          <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em' }}>{props.title}</div>
           <div
             className="rule"
-            style={{ width: 48, height: 3, background: theme.color.orange, margin: '8px 0 10px' }}
+            style={{ width: 40, height: 3, background: theme.color.orange, margin: '0 0 12px' }}
           />
+          <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.03em' }}>{props.title}</div>
           {props.text && (
-            <div style={{ fontSize: 20, lineHeight: 1.4, color: theme.color.ink }}>{props.text}</div>
+            <div style={{ marginTop: 8, fontSize: 20, lineHeight: 1.4, color: theme.color.steelLight }}>
+              {props.text}
+            </div>
           )}
         </div>
       </div>

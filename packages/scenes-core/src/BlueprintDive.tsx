@@ -1,10 +1,10 @@
 import {
-  resolveSceneTheme,
   SAFE,
   SceneFrame,
   scenePalette,
+  SceneRule,
+  sceneTitleStyle,
   sceneType,
-  theme,
   useOverlayTime,
   useSceneTiming,
   type OverlayMeta,
@@ -40,7 +40,7 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
   const accent = p.accent;
-  const wire = resolveSceneTheme(props.theme) === 'choreo-dark' ? theme.color.steelLight : theme.color.steel;
+  const wire = p.wire;
   const cw = W / 12;
   const ch = AREA.h / 6;
   const rect = (b: ArchitectureProps['boxes'][number]) => ({
@@ -115,38 +115,20 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
             viewBox={`${-W} ${-1080} ${3 * W} ${3 * 1080}`}
             style={{ position: 'absolute', left: -W, top: -1080, overflow: 'visible' }}
           >
-            <g opacity={easeOut(t, -0.3, 0.5) * 0.7}>
-              {Array.from({ length: Math.ceil((3 * W) / CELL) + 1 }, (_, i) => {
-                const x = -W + i * CELL;
-                return (
-                  <line
-                    key={`v${i}`}
-                    x1={x}
-                    y1={-1080}
-                    x2={x}
-                    y2={2160}
-                    stroke={p.line}
-                    strokeWidth={1}
-                    opacity={i % 4 ? 0.3 : 0.75}
-                  />
-                );
-              })}
-              {Array.from({ length: Math.ceil((3 * 1080) / CELL) + 1 }, (_, i) => {
-                const y = -1080 + i * CELL;
-                return (
-                  <line
-                    key={`h${i}`}
-                    x1={-W}
-                    y1={y}
-                    x2={2 * W}
-                    y2={y}
-                    stroke={p.line}
-                    strokeWidth={1}
-                    opacity={i % 4 ? 0.3 : 0.75}
-                  />
-                );
-              })}
-            </g>
+            {/* The dot grid zooms with the camera (the frame's own grid stays put behind it). */}
+            <defs>
+              <pattern id="bd-dots" width={CELL} height={CELL} patternUnits="userSpaceOnUse">
+                <circle cx={CELL / 2} cy={CELL / 2} r={1.6} fill={p.ink} opacity={0.12} />
+              </pattern>
+            </defs>
+            <rect
+              x={-W}
+              y={-1080}
+              width={3 * W}
+              height={3 * 1080}
+              fill="url(#bd-dots)"
+              opacity={easeOut(t, -0.3, 0.5)}
+            />
             {props.links.map(([from, to], i) => {
               const ra = centre(from);
               const rb = centre(to);
@@ -175,7 +157,7 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
                     strokeDasharray={1}
                     strokeDashoffset={1 - draw}
                     stroke={wire}
-                    strokeWidth={2.5}
+                    strokeWidth={1.5}
                     strokeLinecap="round"
                   />
                   <circle
@@ -212,11 +194,10 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
                   width: r.w - 12,
                   height: r.h - 12,
                   boxSizing: 'border-box',
-                  borderRadius: 16,
-                  border: `2.5px solid ${on ? accent : wire}`,
-                  background:
-                    resolveSceneTheme(props.theme) === 'choreo-dark' ? 'rgba(10,18,50,0.92)' : '#FFFFFF',
-                  boxShadow: on ? '0 0 0 8px rgba(31,79,255,0.16)' : 'none',
+                  borderRadius: 18,
+                  border: `1.5px solid ${on ? p.signal : p.nodeLine}`,
+                  background: on ? `${p.litFill}, ${p.node}` : p.node,
+                  boxShadow: on ? p.signalGlow : 'none',
                   opacity: enter * (close > 0 && !on ? 1 - 0.7 * close : 1),
                   transform: `translateY(${(1 - enter) * 20}px)`,
                 }}
@@ -230,7 +211,8 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
                     textAlign: 'center',
                     padding: 12,
                     fontSize: sceneType.heading - 10,
-                    fontWeight: 700,
+                    fontWeight: 600,
+                    letterSpacing: '-0.03em',
                     opacity: 1 - clamp01(open * 3 - 1),
                   }}
                 >
@@ -243,7 +225,8 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
                     right: 22,
                     top: 18,
                     fontSize: 24,
-                    fontWeight: 700,
+                    fontWeight: 600,
+                    letterSpacing: '-0.02em',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -269,7 +252,8 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
                         alignItems: 'center',
                         padding: '0 18px',
                         borderRadius: 12,
-                        border: `1.5px solid ${wire}`,
+                        border: `1px solid ${p.line}`,
+                        background: p.panel,
                         fontSize: Math.min(24, rowH * 0.42),
                         fontWeight: 600,
                         whiteSpace: 'nowrap',
@@ -292,13 +276,13 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
           position: 'relative',
           fontSize: sceneType.title + 8,
           fontWeight: 600,
-          letterSpacing: '-0.01em',
+          letterSpacing: sceneTitleStyle.letterSpacing,
           opacity: intro * (1 - close),
           transform: `translateX(${(1 - intro) * 40}px)`,
         }}
       >
+        <SceneRule />
         {props.title}
-        <span style={{ color: accent }}>.</span>
       </div>
       {order.map((bx, i) => {
         if (!bx.detail) return null;

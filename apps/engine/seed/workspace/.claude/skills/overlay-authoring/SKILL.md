@@ -121,6 +121,9 @@ an instance. `capture_frame` shows the recording only; `check_overlay` shows the
   blue VS Code UI), `midnight` for text panels, `blue` for large brand graphics, `steel` for
   secondary marks. White text on orange, blue and midnight. (`navy` still works; it is midnight.)
 - Sora for text (`theme.font.sans`), JetBrains Mono for code and paths. Sentence case.
+- Cards and panels on the recording follow choreolabs.com: midnight `rgba(5,10,28,0.92)`, 1 px
+  `rgba(255,255,255,0.1)` border, radius 18, an orange rule (40–54 × 3–4 px) above the title,
+  titles Sora 600 at −0.03…−0.04em, body text `theme.color.steelLight`, uppercase eyebrows.
 - Enter with `theme.ease.pop` or `theme.ease.out` over `theme.duration.enter`; exit faster
   (`theme.duration.exit`) ending exactly at `duration`.
 - Text sizes on the 1920×1080 stage: 28–36 px body, 44–64 px titles. Keep 48 px from the edges.

@@ -48,7 +48,7 @@ describe('explainer looks', () => {
 
   it('light the request part of the current step', () => {
     // Default timing spreads 4 stops over 9 s: the third (/greeting) is current at 5.7 s.
-    expect(frame('core:BlueprintFlow', 5.7)).toContain('color:#1F4FFF">/greeting</span>');
+    expect(frame('core:BlueprintFlow', 5.7)).toContain('color:#3D8BFF">/greeting</span>');
   });
 
   it('type the code before tracing it', () => {

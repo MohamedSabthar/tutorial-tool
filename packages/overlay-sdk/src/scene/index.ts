@@ -1,6 +1,9 @@
 export { SceneContext, useSceneTiming, useBeat, beatTime, wordTime, tween, type BeatState } from './context';
 export {
   SceneFrame,
+  SceneRule,
+  sceneTitleStyle,
+  sceneEyebrowStyle,
   sceneType,
   scenePalette,
   sceneThemeSchema,
