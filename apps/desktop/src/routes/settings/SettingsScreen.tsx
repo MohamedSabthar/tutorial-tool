@@ -18,6 +18,7 @@ import {
 import { isTauri, useEngine } from '../../engine';
 import { setThemePref, useThemePref, type ThemePref } from '../../theme';
 import { AppFrame } from '../frame';
+import { ProductAccounts } from './ProductAccounts';
 import { SetupChecklist, useSetup, type Setup } from './SetupChecklist';
 import './settings.css';
 
@@ -242,6 +243,7 @@ function AccountsSection({ setup }: { setup: Setup }) {
           Which login and program it uses is under Advanced.
         </p>
       </div>
+      <ProductAccounts />
       <Sheet
         open={confirm}
         onClose={() => setConfirm(false)}

@@ -224,7 +224,8 @@ export function failureSentence(st: PipelineState): string {
   const where = st.stage ? stageActivity(st.stage, st).replace(/^./, (c) => c.toLowerCase()) : 'working';
   if (/stopped by (the )?user|interrupted/i.test(err)) return `It was interrupted while ${where}.`;
   if (/cost limit/i.test(err)) return 'It reached the cost limit you set in Settings.';
-  if (/sign(ed)? ?in/i.test(err)) return `It couldn’t sign in to the product while ${where}.`;
+  if (/sign(ed)? ?in/i.test(err))
+    return `It couldn’t sign in to the product while ${where}. Sign in under Settings → Accounts, then try again.`;
   return `Something went wrong while ${where}.`;
 }
 
