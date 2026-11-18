@@ -108,7 +108,8 @@ function MakingView({ model, actions }: { model: MakingModel; actions: MakingAct
   const shotsAt = st?.history.filter((h) => h.stage === 'dry_run' && h.ok).at(-1)?.endedAt ?? null;
 
   /** Edits typed in the script go out before the decision. */
-  const act = async (fn: () => Promise<void>) => {
+  /** Runs an action and passes its error on (the Send boxes say whether it reached the agent). */
+  const actOrThrow = async (fn: () => Promise<void>) => {
     setBusy(true);
     try {
       await editor.flush();
@@ -117,6 +118,8 @@ function MakingView({ model, actions }: { model: MakingModel; actions: MakingAct
       setBusy(false);
     }
   };
+  /** Runs an action; a failure shows in the error line at the top of the screen. */
+  const act = (fn: () => Promise<void>) => actOrThrow(fn).catch(() => undefined);
   const disabled = busy || !model.ready;
 
   return (
@@ -249,7 +252,7 @@ function MakingView({ model, actions }: { model: MakingModel; actions: MakingAct
                     }
                     disabled={disabled}
                     onApprove={() => void act(() => actions.approve())}
-                    onRevise={(t) => act(() => actions.revise(t))}
+                    onRevise={(t) => actOrThrow(() => actions.revise(t))}
                   />
                 )}
                 {gate?.kind === 'cues' && (
@@ -266,7 +269,7 @@ function MakingView({ model, actions }: { model: MakingModel; actions: MakingAct
                     disabled={disabled}
                     onApprove={() => void act(() => actions.approve())}
                     onChoose={(choice, remember) => void act(() => actions.approve({ choice, remember }))}
-                    onRevise={(t) => act(() => actions.revise(t))}
+                    onRevise={(t) => actOrThrow(() => actions.revise(t))}
                   />
                 )}
                 {gate?.kind === 'knowledge' && (
@@ -274,7 +277,7 @@ function MakingView({ model, actions }: { model: MakingModel; actions: MakingAct
                     gate={gate}
                     disabled={disabled}
                     onApprove={() => void act(() => actions.approve())}
-                    onRevise={(t) => act(() => actions.revise(t))}
+                    onRevise={(t) => actOrThrow(() => actions.revise(t))}
                   />
                 )}
                 {ended && st && (

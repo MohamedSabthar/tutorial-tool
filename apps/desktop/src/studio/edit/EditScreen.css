@@ -1704,7 +1704,9 @@
   padding: 0 10px;
 }
 
-/* The batch's Send: the dock's main action once notes are pinned. */
+/* The batch's Send: the dock's main action once notes are pinned, at the side of the box. */
 .ed-send-batch {
-  margin-top: 6px;
+  height: 36px;
+  padding: 0 16px;
+  flex: none;
 }

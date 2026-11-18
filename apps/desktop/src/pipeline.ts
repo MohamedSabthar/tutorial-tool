@@ -49,12 +49,14 @@ export function usePipeline(slug: string | null) {
     };
   }, [client, conn, slug]);
 
-  const act = useCallback(async (fn: () => Promise<PipelineState>) => {
+  /** Runs an action; its error is kept in `error`, and thrown on too when `rethrow` is set. */
+  const act = useCallback(async (fn: () => Promise<PipelineState>, rethrow = false) => {
     setError(null);
     try {
       setState(await fn());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      if (rethrow) throw e;
     }
   }, []);
   const target = slug ?? state?.slug ?? null;
@@ -70,6 +72,14 @@ export function usePipeline(slug: string | null) {
     revise: (feedback: string) => act(() => client!.call('pipeline.revise', { slug: target!, feedback })),
     stop: () => act(() => client!.call('pipeline.stop', { slug: target! })),
     resume: () => act(() => client!.call('pipeline.resume', { slug: target! })),
+    /** The same actions, but they reject on failure, so a caller can say it didn't work. */
+    strict: {
+      approve: (opts: { choice?: string; remember?: boolean } = {}) =>
+        act(() => client!.call('pipeline.approve', { slug: target!, ...opts }), true),
+      revise: (feedback: string) => act(() => client!.call('pipeline.revise', { slug: target!, feedback }), true),
+      stop: () => act(() => client!.call('pipeline.stop', { slug: target! }), true),
+      resume: () => act(() => client!.call('pipeline.resume', { slug: target! }), true),
+    },
     /** Pushes a direction into the running pipeline: `now` mid-turn, or `next` agent stage. */
     steer: async (text: string) => (await client!.call('pipeline.steer', { slug: target!, text })).delivered,
   };

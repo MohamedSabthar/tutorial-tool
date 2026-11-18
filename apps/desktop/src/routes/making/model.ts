@@ -140,10 +140,10 @@ export function useMakingModel(slug: string): { model: MakingModel; actions: Mak
   };
 
   const actions: MakingActions = {
-    approve: (opts) => pipe.approve(opts),
-    revise: (feedback) => pipe.revise(feedback),
-    stop: () => pipe.stop(),
-    resume: () => pipe.resume(),
+    approve: (opts) => pipe.strict.approve(opts),
+    revise: (feedback) => pipe.strict.revise(feedback),
+    stop: () => pipe.strict.stop(),
+    resume: () => pipe.strict.resume(),
     steer: (text) => pipe.steer(text),
     answer: (id, allow) => agent.answer(id, allow),
     allowSafe: () =>

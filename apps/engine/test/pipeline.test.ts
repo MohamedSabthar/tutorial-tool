@@ -1071,6 +1071,49 @@ describe('PipelineManager', () => {
     expect(sent.filter((t) => t.includes('Use the Path field instead'))).toHaveLength(1);
   });
 
+  it('uses the answer to an out-of-repairs help gate restored after an engine restart', async () => {
+    const react = async (p: PipelineManager, stage: string) => {
+      if (stage === 'plan') {
+        await p.savePlan(slug, PLAN);
+        done(p, 'plan');
+      } else if (stage === 'script') done(p, 'script');
+      else if (stage === 'repair') p.stageDone(slug, 'repair', true, 'Widened the wait.');
+      else if (stage === 'post-production') done(p, 'post');
+      else if (stage === 'retro') done(p, 'retro');
+    };
+    await make(react, [false, false]).p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().status === 'waiting' && last().gate?.stage === 'repair');
+    // A new engine (the first is left waiting): the user answers the restored gate.
+    const again = make(react, [true, true]);
+    await again.p.revise(slug, 'Use the Path field instead');
+    await until(() => last().status === 'done');
+    expect(again.sent.filter((t) => t.includes('Use the Path field instead'))).toHaveLength(1);
+    expect(last().history.filter((h) => h.stage === 'repair').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('repairs with the change asked at a restored "You stopped the dry run" gate', async () => {
+    const react = async (p: PipelineManager, stage: string) => {
+      if (stage === 'plan') {
+        await p.savePlan(slug, PLAN);
+        done(p, 'plan');
+      } else if (stage === 'script') done(p, 'script');
+      else if (stage === 'repair') done(p, 'repair');
+      else if (stage === 'post-production') done(p, 'post');
+      else if (stage === 'retro') done(p, 'retro');
+    };
+    const stopped = {
+      runProject: async () =>
+        ({ passed: false, events: [], failure: { stepId: 's1', error: 'Stopped by user' }, take: null }) as never,
+    };
+    await make(react, [], undefined, stopped).p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().gate?.title === 'You stopped the dry run');
+    const again = make(react, [true, true]);
+    await again.p.revise(slug, 'Open the agent menu first');
+    await until(() => last().status === 'done');
+    expect(again.sent.some((t) => t.includes('Open the agent menu first'))).toBe(true);
+    expect(again.modes).toEqual(['dry', 'record']);
+  });
+
   it('reads the repair limit from Settings: 0 asks before any repair', async () => {
     const { p } = make(
       async (p, stage) => {

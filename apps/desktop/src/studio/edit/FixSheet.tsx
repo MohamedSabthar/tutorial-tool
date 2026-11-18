@@ -8,7 +8,7 @@ export type FixKind = 'say' | 'arrow' | 'label' | 'blur' | 'pace' | 'hold' | 'cu
 const OPTIONS: { k: FixKind; key: string; icon: GlyphName; title: string; d: string }[] = [
   { k: 'say', key: 'S', icon: 'mic', title: "Change what's said", d: 'Edit the words, then re-voice' },
   { k: 'arrow', key: 'A', icon: 'arrow', title: 'Point something out', d: 'Click it to add an arrow' },
-  { k: 'label', key: 'L', icon: 'label', title: 'Add a label', d: 'A short line of text on screen' },
+  { k: 'label', key: 'T', icon: 'label', title: 'Add a label', d: 'A short line of text on screen' },
   { k: 'callout', key: 'C', icon: 'label', title: 'Add a callout', d: 'A note next to what you click' },
   { k: 'zoom', key: 'Z', icon: 'expand', title: 'Zoom in here', d: 'Drag over the area to zoom into' },
   { k: 'blur', key: 'H', icon: 'hide', title: 'Hide something', d: 'Blur a key, email or name' },
@@ -18,6 +18,15 @@ const OPTIONS: { k: FixKind; key: string; icon: GlyphName; title: string; d: str
   { k: 'note', key: 'N', icon: 'pin', title: 'Mark it for the agent', d: 'Click the spot, then describe it' },
 ];
 const ASK_KEY = 'Q';
+
+/**
+ * The single-key shortcuts, for the whole Studio: a letter picks its option straight away while
+ * watching, without opening this sheet. (L is taken by playback, so the label is T for text.)
+ */
+export const FIX_KEYS: Record<string, FixKind> = Object.fromEntries([
+  ...OPTIONS.map((o) => [o.key, o.k] as const),
+  [ASK_KEY, 'ask'] as const,
+]);
 
 /** "What do you want to fix at 0:24?": each choice jumps straight to the control for it. */
 export function FixSheet({
@@ -71,7 +80,7 @@ export function FixSheet({
         </button>
       </div>
       <p className="ed-muted ed-s12 ed-fix-tip">
-        <Glyph name="help" size={12} /> Press <Kbd>F</Kbd> any time while watching, then the letter.
+        <Glyph name="help" size={12} /> Each letter works on its own while you watch, no need to open this list (<Kbd>F</Kbd>).
       </p>
     </Sheet>
   );

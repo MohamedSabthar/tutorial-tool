@@ -45,7 +45,7 @@ import { StepPanel, type AddKind } from './StepPanel';
 import { EditTimeline, EXTRA_TRACKS, pieceKey, type ExtraTrack, type Selection, type TimelineStep } from './EditTimeline';
 import { PiecePanel } from './PiecePanel';
 import { ExplainerPanel, plainName } from './ExplainerPanel';
-import { FixSheet, type FixKind } from './FixSheet';
+import { FIX_KEYS, FixSheet, type FixKind } from './FixSheet';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
 import { agentActivity, agentTarget, cutsOver, isOnScreen, mmss, overlayName, parseKeys, stepPace } from './model';
@@ -975,6 +975,10 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
         e.preventDefault();
         controls.pause();
         setSheet(true);
+      } else if (!e.altKey && !e.repeat && FIX_KEYS[e.key.toUpperCase()] && e.key.length === 1) {
+        // Single-key shortcuts for the Fix this moment options (S, A, T, C, Z, H, P, R, X, N, Q).
+        e.preventDefault();
+        fix(FIX_KEYS[e.key.toUpperCase()]!);
       } else if (e.key === 'j') controls.seek(now() - 1);
       else if (e.key === 'k') controls.pause();
       else if (e.key === 'l') controls.seek(now() + 1);

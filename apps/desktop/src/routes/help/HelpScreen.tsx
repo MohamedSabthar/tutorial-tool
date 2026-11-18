@@ -104,12 +104,18 @@ const WORDS: [string, string][] = [
 
 const KEYS: [ReactNode, string][] = [
   [<Kbd key="s">Space</Kbd>, 'Play or pause'],
-  [<Kbd key="f">F</Kbd>, 'Fix this moment'],
+  [<Kbd key="f">F</Kbd>, 'Fix this moment: the list of everything below'],
   [
     <span key="fl" className="help-keys">
-      <Kbd>F</Kbd>, then a letter
+      <Kbd>S</Kbd> <Kbd>A</Kbd> <Kbd>T</Kbd> <Kbd>C</Kbd> <Kbd>Z</Kbd> <Kbd>H</Kbd>
     </span>,
-    "Fix this moment options: S what's said, A arrow, L label, C callout, Z zoom, H hide, P pace, R hold the frame, X cut, N note for the agent, Q ask the agent",
+    "One key each, while watching: S change what's said, A arrow, T label, C callout, Z zoom, H hide",
+  ],
+  [
+    <span key="fl2" className="help-keys">
+      <Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>X</Kbd> <Kbd>N</Kbd> <Kbd>Q</Kbd>
+    </span>,
+    'P pace (faster or skip), R hold the frame, X cut a part out, N note for the agent, Q ask the agent',
   ],
   [
     <span key="jkl" className="help-keys">

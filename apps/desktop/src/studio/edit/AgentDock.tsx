@@ -272,27 +272,27 @@ export function AgentDock({
             <Glyph name="pin" size={16} />
           </button>
           {notes.length > 0 && !followUp ? (
-            <button
-              type="button"
-              className="ui-btn ui-btn-quiet ui-btn-sm"
-              aria-expanded={batchOpen}
-              aria-controls="ed-batch"
-              onClick={() => onBatchOpen(!batchOpen)}
-            >
-              Review batch
-            </button>
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-quiet ui-btn-sm"
+                aria-expanded={batchOpen}
+                aria-controls="ed-batch"
+                onClick={() => onBatchOpen(!batchOpen)}
+              >
+                Review batch
+              </button>
+              <button type="submit" className="ui-btn ui-btn-brand ed-send-batch" disabled={working}>
+                <Glyph name="send" size={14} />
+                Send batch ({notes.length})
+              </button>
+            </>
           ) : (
             <button type="submit" className="ed-send" aria-label="Send to the agent" disabled={working || !draft.trim()}>
               <Glyph name="send" size={16} />
             </button>
           )}
         </div>
-        {notes.length > 0 && !followUp && (
-          <button type="submit" className="ui-btn ui-btn-brand ui-btn-lg ui-btn-block ed-send-batch" disabled={working}>
-            <Glyph name="send" size={14} />
-            Send batch ({notes.length} note{notes.length === 1 ? '' : 's'})
-          </button>
-        )}
       </form>
     </div>
   );

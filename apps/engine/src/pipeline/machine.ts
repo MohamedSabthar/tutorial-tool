@@ -847,6 +847,43 @@ export class PipelineManager {
     let lateFeedback: string | undefined;
     /** A script well over the brief's length is sent back to be shortened, once. */
     let trimmed = false;
+
+    // A help gate restored after an engine restart: the run that asked is gone, so the answer is
+    // applied here, the way the waiting run would have used it.
+    const restoredHelp = pending ? (await this.get(slug)).gate : null;
+    if (pending && restoredHelp?.kind === 'help') {
+      const d = pending;
+      pending = undefined;
+      const feedback = d.kind === 'revise' ? d.feedback : undefined;
+      // Answering a help gate (a cost limit too) lets the run carry on to the end.
+      live.costApproved = true;
+      if (from === 'repair') {
+        // Out of repairs: repair again, with the user's suggestion if they gave one.
+        const st = await this.get(slug);
+        const lastRun = st.history.filter((h) => h.stage === 'dry_run' || h.stage === 'record').at(-1);
+        failure = {
+          mode: lastRun?.stage === 'record' ? 'record' : 'dry',
+          stepId: null,
+          error: lastRun?.summary || 'the last run failed',
+        };
+        await this.set(slug, { repairAttempts: 0 });
+        helpFeedback = feedback;
+      } else if ((from === 'dry_run' || from === 'record') && feedback) {
+        // "You stopped the dry run / recording" with a change: repair with it (Try again reruns it).
+        const what = from === 'record' ? 'recording' : 'dry run';
+        failure = {
+          mode: from === 'record' ? 'record' : 'dry',
+          stepId: null,
+          error: `the user stopped the ${what} to ask for a change`,
+        };
+        helpFeedback = feedback;
+        stage = 'repair';
+      } else if (feedback) {
+        // A stuck agent stage: its next turn starts from the user's answer.
+        live.steers.push(feedback);
+      }
+    }
+
     while (stage !== 'done') {
       if (live.abort.signal.aborted) throw new Stopped();
       switch (stage) {
