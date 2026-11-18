@@ -544,14 +544,15 @@ export function ExportScreen({ slug }: { slug: string }) {
               </div>
 
               <div className="xp-field">
-                <span className="xp-label">Saves to</span>
-                <div className="xp-where">
-                  <Glyph name="folder" size={14} />
-                  <PathText path={folder} />
-                  <Button size="sm" onClick={revealFolder} disabled={!client}>
+                <span className="xp-tip-wrap">
+                  <Button size="lg" className="ui-btn-block" onClick={revealFolder} disabled={!client} aria-describedby="xp-folder-tip">
+                    <Glyph name="folder" size={14} />
                     Show in Finder
                   </Button>
-                </div>
+                  <span className="xp-tip" role="tooltip" id="xp-folder-tip">
+                    Saves to {folder}
+                  </span>
+                </span>
                 {previous.length > 0 && job?.state !== 'done' && (
                   <span className="xp-warn">
                     <Glyph name="warn" size={12} />

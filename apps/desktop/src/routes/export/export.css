@@ -333,3 +333,39 @@
   color: var(--ui-fg);
   overflow-wrap: anywhere;
 }
+
+/* Show in Finder: the export folder's path is a tooltip (on hover and on keyboard focus). */
+.xp-tip-wrap {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+.xp-tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  width: max-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--ui-fg);
+  color: var(--ui-bg);
+  font-family: var(--ui-mono);
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  box-shadow: var(--ui-pop);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition:
+    opacity 150ms var(--ui-ease),
+    transform 150ms var(--ui-ease);
+}
+.xp-tip-wrap:hover .xp-tip,
+.xp-tip-wrap:focus-within .xp-tip {
+  opacity: 1;
+  transform: none;
+  transition-delay: 250ms;
+}
