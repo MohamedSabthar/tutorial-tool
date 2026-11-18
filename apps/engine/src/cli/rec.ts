@@ -1,6 +1,6 @@
 /**
  * pnpm rec <project> [--dry]
- * Runs workspace/projects/<project>/script.spec.ts against WSO2 Integrator and, unless
+ * Runs workspace/projects/<project>/script.spec.ts against its product and, unless
  * --dry, saves a take. Uses the same code path as the app's Record button.
  */
 import path from 'node:path';

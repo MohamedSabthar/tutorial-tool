@@ -23,7 +23,7 @@ const INSPECT_IDLE_MS = 5 * 60_000;
 
 /**
  * Owns the product window: one recorder run or inspector at a time (each launches its own
- * WSO2 Integrator), streamed to the Live window. Used by the RPC handlers and the agent tools.
+ * its product), streamed to the Live window. Used by the RPC handlers and the agent tools.
  */
 export class Runner {
   private busyWith: string | null = null;

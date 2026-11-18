@@ -1,6 +1,6 @@
 ---
 name: wso2-integrator
-description: How to drive the WSO2 Integrator desktop app (VS Code fork with built-in WSO2 Integrator, MI, SI and Ballerina extensions) in Playwright tutorial scripts. Read before writing or repairing any script for product "wso2-integrator". Covers launching, required project structure, navigation, webview access, and page objects per component.
+description: How to drive Choreo Labs' integrator desktop app (on screen "WSO2 Integrator" until its rebrand; a VS Code fork with the integrator, MI, SI and Ballerina extensions built in) in Playwright tutorial scripts. Read before writing or repairing any script for product "wso2-integrator". Covers launching, required project structure, navigation, webview access, and page objects per component.
 ---
 
 # WSO2 Integrator

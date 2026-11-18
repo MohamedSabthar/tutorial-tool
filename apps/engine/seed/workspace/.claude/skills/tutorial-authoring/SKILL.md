@@ -27,7 +27,7 @@ click, keystroke and target box to `events.jsonl`, which drives the cursor, zoom
 
 ## Script template
 
-The fixture is the folder the product opens on. Use the one the product skill describes (WSO2 Integrator: `kind: 'bi'`, below). A product without one starts from an empty folder: `{ kind: 'empty', folder: 'tutorial', title: 'Tutorial' }`, with an optional `readyText` the product shows once it has loaded.
+The fixture is the folder the product opens on. Use the one the product skill describes (the integrator: `kind: 'bi'`, below). A product without one starts from an empty folder: `{ kind: 'empty', folder: 'tutorial', title: 'Tutorial' }`, with an optional `readyText` the product shows once it has loaded.
 
 ```ts
 import type { ScriptFixture, TutorialScript } from '@studio/recorder/node';
@@ -92,7 +92,7 @@ page objects (wrapped in one step named "setup"); the first step starts from the
 | `tut.mask(locator, label)` | Marks an area to blur in post (emails, tokens, machine paths). |
 
 `ctx.page` is the window and `ctx.webview()` is the active webview's content frame (most
-WSO2 Integrator UI). Always pass a `description` naming the control as the viewer sees it
+integrator UI). Always pass a `description` naming the control as the viewer sees it
 ("Create", "Resource Path"): it labels the action in Live and in captions.
 
 ## Pacing

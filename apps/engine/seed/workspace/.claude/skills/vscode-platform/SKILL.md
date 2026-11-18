@@ -1,6 +1,6 @@
 ---
 name: vscode-platform
-description: Generic automation of VS Code-based products (WSO2 Integrator, VS Code with WSO2 extensions) in tutorial scripts - command palette, quick picks, explorer and tree views, editors, notifications, webviews, and avoiding native OS dialogs. Read when a script needs workbench UI that a product skill doesn't cover.
+description: Generic automation of Choreo Labs' VS Code-based products (the integrator and agent builder apps, or VS Code with their extensions) in tutorial scripts - command palette, quick picks, explorer and tree views, editors, notifications, webviews, and avoiding native OS dialogs. Read when a script needs workbench UI that a product skill doesn't cover.
 ---
 
 # VS Code workbench automation
@@ -45,7 +45,7 @@ await tut.press('Enter');
 
 ## Webviews
 
-- Extension UIs (WSO2 Integrator's visual editors) are webviews: `ctx.webview()` returns the
+- Extension UIs (the integrator's visual editors) are webviews: `ctx.webview()` returns the
   active one's content frame. Locators inside it work like normal page locators.
 - Boxes resolve in window coordinates automatically, so `tut.click` works the same.
 - A newly opened editor tab replaces the active webview: re-query after navigation instead of

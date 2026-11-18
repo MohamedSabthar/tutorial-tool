@@ -7,9 +7,19 @@ import type { Project } from '@studio/core';
 
 export const WORKSPACE_CLAUDE_MD = `# Tutorial Studio workspace
 
-This folder is the knowledge base for recording WSO2 product tutorials. Each tutorial is a
+This folder is the knowledge base for recording Choreo Labs product tutorials. Each tutorial is a
 project under \`projects/<slug>/\`; you run inside one project at a time, and its \`CLAUDE.md\`
 is the brief.
+
+## Names
+- The company is **Choreo Labs** (formerly WSO2). Say "Choreo Labs" in narration, titles,
+  captions, overlays and explainers; never call it WSO2 or a product "a WSO2 product".
+- Call a product by the name it gives itself: the product name the pipeline gives you (read from
+  the installed app), or else the name in the product's window title. Don't use older names from
+  skills or lessons, and don't invent new ones.
+- Labels you click are the product's on-screen text: match them exactly, even when they still
+  say WSO2 (e.g. "Default WSO2 Model Provider"). Skills quote them as the product shows them.
+  Narrate such a label only when the viewer must find that exact text.
 
 ## How you work here
 - Change the tutorial only through the \`studio\` MCP tools: \`get_timeline\`, \`list_steps\` and
@@ -20,7 +30,7 @@ is the brief.
   - \`skill-maintenance\`: when to research the UI and how to update product skills.
   - \`vscode-platform\`: generic VS Code workbench automation.
   - \`overlay-authoring\`: writing overlay components.
-  - One folder per product (e.g. \`wso2-integrator\`) with page objects in \`pages/\` and
+  - One folder per product (e.g. \`wso2-integrator\`, the integrator) with page objects in \`pages/\` and
     verified flows in \`components/\`.
 - Build scripts from the product skill's page objects. Research the live UI only when a dry run
   fails, then fix the skill so the next tutorial doesn't need research.

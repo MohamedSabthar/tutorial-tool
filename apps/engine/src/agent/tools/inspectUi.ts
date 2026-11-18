@@ -9,7 +9,7 @@ export function inspectTools(ctx: ToolContext) {
     tool(
       'inspect_ui',
       [
-        'Research the live WSO2 Integrator UI, e.g. after run_script fails because the UI changed.',
+        'Research the live UI of this project\'s Choreo Labs product, e.g. after run_script fails because the UI changed.',
         "Opens the product on the script's fixture and keeps it open between calls (closed after 5 idle",
         'minutes or by run_script). uptoStep replays the script up to (not including) that step id, or "all";',
         'it reopens the window. actions are Playwright statements run with page, webview() (the active',
