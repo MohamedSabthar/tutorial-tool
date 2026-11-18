@@ -1,27 +1,37 @@
 /**
  * Design tokens for code that can't use CSS variables (canvas drawing, timeline blocks,
- * overlay themes). Values match `styles.css`.
+ * overlay themes): the Choreo Labs video look. Mirrors `@studio/overlay-sdk`'s `theme`.
+ *
+ * The palette is from the Choreo Labs slide deck: midnight backgrounds, brand blue for large
+ * graphics, orange for small accents (ticks, rules, highlights), Sora for text. The older names
+ * (`navy`, `steel`, `gray*`) are kept and point at the new palette, so saved overlays still work.
  */
 export const tokens = {
   color: {
-    orange: '#FF5800',
-    orangeBright: '#FF3900',
-    orange700: '#D94A00',
-    orange100: '#FFE6D9',
-    orangeInk: '#B84300',
-    navy: '#13213B',
-    navy900: '#0C1526',
+    // Brand
+    midnight: '#050A1C',
+    blue: '#1F4FFF',
+    blueLight: '#3D8BFF',
+    blue100: '#E6ECFF',
+    orange: '#FF4600',
+    orangeBright: '#FF2E00',
+    orange700: '#D93B00',
+    orange100: '#FFE4D9',
+    orangeInk: '#B83200',
+    // Legacy names, mapped onto the Choreo Labs palette
+    navy: '#050A1C',
+    navy900: '#02050F',
     white: '#FFFFFF',
-    gray50: '#F3F3F3',
-    gray100: '#F0F0F0',
-    gray300: '#D7D7D7',
-    gray500: '#8A8A8A',
-    gray600: '#555555',
-    ink: '#252525',
-    steel: '#4F7AA3',
-    steel100: '#E4EEF6',
-    steel300: '#A9C6DD',
-    steelInk: '#2F5A80',
+    gray50: '#F4F6FA',
+    gray100: '#EDF0F5',
+    gray300: '#D7DBE4',
+    gray500: '#8992A5',
+    gray600: '#5B6173',
+    ink: '#0B1633',
+    steel: '#5B6173',
+    steel100: '#E8EBF2',
+    steel300: '#AEB6C6',
+    steelInk: '#3B4256',
     green: '#3FB27F',
     green100: '#E3F4EC',
     greenInk: '#1E6B47',
@@ -30,7 +40,7 @@ export const tokens = {
     redInk: '#C0292A',
   },
   font: {
-    sans: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    sans: "'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     mono: "'JetBrains Mono', ui-monospace, monospace",
   },
   radius: { sm: 6, md: 9, lg: 14, pill: 999 },

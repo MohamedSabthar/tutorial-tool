@@ -26,8 +26,8 @@ export const STAGE_SIZE = { width: 1920, height: 1080 } as const;
 export const FRAME = {
   inset: 44,
   radius: 18,
-  backdrop: 'radial-gradient(120% 120% at 15% 0%, #FFFFFF 0%, #F3F3F3 45%, #E4EEF6 100%)',
-  shadow: '0 30px 80px rgba(19, 33, 59, 0.22), 0 6px 18px rgba(19, 33, 59, 0.12)',
+  backdrop: 'radial-gradient(120% 120% at 15% 0%, #FFFFFF 0%, #F4F6FA 45%, #E6ECFF 100%)',
+  shadow: '0 30px 80px rgba(5, 10, 28, 0.22), 0 6px 18px rgba(5, 10, 28, 0.12)',
 } as const;
 
 export function fitSource(

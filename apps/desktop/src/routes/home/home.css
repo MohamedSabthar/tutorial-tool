@@ -25,8 +25,8 @@
   margin: 0;
   font-family: var(--ui-display);
   font-size: clamp(30px, 4.2vw, 44px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   line-height: 1.05;
   color: var(--ui-fg);
 }

@@ -637,8 +637,8 @@
   margin: 0;
   font-family: var(--ui-display);
   font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 .mk-stats {
   display: flex;

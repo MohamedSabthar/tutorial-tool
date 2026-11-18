@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sceneThemeSchema } from '@studio/overlay-sdk';
 
 const Box = z.object({
   id: z.string(),
@@ -61,7 +62,7 @@ export const ArchitectureProps = z.object({
   ]),
   /** Box ids to bring into view, one per beat (or narration line); defaults to every box in order. */
   focus: z.array(z.string()).default(['clients', 'integrator', 'backends']),
-  theme: z.enum(['wso2-dark', 'wso2-light']).default('wso2-dark'),
+  theme: sceneThemeSchema,
 });
 export type ArchitectureProps = z.infer<typeof ArchitectureProps>;
 

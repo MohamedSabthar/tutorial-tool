@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sceneThemeSchema } from '@studio/overlay-sdk';
 
 /** Props shared by the concept looks (CardDeck, TermSpotlight), so a scene can switch look. */
 export const ConceptProps = z.object({
@@ -14,6 +15,6 @@ export const ConceptProps = z.object({
       { title: 'Service', text: 'Groups resources under one base path, like /greeting.' },
       { title: 'Resource', text: 'One method and path that runs your code, like GET hello.' },
     ]),
-  theme: z.enum(['wso2-dark', 'wso2-light']).default('wso2-dark'),
+  theme: sceneThemeSchema,
 });
 export type ConceptProps = z.infer<typeof ConceptProps>;

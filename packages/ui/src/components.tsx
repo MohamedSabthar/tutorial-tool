@@ -5,7 +5,6 @@ import {
   type CSSProperties,
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { IconChevron, IconHelp, IconProjects, IconStudio, IconLive, IconLibrary, IconSettings } from './icons';
-import markUrl from '../assets/mark-wso2-orange.png';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
@@ -49,8 +48,34 @@ export function Title({
   );
 }
 
+/** The Choreo Labs mark: nine ellipses [cx, cy, rx, ry] in a 172 × 182 box (same as `@studio/overlay-sdk`). */
+const MARK = [
+  [95.5, 5, 28.5, 5],
+  [128.5, 27.5, 26.5, 10.5],
+  [36.5, 51.5, 22.5, 10.5],
+  [144.5, 57.5, 27.5, 12.5],
+  [27.5, 87.5, 27.5, 12.5],
+  [144.5, 122.5, 27.5, 12.5],
+  [36.5, 123.5, 22.5, 10.5],
+  [128.5, 152.5, 26.5, 10.5],
+  [95.5, 176, 28.5, 5],
+] as const;
+
+/** The Choreo Labs mark, in the current text colour so it follows the theme. */
 export const Logo = ({ size = 22 }: { size?: number }) => (
-  <img src={markUrl} alt="WSO2" width={size} height={size} style={{ display: 'block' }} />
+  <svg
+    role="img"
+    aria-label="Choreo Labs"
+    viewBox="0 0 172 182"
+    width={(size * 172) / 182}
+    height={size}
+    fill="currentColor"
+    style={{ display: 'block', flex: 'none' }}
+  >
+    {MARK.map(([cx, cy, rx, ry], i) => (
+      <ellipse key={i} cx={cx} cy={cy} rx={rx} ry={ry} />
+    ))}
+  </svg>
 );
 
 // ---------------------------------------------------------------------------

@@ -14,8 +14,8 @@
   margin: 0 0 4px;
   font-family: var(--ui-display);
   font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ui-fg);
 }
 .st-panel {

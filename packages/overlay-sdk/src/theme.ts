@@ -1,35 +1,44 @@
 /**
- * WSO2 brand and motion tokens for overlays and explainer scenes. Use these instead of
+ * Choreo Labs brand and motion tokens for overlays and explainer scenes. Use these instead of
  * literal values so every tutorial looks consistent.
+ *
+ * From the Choreo Labs slide deck: midnight backgrounds, brand blue for large graphics, orange
+ * for small accents (ticks, rules, on-screen highlights), Sora for text. The older names
+ * (`navy`, `steel`, `gray*`) are kept and point at the new palette, so saved overlays still work.
  */
 export const theme = {
   color: {
-    orange: '#FF5800',
-    orangeBright: '#FF3900',
-    orange100: '#FFE6D9',
-    navy: '#13213B',
-    navy900: '#0C1526',
+    // Brand
+    midnight: '#050A1C',
+    blue: '#1F4FFF',
+    blueLight: '#3D8BFF',
+    orange: '#FF4600',
+    orangeBright: '#FF2E00',
+    orange100: '#FFE4D9',
+    // Legacy names, mapped onto the Choreo Labs palette
+    navy: '#050A1C',
+    navy900: '#02050F',
     white: '#FFFFFF',
-    gray50: '#F3F3F3',
-    gray300: '#D7D7D7',
-    gray600: '#555555',
-    ink: '#252525',
-    steel: '#4F7AA3',
-    steelLight: '#A9C6DD',
+    gray50: '#F4F6FA',
+    gray300: '#D7DBE4',
+    gray600: '#5B6173',
+    ink: '#0B1633',
+    steel: '#5B6173',
+    steelLight: '#AEB6C6',
   },
   font: {
-    sans: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    sans: "'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     mono: "'JetBrains Mono', ui-monospace, monospace",
   },
   radius: 14,
-  shadow: '0 22px 60px rgba(6, 12, 24, 0.35)',
+  shadow: '0 22px 60px rgba(2, 5, 15, 0.4)',
   /** GSAP ease names. */
   ease: { out: 'power3.out', in: 'power2.in', inOut: 'power2.inOut', pop: 'back.out(1.6)' },
   /** Seconds. */
   duration: { fast: 0.14, base: 0.24, enter: 0.3, exit: 0.2 },
   gradient: {
-    edge: 'linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)',
-    dark: 'radial-gradient(125% 95% at 50% 0%, #2B3E5E 0%, #18283F 40%, #0B1424 100%)',
+    edge: 'linear-gradient(0deg, #FF2E00 0%, #FF4600 20%, rgba(255,70,0,0) 66%)',
+    dark: 'radial-gradient(125% 95% at 50% 0%, #14225A 0%, #0A1232 40%, #050A1C 100%)',
   },
 } as const;
 

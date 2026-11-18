@@ -52,7 +52,7 @@ export function Stage({
   width = 1920,
   height = 1080,
   mode = 'preview',
-  background = '#0C1526',
+  background = '#02050F',
   children,
 }: StageProps) {
   const host = useRef<HTMLDivElement>(null);

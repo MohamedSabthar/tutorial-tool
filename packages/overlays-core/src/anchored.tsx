@@ -305,7 +305,7 @@ export function Callout({ props, duration }: OverlayProps<CalloutProps>) {
             boxSizing: 'border-box',
           }}
         >
-          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>{props.title}</div>
+          <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.01em' }}>{props.title}</div>
           <div
             className="rule"
             style={{ width: 48, height: 3, background: theme.color.orange, margin: '8px 0 10px' }}

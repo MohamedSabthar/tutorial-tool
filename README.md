@@ -1,6 +1,6 @@
 # Tutorial Studio
 
-A macOS desktop app that makes WSO2 product tutorials. You describe a task; a Claude Code agent plans the steps, records them in the real product with Playwright, and drafts the narration, overlays and explainers. You review it at each gate and finish the edit in the Studio, then export an MP4, captions, a Markdown write-up and the script.
+A macOS desktop app that makes Choreo Labs (formerly WSO2) product tutorials. You describe a task; a Claude Code agent plans the steps, records them in the real product with Playwright, and drafts the narration, overlays and explainers. You review it at each gate and finish the edit in the Studio, then export an MP4, captions, a Markdown write-up and the script.
 
 - **Using the app:** open the Guide from the **?** icon in the app's header (`#/guide`). It covers every screen and editing tool, and ends with how the app is built.
 - **Design:** [docs/PLAN.md](docs/PLAN.md). **Build plan and decisions log:** [docs/Implementation.md](docs/Implementation.md).
@@ -158,7 +158,7 @@ packages/stage     composition runtime: R3F stage, virtual clock, camera
 packages/overlay-sdk, overlays-core, scenes-core   overlay and explainer authoring
 packages/tts       ElevenLabs client
 packages/exporters GPU MP4, SRT/VTT, Markdown
-packages/ui        WSO2 design tokens and shared components (light and dark)
+packages/ui        Choreo Labs design tokens and shared components (light and dark)
 scripts/           package-engine.mjs, build-dmg.mjs
 ui/                design mockups
 workspace/         (generated, git-ignored) the agent's knowledge base and projects

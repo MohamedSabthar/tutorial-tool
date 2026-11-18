@@ -73,7 +73,7 @@ export function Cursor({ props }: OverlayProps<CursorProps>) {
             width: size / 2,
             height: size / 2,
             borderRadius: '50%',
-            background: 'rgba(255,88,0,0.85)',
+            background: 'rgba(255,70,0,0.85)',
             boxShadow: '0 0 0 4px rgba(255,255,255,0.8)',
           }}
         />

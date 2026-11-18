@@ -49,7 +49,7 @@ const SETUP_COPY: Partial<Record<SetupItem['id'], { title: string; text: string;
   },
   product: {
     title: 'Install a product to record',
-    text: 'The agent needs a WSO2 product (or the VS Code extension) to click through.',
+    text: 'The agent needs a Choreo Labs product (or the VS Code extension) to click through.',
     action: 'Open Settings',
   },
   claude: {

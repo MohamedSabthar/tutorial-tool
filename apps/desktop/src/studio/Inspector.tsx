@@ -220,7 +220,7 @@ export function Inspector({
                   <Input
                     id={id}
                     type="color"
-                    value={String(v ?? '#FF5800')}
+                    value={String(v ?? '#FF4600')}
                     onChange={(e) => set(path, e.target.value, k, op)}
                     style={{ padding: 2 }}
                   />

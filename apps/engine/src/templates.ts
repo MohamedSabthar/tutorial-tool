@@ -90,20 +90,23 @@ export const PRONUNCIATIONS = {
   pronunciations: [{ term: 'WSO2', say: 'W S O two' }],
 };
 
-export const THEME_TS = `/** WSO2 brand tokens for overlays and explainer scenes (mirrors @studio/ui tokens). */
+export const THEME_TS = `/** Choreo Labs brand tokens for overlays and explainer scenes (mirrors @studio/overlay-sdk theme). */
 export const theme = {
   color: {
-    orange: '#FF5800',
-    orangeBright: '#FF3900',
-    navy: '#13213B',
-    navy900: '#0C1526',
+    midnight: '#050A1C',
+    blue: '#1F4FFF',
+    blueLight: '#3D8BFF',
+    orange: '#FF4600',
+    orangeBright: '#FF2E00',
+    navy: '#050A1C',
+    navy900: '#02050F',
     white: '#FFFFFF',
-    gray50: '#F3F3F3',
-    gray300: '#D7D7D7',
-    ink: '#252525',
-    steel: '#4F7AA3',
+    gray50: '#F4F6FA',
+    gray300: '#D7DBE4',
+    ink: '#0B1633',
+    steel: '#5B6173',
   },
-  font: { sans: 'Inter, sans-serif', mono: 'JetBrains Mono, monospace' },
+  font: { sans: 'Sora, sans-serif', mono: 'JetBrains Mono, monospace' },
   radius: 14,
   ease: { out: 'power3.out', pop: 'back.out(1.6)', inOut: 'power2.inOut' },
   duration: { fast: 0.14, base: 0.24, enter: 0.3, exit: 0.2 },

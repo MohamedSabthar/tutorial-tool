@@ -68,7 +68,9 @@ export function overlayIcon(o: Pick<OverlayInstance, 'component'>): GlyphName {
   }
 }
 /** The family an overlay belongs to, for its tint on the timeline. */
-export function overlayFamily(o: Pick<OverlayInstance, 'component'>): 'point' | 'spot' | 'text' | 'hide' | 'zoom' | 'own' {
+export function overlayFamily(
+  o: Pick<OverlayInstance, 'component'>,
+): 'point' | 'spot' | 'text' | 'hide' | 'zoom' | 'own' {
   switch (o.component) {
     case 'core:Arrow':
     case 'core:Box':
@@ -132,17 +134,18 @@ export const parseKeys = (v: string) =>
     .filter(Boolean)
     .slice(0, 6);
 
-/** The fixed video colours (the video keeps the WSO2 look). */
+/** The fixed video colours (the video keeps the Choreo Labs look). */
 export const VIDEO_COLORS: { value: string; name: string }[] = [
   { value: tokens.color.orange, name: 'Orange' },
-  { value: tokens.color.navy, name: 'Navy' },
-  { value: tokens.color.steel, name: 'Steel blue' },
+  { value: tokens.color.blue, name: 'Blue' },
+  { value: tokens.color.midnight, name: 'Midnight' },
+  { value: tokens.color.steel, name: 'Slate' },
   { value: tokens.color.white, name: 'White' },
 ];
 /** TextLabel has tones rather than colours. */
 export const LABEL_TONES: { value: 'dark' | 'light' | 'orange'; name: string; swatch: string }[] = [
   { value: 'orange', name: 'Orange', swatch: tokens.color.orange },
-  { value: 'dark', name: 'Navy', swatch: tokens.color.navy },
+  { value: 'dark', name: 'Midnight', swatch: tokens.color.midnight },
   { value: 'light', name: 'White', swatch: tokens.color.white },
 ];
 
@@ -189,7 +192,8 @@ export function cutsOver(tl: Timeline, step: Step): { sceneId: string; after: nu
   for (const sc of tl.scenes) {
     if (sc.kind !== 'recording' || sc.take !== step.take) continue;
     for (const g of cutGaps(sc.segments))
-      if (Math.min(g.to, step.to) - Math.max(g.from, step.from) > 0.05) out.push({ sceneId: sc.id, after: g.after });
+      if (Math.min(g.to, step.to) - Math.max(g.from, step.from) > 0.05)
+        out.push({ sceneId: sc.id, after: g.after });
   }
   return out;
 }
@@ -219,7 +223,10 @@ export function toolPhrase(name: string, summary = ''): string {
   const verb = TOOL_WORDS[short];
   const file = summary.split('/').pop() ?? summary;
   if (verb) return verb === 'Running a command' || !file ? verb : `${verb} ${file}`.slice(0, 80);
-  const words = short.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  const words = short
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
@@ -233,7 +240,9 @@ export function currentTurn(events: AgentEvent[]): AgentEvent[] {
 /** What the agent is doing now, the steps it finished, and when the turn started. */
 export function agentActivity(events: AgentEvent[]) {
   const turn = currentTurn(events);
-  const done = new Set(turn.filter((e) => e.kind === 'tool_result').map((e) => (e.kind === 'tool_result' ? e.id : '')));
+  const done = new Set(
+    turn.filter((e) => e.kind === 'tool_result').map((e) => (e.kind === 'tool_result' ? e.id : '')),
+  );
   const uses = turn.filter((e): e is Extract<AgentEvent, { kind: 'tool_use' }> => e.kind === 'tool_use');
   const open = [...uses].reverse().find((u) => !done.has(u.id));
   const lastStatus = [...turn].reverse().find((e) => e.kind === 'status' || e.kind === 'text');
@@ -259,7 +268,11 @@ export function agentTarget(
   const input = (activity.last?.input ?? {}) as Record<string, unknown>;
   const anchor = input.anchor as { stepId?: unknown } | undefined;
   const id =
-    typeof input.stepId === 'string' ? input.stepId : typeof anchor?.stepId === 'string' ? anchor.stepId : null;
+    typeof input.stepId === 'string'
+      ? input.stepId
+      : typeof anchor?.stepId === 'string'
+        ? anchor.stepId
+        : null;
   if (id && steps.some((s) => s.id === id)) return { stepId: id };
   const at = [input.at, input.from, input.start].find((v): v is number => typeof v === 'number');
   if (at !== undefined) {

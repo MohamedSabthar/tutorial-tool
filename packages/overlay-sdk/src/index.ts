@@ -23,6 +23,7 @@ export { gsap, useGsap, type GsapContext } from './gsap';
 export * from './scene';
 export { DomLayer, OverlayBoundary, OverlayRenderer, ThreeLayer, useStageToScene } from './layers';
 export { theme, type Theme } from './theme';
+export { ChoreoLogo, ChoreoMark, CHOREO_MARK, CHOREO_MARK_VIEWBOX } from './brand';
 
 // Re-exported so overlay authors get three.js JSX element types (<mesh>, <ringGeometry>, …).
 export type { ThreeElements } from '@react-three/fiber';

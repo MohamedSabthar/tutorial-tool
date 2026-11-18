@@ -91,7 +91,7 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
                 fontFamily: theme.font.mono,
                 fontSize: 22,
                 color: accent,
-                background: 'rgba(255,88,0,0.16)',
+                background: 'rgba(31,79,255,0.16)',
                 opacity: easeOut(t, next - 0.1, next + 0.3),
               }}
             >
@@ -106,7 +106,7 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
                 whiteSpace: 'nowrap',
                 fontSize: fs,
                 lineHeight: 1.05,
-                fontWeight: 800,
+                fontWeight: 600,
                 letterSpacing: '-0.035em',
                 opacity: clamp01(inP) * (1 - 0.15 * tuck),
                 transform: `translate(${x}px, ${y}px) scale(${s})`,

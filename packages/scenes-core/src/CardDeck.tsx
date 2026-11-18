@@ -1,13 +1,15 @@
 import {
+  ChoreoMark,
+  resolveSceneTheme,
   SAFE,
   SceneFrame,
-  sceneType,
   scenePalette,
+  sceneType,
   theme,
-  useOverlayTime,
-  useSceneTiming,
   type OverlayMeta,
   type OverlayProps,
+  useOverlayTime,
+  useSceneTiming,
 } from '@studio/overlay-sdk';
 import { ConceptProps } from './concepts';
 import { activeStep, clamp01, easeOut, pop, stepTime } from './shared';
@@ -40,15 +42,15 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
   const cardW = Math.min(500, (W - GAP * (n - 1)) / n);
   const left = (W - (n * cardW + (n - 1) * GAP)) / 2;
   const intro = easeOut(t, -0.4, 0.4);
-  const face = props.theme === 'wso2-dark' ? '#24344F' : '#FFFFFF';
+  const face = resolveSceneTheme(props.theme) === 'choreo-dark' ? '#111A3D' : '#FFFFFF';
 
   return (
     <SceneFrame theme={props.theme} {...(props.eyebrow ? { eyebrow: props.eyebrow } : {})}>
       <div
         style={{
           fontSize: sceneType.title + 8,
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
           opacity: intro,
           transform: `translateX(${(1 - intro) * 40}px)`,
         }}
@@ -104,17 +106,7 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
                   transform: `scaleX(${backW})`,
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: theme.font.mono,
-                    fontSize: 30,
-                    fontWeight: 700,
-                    letterSpacing: '0.2em',
-                    color: '#FFFFFF',
-                  }}
-                >
-                  WSO2
-                </span>
+                <ChoreoMark height={120} color="#FFFFFF" />
               </div>
             )}
             {shown && (
@@ -140,7 +132,7 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
                     fontFamily: theme.font.mono,
                     fontSize: 22,
                     color: accent,
-                    background: 'rgba(255,88,0,0.16)',
+                    background: 'rgba(31,79,255,0.16)',
                   }}
                 >
                   {String(i + 1).padStart(2, '0')}

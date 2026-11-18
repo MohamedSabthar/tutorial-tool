@@ -58,7 +58,7 @@ function TargetFrameView({ frame, width, height }: { frame: Frame; width: number
             height: `${(h / height) * 100}%`,
             border: '2px solid var(--ui-orange)',
             borderRadius: 3,
-            boxShadow: '0 0 0 9999px rgba(19,33,59,0.18)',
+            boxShadow: '0 0 0 9999px rgba(5,10,28,0.18)',
           }}
         />
       </div>

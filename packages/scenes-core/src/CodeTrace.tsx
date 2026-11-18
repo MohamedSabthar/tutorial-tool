@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import { z } from 'zod';
 import {
+  resolveSceneTheme,
   SceneFrame,
-  sceneType,
   scenePalette,
+  sceneThemeSchema,
+  sceneType,
   theme,
   useOverlayTime,
   useSceneTiming,
@@ -40,7 +42,7 @@ const Props = z.object({
     ]),
   /** Shown once the steps are done; empty for none. */
   reply: z.string().default('200 · Hello, World!'),
-  theme: z.enum(['wso2-dark', 'wso2-light']).default('wso2-dark'),
+  theme: sceneThemeSchema,
 });
 type Props = z.infer<typeof Props>;
 
@@ -92,7 +94,7 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
   const accent = p.accent;
-  const dark = props.theme === 'wso2-dark';
+  const dark = resolveSceneTheme(props.theme) === 'choreo-dark';
   const lines = props.code.split('\n');
   const n = props.steps.length;
   const at = (k: number) => stepTime(timing, k, n, duration);
@@ -149,8 +151,8 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
       <div
         style={{
           fontSize: sceneType.title + 4,
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
           opacity: intro,
           transform: `translateX(${(1 - intro) * 40}px)`,
         }}
@@ -181,7 +183,7 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
               right: 0,
               top,
               height,
-              background: 'rgba(255,88,0,0.14)',
+              background: 'rgba(31,79,255,0.14)',
               borderLeft: `5px solid ${accent}`,
             }}
           />
@@ -257,7 +259,7 @@ export default function CodeTrace({ props }: OverlayProps<Props>) {
               fontFamily: theme.font.mono,
               fontSize: 28,
               color: accent,
-              background: 'rgba(255,88,0,0.16)',
+              background: 'rgba(31,79,255,0.16)',
               opacity: clamp01(r),
               transform: `scale(${0.6 + 0.4 * r})`,
               transformOrigin: 'left center',

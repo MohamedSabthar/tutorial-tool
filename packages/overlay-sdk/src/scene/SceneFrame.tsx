@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { z } from 'zod';
+import { ChoreoLogo } from '../brand';
 import { theme } from '../theme';
 
 /** Type sizes on the 1920×1080 stage for explainer scenes. */
@@ -8,41 +10,56 @@ export const sceneType = { display: 76, title: 56, heading: 40, body: 30, captio
 export const SAFE = 84;
 
 const THEMES = {
-  'wso2-dark': {
-    background: 'radial-gradient(125% 95% at 50% 0%, #2B3E5E 0%, #18283F 40%, #0B1424 100%)',
+  'choreo-dark': {
+    background: theme.gradient.dark,
     ink: '#FFFFFF',
-    muted: '#A9C6DD',
+    muted: '#AEB6C6',
     panel: 'rgba(255,255,255,0.06)',
     line: 'rgba(255,255,255,0.18)',
   },
-  'wso2-light': {
-    background: 'radial-gradient(120% 120% at 15% 0%, #FFFFFF 0%, #F3F3F3 45%, #E4EEF6 100%)',
-    ink: '#13213B',
-    muted: '#555555',
+  'choreo-light': {
+    background: 'radial-gradient(120% 120% at 15% 0%, #FFFFFF 0%, #F4F6FA 45%, #E6ECFF 100%)',
+    ink: '#0B1633',
+    muted: '#5B6173',
     panel: '#FFFFFF',
-    line: '#D7D7D7',
+    line: '#D7DBE4',
   },
 } as const;
 export type SceneTheme = keyof typeof THEMES;
+/** Names saved before the Choreo Labs rebrand. */
+type LegacySceneTheme = 'wso2-dark' | 'wso2-light';
+
+/** Old theme names map to the new ones; anything else falls back to dark. */
+export const resolveSceneTheme = (name: SceneTheme | LegacySceneTheme | undefined): SceneTheme =>
+  name === 'choreo-light' || name === 'wso2-light' ? 'choreo-light' : 'choreo-dark';
+
+/**
+ * The `theme` prop of an explainer scene. Scenes saved before the rebrand say `wso2-dark` or
+ * `wso2-light`; those still load (as the Choreo Labs equivalent).
+ */
+export const sceneThemeSchema = z
+  .enum(['choreo-dark', 'choreo-light'])
+  .default('choreo-dark')
+  .catch((ctx) => resolveSceneTheme(ctx.input as LegacySceneTheme));
 
 /** Colours of a scene theme, for content drawn inside the frame. */
-export const scenePalette = (name: SceneTheme = 'wso2-dark') => ({
-  ...THEMES[name],
-  accent: theme.color.orange,
+export const scenePalette = (name: SceneTheme | LegacySceneTheme = 'choreo-dark') => ({
+  ...THEMES[resolveSceneTheme(name)],
+  accent: theme.color.blue,
 });
 
 /**
  * The frame every explainer scene sits in: brand backdrop, orange left-edge accent, 84 px safe
- * area (children are laid out inside it), an optional eyebrow title and the footer mark.
+ * area (children are laid out inside it), an optional eyebrow title and the Choreo Labs logo.
  */
 export function SceneFrame({
-  theme: name = 'wso2-dark',
+  theme: name = 'choreo-dark',
   eyebrow,
   footer,
   children,
   style,
 }: {
-  theme?: SceneTheme;
+  theme?: SceneTheme | LegacySceneTheme;
   /** Small uppercase label at the top left (e.g. the tutorial or section name). */
   eyebrow?: string;
   /** Footer text at the bottom left. */
@@ -50,7 +67,8 @@ export function SceneFrame({
   children?: ReactNode;
   style?: CSSProperties;
 }) {
-  const p = THEMES[name];
+  const t = resolveSceneTheme(name);
+  const p = THEMES[t];
   return (
     <div
       style={{
@@ -71,7 +89,7 @@ export function SceneFrame({
           top: 0,
           bottom: 0,
           width: 8,
-          background: 'linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)',
+          background: theme.gradient.edge,
         }}
       />
       {eyebrow && (
@@ -105,9 +123,7 @@ export function SceneFrame({
         }}
       >
         <span>{footer}</span>
-        <span style={{ fontWeight: 800, letterSpacing: '-0.02em', color: theme.color.orange, fontSize: 22 }}>
-          WSO2
-        </span>
+        <ChoreoLogo height={26} color={t === 'choreo-dark' ? '#FFFFFF' : theme.color.ink} />
       </div>
     </div>
   );

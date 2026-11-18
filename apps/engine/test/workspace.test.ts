@@ -43,7 +43,7 @@ describe('workspace', () => {
       '.claude/skills/',
       'overlays/',
       'scenes/',
-      'theme/wso2.ts',
+      'theme/brand.ts',
       'products.json',
       'projects/',
       '.gitignore',

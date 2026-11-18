@@ -1,7 +1,8 @@
 import {
+  resolveSceneTheme,
   SceneFrame,
-  sceneType,
   scenePalette,
+  sceneType,
   theme,
   useOverlayTime,
   useSceneTiming,
@@ -40,7 +41,8 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
   const done = props.reply !== '' && t >= replyAt;
   const dx = n > 1 ? Math.min(90, 260 / (n - 1)) : 0;
   const dy = n > 1 ? Math.min(170, (STACK_BOTTOM - STACK_TOP - PANEL_H) / (n - 1)) : 0;
-  const card = props.theme === 'wso2-dark' ? 'rgba(36,52,80,0.94)' : 'rgba(255,255,255,0.96)';
+  const card =
+    resolveSceneTheme(props.theme) === 'choreo-dark' ? 'rgba(17,26,61,0.94)' : 'rgba(255,255,255,0.96)';
   const title = easeOut(t, 0, 0.6);
   const req = easeOut(t, 0.5, 1.0);
 
@@ -50,9 +52,9 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
         style={{
           width: LEFT_W,
           fontSize: sceneType.title + 4,
-          fontWeight: 800,
+          fontWeight: 600,
           lineHeight: 1.08,
-          letterSpacing: '-0.02em',
+          letterSpacing: '-0.01em',
           opacity: title,
           transform: `translateX(${(1 - title) * 40}px)`,
         }}
@@ -133,7 +135,7 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
                 fontFamily: theme.font.mono,
                 fontSize: 20,
                 color: accent,
-                background: 'rgba(255,88,0,0.16)',
+                background: 'rgba(31,79,255,0.16)',
               }}
             >
               {s.part || `Stop ${i + 1}`}

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { LiveSession } from '@studio/core';
-import { Glyph, IconCode, StatusPill, type NavKey } from '@studio/ui';
+import { IconCode, Logo, StatusPill, type NavKey } from '@studio/ui';
 import { useEngine } from '../engine';
 import { ProjectBar, type ProjectScreen } from './ProjectBar';
 
@@ -118,7 +118,7 @@ export function TopBar({
     <header className="app-top">
       <a className="app-top-brand" href="#/projects">
         <span className="app-top-mark" aria-hidden="true">
-          <Glyph name="film" size={14} />
+          <Logo size={16} />
         </span>
         Tutorial Studio
       </a>

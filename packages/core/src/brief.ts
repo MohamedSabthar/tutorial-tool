@@ -7,8 +7,8 @@ import { z } from 'zod';
 export const BRIEF_AUDIENCES = [
   {
     value: 'new',
-    label: 'New to WSO2',
-    text: 'People new to WSO2: explain each term the first time it appears.',
+    label: 'New to the product',
+    text: 'People new to the product: explain each term the first time it appears.',
   },
   {
     value: 'developer',

@@ -190,7 +190,7 @@ export function ProjectsScreen() {
           <p className="projects-lede">
             {mode === 'series'
               ? 'Describe what the series should teach. The agent splits it into parts that build on each other, records each one in VS Code, and links them together.'
-              : 'Describe a task in a WSO2 product. The agent plans the steps, records them in VS Code, and drafts the narration, overlays and explainers for you to refine.'}
+              : 'Describe a task in a Choreo Labs product. The agent plans the steps, records them in VS Code, and drafts the narration, overlays and explainers for you to refine.'}
           </p>
           <Segmented<Mode>
             label="What to make"

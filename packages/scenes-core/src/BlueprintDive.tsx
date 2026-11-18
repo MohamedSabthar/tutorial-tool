@@ -1,8 +1,9 @@
 import {
+  resolveSceneTheme,
   SAFE,
   SceneFrame,
-  sceneType,
   scenePalette,
+  sceneType,
   theme,
   useOverlayTime,
   useSceneTiming,
@@ -39,7 +40,7 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
   const { t, duration } = useOverlayTime();
   const p = scenePalette(props.theme);
   const accent = p.accent;
-  const wire = props.theme === 'wso2-dark' ? theme.color.steelLight : theme.color.steel;
+  const wire = resolveSceneTheme(props.theme) === 'choreo-dark' ? theme.color.steelLight : theme.color.steel;
   const cw = W / 12;
   const ch = AREA.h / 6;
   const rect = (b: ArchitectureProps['boxes'][number]) => ({
@@ -213,8 +214,9 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
                   boxSizing: 'border-box',
                   borderRadius: 16,
                   border: `2.5px solid ${on ? accent : wire}`,
-                  background: props.theme === 'wso2-dark' ? 'rgba(19,33,59,0.92)' : '#FFFFFF',
-                  boxShadow: on ? '0 0 0 8px rgba(255,88,0,0.16)' : 'none',
+                  background:
+                    resolveSceneTheme(props.theme) === 'choreo-dark' ? 'rgba(10,18,50,0.92)' : '#FFFFFF',
+                  boxShadow: on ? '0 0 0 8px rgba(31,79,255,0.16)' : 'none',
                   opacity: enter * (close > 0 && !on ? 1 - 0.7 * close : 1),
                   transform: `translateY(${(1 - enter) * 20}px)`,
                 }}
@@ -289,8 +291,8 @@ export default function BlueprintDive({ props }: OverlayProps<ArchitectureProps>
         style={{
           position: 'relative',
           fontSize: sceneType.title + 8,
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
           opacity: intro * (1 - close),
           transform: `translateX(${(1 - intro) * 40}px)`,
         }}

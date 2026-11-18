@@ -33,7 +33,7 @@ function TestCard() {
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'radial-gradient(125% 95% at 50% 0%, #2B3E5E 0%, #18283F 40%, #0B1424 100%)',
+          background: 'radial-gradient(125% 95% at 50% 0%, #14225A 0%, #0A1232 40%, #050A1C 100%)',
         }}
       />
       <span
@@ -43,7 +43,7 @@ function TestCard() {
           top: 0,
           bottom: 0,
           width: 9,
-          background: 'linear-gradient(0deg, #FF3900 0%, #FF5800 20%, rgba(255,88,0,0) 66%)',
+          background: 'linear-gradient(0deg, #FF2E00 0%, #FF4600 20%, rgba(255,70,0,0) 66%)',
         }}
       />
       <div
@@ -79,7 +79,7 @@ function TestCard() {
           top: 480,
           fontFamily: tokens.font.mono,
           fontSize: 36,
-          color: '#A9C6DD',
+          color: '#AEB6C6',
         }}
       >
         frame {frame} · {width}×{height}
@@ -93,7 +93,7 @@ function TestCard() {
           height: 80,
           borderRadius: '50%',
           background: tokens.color.orange,
-          boxShadow: '0 0 0 18px rgba(255,88,0,0.25)',
+          boxShadow: '0 0 0 18px rgba(255,70,0,0.25)',
         }}
       />
       <div

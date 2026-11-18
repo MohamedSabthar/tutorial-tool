@@ -26,8 +26,8 @@
 .help-hero h1 {
   font-family: var(--ui-display);
   font-size: clamp(28px, 4vw, 38px);
-  font-weight: 800;
-  letter-spacing: -0.025em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ui-fg);
 }
 .help-hero p {

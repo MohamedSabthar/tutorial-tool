@@ -59,7 +59,15 @@ is a new scene file, and the built-ins below are only parts you may use inside i
 
 ```tsx
 import { z } from 'zod';
-import { SceneFrame, sceneType, tween, useBeat, useOverlayTime, type OverlayMeta, type OverlayProps } from '@studio/overlay-sdk';
+import {
+  SceneFrame,
+  sceneType,
+  tween,
+  useBeat,
+  useOverlayTime,
+  type OverlayMeta,
+  type OverlayProps,
+} from '@studio/overlay-sdk';
 
 const Props = z.object({ path: z.string().default('/greeting') });
 type Props = z.infer<typeof Props>;
@@ -76,16 +84,19 @@ export default function PathAnatomy({ props }: OverlayProps<Props>) {
   const { t } = useOverlayTime();
   const beat = useBeat();
   return (
-    <SceneFrame theme="wso2-dark" eyebrow="HTTP services">
+    <SceneFrame theme="choreo-dark" eyebrow="HTTP services">
       <div style={{ fontSize: sceneType.title, opacity: tween(t, 0, 0.5) }}>{props.path}</div>
-      {beat.reached('base') && <div style={{ opacity: tween(t, beat.at('base'), beat.at('base') + 0.4) }}>…</div>}
+      {beat.reached('base') && (
+        <div style={{ opacity: tween(t, beat.at('base'), beat.at('base') + 0.4) }}>…</div>
+      )}
     </SceneFrame>
   );
 }
 ```
 
-- `<SceneFrame theme="wso2-dark" | "wso2-light">` draws the backdrop, the orange edge accent, the
-  footer mark and an 84 px safe area; lay content out inside it. `sceneType` is the type scale
+- `<SceneFrame theme="choreo-dark" | "choreo-light">` draws the backdrop, the orange edge accent,
+  the Choreo Labs logo in the footer and an 84 px safe area (the old `wso2-dark` / `wso2-light`
+  names still load); lay content out inside it. `sceneType` is the type scale
   (display 76, title 56, heading 40, body 30, caption 22); `scenePalette(theme)` its colours.
 - `tween(t, a, b)` is an eased 0..1 between two times, for styles computed from time.
 - `<RecordingFrame time={takeSeconds} style={...} />` (or `useRecordingFrame(time)` for a three.js
@@ -114,6 +125,7 @@ start from the idea, not from a template.
    screen.
 
 Where to put it:
+
 - A single tutorial: `projects/<slug>/scenes/<Name>.tsx`.
 - A series part: a scene the whole series can use (e.g. a "what we've built so far" diagram that
   gains a box in each part) goes in `series/<series>/scenes/<Name>.tsx`, with props for what
@@ -124,5 +136,7 @@ Where to put it:
 
 ## Look
 
-WSO2 brand: navy backdrop (dark) or white (light), orange for what the narration is about right
-now, Inter, sentence case, one idea per beat, no more than ~12 words on screen per beat.
+Choreo Labs brand: midnight backdrop (dark) or white (light), brand blue (`scenePalette().accent`,
+`theme.color.blue`) for what the narration is about right now, orange only for small accents
+(ticks, rules), Sora, sentence case, one idea per beat, no more than ~12 words on screen per beat.
+Use `ChoreoLogo` / `ChoreoMark` from the SDK for the logo; never type the company name as a logo.

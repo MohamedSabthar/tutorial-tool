@@ -60,7 +60,7 @@ workspace/                        # its OWN git repo, so CLAUDE.md and skill loo
   scenes/                         # SHARED explainer-scene library (e.g. RequestFlow.tsx), grown across tutorials
   overlays/                       # SHARED overlay library, grown by the agent across tutorials
     <Name>.tsx  +  index.json     # name, description, propsSchema summary, preview thumbnail
-  theme/wso2.ts                   # motion and brand tokens: colours, fonts, easings, durations
+  theme/brand.ts                  # motion and brand tokens: colours, fonts, easings, durations
   products.json
   projects/<slug>/
     CLAUDE.md                     # tutorial brief

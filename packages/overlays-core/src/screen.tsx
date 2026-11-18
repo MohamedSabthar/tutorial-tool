@@ -27,7 +27,7 @@ type TitleCardProps = z.infer<typeof TitleCardProps>;
 
 export const titleCardMeta: OverlayMeta = {
   name: 'TitleCard',
-  description: 'A WSO2-styled title with an orange rule, as a lower third or centred.',
+  description: 'A Choreo Labs-styled title with an orange rule, as a lower third or centred.',
   props: TitleCardProps,
   defaultDuration: 3,
 };
@@ -83,7 +83,7 @@ export function TitleCard({ props, duration }: OverlayProps<TitleCardProps>) {
               </div>
             )}
             <div
-              style={{ fontSize: 56, fontWeight: 700, color: theme.color.white, letterSpacing: '-0.02em' }}
+              style={{ fontSize: 56, fontWeight: 600, color: theme.color.white, letterSpacing: '-0.01em' }}
             >
               {props.title}
               <span style={{ color: theme.color.orange }}>.</span>

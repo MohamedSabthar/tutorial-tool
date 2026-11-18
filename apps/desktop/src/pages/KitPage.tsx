@@ -54,7 +54,7 @@ export function KitPage() {
   return (
     <Page
       title="Step 0.5 · Design kit"
-      intro="Every shared component from @studio/ui in its states, matching the canvas mockups (WSO2 light theme). Tab through the page to check focus rings and labels."
+      intro="Every shared component from @studio/ui in its states, matching the canvas mockups (Choreo Labs light theme). Tab through the page to check focus rings and labels."
     >
       <Panel title="Colours">
         <div
@@ -85,7 +85,7 @@ export function KitPage() {
         </Title>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <Eyebrow>Eyebrow label</Eyebrow>
-          <span>Body text in Inter, 13px.</span>
+          <span>Body text in Sora, 13px.</span>
           <span className="ui-mono">0:52.40 · mono data</span>
         </div>
         <div
@@ -161,7 +161,7 @@ export function KitPage() {
         <Panel title="Segmented and chips" style={{ flex: '1 1 420px' }}>
           <Segmented
             label="Audience"
-            options={['New to WSO2', 'Developer', 'Architect']}
+            options={['New to the product', 'Developer', 'Architect']}
             value={audience}
             onChange={setAudience}
           />

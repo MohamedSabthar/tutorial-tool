@@ -1,18 +1,18 @@
 /*
- * WSO2 Tutorial Studio: design tokens and component styles.
- * Light theme from the WSO2 Slides design system, plus a dark theme for the app chrome.
+ * Choreo Labs Tutorial Studio: design tokens and component styles.
+ * Neutral light and dark themes for the app chrome, with the Choreo Labs blue as the one accent.
  * Apps import this file once (`import '@studio/ui/styles.css'`) and use the React components
  * from `@studio/ui`. `data-theme="dark"` on <html> switches the colour tokens; anything marked
  * `data-theme="light"` (the video stage) keeps the light values.
  */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /*
  * Kit v2 (Phase 13). The app chrome is neutral and borderless: a page, "shell" surfaces on it,
  * white "inset" panels inside those, and translucent foreground tints (--ui-f04..f12) one level
  * deeper. One accent (--ui-brand) marks the main action and the agent. The legacy names
  * (--ui-orange, --ui-navy, --ui-gray-*) are kept and point at the new palette, so older screens
- * follow along. The video never uses these: overlays and scenes draw with `tokens.ts` (WSO2).
+ * follow along. The video never uses these: overlays and scenes draw with `tokens.ts` (Choreo Labs).
  */
 :root,
 [data-theme='light'] {
@@ -31,10 +31,10 @@
   --ui-f06: rgba(17, 17, 19, 0.06);
   --ui-f08: rgba(17, 17, 19, 0.08);
   --ui-f12: rgba(17, 17, 19, 0.12);
-  --ui-brand: #0071e3;
-  --ui-brand-ink: #0058b0;
-  --ui-brand-15: rgba(0, 113, 227, 0.13);
-  --ui-brand-08: rgba(0, 113, 227, 0.07);
+  --ui-brand: #1f4fff;
+  --ui-brand-ink: #1838c7;
+  --ui-brand-15: rgba(31, 79, 255, 0.13);
+  --ui-brand-08: rgba(31, 79, 255, 0.07);
   --ui-positive: #248a3d;
   --ui-positive-15: rgba(36, 138, 61, 0.14);
   --ui-negative: #d70015;
@@ -52,11 +52,11 @@
   --ui-pop: 0 12px 40px rgba(17, 17, 19, 0.16), 0 2px 6px rgba(17, 17, 19, 0.06);
 
   /* Legacy names, mapped onto the palette above */
-  --ui-orange: #0071e3;
-  --ui-orange-bright: #0a7cf0;
-  --ui-orange-700: #005bb5;
-  --ui-orange-100: #e5f0fc;
-  --ui-orange-ink: #0058b0;
+  --ui-orange: #1f4fff;
+  --ui-orange-bright: #3a63ff;
+  --ui-orange-700: #1838c7;
+  --ui-orange-100: #e6ecff;
+  --ui-orange-ink: #1838c7;
   --ui-navy: #111113;
   --ui-navy-900: #000000;
   --ui-white: #ffffff;
@@ -101,10 +101,10 @@
   --ui-f06: rgba(242, 242, 243, 0.06);
   --ui-f08: rgba(242, 242, 243, 0.08);
   --ui-f12: rgba(242, 242, 243, 0.12);
-  --ui-brand: #0a84ff;
-  --ui-brand-ink: #6cb4ff;
-  --ui-brand-15: rgba(10, 132, 255, 0.18);
-  --ui-brand-08: rgba(10, 132, 255, 0.1);
+  --ui-brand: #2f6bff;
+  --ui-brand-ink: #8fb4ff;
+  --ui-brand-15: rgba(61, 139, 255, 0.18);
+  --ui-brand-08: rgba(61, 139, 255, 0.1);
   --ui-positive: #30d158;
   --ui-positive-15: rgba(48, 209, 88, 0.16);
   --ui-negative: #ff453a;
@@ -120,11 +120,11 @@
   --ui-scrim: rgba(0, 0, 0, 0.55);
   --ui-pop: 0 12px 40px rgba(0, 0, 0, 0.55);
 
-  --ui-orange: #0a84ff;
-  --ui-orange-bright: #2a95ff;
-  --ui-orange-700: #6cb4ff;
-  --ui-orange-100: #10294a;
-  --ui-orange-ink: #6cb4ff;
+  --ui-orange: #2f6bff;
+  --ui-orange-bright: #4a80ff;
+  --ui-orange-700: #8fb4ff;
+  --ui-orange-100: #0f1c44;
+  --ui-orange-ink: #8fb4ff;
   --ui-navy: #f2f2f3;
   --ui-navy-900: #ffffff;
   --ui-white: #161617;
@@ -154,7 +154,7 @@
   /* Type */
   --ui-font: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ui-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --ui-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ui-display: 'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
   --ui-track-tight: -0.02em;
   --ui-track-eyebrow: 0.14em;
 
@@ -170,8 +170,8 @@
   --ui-fast: 140ms;
   --ui-base: 240ms;
 
-  --ui-gradient-edge: linear-gradient(0deg, #ff3900 0%, #ff5800 20%, rgba(255, 88, 0, 0) 66%);
-  --ui-gradient-dark: radial-gradient(125% 95% at 50% 0%, #2b3e5e 0%, #18283f 40%, #0b1424 100%);
+  --ui-gradient-edge: linear-gradient(0deg, #ff2e00 0%, #ff4600 20%, rgba(255, 70, 0, 0) 66%);
+  --ui-gradient-dark: radial-gradient(125% 95% at 50% 0%, #14225a 0%, #0a1232 40%, #050a1c 100%);
 
   font-family: var(--ui-font);
   font-size: 14px;
@@ -720,7 +720,7 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
   padding-right: 34px;
   line-height: 34px;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2313213B' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235B6173' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 12px 12px;
@@ -747,7 +747,7 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
 .ui-select:focus {
   border-color: var(--ui-orange);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(255, 88, 0, 0.15);
+  box-shadow: 0 0 0 3px rgba(31, 79, 255, 0.15);
 }
 .ui-input[aria-invalid='true'],
 .ui-textarea[aria-invalid='true'] {
@@ -850,8 +850,8 @@ button.ui-step-head[aria-expanded='true'] .ui-step-chevron {
 }
 .ui-title {
   font-family: var(--ui-display);
-  font-weight: 800;
-  letter-spacing: -0.025em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ui-fg);
 }
 .ui-eyebrow {

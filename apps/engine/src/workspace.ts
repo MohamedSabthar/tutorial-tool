@@ -57,7 +57,7 @@ export class Workspace {
       ['.claude/skills/README.md', README_KEEP('Skills: one folder per product and per authoring topic')],
       ['overlays/README.md', README_KEEP('Shared overlay components')],
       ['scenes/README.md', README_KEEP('Shared explainer scenes')],
-      ['theme/wso2.ts', THEME_TS],
+      ['theme/brand.ts', THEME_TS],
       ['products.json', JSON.stringify(PRODUCTS, null, 2) + '\n'],
       ['pronunciations.json', JSON.stringify(PRONUNCIATIONS, null, 2) + '\n'],
       ['projects/README.md', README_KEEP('Tutorial projects')],

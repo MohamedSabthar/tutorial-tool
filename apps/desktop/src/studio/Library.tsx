@@ -9,12 +9,12 @@ export const OVERLAY_DRAG_TYPE = 'application/x-studio-overlay';
 /** Small icon-like previews for the built-ins; custom components get a generic tile. */
 const glyphs: Record<string, React.CSSProperties> = {
   'core:Callout': { width: '62%', height: '44%', background: '#FFFFFF', borderRadius: 4 },
-  'core:Zoom': { width: '44%', height: '50%', border: '2px solid #A9C6DD', borderRadius: 4 },
-  'core:Arrow': { width: '50%', height: 4, background: '#FF5800', borderRadius: 2 },
-  'core:ClickRipple': { width: 22, height: 22, border: '3px solid #FF5800', borderRadius: '50%' },
-  'core:TitleCard': { width: '70%', height: '30%', background: '#2B3E5E', borderLeft: '4px solid #FF5800' },
+  'core:Zoom': { width: '44%', height: '50%', border: '2px solid #AEB6C6', borderRadius: 4 },
+  'core:Arrow': { width: '50%', height: 4, background: '#FF4600', borderRadius: 2 },
+  'core:ClickRipple': { width: 22, height: 22, border: '3px solid #FF4600', borderRadius: '50%' },
+  'core:TitleCard': { width: '70%', height: '30%', background: '#14225A', borderLeft: '4px solid #FF4600' },
   'core:Highlight': { width: 24, height: 24, borderRadius: 6, boxShadow: '0 0 0 40px rgba(0,0,0,0.55)' },
-  'core:Box': { width: '50%', height: '42%', border: '3px solid #FF5800', borderRadius: 6 },
+  'core:Box': { width: '50%', height: '42%', border: '3px solid #FF4600', borderRadius: 6 },
   'core:Blur': {
     width: '56%',
     height: '34%',
@@ -44,36 +44,36 @@ const glyphs: Record<string, React.CSSProperties> = {
     borderRadius: 3,
     marginTop: 24,
   },
-  'core:TextLabel': { width: '40%', height: 14, background: '#FF5800', borderRadius: 4 },
+  'core:TextLabel': { width: '40%', height: 14, background: '#FF4600', borderRadius: 4 },
   'core:CardDeck': {
     width: '40%',
     height: '52%',
-    background: '#2B3E5E',
-    border: '1.5px solid #FF5800',
+    background: '#14225A',
+    border: '1.5px solid #FF4600',
     borderRadius: 5,
     transform: 'rotate(-6deg)',
-    boxShadow: '14px 4px 0 -2px #FF5800, 26px 10px 0 -4px #A9C6DD',
+    boxShadow: '14px 4px 0 -2px #FF4600, 26px 10px 0 -4px #AEB6C6',
   },
   'core:TermSpotlight': {
     width: '62%',
     height: 14,
     background: '#FFFFFF',
     borderRadius: 3,
-    boxShadow: '0 12px 0 -4px #FF5800, 0 26px 0 -5px rgba(169,198,221,0.6)',
+    boxShadow: '0 12px 0 -4px #FF4600, 0 26px 0 -5px rgba(169,198,221,0.6)',
   },
   'core:BlueprintDive': {
     width: '44%',
     height: '52%',
-    border: '2px solid #FF5800',
+    border: '2px solid #FF4600',
     borderRadius: 4,
     background: 'repeating-linear-gradient(180deg, rgba(169,198,221,0.5) 0 2px, transparent 2px 9px)',
-    boxShadow: '0 0 0 6px rgba(255,88,0,0.18)',
+    boxShadow: '0 0 0 6px rgba(255,70,0,0.18)',
   },
   'core:DepthLayers': {
     width: '46%',
     height: '28%',
-    background: 'rgba(43,62,94,0.9)',
-    border: '1.5px solid #FF5800',
+    background: 'rgba(20,34,90,0.9)',
+    border: '1.5px solid #FF4600',
     borderRadius: 4,
     transform: 'rotate(-30deg) skewX(30deg) scaleY(0.86)',
     boxShadow: '0 12px 0 -1px rgba(169,198,221,0.7), 0 24px 0 -2px rgba(169,198,221,0.4)',
@@ -81,25 +81,25 @@ const glyphs: Record<string, React.CSSProperties> = {
   'core:BlueprintFlow': {
     width: '72%',
     height: '40%',
-    border: '1.5px solid #A9C6DD',
+    border: '1.5px solid #AEB6C6',
     borderRadius: 4,
     background:
-      'radial-gradient(circle at 70% 50%, #FF5800 0 4px, transparent 5px), repeating-linear-gradient(90deg, rgba(169,198,221,0.35) 0 1px, transparent 1px 10px)',
+      'radial-gradient(circle at 70% 50%, #FF4600 0 4px, transparent 5px), repeating-linear-gradient(90deg, rgba(169,198,221,0.35) 0 1px, transparent 1px 10px)',
   },
   'core:LayeredPanels': {
     width: '46%',
     height: '36%',
-    background: '#2B3E5E',
-    border: '1.5px solid #FF5800',
+    background: '#14225A',
+    border: '1.5px solid #FF4600',
     borderRadius: 5,
-    boxShadow: '8px 8px 0 -1px #A9C6DD, 16px 16px 0 -2px rgba(169,198,221,0.5)',
+    boxShadow: '8px 8px 0 -1px #AEB6C6, 16px 16px 0 -2px rgba(169,198,221,0.5)',
   },
   'core:CodeTrace': {
     width: '64%',
     height: '50%',
     background:
-      'linear-gradient(90deg, transparent 0 62%, #FF5800 62% 64%, transparent 64%), repeating-linear-gradient(180deg, #A9C6DD 0 3px, transparent 3px 8px)',
-    borderLeft: '3px solid #FF5800',
+      'linear-gradient(90deg, transparent 0 62%, #FF4600 62% 64%, transparent 64%), repeating-linear-gradient(180deg, #AEB6C6 0 3px, transparent 3px 8px)',
+    borderLeft: '3px solid #FF4600',
   },
 };
 
@@ -212,7 +212,7 @@ export function Library({
                       glyphs[id] ?? {
                         width: '50%',
                         height: '40%',
-                        border: '2px dashed #A9C6DD',
+                        border: '2px dashed #AEB6C6',
                         borderRadius: 6,
                       }
                     }

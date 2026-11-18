@@ -1,6 +1,6 @@
 ---
 name: overlay-authoring
-description: How to write an overlay component (React + GSAP + optional React Three Fiber) for Tutorial Studio - the module contract, SDK hooks, determinism rules, WSO2 motion and theme, and reuse-first. Read before creating or editing any file under overlays/ or projects/*/overlays/.
+description: How to write an overlay component (React + GSAP + optional React Three Fiber) for Tutorial Studio - the module contract, SDK hooks, determinism rules, Choreo Labs motion and theme, and reuse-first. Read before creating or editing any file under overlays/ or projects/*/overlays/.
 ---
 
 # Writing overlay components
@@ -21,7 +21,14 @@ time range, an optional anchor (a step's target) and props.
 
 ```tsx
 import { z } from 'zod';
-import { DomLayer, theme, useAnchor, useGsap, type OverlayMeta, type OverlayProps } from '@studio/overlay-sdk';
+import {
+  DomLayer,
+  theme,
+  useAnchor,
+  useGsap,
+  type OverlayMeta,
+  type OverlayProps,
+} from '@studio/overlay-sdk';
 
 const Props = z.object({
   title: z.string(),
@@ -38,15 +45,25 @@ export const meta: OverlayMeta = {
 
 export default function StepBadge({ props, duration }: OverlayProps<Props>) {
   const anchor = useAnchor(); // target box in stage px, or null when not anchored
-  const scope = useGsap((tl) => {
-    tl.from('.badge', { autoAlpha: 0, scale: 0.8, duration: theme.duration.enter, ease: theme.ease.pop })
-      .to('.badge', { autoAlpha: 0, duration: theme.duration.exit }, duration - theme.duration.exit);
-  }, [props.title]);
+  const scope = useGsap(
+    (tl) => {
+      tl.from('.badge', {
+        autoAlpha: 0,
+        scale: 0.8,
+        duration: theme.duration.enter,
+        ease: theme.ease.pop,
+      }).to('.badge', { autoAlpha: 0, duration: theme.duration.exit }, duration - theme.duration.exit);
+    },
+    [props.title],
+  );
   if (!anchor) return null;
   return (
     <DomLayer follow>
       <div ref={scope}>
-        <div className="badge" style={{ position: 'absolute', left: anchor.x + anchor.w + 16, top: anchor.y }}>
+        <div
+          className="badge"
+          style={{ position: 'absolute', left: anchor.x + anchor.w + 16, top: anchor.y }}
+        >
           {props.title}
         </div>
       </div>
@@ -63,15 +80,15 @@ export default function StepBadge({ props, duration }: OverlayProps<Props>) {
 
 ## SDK
 
-| Import | Use |
-|---|---|
-| `useOverlayTime()` | `{ t, progress, duration, global }`: seconds into the instance, 0..1, its length, tutorial time |
-| `useAnchor()` | The anchored step target as `{ x, y, w, h }` in stage px (null if unanchored) |
-| `useGsap((tl) => …, deps)` | A paused GSAP timeline the stage seeks to `t`. Returns a ref for the scope element; class selectors resolve inside it |
-| `<DomLayer follow>` | Absolutely positioned DOM over the stage. `follow` moves with the camera (zooms) |
-| `<ThreeLayer>` | R3F content in the shared scene (glows, particles, 3D arrows). Use `useStageToScene()` to place it |
-| `useStageSize()`, `useCamera()`, `useRecording()` | Stage size (1920×1080), camera state, recorded events |
-| `theme` | WSO2 colours, fonts, radius, shadow, eases and durations |
+| Import                                            | Use                                                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `useOverlayTime()`                                | `{ t, progress, duration, global }`: seconds into the instance, 0..1, its length, tutorial time                       |
+| `useAnchor()`                                     | The anchored step target as `{ x, y, w, h }` in stage px (null if unanchored)                                         |
+| `useGsap((tl) => …, deps)`                        | A paused GSAP timeline the stage seeks to `t`. Returns a ref for the scope element; class selectors resolve inside it |
+| `<DomLayer follow>`                               | Absolutely positioned DOM over the stage. `follow` moves with the camera (zooms)                                      |
+| `<ThreeLayer>`                                    | R3F content in the shared scene (glows, particles, 3D arrows). Use `useStageToScene()` to place it                    |
+| `useStageSize()`, `useCamera()`, `useRecording()` | Stage size (1920×1080), camera state, recorded events                                                                 |
+| `theme`                                           | Choreo Labs colours, fonts, radius, shadow, eases and durations                                                       |
 
 ## Determinism (required)
 
@@ -89,20 +106,21 @@ After writing or editing a component, run `check_overlay({"file": "overlays/<Nam
 are relative to the project, or `overlays/…` at the workspace root for shared ones). It:
 
 1. type-checks the file, 2. lints it for the determinism rules above, 3. bundles it,
-4. renders it in the tutorial (its first instance, or a test instance with default props on the
+2. renders it in the tutorial (its first instance, or a test instance with default props on the
    first step) at its start, 25%, 50%, 75%, end and just after, with the recording and camera,
-5. renders one moment twice to prove the frame depends only on time and props,
+3. renders one moment twice to prove the frame depends only on time and props,
 
 and returns the problems plus a contact sheet. Look at the sheet: is it beside its anchor and not
 covering it, readable, inside the frame at every zoom, entering and leaving cleanly? Fix every
 problem and run it again until it passes. `times` checks specific output times; `instanceId` picks
 an instance. `capture_frame` shows the recording only; `check_overlay` shows the composited frame.
 
-## Motion and look (WSO2)
+## Motion and look (Choreo Labs)
 
-- Colours from `theme.color`: orange for the action or call to action, navy for text panels, steel
-  for secondary marks. White text on orange and navy.
-- Inter for text (`theme.font.sans`), JetBrains Mono for code and paths. Sentence case.
+- Colours from `theme.color`: orange for the action or call to action (it stands out against the
+  blue VS Code UI), `midnight` for text panels, `blue` for large brand graphics, `steel` for
+  secondary marks. White text on orange, blue and midnight. (`navy` still works; it is midnight.)
+- Sora for text (`theme.font.sans`), JetBrains Mono for code and paths. Sentence case.
 - Enter with `theme.ease.pop` or `theme.ease.out` over `theme.duration.enter`; exit faster
   (`theme.duration.exit`) ending exactly at `duration`.
 - Text sizes on the 1920×1080 stage: 28–36 px body, 44–64 px titles. Keep 48 px from the edges.

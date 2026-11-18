@@ -42,8 +42,8 @@
 .so-title {
   font-family: var(--ui-display);
   font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ui-fg);
   background: none;
   border: 0;

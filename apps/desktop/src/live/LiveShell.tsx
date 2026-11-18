@@ -566,7 +566,7 @@ export function LiveShell({ slug = null }: { slug?: string | null }) {
                       height: `${(action.bbox.h / fh) * 100}%`,
                       border: '2px solid var(--ui-orange)',
                       borderRadius: 4,
-                      background: 'rgba(255,88,0,0.08)',
+                      background: 'rgba(255,70,0,0.08)',
                       transition: 'all var(--ui-base) var(--ui-ease)',
                     }}
                   />

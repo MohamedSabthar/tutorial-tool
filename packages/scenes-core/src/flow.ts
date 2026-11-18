@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sceneThemeSchema } from '@studio/overlay-sdk';
 
 /**
  * Props shared by the request-flow looks (BlueprintFlow, LayeredPanels), so a
@@ -41,7 +42,7 @@ export const FlowProps = z.object({
   request: z.string().default('GET /greeting/hello'),
   /** Shown once the request has been handled; empty for none. */
   reply: z.string().default('200 OK · Hello, World!'),
-  theme: z.enum(['wso2-dark', 'wso2-light']).default('wso2-dark'),
+  theme: sceneThemeSchema,
 });
 export type FlowProps = z.infer<typeof FlowProps>;
 

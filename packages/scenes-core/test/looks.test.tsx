@@ -48,7 +48,7 @@ describe('explainer looks', () => {
 
   it('light the request part of the current step', () => {
     // Default timing spreads 4 stops over 9 s: the third (/greeting) is current at 5.7 s.
-    expect(frame('core:BlueprintFlow', 5.7)).toContain('color:#FF5800">/greeting</span>');
+    expect(frame('core:BlueprintFlow', 5.7)).toContain('color:#1F4FFF">/greeting</span>');
   });
 
   it('type the code before tracing it', () => {
@@ -78,7 +78,7 @@ describe('explainer looks', () => {
       const end = frame(id, 8.9);
       for (const term of ['Listener', 'Service', 'Resource']) expect(end).toContain(`>${term}<`);
     }
-    expect(frame('core:CardDeck', 0)).toContain('WSO2');
+    expect(frame('core:CardDeck', 0)).toContain('<ellipse');
     // The dive opens each box in turn: the integrator's parts are in view on its beat.
     expect(frame('core:BlueprintDive', 4.6)).toContain('Service /greeting');
     expect(frame('core:DepthLayers', 4.6)).toContain('Your HTTP service runs here');

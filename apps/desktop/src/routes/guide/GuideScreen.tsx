@@ -92,9 +92,9 @@ export function GuideScreen({ section }: { section: string | null }) {
           <header className="guide-intro">
             <Title size={44}>Tutorial Studio guide</Title>
             <p className="guide-lede">
-              Describe a task in a WSO2 product. An agent plans the steps, records them in the real product,
-              and drafts the narration, overlays and explainers. You review it at each gate and finish the
-              edit in the Studio.
+              Describe a task in a Choreo Labs product. An agent plans the steps, records them in the real
+              product, and drafts the narration, overlays and explainers. You review it at each gate and
+              finish the edit in the Studio.
             </p>
             <ol className="guide-flow" aria-label="How a tutorial is made">
               {[
@@ -186,8 +186,8 @@ export function GuideScreen({ section }: { section: string | null }) {
                 <b>Starting workspace.</b> The project the recording starts from.
               </li>
               <li>
-                <b>Audience, Length and Style.</b> New to WSO2, Developer or Architect; about 1, 2–3 or 5+
-                minutes; step by step, concept first or a quick demo.
+                <b>Audience, Length and Style.</b> New to the product, Developer or Architect; about 1, 2–3 or
+                5+ minutes; step by step, concept first or a quick demo.
               </li>
               <li>
                 <b>Voice (ElevenLabs).</b> The narrator's voice.
@@ -586,7 +586,7 @@ export function GuideScreen({ section }: { section: string | null }) {
             <div
               className="guide-arch"
               role="img"
-              aria-label="The desktop app talks to the engine over a local WebSocket. The engine drives the Claude agent, ElevenLabs, the WSO2 product, headless Chromium and ffmpeg, and reads and writes the workspace folder."
+              aria-label="The desktop app talks to the engine over a local WebSocket. The engine drives the Claude agent, ElevenLabs, the Choreo Labs product, headless Chromium and ffmpeg, and reads and writes the workspace folder."
             >
               <div className="guide-arch-row">
                 <div className="guide-arch-box">
@@ -847,7 +847,7 @@ export function GuideScreen({ section }: { section: string | null }) {
                 <g className="d-res">
                   <rect x="840" y="40" width="145" height="58" rx="10" />
                   <text x="912" y="64" textAnchor="middle" className="d-name">
-                    WSO2 product
+                    The product
                   </text>
                   <text x="912" y="82" textAnchor="middle" className="d-small">
                     Playwright
@@ -1279,8 +1279,8 @@ export function GuideScreen({ section }: { section: string | null }) {
                 encoder and mixes the audio. <code>packages/exporters</code>
               </li>
               <li>
-                <b>Look and feel</b>The WSO2 Slides design system as shared tokens and components, light and
-                dark. <code>packages/ui</code>
+                <b>Look and feel</b>The Choreo Labs brand as shared tokens and components, light and dark.{' '}
+                <code>packages/ui</code>
               </li>
             </ul>
 

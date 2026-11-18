@@ -47,7 +47,7 @@ describe('brief', () => {
     const md = await readFile(path.join(store.dir(p.slug), 'CLAUDE.md'), 'utf8');
     expect(md).toMatch(/^# Build a greeting API\n/);
     expect(md).toContain('## Goal\n\nBuild a greeting API. It returns JSON.');
-    expect(md).toContain('People new to WSO2');
+    expect(md).toContain('People new to the product');
     expect(md).toContain('- Length: About 1 minute.');
     expect(md).toContain("Explainers: don't propose any");
     expect(md).toContain('Use port 9090.');

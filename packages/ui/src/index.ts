@@ -1,6 +1,6 @@
 export const PACKAGE = {
   name: '@studio/ui',
-  role: 'Design tokens and shared React components (app chrome: kit v2; video: WSO2 tokens)',
+  role: 'Design tokens and shared React components (app chrome: kit v2; video: Choreo Labs tokens)',
 } as const;
 
 export * from './components';

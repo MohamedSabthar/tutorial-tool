@@ -1,7 +1,8 @@
 import {
+  resolveSceneTheme,
   SceneFrame,
-  sceneType,
   scenePalette,
+  sceneType,
   theme,
   useOverlayTime,
   useSceneTiming,
@@ -59,8 +60,8 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
           width: LEFT_W,
           fontSize: sceneType.title + 8,
           lineHeight: 1.05,
-          fontWeight: 800,
-          letterSpacing: '-0.02em',
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
           opacity: title,
           transform: `translateX(${(1 - title) * 40}px)`,
         }}
@@ -117,8 +118,8 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
               padding: '30px 36px',
               borderRadius: 22,
               background:
-                props.theme === 'wso2-dark'
-                  ? `rgba(36,52,80,${(0.9 + 0.1 * face).toFixed(3)})`
+                resolveSceneTheme(props.theme) === 'choreo-dark'
+                  ? `rgba(17,26,61,${(0.9 + 0.1 * face).toFixed(3)})`
                   : `rgba(255,255,255,${(0.94 + 0.06 * face).toFixed(3)})`,
               border: `2px solid ${i === k ? accent : p.line}`,
               boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
@@ -155,7 +156,7 @@ export default function DepthLayers({ props }: OverlayProps<ArchitectureProps>) 
                       fontFamily: theme.font.mono,
                       fontSize: 22,
                       color: accent,
-                      background: 'rgba(255,88,0,0.16)',
+                      background: 'rgba(31,79,255,0.16)',
                       opacity: 0.5 + 0.5 * a,
                       transform: `translateY(${-4 * a}px)`,
                     }}

@@ -1,6 +1,6 @@
-# WSO2 Tutorial Studio
+# Choreo Labs Tutorial Studio
 
-This is a desktop app (Tauri) in which a headless Claude Code agent records WSO2 product tutorials in VS Code with Playwright. The user then edits them in a Studio window: preview, timeline, agent-written React overlays, explainer scenes, ElevenLabs voice-over and GPU export.
+This is a desktop app (Tauri) in which a headless Claude Code agent records Choreo Labs (formerly WSO2) product tutorials in VS Code with Playwright. The user then edits them in a Studio window: preview, timeline, agent-written React overlays, explainer scenes, ElevenLabs voice-over and GPU export.
 
 - **Design:** `docs/PLAN.md`
 - **Build plan with progress tracker:** `docs/Implementation.md`. Work through it **in order, one step at a time**.
@@ -37,7 +37,7 @@ packages/stage    composition runtime (R3F stage, virtual clock, camera)
 packages/overlay-sdk, overlays-core, scenes-core   overlay/scene authoring
 packages/tts      ElevenLabs client
 packages/exporters GPU MP4, SRT/VTT, Markdown
-packages/ui       WSO2 design tokens + shared React components
+packages/ui       Choreo Labs design tokens + shared React components
 workspace/        (generated, git-ignored here) the agent's knowledge base: its own git repo
 ```
 
@@ -48,8 +48,8 @@ workspace/        (generated, git-ignored here) the agent's knowledge base: its 
 - **Validation:** zod at every I/O boundary (RPC, files, agent tool inputs, timeline patches).
 - **Timeline changes:** `tutorial.json` changes only via validated patches, so undo/redo and window sync work.
 - **Overlays and scenes** must be pure functions of time: no `Date.now`, unseeded `Math.random`, timers, CSS animations or transitions.
-- **UI styling** (Phase 13): the app chrome uses a neutral, TUFFUI-style theme, light and dark (Settings → Appearance). The **video** keeps the WSO2 look (navy `#13213B`, orange `#FF5800`, Inter), from `packages/ui/src/tokens.ts`, in every theme.
-  - App chrome: borderless layers (page → `Shell` → `ShellPanel` → `Inset`), pill buttons, one blue accent for the main action and the agent, tinted `StatusPill`s. Geist, Geist Mono for data.
+- **UI styling** (Phase 13): the app chrome uses a neutral, TUFFUI-style theme, light and dark (Settings → Appearance). The **video** keeps the Choreo Labs look (midnight `#050A1C`, brand blue `#1F4FFF`, orange `#FF4600` for small accents and highlights, Sora), from `packages/ui/src/tokens.ts` / `@studio/overlay-sdk` `theme`, in every theme. Draw the logo with `ChoreoLogo` / `ChoreoMark` (`@studio/overlay-sdk`) or `Logo` (`@studio/ui`); never type the company name as a logo.
+  - App chrome: borderless layers (page → `Shell` → `ShellPanel` → `Inset`), pill buttons, one blue accent (Choreo Labs blue) for the main action and the agent, tinted `StatusPill`s. Geist, Geist Mono for data, Sora for display titles.
   - Use the kit in `packages/ui` (`kit.tsx`, `glyphs.tsx`, `components.tsx`) and its `--ui-*` tokens (`--ui-bg`, `--ui-fg`, `--ui-muted`, `--ui-surface`, `--ui-inset`, `--ui-f04…f12`, `--ui-brand`, `--ui-positive/negative/warning` and their `-15` tints). Don't put raw hex values in app code.
   - Write text on brand fills as `--ui-on-fill`.
   - Words: follow the glossary in `docs/ux-review/index.html` (Recording, Script, Voice-over, Check the script, Explainer, Overlay, Note, Ask the agent). Technical detail (IDs, costs, tool names) goes behind "Details".

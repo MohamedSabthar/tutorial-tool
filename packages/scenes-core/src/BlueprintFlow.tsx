@@ -1,8 +1,9 @@
 import {
+  resolveSceneTheme,
   SAFE,
   SceneFrame,
-  sceneType,
   scenePalette,
+  sceneType,
   theme,
   tween,
   useOverlayTime,
@@ -44,7 +45,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
   const at = (k: number) => stepTime(timing, k, n, duration);
   const k = activeStep(timing, n, duration, t);
   const replyAt = afterSteps(timing, n, duration);
-  const wire = props.theme === 'wso2-dark' ? theme.color.steelLight : theme.color.steel;
+  const wire = resolveSceneTheme(props.theme) === 'choreo-dark' ? theme.color.steelLight : theme.color.steel;
 
   // The request rests in the middle of each stop from its beat and jumps in an arc to the next
   // one just before that beat. The stop's text sits above and below the middle, clear of it.
@@ -117,8 +118,8 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
         <div
           style={{
             fontSize: sceneType.title + 8,
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
             opacity: easeOut(t, 0, 0.6),
             transform: `translateX(${(1 - easeOut(t, 0, 0.6)) * 40}px)`,
           }}
@@ -163,7 +164,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                   strokeDashoffset={1 - easeOut(t, 0.4 + i * 0.25, 1.2 + i * 0.25)}
                   stroke={lit ? accent : wire}
                   strokeWidth={2.5 + glow * 3}
-                  fill={lit ? `rgba(255,88,0,${(0.06 + glow * 0.1).toFixed(3)})` : 'none'}
+                  fill={lit ? `rgba(31,79,255,${(0.06 + glow * 0.1).toFixed(3)})` : 'none'}
                 />
                 <text
                   x={x(i) + 40}
@@ -253,7 +254,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                 fontFamily: theme.font.mono,
                 fontSize: 28,
                 color: accent,
-                background: 'rgba(255,88,0,0.16)',
+                background: 'rgba(31,79,255,0.16)',
                 opacity: clamp01(pop(t, replyAt, replyAt + 0.5)),
                 transform: `scale(${0.6 + 0.4 * pop(t, replyAt, replyAt + 0.5)})`,
                 transformOrigin: 'left center',
