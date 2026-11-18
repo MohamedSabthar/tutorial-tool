@@ -158,11 +158,15 @@ interface Live {
   /** The user let this run go past its cost limit. */
   costApproved?: boolean;
   /** Resolves the agent stage the machine is waiting on. */
-  stageDone?: { stage: PipelineStage; resolve: (r: StageResult) => void };
+  stageDone?: { stage: PipelineStage; resolve: (r: StageResult) => void; done?: boolean };
   /** Steers sent while no agent stage ran: they open the next agent stage's instruction. */
   steers: string[];
   /** The user steered the agent during the current turn. */
   steered?: boolean;
+  /** The engine is running a dry run or recording (a steer stops it). */
+  engineRunning?: boolean;
+  /** A steer stopped that run: go to the agent with the steer, not to the stopped gate. */
+  steerStopped?: boolean;
 }
 
 /** How long after a steered turn ends to look for the turn the steer started. */
@@ -289,19 +293,35 @@ export class PipelineManager {
   }
 
   /**
-   * Steers the running pipeline. During an agent stage the text is pushed into the agent's
-   * queue right away and Claude Code reads it in the running turn; otherwise (a dry run, a
-   * recording, a gate) it is kept and opens the next agent stage.
+   * Steers the running pipeline, forcefully: the agent gets the text now, whatever is running.
+   * - An agent stage: its turn (and any dry run its tool started) is interrupted and the steer
+   *   goes into its queue, so the next turn starts from it.
+   * - A dry run or recording: the run is stopped and the agent repairs with the steer.
+   * - A gate: the steer is the user's revision.
+   * Anything else (the voice-over) keeps it for the next agent stage.
    */
   async steer(slug: string, text: string): Promise<{ delivered: 'now' | 'next' }> {
     const live = this.live.get(slug);
     if (!live || live.abort.signal.aborted) throw new RpcError('the pipeline is not running', 'bad_request');
-    if (live.stageDone) {
+    if (live.decide) {
+      await this.revise(slug, text);
+      return { delivered: 'now' };
+    }
+    // A stage the agent already finished: the steer opens the next one instead.
+    if (live.stageDone && !live.stageDone.done) {
       live.steered = true;
-      await this.deps.agents.get(slug).send(steerMessage(live.stageDone.stage, text), 'user', [], text);
+      const session = this.deps.agents.get(slug);
+      this.deps.stopRun();
+      await session.interrupt();
+      await session.send(steerMessage(live.stageDone.stage, text), 'user', [], text);
       return { delivered: 'now' };
     }
     live.steers.push(text);
+    if (live.engineRunning) {
+      live.steerStopped = true;
+      this.deps.stopRun();
+      return { delivered: 'now' };
+    }
     return { delivered: 'next' };
   }
 
@@ -441,6 +461,7 @@ export class PipelineManager {
     if (!waiting) return 'No pipeline stage is waiting for you right now; nothing to do.';
     if (waiting.stage !== stage)
       return `The pipeline is waiting for the "${waiting.stage}" stage, not "${stage}".`;
+    waiting.done = true;
     waiting.resolve({ ok, summary, ...(knowledge ? { knowledge } : {}) });
     return ok
       ? `Stage "${stage}" recorded. Finish your turn now; the pipeline continues with the next stage.`
@@ -935,8 +956,19 @@ export class PipelineManager {
             stage = 'record';
             break;
           }
-          const r = await this.engineRun(slug, mode);
+          live.engineRunning = true;
+          const r = await this.engineRun(slug, mode).finally(() => (live.engineRunning = false));
           if (live.abort.signal.aborted) throw new Stopped();
+          // A steer stopped the run: straight to the agent with what the user said.
+          if (live.steerStopped) {
+            live.steerStopped = false;
+            const what = mode === 'dry' ? 'dry run' : 'recording';
+            await this.end(slug, false, `Stopped to steer the agent`);
+            failure = { mode, stepId: null, error: `the user stopped the ${what} to steer the agent` };
+            helpFeedback = live.steers.splice(0).join('\n');
+            stage = 'repair';
+            break;
+          }
           if (!('error' in r)) {
             const start = r.events.find((e) => e.kind === 'marker' && e.name === 'start');
             const v = start?.kind === 'marker' ? start.data?.version : undefined;

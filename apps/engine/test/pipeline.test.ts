@@ -224,10 +224,10 @@ describe('PipelineManager', () => {
     expect(sent.some((t) => t.includes('Your turn ended'))).toBe(false);
   });
 
-  it('keeps a steer sent at a gate for the next agent stage', async () => {
+  it('takes a steer sent at a gate as the revision', async () => {
     const { p, sent } = make(
       async (p, stage) => {
-        if (stage === 'plan') {
+        if (stage === 'plan' || stage === 'plan revision') {
           await p.savePlan(slug, PLAN);
           done(p, 'plan');
         } else if (stage === 'script') done(p, 'script');
@@ -239,12 +239,48 @@ describe('PipelineManager', () => {
     await expect(p.steer(slug, 'too early')).rejects.toThrow(/not running/);
     await p.start(slug, { storyboard: true, narration: false });
     await until(() => last().status === 'waiting');
-    expect(await p.steer(slug, 'Keep every step under 20 seconds')).toEqual({ delivered: 'next' });
+    expect(await p.steer(slug, 'Keep every step under 20 seconds')).toEqual({ delivered: 'now' });
+    await until(() => sent.some((t) => t.includes('Keep every step under 20 seconds')));
+    await until(() => last().status === 'waiting');
     await p.approve(slug);
     await until(() => last().status === 'done');
-    const script = sent.find((t) => t.includes('Keep every step under 20 seconds'));
-    expect(script).toMatch(/^\[Pipeline · script/);
-    expect(sent.filter((t) => t.includes('Keep every step under 20 seconds'))).toHaveLength(1);
+  });
+
+  it('stops a dry run to steer the agent, which repairs with the steer', async () => {
+    let release: (() => void) | null = null;
+    let steered = false;
+    const { p, sent } = make(
+      async (p, stage) => {
+        if (stage === 'plan') {
+          await p.savePlan(slug, PLAN);
+          done(p, 'plan');
+        } else if (stage === 'script') done(p, 'script');
+        else if (stage === 'repair') done(p, 'repair');
+        else if (stage === 'post-production') done(p, 'post');
+        else if (stage === 'retro') done(p, 'retro');
+      },
+      [],
+      undefined,
+      {
+        runProject: async () => {
+          if (steered) return run(true);
+          steered = true;
+          await new Promise<void>((r) => (release = r));
+          return { ...run(false), failure: { stepId: 's1', error: 'Stopped by user' } } as never;
+        },
+        stopRun: () => release?.(),
+      },
+    );
+    await p.start(slug, { storyboard: false, narration: false });
+    await until(() => last().stage === 'dry_run' && release !== null);
+    expect(await p.steer(slug, 'Use the OpenAI provider')).toEqual({ delivered: 'now' });
+    await until(() => last().status === 'done');
+    const repair = sent.find((t) => t.startsWith('[Pipeline · repair'));
+    expect(repair).toContain('Use the OpenAI provider');
+    expect(
+      last().history.some((h) => h.stage === 'dry_run' && h.summary === 'Stopped to steer the agent'),
+    ).toBe(true);
+    expect(sent.some((t) => t.includes('You stopped'))).toBe(false);
   });
 
   it('plans, waits at the storyboard gate, then scripts, repairs, records and finishes', async () => {

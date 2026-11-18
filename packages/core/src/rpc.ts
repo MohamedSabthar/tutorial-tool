@@ -629,9 +629,9 @@ export const rpcMethods = {
   },
   'pipeline.stop': { params: z.object({ slug: z.string() }), result: PipelineState },
   /**
-   * Steers the running pipeline. During an agent stage the text goes straight into the agent's
-   * queue and it reads it mid-turn (`now`); while the engine runs a dry run or recording, or a
-   * gate waits, it is kept and opens the next agent stage (`next`).
+   * Steers the running pipeline, forcefully (`now`): the agent's turn is interrupted, or the dry
+   * run or recording is stopped and the agent repairs with the steer, or a waiting gate takes it
+   * as the revision. During the voice-over it opens the next agent stage (`next`).
    */
   'pipeline.steer': {
     params: z.object({ slug: z.string(), text: z.string().trim().min(1).max(4000) }),

@@ -375,8 +375,8 @@ export function KnowledgeCard({
 }
 
 /**
- * Steer the agent while it works: the text goes straight into its queue and it reads it in the
- * turn it is on, or, during a dry run or recording, at the start of its next step.
+ * Steer the agent while it works, forcefully: it stops what it is doing (its turn, a dry run or
+ * a recording) and works from the steer; at a review it is the requested change.
  */
 export function SteerCard({
   disabled,
@@ -400,8 +400,8 @@ export function SteerCard({
         setNote({
           text:
             when === 'now'
-              ? 'Sent. The agent reads it in what it is doing now.'
-              : 'Saved. The agent gets it when its next step starts.',
+              ? 'Sent. The agent stopped what it was doing and works from this now.'
+              : 'Saved. The agent gets it as soon as the voice-over is made.',
         });
       })
       .catch((e: unknown) => setNote({ text: e instanceof Error ? e.message : String(e), error: true }))
