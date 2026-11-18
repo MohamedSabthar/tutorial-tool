@@ -299,7 +299,8 @@ export function Callout({ props, duration }: OverlayProps<CalloutProps>) {
             background: 'rgba(5,10,28,0.94)',
             border: '1px solid rgba(255,255,255,0.12)',
             borderRadius: 18,
-            boxShadow: theme.shadow,
+            // An orange glow under the card, as on choreolabs.com's highlighted cards.
+            boxShadow: `0 30px 50px -30px rgba(255,70,0,0.7), ${theme.shadow}`,
             padding: '20px 24px',
             fontFamily: theme.font.sans,
             color: theme.color.white,

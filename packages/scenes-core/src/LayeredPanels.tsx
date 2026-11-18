@@ -79,7 +79,25 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
           const now = k === i && !done;
           const grow = on ? pop(t, at(i), at(i) + 0.35, 1.8) : 1;
           return (
-            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 18, height: 58 }}>
+            <div
+              key={s.id}
+              style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 18, height: 58 }}
+            >
+              {i < n - 1 && (
+                // The connector to the next stop: the orange axis of choreolabs.com diagrams, lit
+                // up to where the request has got to.
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    left: 9,
+                    top: 39,
+                    width: 2,
+                    height: 38,
+                    background: k > i ? p.signal : p.line,
+                  }}
+                />
+              )}
               <span
                 style={{
                   width: 20,
@@ -118,8 +136,8 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
               padding: '30px 36px',
               borderRadius: 18,
               background: active || (done && i === n - 1) ? `${p.litFill}, ${p.node}` : p.node,
-              border: `1.5px solid ${active || (done && i === n - 1) ? p.litLine : p.line}`,
-              boxShadow: active ? '0 30px 70px rgba(0,0,0,0.45)' : '0 22px 56px rgba(0,0,0,0.3)',
+              border: `1.5px solid ${active ? p.nowBorder : done && i === n - 1 ? p.litLine : p.line}`,
+              boxShadow: active ? p.nowShadow : '0 22px 56px rgba(0,0,0,0.3)',
               zIndex: active ? 10 : i,
               display: 'flex',
               flexDirection: 'column',
@@ -156,8 +174,9 @@ export default function LayeredPanels({ props }: OverlayProps<FlowProps>) {
             boxSizing: 'border-box',
             padding: '22px 30px',
             borderRadius: 18,
-            background: `${p.litFill}, ${p.node}`,
-            border: `1.5px solid ${p.litLine}`,
+            background: p.resultFill,
+            color: p.resultInk,
+            boxShadow: '0 0 40px rgba(255,70,0,0.35)',
             fontSize: 32,
             fontWeight: 600,
             letterSpacing: '-0.03em',

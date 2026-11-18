@@ -77,6 +77,15 @@ export const scenePalette = (name: SceneTheme | LegacySceneTheme = 'choreo-dark'
   signal: theme.color.orange,
   /** Glow around the current item (box-shadow). */
   signalGlow: '0 0 0 1.5px #FF4600, 0 0 40px rgba(255,70,0,0.35)',
+  /**
+   * The card the narration is on now (choreolabs.com's highlighted "The Model" card): keep the
+   * blue lit fill, add an orange edge and an orange glow underneath.
+   */
+  nowBorder: 'rgba(255,70,0,0.85)',
+  nowShadow: '0 36px 70px -34px rgba(255,70,0,0.75), 0 26px 60px rgba(0,0,0,0.35)',
+  /** A closing result (the reply): an orange pill with midnight text, like the site's CTA. */
+  resultFill: theme.color.orange,
+  resultInk: '#050A1C',
 });
 
 /**

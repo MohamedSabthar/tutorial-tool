@@ -110,7 +110,7 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
               pathLength={1}
               strokeDasharray={1}
               strokeDashoffset={1 - easeOut(t, 1.2 + i * 0.2, 1.8 + i * 0.2)}
-              stroke={k > i ? accent : p.wire}
+              stroke={k > i ? signal : p.wire}
               strokeWidth={k > i ? 3 : 1.5}
               strokeLinecap="round"
             />
@@ -249,9 +249,10 @@ export default function BlueprintFlow({ props }: OverlayProps<FlowProps>) {
                 borderRadius: 999,
                 fontFamily: theme.font.mono,
                 fontSize: 28,
-                color: p.number,
-                background: 'rgba(31,79,255,0.16)',
-                border: `1px solid ${p.litLine}`,
+                fontWeight: 600,
+                color: p.resultInk,
+                background: p.resultFill,
+                boxShadow: '0 0 36px rgba(255,70,0,0.35)',
                 opacity: clamp01(pop(t, replyAt, replyAt + 0.5)),
                 transform: `scale(${0.6 + 0.4 * pop(t, replyAt, replyAt + 0.5)})`,
                 transformOrigin: 'left center',

@@ -117,8 +117,8 @@ export default function CardDeck({ props }: OverlayProps<ConceptProps>) {
                   gap: 18,
                   padding: '40px 42px',
                   background: now ? `${p.litFill}, ${p.node}` : p.node,
-                  border: `1.5px solid ${now ? p.litLine : p.line}`,
-                  boxShadow: now ? '0 34px 80px rgba(0,0,0,0.45)' : '0 24px 60px rgba(0,0,0,0.3)',
+                  border: `1.5px solid ${now ? p.nowBorder : p.line}`,
+                  boxShadow: now ? p.nowShadow : '0 24px 60px rgba(0,0,0,0.3)',
                   opacity: 1 - 0.4 * settle,
                   transform: `scaleX(${frontW})`,
                 }}

@@ -66,7 +66,7 @@ export function TitleCard({ props, duration }: OverlayProps<TitleCardProps>) {
               border: '1px solid rgba(255,255,255,0.1)',
               padding: '28px 40px 30px',
               borderRadius: 18,
-              boxShadow: theme.shadow,
+              boxShadow: `0 34px 60px -34px rgba(255,70,0,0.7), ${theme.shadow}`,
               textAlign: 'left',
             }}
           >

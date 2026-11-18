@@ -66,6 +66,36 @@ export default function TermSpotlight({ props }: OverlayProps<ConceptProps>) {
           transform: `scaleX(${n > 1 ? span(t, at(1) - 0.9, at(1) - 0.3) : 0})`,
         }}
       />
+      {/* Orange corner ticks at each column edge of the strip (choreolabs.com column grids). */}
+      {Array.from({ length: n + 1 }, (_, i) => {
+        const edge = i === 0 ? 'left' : i === n ? 'right' : 'mid';
+        return (
+          <span
+            key={`tick-${i}`}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: i * slotW - (edge === 'right' ? 14 : edge === 'mid' ? 7 : 0),
+              top: STRIP_Y - 30,
+              width: 14,
+              height: 12,
+              boxSizing: 'border-box',
+              borderTop: `2px solid ${p.signal}`,
+              ...(edge === 'left'
+                ? { borderLeft: `2px solid ${p.signal}` }
+                : edge === 'right'
+                  ? { borderRight: `2px solid ${p.signal}` }
+                  : {
+                      borderLeft: `2px solid ${p.signal}`,
+                      width: 2,
+                      left: i * slotW - 1,
+                      borderTop: 'none',
+                    }),
+              opacity: n > 1 ? span(t, at(1) - 0.6, at(1) - 0.2) : 0,
+            }}
+          />
+        );
+      })}
       {terms.map((c, i) => {
         const b = at(i);
         const next = i + 1 < n ? at(i + 1) : Infinity;

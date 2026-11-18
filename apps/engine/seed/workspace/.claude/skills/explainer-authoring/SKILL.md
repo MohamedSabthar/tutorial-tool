@@ -147,5 +147,10 @@ and a soft blue glow; don't add your own backdrop or line grids.
 - **Colour roles:** blue (`p.accent`, `p.number`) for structure and what's been covered; orange
   (`p.signal`, `p.signalGlow`) only for what's happening right now: the current node, the moving
   request, the active path. Body text `p.muted`, labels `p.dim`. Wires `p.wire`, 1.5 px.
+- **Use orange here and there, as choreolabs.com does** (not only for the moving dot): the card
+  the narration is on gets the blue lit fill plus `border: 1.5px solid ${p.nowBorder}` and
+  `boxShadow: p.nowShadow` (orange edge and under-glow); the path already travelled is orange; a
+  progress axis or connector is orange up to the current step; column grids get small orange
+  corner ticks; the closing result is an orange pill (`p.resultFill`, text `p.resultInk`).
 - Sentence case, one idea per beat, no more than ~12 words on screen per beat.
 - Use `ChoreoLogo` / `ChoreoMark` from the SDK for the logo; never type the company name as a logo.
