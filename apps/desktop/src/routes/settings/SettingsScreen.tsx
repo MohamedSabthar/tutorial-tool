@@ -755,7 +755,8 @@ const PRODUCT_ID = /^[a-z0-9][a-z0-9-]*$/;
 
 /** What's wrong with a product entry, or null. */
 export function productProblem(p: ProductConfig, all: ProductConfig[]): string | null {
-  if (!p.name.trim()) return 'Give it a name.';
+  // An app product is named from the app when it's saved; the typed name is only a fallback.
+  if (!p.name.trim() && p.app === undefined) return 'Give it a name.';
   if (!PRODUCT_ID.test(p.id)) return 'The id uses lower case letters, digits and dashes.';
   if (all.filter((x) => x.id === p.id).length > 1) return 'Another product has this id.';
   if (p.app !== undefined && !p.app.trim()) return 'Choose the app to open.';
@@ -848,9 +849,21 @@ function ProductsSettings() {
             <fieldset key={i} className="st-product-edit" aria-invalid={problem ? true : undefined}>
               <legend>{p.name || 'New product'}</legend>
               <div className="st-inline">
-                <Field label="Name">
+                <Field
+                  label="Name"
+                  hint={
+                    launch === 'App'
+                      ? 'Read from the app when you save. Typed only if the app can’t be read.'
+                      : undefined
+                  }
+                >
                   {(id) => (
-                    <Input id={id} value={p.name} onChange={(e) => change(i, { name: e.target.value })} />
+                    <Input
+                      id={id}
+                      value={p.name}
+                      placeholder={launch === 'App' ? 'From the app' : undefined}
+                      onChange={(e) => change(i, { name: e.target.value })}
+                    />
                   )}
                 </Field>
                 <Field label="Id">
@@ -878,7 +891,7 @@ function ProductsSettings() {
                 }
               />
               {launch === 'App' ? (
-                <Field label="App" hint="For example /Applications/WSO2 Integrator.app">
+                <Field label="App" hint="The installed app, for example /Applications/Choreo Integrator.app">
                   {(id) => (
                     <Input id={id} value={p.app ?? ''} onChange={(e) => change(i, { app: e.target.value })} />
                   )}
@@ -886,7 +899,7 @@ function ProductsSettings() {
               ) : (
                 <Field
                   label="Extensions"
-                  hint="Marketplace ids, separated by commas, e.g. WSO2.wso2-integrator@1.0.1"
+                  hint="Marketplace ids, separated by commas, e.g. publisher.extension@1.0.1"
                 >
                   {(id) => (
                     <Input

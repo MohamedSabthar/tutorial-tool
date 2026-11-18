@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { formatIssues, ProductConfig, ProductsFile, RpcError, type ProductInfo } from '@studio/core';
-import { configureProducts, listProducts, PRODUCTS } from '@studio/recorder/node';
+import { appDisplayName, configureProducts, listProducts, PRODUCTS } from '@studio/recorder/node';
 
 /**
  * The workspace's `products.json`: which products tutorials can be made for, how the recorder
@@ -41,12 +41,25 @@ export class ProductsRegistry {
     });
   }
 
-  /** Replaces the entries (keeping fields the editor doesn't know, like projectStructure). */
-  async save(products: ProductConfig[]): Promise<ProductInfo[]> {
+  /**
+   * Replaces the entries (keeping fields the editor doesn't know, like projectStructure). An app
+   * product is named as the app names itself; the typed name is only a fallback.
+   */
+  async save(input: ProductConfig[]): Promise<ProductInfo[]> {
+    const products = input.map((p) => {
+      const own = p.app ? appDisplayName(p.app) : null;
+      return own ? { ...p, name: own } : p;
+    });
     const ids = new Set<string>();
     for (const p of products) {
       const r = ProductConfig.safeParse(p);
-      if (!r.success) throw new RpcError(`${p.id || 'a product'}: ${formatIssues(r.error)}`, 'bad_request');
+      if (!r.success)
+        throw new RpcError(
+          p.app && !p.name
+            ? `${p.id || 'a product'}: can't read the app's name from ${p.app}; type a name`
+            : `${p.id || 'a product'}: ${formatIssues(r.error)}`,
+          'bad_request',
+        );
       if (ids.has(p.id)) throw new RpcError(`two products have the id "${p.id}"`, 'bad_request');
       ids.add(p.id);
       if (!(p.id in PRODUCTS) && !p.app && !p.extensions?.length)

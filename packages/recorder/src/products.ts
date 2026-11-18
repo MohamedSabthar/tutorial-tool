@@ -55,13 +55,36 @@ export const PRODUCTS: Record<string, Product> = {
   },
 };
 
+/**
+ * The name an installed VS Code-based app calls itself (`nameLong` in its product.json), or
+ * null when it isn't installed or can't be read. Products are named from this, so a renamed
+ * product shows its new name as soon as the new build is installed.
+ */
+export function appDisplayName(appPath: string): string | null {
+  try {
+    const file = path.join(appPath, 'Contents', 'Resources', 'app', 'product.json');
+    const p = JSON.parse(readFileSync(file, 'utf8')) as { nameLong?: unknown; nameShort?: unknown };
+    const name = typeof p.nameLong === 'string' ? p.nameLong : p.nameShort;
+    return typeof name === 'string' && name.trim() ? name.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** An app product named as the app names itself (the configured name when it can't be read). */
+const ownName = (p: Product): Product =>
+  p.type === 'vscode-app' ? { ...p, name: appDisplayName(p.appPath) ?? p.name } : p;
+
 /** Built-in products merged with the workspace's products.json (see configureProducts). */
-let registry: Record<string, Product> = { ...PRODUCTS };
+let registry: Record<string, Product> = Object.fromEntries(
+  Object.entries(PRODUCTS).map(([id, p]) => [id, ownName(p)]),
+);
 
 /**
  * Applies the workspace's product entries: `app` launches an installed VS Code-based app,
  * `extensions` the pinned VS Code with those extensions; an entry with neither keeps the
- * built-in launch (only its name changes), and a new product without either is skipped.
+ * built-in launch (only its name changes), and a new product without either is skipped. An app
+ * product takes the name the app gives itself; the entry's name is the fallback.
  */
 export function configureProducts(
   entries: {
@@ -99,7 +122,7 @@ export function configureProducts(
         ...(e.fixture ? { fixtureKind: e.fixture } : {}),
       };
   }
-  registry = next;
+  registry = Object.fromEntries(Object.entries(next).map(([id, p]) => [id, ownName(p)]));
 }
 
 export function listProducts(): Product[] {
