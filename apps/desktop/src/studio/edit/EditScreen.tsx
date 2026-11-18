@@ -42,18 +42,34 @@ import { SfxPlayer } from '../SfxPlayer';
 import { useEngineBackend, useMockBackend, type EditBackend } from './backend';
 import { StepsRail } from './StepsRail';
 import { StepPanel, type AddKind } from './StepPanel';
-import { EditTimeline, EXTRA_TRACKS, pieceKey, type ExtraTrack, type Selection, type TimelineStep } from './EditTimeline';
+import {
+  EditTimeline,
+  EXTRA_TRACKS,
+  pieceKey,
+  type ExtraTrack,
+  type Selection,
+  type TimelineStep,
+} from './EditTimeline';
 import { PiecePanel } from './PiecePanel';
 import { ExplainerPanel, plainName } from './ExplainerPanel';
 import { FIX_KEYS, FixSheet, type FixKind } from './FixSheet';
 import { FullScrubber } from './FullScrubber';
 import { ChangesList } from './ChangesPopover';
 import { AgentDock } from './AgentDock';
-import { agentActivity, agentTarget, cutsOver, isOnScreen, mmss, overlayName, parseKeys, stepPace } from './model';
+import {
+  agentActivity,
+  agentTarget,
+  cutsOver,
+  isOnScreen,
+  mmss,
+  overlayName,
+  parseKeys,
+  stepPace,
+} from './model';
 import { previewAgent, previewFromHash, type Preview } from './previews';
 import './EditScreen.css';
 
-type Pick = 'arrow' | 'box' | 'highlight' | 'callout' | 'blur' | 'zoom' | 'note';
+type Pick = 'arrow' | 'box' | 'highlight' | 'callout' | 'blur' | 'zoom' | 'note' | 'direct';
 const PICK_HINT: Record<Pick, string> = {
   arrow: 'Click what to point at',
   box: 'Click what to outline',
@@ -62,6 +78,7 @@ const PICK_HINT: Record<Pick, string> = {
   blur: 'Click what to hide',
   zoom: 'Drag over the area to zoom into',
   note: 'Click where the agent should look',
+  direct: 'Click where the agent should look. It goes straight away',
 };
 type Placed = 'arrow' | 'box' | 'highlight' | 'callout' | 'blur';
 const COMPONENT: Record<Placed, string> = {
@@ -86,7 +103,9 @@ const WHAT: Record<Placed, string> = {
   blur: 'a hidden area',
 };
 /** A component's default props, or {} when its schema can't make them. */
-function defaultProps(schema: { safeParse?: (v: unknown) => { success: boolean; data?: unknown } } | undefined) {
+function defaultProps(
+  schema: { safeParse?: (v: unknown) => { success: boolean; data?: unknown } } | undefined,
+) {
   const r = schema?.safeParse?.({});
   return r?.success && r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : {};
 }
@@ -121,7 +140,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const mockBackend = useMockBackend(
     slug,
     mock,
-    preview === 'empty' ? (t) => ({ ...t, takes: [], scenes: [], steps: [], overlays: [], voice: [] }) : undefined,
+    preview === 'empty'
+      ? (t) => ({ ...t, takes: [], scenes: [], steps: [], overlays: [], voice: [] })
+      : undefined,
   );
   const be: EditBackend = mock ? mockBackend : engineBackend;
   const timeline = be.timeline;
@@ -200,6 +221,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const [noteOpen, setNoteOpen] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [noteError, setNoteError] = useState(false);
+  // The open note was dropped with M: its main button sends it on its own, straight away.
+  const [noteDirect, setNoteDirect] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
   const [ask, setAsk] = useState('');
   const [dragRect, setDragRect] = useState<Rect | null>(null);
@@ -220,9 +243,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const activity = agentActivity(agentEvents);
   const target = working ? agentTarget(activity, stepsLive) : { stepId: null };
   const pipe = usePipeline(slug);
-  const cues = pipe.state?.status === 'waiting' && pipe.state.gate?.kind === 'cues' ? (pipe.state.gate.cues ?? []) : [];
+  const cues =
+    pipe.state?.status === 'waiting' && pipe.state.gate?.kind === 'cues' ? (pipe.state.gate.cues ?? []) : [];
 
-  const spans = useMemo(() => (timeline && resolved ? voiceSpans(timeline, resolved.tm) : []), [timeline, resolved]);
+  const spans = useMemo(
+    () => (timeline && resolved ? voiceSpans(timeline, resolved.tm) : []),
+    [timeline, resolved],
+  );
   const sfx = useMemo(
     () => (timeline?.sfx.enabled && take && events.length ? sfxCues(timeline, { [take.id]: events }) : []),
     [timeline, take, events],
@@ -265,7 +292,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     };
     controls.pause();
     if (component === 'core:Zoom' || !component.startsWith('core:')) Object.assign(value, { author: 'user' });
-    void attempt(() => be.patch([{ op: 'add', path: '/overlays/-', value }], label), 'Added. Drag it on the video to adjust.', true);
+    void attempt(
+      () => be.patch([{ op: 'add', path: '/overlays/-', value }], label),
+      'Added. Drag it on the video to adjust.',
+      true,
+    );
     setSelection({ kind: 'overlay', id });
     return id;
   }
@@ -295,7 +326,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     const t = now();
     const kind = pick;
     setPick(null);
-    if (kind === 'note') {
+    if (kind === 'note' || kind === 'direct') {
       const id = uid('an');
       void attempt(() =>
         be.patch(
@@ -303,7 +334,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
             {
               op: 'add',
               path: '/annotations/-',
-              value: { id, t: r2(t), shape: { kind: 'point', x: Math.round(px), y: Math.round(py) }, comment: '', status: 'open' },
+              value: {
+                id,
+                t: r2(t),
+                shape: { kind: 'point', x: Math.round(px), y: Math.round(py) },
+                comment: '',
+                status: 'open',
+              },
             },
           ],
           'Add a note for the agent',
@@ -312,6 +349,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       setNoteOpen(id);
       setNoteDraft('');
       setNoteError(false);
+      setNoteDirect(kind === 'direct');
       return;
     }
     if (kind === 'zoom') return;
@@ -323,19 +361,26 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     // Clicked inside a recorded step's target: follow it (it moves with the screen).
     const hit =
       kind !== 'blur'
-        ? snapTargets.find((s) => cx >= s.rect.x && cx <= s.rect.x + s.rect.w && cy >= s.rect.y && cy <= s.rect.y + s.rect.h)
+        ? snapTargets.find(
+            (s) => cx >= s.rect.x && cx <= s.rect.x + s.rect.w && cy >= s.rect.y && cy <= s.rect.y + s.rect.h,
+          )
         : undefined;
     const n = stepNo(t);
     const id = addOverlay(
       COMPONENT[kind],
       {
-        ...(hit ? { anchor: { stepId: hit.stepId, target: 'primary' } } : { rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) } }),
-        ...(kind === 'callout' ? { props: { ...resolveProps('core:Callout', {}), title: 'Callout', text: '' } } : {}),
+        ...(hit
+          ? { anchor: { stepId: hit.stepId, target: 'primary' } }
+          : { rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) } }),
+        ...(kind === 'callout'
+          ? { props: { ...resolveProps('core:Callout', {}), title: 'Callout', text: '' } }
+          : {}),
       },
       4,
       `Add ${WHAT[kind]}${n ? ` in step ${n}` : ''}`,
     );
-    if (id && kind === 'callout') setTimeout(() => (document.getElementById(`ed-ovt-${id}`) as HTMLInputElement | null)?.select(), 350);
+    if (id && kind === 'callout')
+      setTimeout(() => (document.getElementById(`ed-ovt-${id}`) as HTMLInputElement | null)?.select(), 350);
   }
   /** "Zoom into an area": the rectangle dragged on the video (stage px, while dragging). */
   const [zoomDrag, setZoomDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -353,15 +398,24 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     // A click (or a tiny drag): a 2× zoom around that spot.
     const r =
       screen.w < 40 || screen.h < 24
-        ? { x: screen.x - STAGE.width / 4, y: screen.y - STAGE.height / 4, w: STAGE.width / 2, h: STAGE.height / 2 }
+        ? {
+            x: screen.x - STAGE.width / 4,
+            y: screen.y - STAGE.height / 4,
+            w: STAGE.width / 2,
+            h: STAGE.height / 2,
+          }
         : screen;
     const rect = screenToStage(r, take, resolved.instances, now());
     // The zoom fits the area you dragged, as you saw it.
-    const zoom = Math.round(Math.min(Math.max(Math.min(STAGE.width / r.w, STAGE.height / r.h), 1.2), 4) * 10) / 10;
+    const zoom =
+      Math.round(Math.min(Math.max(Math.min(STAGE.width / r.w, STAGE.height / r.h), 1.2), 4) * 10) / 10;
     const n = stepNo(now());
     addOverlay(
       'core:Zoom',
-      { rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) }, props: { ...resolveProps('core:Zoom', {}), zoom } },
+      {
+        rect: { x: r2(rect.x), y: r2(rect.y), w: r2(rect.w), h: r2(rect.h) },
+        props: { ...resolveProps('core:Zoom', {}), zoom },
+      },
       3,
       `Zoom in${n ? ` in step ${n}` : ''}`,
     );
@@ -377,10 +431,20 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     if (askFor.kind === 'keys') {
       const keys = parseKeys(askFor.text);
       if (!keys.length) return;
-      addOverlay('core:Keystroke', { props: { ...resolveProps('core:Keystroke', {}), keys } }, 2.5, `Add keys${where}`);
+      addOverlay(
+        'core:Keystroke',
+        { props: { ...resolveProps('core:Keystroke', {}), keys } },
+        2.5,
+        `Add keys${where}`,
+      );
     } else {
       if (!askFor.text.trim()) return;
-      addOverlay('core:TitleCard', { props: { ...resolveProps('core:TitleCard', {}), title: askFor.text.trim() } }, 4, `Add a title card${where}`);
+      addOverlay(
+        'core:TitleCard',
+        { props: { ...resolveProps('core:TitleCard', {}), title: askFor.text.trim() } },
+        4,
+        `Add a title card${where}`,
+      );
     }
     setAskFor(null);
   }
@@ -393,7 +457,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           return {
             id,
             name: m.meta?.name ?? id.split(':')[1] ?? id,
-            scope: scope === 'project' ? 'This tutorial' : scope === 'series' ? 'This series' : 'All tutorials',
+            scope:
+              scope === 'project' ? 'This tutorial' : scope === 'series' ? 'This series' : 'All tutorials',
           };
         }),
     [registry],
@@ -404,11 +469,15 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     else if (k === 'keys' || k === 'title') {
       setAskFor({ kind: k, text: k === 'keys' ? '⌘ S' : (title ?? '') });
       setTimeout(() => (document.getElementById('ed-ask-in') as HTMLInputElement | null)?.select(), 60);
-    }
-    else if (k === 'own' && component) {
+    } else if (k === 'own' && component) {
       const meta = registry[component]?.meta;
       const n = stepNo(now());
-      addOverlay(component, { props: defaultProps(meta?.props) }, meta?.defaultDuration ?? 3, `Add ${meta?.name ?? component}${n ? ` in step ${n}` : ''}`);
+      addOverlay(
+        component,
+        { props: defaultProps(meta?.props) },
+        meta?.defaultDuration ?? 3,
+        `Add ${meta?.name ?? component}${n ? ` in step ${n}` : ''}`,
+      );
     } else if (k !== 'own') setPick(k);
   }
   /** Asks first, then moves a project overlay into the shared library. */
@@ -419,22 +488,38 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       body: `${name} moves from this tutorial into the shared library, so every tutorial can use it. It's checked first.`,
       action: 'Save to library',
       run: () =>
-        attempt(async () => {
-          toast(`Checking ${name}…`);
-          await be.promote(component);
-        }, mock ? `Preview: ${name} would be in the library now (nothing was saved).` : `${name} is in the library. Every tutorial can use it now.`),
+        attempt(
+          async () => {
+            toast(`Checking ${name}…`);
+            await be.promote(component);
+          },
+          mock
+            ? `Preview: ${name} would be in the library now (nothing was saved).`
+            : `${name} is in the library. Every tutorial can use it now.`,
+        ),
     });
   }
   /** One confirm sheet for actions that change a lot at once. */
-  const [confirm, setConfirm] = useState<{ title: string; body: string; action: string; danger?: boolean; run: () => unknown } | null>(null);
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    body: string;
+    action: string;
+    danger?: boolean;
+    run: () => unknown;
+  } | null>(null);
   const closeConfirm = useCallback(() => setConfirm(null), []);
 
-  function editOverlay(o: OverlayInstance, change: { props?: Record<string, unknown>; end?: number }, label: string) {
+  function editOverlay(
+    o: OverlayInstance,
+    change: { props?: Record<string, unknown>; end?: number },
+    label: string,
+  ) {
     const i = overlayIndex(o.id);
     if (i < 0) return;
     const ops: TimelinePatch = [];
     if (change.props) ops.push({ op: 'replace', path: `/overlays/${i}/props`, value: change.props });
-    if (change.end !== undefined) ops.push({ op: 'replace', path: `/overlays/${i}/end`, value: r2(Math.min(change.end, duration)) });
+    if (change.end !== undefined)
+      ops.push({ op: 'replace', path: `/overlays/${i}/end`, value: r2(Math.min(change.end, duration)) });
     if (ops.length) void attempt(() => be.patch(ops, label));
   }
   function removeOverlay(o: OverlayInstance) {
@@ -442,7 +527,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     if (i < 0) return;
     const name = overlayName(o, names[o.component]);
     setSelection(null);
-    void attempt(() => be.patch([{ op: 'remove', path: `/overlays/${i}` }], `Remove ${name.toLowerCase()}`), `${name} removed.`, true);
+    void attempt(
+      () => be.patch([{ op: 'remove', path: `/overlays/${i}` }], `Remove ${name.toLowerCase()}`),
+      `${name} removed.`,
+      true,
+    );
   }
   function overlayTime(o: OverlayInstance, start: number, end: number, label: string) {
     const i = overlayIndex(o.id);
@@ -467,7 +556,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     const base = `/overlays/${i}`;
     const ops: TimelinePatch = [];
     if ('anchor' in result) {
-      ops.push({ op: selectedOverlay.anchor ? 'replace' : 'add', path: `${base}/anchor`, value: { stepId: result.anchor, target: 'primary' } });
+      ops.push({
+        op: selectedOverlay.anchor ? 'replace' : 'add',
+        path: `${base}/anchor`,
+        value: { stepId: result.anchor, target: 'primary' },
+      });
       if (selectedOverlay.rect) ops.push({ op: 'remove', path: `${base}/rect` });
     } else {
       ops.push({ op: selectedOverlay.rect ? 'replace' : 'add', path: `${base}/rect`, value: result.rect });
@@ -488,13 +581,25 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     try {
       if (pace.kind === 'skip') {
         // Put the step back first (one undo step per cut).
-        for (const c of cutsOver(timeline, step).reverse()) await be.editPiece(c.sceneId, c.after, { op: 'restoreCut' });
+        for (const c of cutsOver(timeline, step).reverse())
+          await be.editPiece(c.sceneId, c.after, { op: 'restoreCut' });
         if (kind === 'normal') toast(`Step ${n} is back in the video.`, { undo: () => void be.undo() });
-        else toast(`Step ${n} is back. Choose ${kind === 'fast' ? 'Faster' : 'Skip'} again to change its pace.`);
+        else
+          toast(`Step ${n} is back. Choose ${kind === 'fast' ? 'Faster' : 'Skip'} again to change its pace.`);
         return;
       }
-      const label = kind === 'fast' ? `Step ${n} faster` : kind === 'skip' ? `Skip step ${n}` : `Step ${n} at normal pace`;
-      const edit = kind === 'fast' ? ({ op: 'speed', rate: 2 } as const) : kind === 'skip' ? ({ op: 'remove' } as const) : ({ op: 'auto' } as const);
+      const label =
+        kind === 'fast'
+          ? `Step ${n} faster`
+          : kind === 'skip'
+            ? `Skip step ${n}`
+            : `Step ${n} at normal pace`;
+      const edit =
+        kind === 'fast'
+          ? ({ op: 'speed', rate: 2 } as const)
+          : kind === 'skip'
+            ? ({ op: 'remove' } as const)
+            : ({ op: 'auto' } as const);
       await be.editRange(r2(span.start), r2(span.end), edit, label);
       toast(`${label}.`, { undo: () => void be.undo() });
     } catch (e) {
@@ -512,22 +617,40 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     const clamped = Math.min(Math.max(to, s.start), s.end);
     if (edge === 'end' && to < s.end - 0.05) {
       if (s.end - clamped < 0.1) return;
-      void attempt(() => be.editRange(r2(clamped), r2(s.end), { op: 'remove' }, `Trim the end of step ${n}`), `Trimmed step ${n}.`, true);
+      void attempt(
+        () => be.editRange(r2(clamped), r2(s.end), { op: 'remove' }, `Trim the end of step ${n}`),
+        `Trimmed step ${n}.`,
+        true,
+      );
     } else if (edge === 'start' && to > s.start + 0.05) {
       if (clamped - s.start < 0.1) return;
-      void attempt(() => be.editRange(r2(s.start), r2(clamped), { op: 'remove' }, `Trim the start of step ${n}`), `Trimmed step ${n}.`, true);
+      void attempt(
+        () => be.editRange(r2(s.start), r2(clamped), { op: 'remove' }, `Trim the start of step ${n}`),
+        `Trimmed step ${n}.`,
+        true,
+      );
     } else {
       // Dragged outwards: put back the cut next to that edge, if there is one.
       const cut = timeline.scenes
         .flatMap((sc) =>
-          sc.kind === 'recording' && sc.take === st.take ? cutGaps(sc.segments).map((g) => ({ ...g, sceneId: sc.id })) : [],
+          sc.kind === 'recording' && sc.take === st.take
+            ? cutGaps(sc.segments).map((g) => ({ ...g, sceneId: sc.id }))
+            : [],
         )
-        .find((g) => (edge === 'end' ? Math.abs(g.from - st.to) < 1.5 || (g.from > st.from && g.from < st.to + 0.05) : Math.abs(g.to - st.from) < 1.5 || (g.to > st.from - 0.05 && g.to < st.to)));
+        .find((g) =>
+          edge === 'end'
+            ? Math.abs(g.from - st.to) < 1.5 || (g.from > st.from && g.from < st.to + 0.05)
+            : Math.abs(g.to - st.from) < 1.5 || (g.to > st.from - 0.05 && g.to < st.to),
+        );
       if (!cut) {
         toast(`Nothing was cut ${edge === 'end' ? 'after' : 'before'} step ${n} to put back.`);
         return;
       }
-      void attempt(() => be.editPiece(cut.sceneId, cut.after, { op: 'restoreCut' }), `Put back the recording ${edge === 'end' ? 'after' : 'before'} step ${n}.`, true);
+      void attempt(
+        () => be.editPiece(cut.sceneId, cut.after, { op: 'restoreCut' }),
+        `Put back the recording ${edge === 'end' ? 'after' : 'before'} step ${n}.`,
+        true,
+      );
     }
   }
 
@@ -561,7 +684,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     setPieceBusy(true);
     try {
       await be.editPiece(sceneId, index, edit);
-      if (edit.op === 'remove' || (edit.op === 'auto' && selectedPiece?.segment.kind === 'hold')) setSelection(null);
+      if (edit.op === 'remove' || (edit.op === 'auto' && selectedPiece?.segment.kind === 'hold'))
+        setSelection(null);
       toast(done, { undo: () => void be.undo() });
     } catch (e) {
       toast(errText(e), { tone: 'error' });
@@ -585,7 +709,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     }
     const seg = g.segment;
     const pos = resolved.tm.toSource(t);
-    const take = pos && pos.kind === 'recording' && pos.sceneId === g.sceneId ? pos.takeTime : resolved.sourceTime(t);
+    const take =
+      pos && pos.kind === 'recording' && pos.sceneId === g.sceneId ? pos.takeTime : resolved.sourceTime(t);
     const at = Math.round(Math.min(Math.max(take, seg.from), seg.to) * 1000) / 1000;
     const edit: PieceEdit = { op: 'freeze', at, duration: len };
     const scene = timeline.scenes.find((sc) => sc.id === g.sceneId);
@@ -593,7 +718,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     if (scene?.kind === 'recording') {
       try {
         const after = editPieceOn(scene.segments, g.index, edit);
-        holdIndex = [g.index, g.index + 1].find((i) => after[i]?.kind === 'hold' && after[i]?.manual) ?? g.index;
+        holdIndex =
+          [g.index, g.index + 1].find((i) => after[i]?.kind === 'hold' && after[i]?.manual) ?? g.index;
       } catch (e) {
         toast(errText(e), { tone: 'error' });
         return;
@@ -620,7 +746,10 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       if (g.segment.kind === 'speed') speeds.set(g.segment.rate, (speeds.get(g.segment.rate) ?? 0) + seen);
       else if (g.segment.kind === 'hold') holds.push(g.segment.duration);
     }
-    return { speeds: [...speeds].sort((a, b) => a[0] - b[0]).map(([rate, seconds]) => ({ rate, seconds })), holds };
+    return {
+      speeds: [...speeds].sort((a, b) => a[0] - b[0]).map(([rate, seconds]) => ({ rate, seconds })),
+      holds,
+    };
   }
   // ---------------------------------------------------------------------------
   // Explainers
@@ -693,18 +822,40 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           const span = resolved.tm.scenes.find((x) => x.sceneId === sc.id);
           const tr = timeline.transitions.find((x) => x.between[0] === prev.id && x.between[1] === sc.id);
           return span
-            ? [{ between: [prev.id, sc.id] as [string, string], at: span.start, transition: tr ? { component: tr.component, duration: tr.duration } : null }]
+            ? [
+                {
+                  between: [prev.id, sc.id] as [string, string],
+                  at: span.start,
+                  transition: tr ? { component: tr.component, duration: tr.duration } : null,
+                },
+              ]
             : [];
         })
       : [];
   /** The same patch as the old Studio's transition control: the whole list, one undo step. */
   function setTransition(between: [string, string], value: { component: string; duration: number } | null) {
     if (!timeline) return;
-    const rest = timeline.transitions.filter((x) => !(x.between[0] === between[0] && x.between[1] === between[1]));
+    const rest = timeline.transitions.filter(
+      (x) => !(x.between[0] === between[0] && x.between[1] === between[1]),
+    );
     const had = rest.length !== timeline.transitions.length;
-    const next = value ? [...rest, { id: `tr-${between[0]}-${between[1]}`, between, component: value.component, duration: value.duration }] : rest;
+    const next = value
+      ? [
+          ...rest,
+          {
+            id: `tr-${between[0]}-${between[1]}`,
+            between,
+            component: value.component,
+            duration: value.duration,
+          },
+        ]
+      : rest;
     void attempt(
-      () => be.patch([{ op: 'replace', path: '/transitions', value: next }], value ? 'Set transition' : 'Remove transition'),
+      () =>
+        be.patch(
+          [{ op: 'replace', path: '/transitions', value: next }],
+          value ? 'Set transition' : 'Remove transition',
+        ),
       value ? (had ? 'Changed the transition.' : 'Added a transition.') : 'Removed the transition.',
       true,
     );
@@ -717,8 +868,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   function rebuildAuto() {
     setConfirm({
       title: 'Rebuild the cursor, clicks and zooms?',
-      body:
-        'The pointer, the click ripples, the zooms that follow the clicks, the blurred areas and the title card are made again from the recording. Overlays you added or changed stay as they are. You can undo it.',
+      body: 'The pointer, the click ripples, the zooms that follow the clicks, the blurred areas and the title card are made again from the recording. Overlays you added or changed stay as they are. You can undo it.',
       action: 'Rebuild',
       run: async () => {
         try {
@@ -736,8 +886,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   function lineUp() {
     setConfirm({
       title: 'Line up clicks with the voice?',
-      body:
-        'Where the voice-over runs longer than the action, the picture freezes; where the screen waits or nobody is talking, it speeds up. Parts you set by hand stay as they are. You can undo it.',
+      body: 'Where the voice-over runs longer than the action, the picture freezes; where the screen waits or nobody is talking, it speeds up. Parts you set by hand stay as they are. You can undo it.',
       action: 'Line up',
       run: async () => {
         try {
@@ -759,7 +908,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     });
   }
 
-  const cutSpan = cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
+  const cutSpan =
+    cut && cut.to !== null ? { a: Math.min(cut.from, cut.to), b: Math.max(cut.from, cut.to) } : null;
   const cutLen = cutSpan ? Math.round((cutSpan.b - cutSpan.a) * 10) / 10 : 0;
   function startCut() {
     controls.pause();
@@ -799,7 +949,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     try {
       await be.revoice(line.id, text);
       draft(line.id, null);
-      toast(mock ? 'Preview: the words changed; nothing was voiced.' : 'Re-voiced.', { undo: () => void be.undo() });
+      toast(mock ? 'Preview: the words changed; nothing was voiced.' : 'Re-voiced.', {
+        undo: () => void be.undo(),
+      });
     } catch (e) {
       toast(errText(e), { tone: 'error' });
     } finally {
@@ -851,6 +1003,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     setNoteOpen(id);
     setNoteDraft(a.comment);
     setNoteError(error);
+    setNoteDirect(false);
   }
   /** Keeps the open note's words (in the annotation) and closes it. */
   function saveNote(close = true) {
@@ -860,7 +1013,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     const i = timeline.annotations.findIndex((a) => a.id === id);
     const a = timeline.annotations[i];
     if (!a || a.status !== 'open' || a.comment === noteDraft.trim()) return;
-    void attempt(() => be.patch([{ op: 'replace', path: `/annotations/${i}/comment`, value: noteDraft.trim() }], 'Describe a note'));
+    void attempt(() =>
+      be.patch(
+        [{ op: 'replace', path: `/annotations/${i}/comment`, value: noteDraft.trim() }],
+        'Describe a note',
+      ),
+    );
   }
   // Straight after Send, until the agent reports it is working: what is happening meanwhile.
   const [sendState, setSendState] = useState<{ label: string; at: number } | null>(null);
@@ -875,6 +1033,41 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     const t = setTimeout(() => setSendState(null), 120_000);
     return () => clearTimeout(t);
   }, [sendState]);
+
+  /** Sends one note on its own, now, without the rest of the batch. */
+  async function sendNote(id: string) {
+    if (!timeline) return;
+    const i = timeline.annotations.findIndex((a) => a.id === id);
+    const a = timeline.annotations[i];
+    if (!a || a.status !== 'open') return;
+    const words = (id === noteOpen ? noteDraft : a.comment).trim();
+    if (!words) {
+      setNoteError(true);
+      toast('Write what should change first', { tone: 'error' });
+      return;
+    }
+    const ops: TimelinePatch =
+      words !== a.comment ? [{ op: 'replace', path: `/annotations/${i}/comment`, value: words }] : [];
+    if (mock) ops.push({ op: 'replace', path: `/annotations/${i}/status`, value: 'sent' });
+    setNoteOpen(null);
+    if (!working) setSending('Taking a picture of this spot…');
+    try {
+      if (ops.length) await be.patch(ops, 'Send a note to the agent');
+      if (mock) {
+        previewOnly('this note');
+        setSending(null);
+      } else {
+        await client!.call('annotations.send', { slug, ids: [id] });
+        if (working) {
+          setSending(null);
+          toast('Sent. The agent reads your note next.');
+        } else setSending('Sent. Starting the agent…');
+      }
+    } catch (e) {
+      setSending(null);
+      toast(errText(e), { tone: 'error' });
+    }
+  }
 
   async function send(text: string) {
     if (batch.length) {
@@ -891,7 +1084,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       const ops: TimelinePatch = batch.flatMap((a, n) => {
         const i = timeline.annotations.indexOf(a);
         const comment = words(a) + (n === last && text ? `\n\nOverall: ${text}` : '');
-        const out: TimelinePatch = comment !== a.comment ? [{ op: 'replace', path: `/annotations/${i}/comment`, value: comment }] : [];
+        const out: TimelinePatch =
+          comment !== a.comment ? [{ op: 'replace', path: `/annotations/${i}/comment`, value: comment }] : [];
         // The engine marks them sent itself; the preview does it here.
         if (mock) out.push({ op: 'replace', path: `/annotations/${i}/status`, value: 'sent' });
         return out;
@@ -899,7 +1093,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       const ids = batch.map((a) => a.id);
       setNoteOpen(null);
       setBatchOpen(false);
-      setSending(`Taking a picture of each of your ${ids.length} spot${ids.length > 1 ? 's' : ''}…`);
+      if (!working)
+        setSending(`Taking a picture of each of your ${ids.length} spot${ids.length > 1 ? 's' : ''}…`);
       try {
         if (ops.length) await be.patch(ops, 'Describe the notes');
         if (mock) {
@@ -907,7 +1102,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           setSending(null);
         } else {
           await client!.call('annotations.send', { slug, ids });
-          if (!working) setSending('Sent. Starting the agent…');
+          if (working) toast(`Sent. The agent reads your ${ids.length > 1 ? 'notes' : 'note'} next.`);
+          else setSending('Sent. Starting the agent…');
         }
         setAsk('');
       } catch (e) {
@@ -921,11 +1117,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       return;
     }
     if (!client) return;
-    setSending('Sending to the agent…');
+    if (!working) setSending('Sending to the agent…');
     setAsk('');
     try {
       await agentLive.send(text);
-      if (!working) setSending('Sent. Starting the agent…');
+      if (working) toast('Sent. The agent reads it next.');
+      else setSending('Sent. Starting the agent…');
     } catch (e) {
       setSending(null);
       setAsk(text);
@@ -935,7 +1132,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   function removeNote(id: string) {
     if (noteOpen === id) setNoteOpen(null);
     const i = timeline?.annotations.findIndex((a) => a.id === id) ?? -1;
-    if (i >= 0) void attempt(() => be.patch([{ op: 'remove', path: `/annotations/${i}` }], 'Remove a note'), 'Note removed.', true);
+    if (i >= 0)
+      void attempt(
+        () => be.patch([{ op: 'remove', path: `/annotations/${i}` }], 'Remove a note'),
+        'Note removed.',
+        true,
+      );
   }
   const runAction = (what: string, fn: () => Promise<unknown>, done: string) =>
     mock ? previewOnly(what) : void attempt(fn, done);
@@ -944,7 +1146,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     const box = timeline.steps.find((s) => s.id === target.stepId)?.bbox;
     if (!box) return null;
     const r = sourceToStage(box, resolved.fit);
-    return { left: `${(r.x / STAGE.width) * 100}%`, top: `${(r.y / STAGE.height) * 100}%`, width: `${(r.w / STAGE.width) * 100}%`, height: `${(r.h / STAGE.height) * 100}%` };
+    return {
+      left: `${(r.x / STAGE.width) * 100}%`,
+      top: `${(r.y / STAGE.height) * 100}%`,
+      width: `${(r.w / STAGE.width) * 100}%`,
+      height: `${(r.h / STAGE.height) * 100}%`,
+    };
   })();
 
   // ---------------------------------------------------------------------------
@@ -953,10 +1160,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   const undoItem = be.history.undo.at(-1);
   const redoItem = be.history.redo.at(-1);
   const undo = () =>
-    void attempt(async () => {
-      await be.undo();
-      setSelection(null);
-    }, undoItem ? `Undid: ${undoItem.label}` : 'Undone');
+    void attempt(
+      async () => {
+        await be.undo();
+        setSelection(null);
+      },
+      undoItem ? `Undid: ${undoItem.label}` : 'Undone',
+    );
   const redo = () => void attempt(() => be.redo(), redoItem ? `Redid: ${redoItem.label}` : 'Redone');
 
   function fix(k: FixKind) {
@@ -969,6 +1179,7 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     else if (k === 'label') addLabel();
     else if (k === 'pace') focus('#ed-pace [aria-pressed="true"]');
     else if (k === 'note') setPick('note');
+    else if (k === 'direct') setPick('direct');
     else if (k === 'hold') void freezeAt(now(), 2);
     else if (k === 'zoom') setPick('zoom');
     else if (k === 'callout') setPick('callout');
@@ -1006,7 +1217,8 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       else if (e.key === 'l') controls.seek(now() + 1);
       else if (e.key === 'ArrowLeft' && !el.closest('[role="slider"]')) controls.seek(now() - 1 / 30);
       else if (e.key === 'ArrowRight' && !el.closest('[role="slider"]')) controls.seek(now() + 1 / 30);
-      else if ((e.key === 'Backspace' || e.key === 'Delete') && selectedOverlay) removeOverlay(selectedOverlay);
+      else if ((e.key === 'Backspace' || e.key === 'Delete') && selectedOverlay)
+        removeOverlay(selectedOverlay);
       else if (e.key === 'Escape') {
         if (cut) setCut(null);
         else if (noteOpen) saveNote();
@@ -1020,14 +1232,21 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
   });
 
   function seekStep(dir: -1 | 1) {
-    const i = Math.max(0, stepsLive.findIndex((s) => s.id === currentId));
+    const i = Math.max(
+      0,
+      stepsLive.findIndex((s) => s.id === currentId),
+    );
     const t = stepsLive[Math.min(Math.max(i + dir, 0), stepsLive.length - 1)];
     if (t) controls.seek(t.start + 0.01);
   }
   function selectFromTimeline(sel: Selection, seekTo?: number) {
     setSelection(sel);
     if (seekTo !== undefined) controls.seek(seekTo);
-    if (sel?.kind === 'line') setTimeout(() => document.querySelector<HTMLElement>('#ed-said')?.scrollIntoView({ block: 'nearest' }), 60);
+    if (sel?.kind === 'line')
+      setTimeout(
+        () => document.querySelector<HTMLElement>('#ed-said')?.scrollIntoView({ block: 'nearest' }),
+        60,
+      );
   }
 
   // ---------------------------------------------------------------------------
@@ -1040,7 +1259,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     (s) => !!selectedInstance && s.t >= selectedInstance.start && s.t <= selectedInstance.end,
   );
   const instances = resolved
-    ? resolved.instances.map((i) => (i.id === selectedOverlay?.id && dragRect ? { ...i, anchor: dragRect } : i))
+    ? resolved.instances.map((i) =>
+        i.id === selectedOverlay?.id && dragRect ? { ...i, anchor: dragRect } : i,
+      )
     : [];
   const src = take ? media(take.video) : null;
   const empty = !!timeline && (!timeline.takes.length || !take);
@@ -1054,13 +1275,22 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
     ? resolved.tm.scenes.flatMap((sc) => {
         const scene = timeline?.scenes.find((x) => x.id === sc.sceneId);
         return scene?.kind === 'explainer'
-          ? [{ id: scene.id, title: plainName(names[scene.component] ?? 'Explainer'), start: sc.start, end: sc.end }]
+          ? [
+              {
+                id: scene.id,
+                title: plainName(names[scene.component] ?? 'Explainer'),
+                start: sc.start,
+                end: sc.end,
+              },
+            ]
           : [];
       })
     : [];
   const shownOverlays = timeline ? timeline.overlays.filter(isOnScreen) : [];
   // The Camera track: zooms that follow the clicks (ones you add are on the On screen track).
-  const zooms = timeline ? timeline.overlays.filter((o) => o.component === 'core:Zoom' && !isOnScreen(o)) : [];
+  const zooms = timeline
+    ? timeline.overlays.filter((o) => o.component === 'core:Zoom' && !isOnScreen(o))
+    : [];
   const trackPieces = resolved ? resolved.tm.segments : [];
   const trackCuts =
     timeline && resolved
@@ -1070,18 +1300,32 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
             : cutGaps(sc.segments).flatMap((gap) => {
                 const span = resolved.tm.segments.find((g) => g.sceneId === sc.id && g.index === gap.after);
                 return span
-                  ? [{ sceneId: sc.id, after: gap.after, at: span.end, label: `${mmss(gap.from)}–${mmss(gap.to)}` }]
+                  ? [
+                      {
+                        sceneId: sc.id,
+                        after: gap.after,
+                        at: span.end,
+                        label: `${mmss(gap.from)}–${mmss(gap.to)}`,
+                      },
+                    ]
                   : [];
               }),
         )
       : [];
   // Pins of the batch and of notes sent and waiting for the agent.
-  const notePins = timeline ? timeline.annotations.filter((a) => a.status !== 'resolved' && a.shape.kind === 'point') : [];
+  const notePins = timeline
+    ? timeline.annotations.filter((a) => a.status !== 'resolved' && a.shape.kind === 'point')
+    : [];
 
   return (
     <div className="ed" data-full={full || undefined}>
       <header className="ed-top">
-        <a className="ui-btn ui-btn-quiet ui-icon-btn" href="#/projects" aria-label="Back to tutorials" title="Back to tutorials">
+        <a
+          className="ui-btn ui-btn-quiet ui-icon-btn"
+          href="#/projects"
+          aria-label="Back to tutorials"
+          title="Back to tutorials"
+        >
           <Glyph name="back" size={16} />
         </a>
         <h1 className="ed-title" title={title ?? slug}>
@@ -1126,7 +1370,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           <Glyph name="redo" size={14} />
         </IconButton>
         <span className="ed-pop-wrap">
-          <Button variant="quiet" aria-expanded={changes} aria-haspopup="dialog" onClick={() => setChanges((c) => !c)}>
+          <Button
+            variant="quiet"
+            aria-expanded={changes}
+            aria-haspopup="dialog"
+            onClick={() => setChanges((c) => !c)}
+          >
             <Glyph name="history" size={14} />
             Changes
             <span className="k-pill" data-size="sm">
@@ -1152,7 +1401,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           Export
         </LinkButton>
         <span className="ed-pop-wrap">
-          <IconButton variant="quiet" label="More" aria-expanded={menu} aria-haspopup="menu" onClick={() => setMenu((m) => !m)}>
+          <IconButton
+            variant="quiet"
+            label="More"
+            aria-expanded={menu}
+            aria-haspopup="menu"
+            onClick={() => setMenu((m) => !m)}
+          >
             <Glyph name="dots" size={16} />
           </IconButton>
           <Popover open={menu} onClose={() => setMenu(false)} minWidth={240}>
@@ -1222,7 +1477,13 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                     setMenu(false);
                     void attempt(() =>
                       be.patch(
-                        [{ op: 'add', path: '/sfx', value: { ...timeline.sfx, enabled: !timeline.sfx.enabled } }],
+                        [
+                          {
+                            op: 'add',
+                            path: '/sfx',
+                            value: { ...timeline.sfx, enabled: !timeline.sfx.enabled },
+                          },
+                        ],
                         timeline.sfx.enabled ? 'Turn click sounds off' : 'Turn click sounds on',
                       ),
                     );
@@ -1246,7 +1507,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
             <div className="k-panel ed-empty-in">
               <Glyph name="film" size={28} />
               <h2>No recording yet</h2>
-              <p className="ed-muted">This tutorial hasn't been recorded. Make it first, then edit it here.</p>
+              <p className="ed-muted">
+                This tutorial hasn't been recorded. Make it first, then edit it here.
+              </p>
               <LinkButton variant="brand" href={`#/making/${slug}`}>
                 Go to making
               </LinkButton>
@@ -1337,7 +1600,10 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                               data-empty={!sent && !words.trim() ? true : undefined}
                               data-sent={sent || undefined}
                               data-open={noteOpen === a.id || undefined}
-                              style={{ left: `${(a.shape.x / STAGE.width) * 100}%`, top: `${(a.shape.y / STAGE.height) * 100}%` }}
+                              style={{
+                                left: `${(a.shape.x / STAGE.width) * 100}%`,
+                                top: `${(a.shape.y / STAGE.height) * 100}%`,
+                              }}
                               aria-label={
                                 sent
                                   ? `Note sent to the agent: ${a.comment}`
@@ -1399,18 +1665,25 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                                   value={noteDraft}
                                   placeholder="What should change here?"
                                   aria-invalid={noteError && !noteDraft.trim() ? true : undefined}
-                                  aria-describedby={noteError && !noteDraft.trim() ? 'ed-note-err' : undefined}
+                                  aria-describedby={
+                                    noteError && !noteDraft.trim() ? 'ed-note-err' : undefined
+                                  }
                                   onChange={(e) => setNoteDraft(e.target.value)}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                                       e.preventDefault();
-                                      saveNote();
+                                      void sendNote(a.id);
+                                    } else if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      if (noteDirect) void sendNote(a.id);
+                                      else saveNote();
                                     }
                                   }}
                                 />
                                 {noteError && !noteDraft.trim() && (
                                   <p id="ed-note-err" className="ed-s12 ed-notepop-err" role="alert">
-                                    <Glyph name="warn" size={12} /> Write what should change before sending the batch.
+                                    <Glyph name="warn" size={12} /> Write what should change before sending
+                                    it.
                                   </p>
                                 )}
                               </>
@@ -1421,9 +1694,31 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                                   Remove note
                                 </Button>
                               )}
-                              <Button size="sm" variant={sent ? 'secondary' : 'brand'} onClick={() => saveNote()}>
-                                Done
-                              </Button>
+                              {sent ? (
+                                <Button size="sm" variant="secondary" onClick={() => saveNote()}>
+                                  Done
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant={noteDirect ? 'secondary' : 'brand'}
+                                    onClick={() => saveNote()}
+                                    title={noteDirect ? undefined : 'Enter'}
+                                  >
+                                    {noteDirect ? 'Add to batch' : 'Done'}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={noteDirect ? 'brand' : 'secondary'}
+                                    onClick={() => void sendNote(a.id)}
+                                    aria-keyshortcuts={noteDirect ? 'Enter Meta+Enter' : 'Meta+Enter'}
+                                    title={noteDirect ? 'Enter' : '⌘Enter'}
+                                  >
+                                    <Glyph name="send" size={12} /> Send now
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );
@@ -1434,7 +1729,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                 {scan && (
                   <>
                     <div className="ed-scan" style={scan} aria-hidden="true" />
-                    <span className="ed-scan-tag" style={{ left: scan.left, top: scan.top }} aria-hidden="true">
+                    <span
+                      className="ed-scan-tag"
+                      style={{ left: scan.left, top: scan.top }}
+                      aria-hidden="true"
+                    >
                       Agent
                     </span>
                   </>
@@ -1460,13 +1759,19 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                     onPointerUp={() => {
                       if (pick !== 'zoom' || !zoomDrag) return;
                       const z = zoomDrag;
-                      zoomInto({ x: Math.min(z.x0, z.x1), y: Math.min(z.y0, z.y1), w: Math.abs(z.x1 - z.x0), h: Math.abs(z.y1 - z.y0) });
+                      zoomInto({
+                        x: Math.min(z.x0, z.x1),
+                        y: Math.min(z.y0, z.y1),
+                        w: Math.abs(z.x1 - z.x0),
+                        h: Math.abs(z.y1 - z.y0),
+                      });
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') setPick(null);
                       else if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        if (pick === 'zoom') zoomInto({ x: STAGE.width / 2, y: STAGE.height / 2, w: 0, h: 0 });
+                        if (pick === 'zoom')
+                          zoomInto({ x: STAGE.width / 2, y: STAGE.height / 2, w: 0, h: 0 });
                         else {
                           const r = e.currentTarget.getBoundingClientRect();
                           place({
@@ -1505,7 +1810,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               <IconButton variant="quiet" label="Previous step" onClick={() => seekStep(-1)}>
                 <Glyph name="back" size={14} />
               </IconButton>
-              <button type="button" className="ed-play" aria-label={playing ? 'Pause' : 'Play'} onClick={() => controls.toggle()}>
+              <button
+                type="button"
+                className="ed-play"
+                aria-label={playing ? 'Pause' : 'Play'}
+                onClick={() => controls.toggle()}
+              >
                 <Glyph name={playing ? 'pause' : 'play'} size={16} />
               </button>
               <IconButton variant="quiet" label="Next step" onClick={() => seekStep(1)}>
@@ -1535,7 +1845,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               >
                 {timeline.showCaptions ? 'Captions on' : 'Captions off'}
               </Button>
-              <IconButton variant="quiet" label={full ? 'Exit full screen (Esc)' : 'Full screen'} onClick={() => setFull(!full)}>
+              <IconButton
+                variant="quiet"
+                label={full ? 'Exit full screen (Esc)' : 'Full screen'}
+                onClick={() => setFull(!full)}
+              >
                 <Glyph name="expand" size={14} />
               </IconButton>
               <Button
@@ -1566,11 +1880,17 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                     </>
                   ) : (
                     <>
-                      Cut from <b className="ed-tab">{mmss(cut.from)}</b>. Click or drag on the timeline to set where it ends.
+                      Cut from <b className="ed-tab">{mmss(cut.from)}</b>. Click or drag on the timeline to
+                      set where it ends.
                     </>
                   )}
                 </span>
-                <Button size="sm" variant="quiet" onClick={() => setCut({ ...cut, to: r2(now()) })} title="Use the playhead as the end">
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  onClick={() => setCut({ ...cut, to: r2(now()) })}
+                  title="Use the playhead as the end"
+                >
                   End at the playhead
                 </Button>
                 <Button size="sm" onClick={() => setCut(null)}>
@@ -1610,7 +1930,12 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               }))}
               onNote={openNote}
               onFreezeLength={(sceneId, index, len) =>
-                void pieceEdit(sceneId, index, { op: 'duration', duration: len }, `The freeze now holds for ${len} s.`)
+                void pieceEdit(
+                  sceneId,
+                  index,
+                  { op: 'duration', duration: len },
+                  `The freeze now holds for ${len} s.`,
+                )
               }
               scenes={sceneLooks}
               boundaries={boundaries}
@@ -1623,10 +1948,18 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
                 controls.seek(t);
               }}
               onTrimPiece={(sceneId, index, edge) =>
-                void attempt(() => be.editPiece(sceneId, index, { op: 'trim', ...edge }), 'Trimmed the recording.', true)
+                void attempt(
+                  () => be.editPiece(sceneId, index, { op: 'trim', ...edge }),
+                  'Trimmed the recording.',
+                  true,
+                )
               }
               onRestoreCut={(sceneId, after) =>
-                void attempt(() => be.editPiece(sceneId, after, { op: 'restoreCut' }), 'Put back the recording.', true)
+                void attempt(
+                  () => be.editPiece(sceneId, after, { op: 'restoreCut' }),
+                  'Put back the recording.',
+                  true,
+                )
               }
               onEditCaption={(i, text) =>
                 void attempt(
@@ -1649,7 +1982,11 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               status={agentStatus}
               events={agentEvents}
               run={reviewRun}
-              notes={batch.map((a) => ({ id: a.id, label: mmss(a.t), text: a.id === noteOpen ? noteDraft : a.comment }))}
+              notes={batch.map((a) => ({
+                id: a.id,
+                label: mmss(a.t),
+                text: a.id === noteOpen ? noteDraft : a.comment,
+              }))}
               onOpenNote={openNote}
               batchOpen={batchOpen}
               onBatchOpen={setBatchOpen}
@@ -1659,12 +1996,24 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               onSend={(text) => void send(text)}
               sendingLabel={sending}
               onStop={() => (mock ? previewOnly('Stop') : void agentLive.interrupt())}
-              onAnswer={(id, allow) => (mock ? previewOnly(allow ? 'Allow' : 'Not now') : void agentLive.answer(id, allow))}
+              onAnswer={(id, allow) =>
+                mock ? previewOnly(allow ? 'Allow' : 'Not now') : void agentLive.answer(id, allow)
+              }
               onKeep={(r) => runAction('Keep', () => client!.call('runs.accept', { slug, n: r.n }), 'Kept.')}
-              onUndoRun={(r) => runAction('Undo this', () => client!.call('runs.revert', { slug, n: r.n }), 'Undid the agent’s change.')}
+              onUndoRun={(r) =>
+                runAction(
+                  'Undo this',
+                  () => client!.call('runs.revert', { slug, n: r.n }),
+                  'Undid the agent’s change.',
+                )
+              }
               onFollowUp={(r, text) => {
                 if (mock) previewOnly('the follow-up');
-                else void attempt(() => client!.call('runs.followUp', { slug, n: r.n, text }).then(() => setAsk('')), 'Sent to the agent.');
+                else
+                  void attempt(
+                    () => client!.call('runs.followUp', { slug, n: r.n, text }).then(() => setAsk('')),
+                    'Sent to the agent.',
+                  );
               }}
               onPin={() => {
                 controls.pause();
@@ -1689,13 +2038,27 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
           ) : selectedExplainer ? (
             <ExplainerPanel
               scene={selectedExplainer.scene}
-              name={names[selectedExplainer.scene.component] ?? selectedExplainer.scene.component.split(':')[1] ?? 'Explainer'}
+              name={
+                names[selectedExplainer.scene.component] ??
+                selectedExplainer.scene.component.split(':')[1] ??
+                'Explainer'
+              }
               start={selectedExplainer.start}
               end={selectedExplainer.end}
               voice={timeline.voice.filter((v) => v.owner === selectedExplainer.scene.id)}
               onLook={(component) =>
                 void attempt(
-                  () => be.patch([{ op: 'replace', path: `/scenes/${selectedExplainer.index}/component`, value: component }], 'Change explainer look'),
+                  () =>
+                    be.patch(
+                      [
+                        {
+                          op: 'replace',
+                          path: `/scenes/${selectedExplainer.index}/component`,
+                          value: component,
+                        },
+                      ],
+                      'Change explainer look',
+                    ),
                   'Changed the look.',
                   true,
                 )
@@ -1731,7 +2094,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
               paceBusy={paceBusy}
               lateCues={cues.filter((c) => c.stepId === step.id)}
               autoPace={autoPaceIn(span)}
-              onShowRecording={tracks.includes('recording') ? null : () => setTracks([...tracks, 'recording'])}
+              onShowRecording={
+                tracks.includes('recording') ? null : () => setTracks([...tracks, 'recording'])
+              }
               onFixCues={
                 cues.length
                   ? () => (mock ? previewOnly('Fix it') : void pipe.approve({ choice: 'edit' }))
@@ -1758,7 +2123,9 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
         open={!!askFor}
         onClose={closeAsk}
         title={askFor?.kind === 'keys' ? 'Which keys?' : 'Title card'}
-        subtitle={askFor?.kind === 'keys' ? 'Shown at the playhead for 2.5 s' : 'Shown at the playhead for 4 s'}
+        subtitle={
+          askFor?.kind === 'keys' ? 'Shown at the playhead for 2.5 s' : 'Shown at the playhead for 4 s'
+        }
         width={420}
       >
         <form
@@ -1810,10 +2177,15 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
         </div>
       </Sheet>
 
-      <Sheet open={confirmRecord} onClose={() => setConfirmRecord(false)} title="Record this tutorial again?" width={460}>
+      <Sheet
+        open={confirmRecord}
+        onClose={() => setConfirmRecord(false)}
+        title="Record this tutorial again?"
+        width={460}
+      >
         <p className="ed-s13 ed-sheet-p">
-          WSO2 Integrator opens and the whole tutorial is recorded again. The steps are rebuilt from the new recording; your
-          overlays, notes and voice-over are kept.
+          WSO2 Integrator opens and the whole tutorial is recorded again. The steps are rebuilt from the new
+          recording; your overlays, notes and voice-over are kept.
         </p>
         <div className="ed-row ed-row-end">
           <Button onClick={() => setConfirmRecord(false)}>Cancel</Button>
@@ -1837,7 +2209,14 @@ function Studio({ slug, preview }: { slug: string; preview: Preview | null }) {
       <Timed player={controls}>
         {(t) => (
           <>
-            <VoicePlayer spans={spans} t={t} playing={playing} rate={rate} media={media} onSync={(at) => controls.seek(at)} />
+            <VoicePlayer
+              spans={spans}
+              t={t}
+              playing={playing}
+              rate={rate}
+              media={media}
+              onSync={(at) => controls.seek(at)}
+            />
             <SfxPlayer cues={sfx} t={t} playing={playing} rate={rate} volume={timeline?.sfx.volume ?? 0.5} />
           </>
         )}

@@ -234,7 +234,11 @@ export function toolPhrase(name: string, summary = ''): string {
 export function currentTurn(events: AgentEvent[]): AgentEvent[] {
   let i = events.length - 1;
   while (i >= 0 && events[i]!.kind !== 'user') i--;
-  return i >= 0 ? events.slice(i) : events;
+  if (i < 0) return events;
+  // Messages sent while it was still working belong to the same request: go back to the first
+  // message after the last finished turn.
+  for (let j = i - 1; j >= 0 && events[j]!.kind !== 'result'; j--) if (events[j]!.kind === 'user') i = j;
+  return events.slice(i);
 }
 
 /** What the agent is doing now, the steps it finished, and when the turn started. */

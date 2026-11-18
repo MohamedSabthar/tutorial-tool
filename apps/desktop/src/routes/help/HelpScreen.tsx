@@ -14,8 +14,8 @@ const STEPS: { icon: GlyphName; title: string; text: ReactNode }[] = [
     title: '1. Say what the viewer should learn',
     text: (
       <>
-        On <b>Tutorials</b>, describe the task and pick the product. Choose who clicks through it: the agent, or you once
-        while it watches. Length, voice and notes are under <b>Length, voice and notes</b>.
+        On <b>Tutorials</b>, describe the task and pick the product. Choose who clicks through it: the agent,
+        or you once while it watches. Length, voice and notes are under <b>Length, voice and notes</b>.
       </>
     ),
   },
@@ -24,9 +24,9 @@ const STEPS: { icon: GlyphName; title: string; text: ReactNode }[] = [
     title: '2. Check the script',
     text: (
       <>
-        The agent plans the steps and tests them in the product. When the words are ready it stops and asks you to{' '}
-        <b>check the script</b>: edit any line, then <b>Approve and record</b>. You get a notification, so you can do
-        something else meanwhile.
+        The agent plans the steps and tests them in the product. When the words are ready it stops and asks
+        you to <b>check the script</b>: edit any line, then <b>Approve and record</b>. You get a notification,
+        so you can do something else meanwhile.
       </>
     ),
   },
@@ -35,8 +35,8 @@ const STEPS: { icon: GlyphName; title: string; text: ReactNode }[] = [
     title: '3. Polish it and export',
     text: (
       <>
-        When it's ready, <b>Watch and edit</b> opens the editor. Fix anything, then <b>Export</b> for the video,
-        captions and a step-by-step doc.
+        When it's ready, <b>Watch and edit</b> opens the editor. Fix anything, then <b>Export</b> for the
+        video, captions and a step-by-step doc.
       </>
     ),
   },
@@ -81,7 +81,7 @@ const EDITING: { icon: GlyphName; title: string; text: ReactNode }[] = [
   {
     icon: 'spark',
     title: 'Ask the agent',
-    text: 'Type any change under the video, or drop pins on the video first, each with its own note, and send them as one batch. You see what it is doing while it works, and the result comes back with Keep, Undo this and Tell it more.',
+    text: 'Type any change under the video, or drop pins on the video first, each with its own note, and send them as one batch (or press M to send one pin straight away). You see what it is doing while it works, and the result comes back with Keep, Undo this and Tell it more.',
   },
   {
     icon: 'undo',
@@ -115,7 +115,7 @@ const KEYS: [ReactNode, string][] = [
     <span key="fl2" className="help-keys">
       <Kbd>P</Kbd> <Kbd>R</Kbd> <Kbd>X</Kbd> <Kbd>N</Kbd> <Kbd>Q</Kbd>
     </span>,
-    'P pace (faster or skip), R hold the frame, X cut a part out, N note for the agent, Q ask the agent',
+    'P pace (faster or skip), R hold the frame, X cut a part out, N note for the agent (sent with the batch), M message the agent about a spot now, Q ask the agent',
   ],
   [
     <span key="jkl" className="help-keys">
@@ -147,8 +147,8 @@ export function HelpScreen() {
           <header className="help-hero">
             <h1>How Tutorial Studio works</h1>
             <p>
-              You describe a task. An agent plans it, tries it in the product, writes the script and records a narrated
-              video. You check the script once, then polish and export.
+              You describe a task. An agent plans it, tries it in the product, writes the script and records a
+              narrated video. You check the script once, then polish and export.
             </p>
           </header>
 
@@ -170,7 +170,11 @@ export function HelpScreen() {
           </section>
 
           <Shell>
-            <ShellHeader icon="wand" title="Editing" subtitle="Everything happens on one screen, step by step." />
+            <ShellHeader
+              icon="wand"
+              title="Editing"
+              subtitle="Everything happens on one screen, step by step."
+            />
             <ShellPanel className="help-list">
               {EDITING.map((e) => (
                 <div key={e.title} className="help-row">

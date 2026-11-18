@@ -18,6 +18,8 @@ export interface ElevenLabsOptions {
   retries?: number;
   /** First backoff delay in ms; doubles each attempt (Retry-After wins when given). */
   backoffMs?: number;
+  /** Longest wait for one attempt, response body included, before it counts as failed (ms). */
+  timeoutMs?: number;
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -65,30 +67,62 @@ export function createElevenLabs(opts: ElevenLabsOptions) {
   const retries = opts.retries ?? 4;
   const backoff = opts.backoffMs ?? 800;
   const limit = limiter(opts.maxConcurrent ?? 2);
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+
+  /**
+   * One attempt: the request and its whole body, given up after `timeoutMs`. A request that
+   * never answers would otherwise hold its concurrency slot (and everyone queued behind it) for
+   * as long as the connection stays open.
+   */
+  async function attemptOnce(path: string, init: RequestInit) {
+    const ctl = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        ctl.abort();
+        reject(new Error(`no answer within ${Math.round(timeoutMs / 1000)} s`));
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        (async () => {
+          const res = await doFetch(`${base}${path}`, {
+            ...init,
+            signal: ctl.signal,
+            headers: { 'xi-api-key': opts.apiKey, 'content-type': 'application/json', ...init.headers },
+          });
+          const body = await res.text();
+          return { ok: res.ok, status: res.status, retryAfter: res.headers.get('retry-after'), body };
+        })(),
+        timedOut,
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   async function request(path: string, init: RequestInit = {}): Promise<unknown> {
     for (let attempt = 0; ; attempt++) {
-      let res: Response;
+      let res: Awaited<ReturnType<typeof attemptOnce>>;
       try {
-        res = await limit(() =>
-          doFetch(`${base}${path}`, {
-            ...init,
-            headers: { 'xi-api-key': opts.apiKey, 'content-type': 'application/json', ...init.headers },
-          }),
-        );
+        res = await limit(() => attemptOnce(path, init));
       } catch (e) {
-        if (attempt >= retries) throw new TtsError(`ElevenLabs is unreachable: ${String(e)}`, null);
+        if (attempt >= retries)
+          throw new TtsError(
+            `ElevenLabs is unreachable: ${e instanceof Error ? e.message : String(e)}`,
+            null,
+          );
         await sleep(backoff * 2 ** attempt);
         continue;
       }
-      if (res.ok) return res.json();
+      if (res.ok) return JSON.parse(res.body) as unknown;
       const retryable = res.status === 429 || res.status >= 500;
       if (retryable && attempt < retries) {
-        const after = Number(res.headers.get('retry-after'));
+        const after = Number(res.retryAfter);
         await sleep(Number.isFinite(after) && after > 0 ? after * 1000 : backoff * 2 ** attempt);
         continue;
       }
-      const body = await res.text().catch(() => '');
+      const body = res.body;
       let detail = body.slice(0, 300);
       try {
         const j = JSON.parse(body) as { detail?: { message?: string } | string };

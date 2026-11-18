@@ -32,6 +32,22 @@ describe('ElevenLabs client', () => {
   const sleep = async (ms: number) => void sleeps.push(ms);
   beforeEach(() => void (sleeps.length = 0));
 
+  it('gives up on a request that never answers, frees its slot and retries', async () => {
+    let calls = 0;
+    const fn = (async (_url: string, init: RequestInit) => {
+      calls++;
+      if (calls === 1)
+        return new Promise((_, reject) =>
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted'))),
+        );
+      return json(okBody);
+    }) as unknown as typeof fetch;
+    const el = createElevenLabs({ apiKey: 'k', fetch: fn, sleep, timeoutMs: 20, maxConcurrent: 1 });
+    const r = await el.synthesize({ text: 'Hi.', voiceId: 'v1' });
+    expect(r.audio.toString()).toBe('mp3-bytes');
+    expect(calls).toBe(2);
+  });
+
   it('calls with-timestamps and returns audio with character timings', async () => {
     const f = fakeFetch([json(okBody)]);
     const el = createElevenLabs({ apiKey: 'k', fetch: f.fn, sleep });

@@ -2,7 +2,19 @@ import { useEffect } from 'react';
 import { Glyph, IconTile, Kbd, Sheet, type GlyphName } from '@studio/ui';
 import { mmss } from './model';
 
-export type FixKind = 'say' | 'arrow' | 'label' | 'blur' | 'pace' | 'hold' | 'cut' | 'zoom' | 'callout' | 'note' | 'ask';
+export type FixKind =
+  | 'say'
+  | 'arrow'
+  | 'label'
+  | 'blur'
+  | 'pace'
+  | 'hold'
+  | 'cut'
+  | 'zoom'
+  | 'callout'
+  | 'note'
+  | 'direct'
+  | 'ask';
 
 /** Each choice and its letter: with the sheet open (F), the letter picks it. */
 const OPTIONS: { k: FixKind; key: string; icon: GlyphName; title: string; d: string }[] = [
@@ -14,8 +26,27 @@ const OPTIONS: { k: FixKind; key: string; icon: GlyphName; title: string; d: str
   { k: 'blur', key: 'H', icon: 'hide', title: 'Hide something', d: 'Blur a key, email or name' },
   { k: 'pace', key: 'P', icon: 'gauge', title: 'Too slow or not needed', d: 'Speed up or skip this step' },
   { k: 'hold', key: 'R', icon: 'pause', title: 'Hold this frame', d: 'Freeze the picture here for 2 s' },
-  { k: 'cut', key: 'X', icon: 'trash', title: 'Cut a part out', d: 'From here to where you click on the timeline' },
-  { k: 'note', key: 'N', icon: 'pin', title: 'Mark it for the agent', d: 'Click the spot, then describe it' },
+  {
+    k: 'cut',
+    key: 'X',
+    icon: 'trash',
+    title: 'Cut a part out',
+    d: 'From here to where you click on the timeline',
+  },
+  {
+    k: 'note',
+    key: 'N',
+    icon: 'pin',
+    title: 'Mark it for the agent',
+    d: 'Click the spot, describe it, send with others',
+  },
+  {
+    k: 'direct',
+    key: 'M',
+    icon: 'send',
+    title: 'Message the agent about it',
+    d: 'Click the spot, describe it, send it now',
+  },
 ];
 const ASK_KEY = 'Q';
 
@@ -58,10 +89,22 @@ export function FixSheet({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open, onPick]);
   return (
-    <Sheet open={open} onClose={onClose} title={`What do you want to fix at ${mmss(at)}?`} subtitle={step ?? undefined} width={560}>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={`What do you want to fix at ${mmss(at)}?`}
+      subtitle={step ?? undefined}
+      width={560}
+    >
       <div className="ed-fixgrid">
         {OPTIONS.map((o) => (
-          <button key={o.k} type="button" className="ed-fix" aria-keyshortcuts={o.key} onClick={() => onPick(o.k)}>
+          <button
+            key={o.k}
+            type="button"
+            className="ed-fix"
+            aria-keyshortcuts={o.key}
+            onClick={() => onPick(o.k)}
+          >
             <IconTile icon={o.icon} />
             <span className="ed-grow">
               <b>{o.title}</b>
@@ -70,7 +113,12 @@ export function FixSheet({
             <Kbd>{o.key}</Kbd>
           </button>
         ))}
-        <button type="button" className="ed-fix ed-fix-wide" aria-keyshortcuts={ASK_KEY} onClick={() => onPick('ask')}>
+        <button
+          type="button"
+          className="ed-fix ed-fix-wide"
+          aria-keyshortcuts={ASK_KEY}
+          onClick={() => onPick('ask')}
+        >
           <IconTile icon="spark" tone="brand" />
           <span className="ed-grow">
             <b>Something else: ask the agent</b>
@@ -80,7 +128,8 @@ export function FixSheet({
         </button>
       </div>
       <p className="ed-muted ed-s12 ed-fix-tip">
-        <Glyph name="help" size={12} /> Each letter works on its own while you watch, no need to open this list (<Kbd>F</Kbd>).
+        <Glyph name="help" size={12} /> Each letter works on its own while you watch, no need to open this
+        list (<Kbd>F</Kbd>).
       </p>
     </Sheet>
   );

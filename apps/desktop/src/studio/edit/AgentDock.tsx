@@ -8,7 +8,10 @@ type Permission = Extract<AgentEvent, { kind: 'permission' }>;
 
 /** A run's summary in two parts: its first line (the title) and the rest. */
 function splitSummary(run: Run) {
-  const lines = run.summary.split('\n').map((l) => l.trim()).filter(Boolean);
+  const lines = run.summary
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
   const title = (lines[0] ?? 'The agent changed this tutorial').replace(/^#+\s*/, '').slice(0, 140);
   const body = lines.slice(1).join(' ').slice(0, 280);
   return { title, body };
@@ -68,7 +71,8 @@ export function AgentDock({
 }) {
   const [followUp, setFollowUp] = useState(false);
   const [compare, setCompare] = useState<'before' | 'after'>('after');
-  const working = status?.state === 'busy' || status?.state === 'starting' || status?.state === 'interrupting';
+  const working =
+    status?.state === 'busy' || status?.state === 'starting' || status?.state === 'interrupting';
   const [showStream, setShowStream] = useState(() => {
     try {
       return localStorage.getItem('studio.agentStream') !== 'closed';
@@ -91,14 +95,17 @@ export function AgentDock({
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     const text = draft.trim();
-    if ((!text && !notes.length) || working) return;
-    if (followUp && run) {
+    // While it works, more messages are fine: the agent reads them as soon as it can.
+    if (!text && !notes.length) return;
+    if (followUp && run && !working) {
       onFollowUp(run, text);
       setFollowUp(false);
     } else onSend(text);
   };
   const frames = run ? Object.values(run.frames).find((f) => f.before || f.after) : undefined;
-  const shown = frames ? (compare === 'before' ? frames.before : frames.after) ?? frames.after ?? frames.before : undefined;
+  const shown = frames
+    ? ((compare === 'before' ? frames.before : frames.after) ?? frames.after ?? frames.before)
+    : undefined;
   const result = run && !working ? splitSummary(run) : null;
 
   return (
@@ -120,11 +127,18 @@ export function AgentDock({
               steps={showStream ? [] : activity.steps}
               onStop={!working || status?.state === 'interrupting' ? undefined : onStop}
             />
-            <button type="button" className="ed-stream-toggle" aria-expanded={showStream} onClick={toggleStream}>
+            <button
+              type="button"
+              className="ed-stream-toggle"
+              aria-expanded={showStream}
+              onClick={toggleStream}
+            >
               <Glyph name="next" size={11} />
               {showStream ? 'Hide what it’s doing' : 'Show what it’s doing'}
             </button>
-            {showStream && <AgentStream events={working ? events : []} pending={working ? null : sendingLabel} />}
+            {showStream && (
+              <AgentStream events={working ? events : []} pending={working ? null : sendingLabel} />
+            )}
           </div>
         </div>
       )}
@@ -182,7 +196,11 @@ export function AgentDock({
               )}
             </div>
             {shown && frameUrl(shown) && (
-              <img className="ed-result-frame" src={frameUrl(shown)!} alt={compare === 'before' ? 'Before the change' : 'After the change'} />
+              <img
+                className="ed-result-frame"
+                src={frameUrl(shown)!}
+                alt={compare === 'before' ? 'Before the change' : 'After the change'}
+              />
             )}
             <div className="ed-row">
               <Button variant="silver" onClick={() => onKeep(run)}>
@@ -218,7 +236,8 @@ export function AgentDock({
                   <ul className="ed-mono">
                     {run.files.map((f) => (
                       <li key={f.path}>
-                        {f.path} <span className="ed-pos">+{f.added}</span> <span className="ed-neg">−{f.removed}</span>
+                        {f.path} <span className="ed-pos">+{f.added}</span>{' '}
+                        <span className="ed-neg">−{f.removed}</span>
                       </li>
                     ))}
                   </ul>
@@ -285,7 +304,9 @@ export function AgentDock({
                 ? 'What should it change about this?'
                 : notes.length
                   ? 'Anything else? (optional)'
-                  : 'Ask the agent to change anything… e.g. “Add an arrow at Create in step 3”'
+                  : working
+                    ? 'Add to what it’s doing… it reads this next'
+                    : 'Ask the agent to change anything… e.g. “Add an arrow at Create in step 3”'
             }
             onChange={(e) => onDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -315,13 +336,13 @@ export function AgentDock({
               >
                 Review batch
               </button>
-              <button type="submit" className="ui-btn ui-btn-brand ed-send-batch" disabled={working}>
+              <button type="submit" className="ui-btn ui-btn-brand ed-send-batch">
                 <Glyph name="send" size={14} />
                 Send batch ({notes.length})
               </button>
             </>
           ) : (
-            <button type="submit" className="ed-send" aria-label="Send to the agent" disabled={working || !draft.trim()}>
+            <button type="submit" className="ed-send" aria-label="Send to the agent" disabled={!draft.trim()}>
               <Glyph name="send" size={16} />
             </button>
           )}
